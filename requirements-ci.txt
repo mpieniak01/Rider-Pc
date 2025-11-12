@@ -1,0 +1,37 @@
+# CI/CD Requirements - Lightweight for GitHub Actions
+# Excludes heavy ML models to speed up CI pipeline
+
+# Web Framework
+fastapi==0.115.5
+uvicorn==0.32.1
+
+# HTTP Client
+httpx==0.27.2
+
+# ZMQ
+pyzmq==26.2.0
+
+# Task Queue
+redis==5.0.1
+celery==5.3.4
+
+# Monitoring & Metrics
+prometheus-client==0.21.0
+prometheus-fastapi-instrumentator==7.0.0
+
+# Image processing (lightweight)
+pillow==11.0.0
+numpy==1.26.4
+
+# Testing
+pytest==8.4.2
+pytest-asyncio==0.24.0
+pytest-timeout==2.4.0
+
+# Note: Heavy ML models are excluded for CI:
+# - torch (2GB+)
+# - openai-whisper
+# - ultralytics
+# - piper-tts
+# - ollama
+# Tests will run in mock mode without these dependencies
