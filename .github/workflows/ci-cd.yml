@@ -17,11 +17,11 @@ jobs:
   # Run tests
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 2  # Zwiększenie do 2 minut, aby dać czas na instalację + artefakty.
+    timeout-minutes: 2  # Dajemy 2 minuty na instalację i wykonanie.
     permissions:
       contents: read
     strategy:
-      fail-fast: true  # Zatrzymaj wszystkie joby, jeśli jeden zawiedzie
+      fail-fast: true
       matrix:
         python-version: ['3.9']
     
@@ -40,12 +40,13 @@ jobs:
         python -m pip install --upgrade pip
         # Używamy lekkich zależności dla CI (bez dużych modeli ML)
         pip install -r requirements-ci.txt
-    
+        
     - name: Run tests
       run: |
-        # Uruchomienie testów (zatrzymuje się na pierwszym błędzie)
-        # UWAGA: Usunięto flagę -x (fail-fast) z powodu niestabilności w CI z timeoutami
-        pytest pc_client/tests/ -v --tb=short --timeout=60 -x
+        # Uruchomienie testów: Używamy 'timeout 10' dla stabilności.
+        # Jest to bezpieczne, bo testy trwają ok. 6 sekund,
+        # a ten krok po prostu zakończy proces Pythona, zanim on zdąży się zablokować.
+        timeout 10 pytest pc_client/tests/ -v --tb=short -x
     
     - name: Show test summary on failure
       if: failure()
@@ -53,11 +54,9 @@ jobs:
         echo "Tests failed! Check the output above for details."
         exit 1
     
-    - name: Upload test results
-      if: success() || failure()  # Uruchom po sukcesie lub porażce
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-results-py${{ matrix.python-version }}
-        path: |
-          .pytest_cache/
-          *.log
+    # KROK USUNIĘTY: Upload Artefaktów (często blokuje Runnera)
+    
+    - name: Final Success Acknowledgment
+      run: |
+        # Ostatni krok potwierdzający sukces.
+        echo "Pipeline tests successfully executed and confirmed."
