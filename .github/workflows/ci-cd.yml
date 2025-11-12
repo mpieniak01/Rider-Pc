@@ -13,6 +13,7 @@ jobs:
     permissions:
       contents: read
     strategy:
+      fail-fast: true  # Stop all jobs if one fails
       matrix:
         python-version: ['3.9']
     

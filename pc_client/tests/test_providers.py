@@ -39,7 +39,7 @@ async def test_voice_provider_asr():
         task_id="asr-1",
         task_type=TaskType.VOICE_ASR,
         payload={
-            "audio_data": "base64_audio_data",
+            "audio_data": "dGVzdCBhdWRpbyBkYXRh",  # Valid base64: "test audio data"
             "format": "wav",
             "sample_rate": 16000
         }
@@ -138,7 +138,7 @@ async def test_vision_provider_detection():
         task_id="detect-1",
         task_type=TaskType.VISION_DETECTION,
         payload={
-            "image_data": "base64_image_data",
+            "image_data": "dGVzdCBpbWFnZSBkYXRh",  # Valid base64: "test image data"
             "format": "jpeg",
             "width": 640,
             "height": 480
@@ -166,7 +166,7 @@ async def test_vision_provider_frame():
         task_id="frame-1",
         task_type=TaskType.VISION_FRAME,
         payload={
-            "frame_data": "base64_frame_data",
+            "frame_data": "dGVzdCBmcmFtZSBkYXRh",  # Valid base64: "test frame data"
             "frame_id": 123,
             "timestamp": 1234567890.0
         }
