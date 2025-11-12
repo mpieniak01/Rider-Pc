@@ -1,14 +1,16 @@
 name: CI Pipeline (Tylko Testy Jednostkowe)
 
 # Workflow structure:
-# 1. test: Runs on all pushes and PRs - must pass for workflow to succeed
+# 1. test: Runs only on push/pull_request to main/develop branches.
 #
-# Po pomyślnym zakończeniu testów, pipeline kończy się sukcesem.
+# Pipeline kończy się sukcesem natychmiast po testach.
 
 on:
   push:
-    branches: [ main, develop, 'copilot/**' ]
+    # Uruchom na push do glownych galezi
+    branches: [ main, develop ]
   pull_request:
+    # Uruchom na Pull Request do glownych galezi
     branches: [ main, develop ]
 
 jobs:
@@ -58,3 +60,8 @@ jobs:
         path: |
           .pytest_cache/
           *.log
+          
+    - name: Finalize job
+      run: |
+        # Zapewnia natychmiastowe zamknięcie joba po pomyślnym zakończeniu testów
+        echo "Tests completed and artifacts uploaded. Finishing job."
