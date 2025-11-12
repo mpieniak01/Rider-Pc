@@ -1,5 +1,8 @@
 # Rider-PI PC Client — Architektura rozwiązania
 
+## Projekt powiązany
+https://github.com/mpieniak01/Rider-Pi 
+
 ## 1. Warstwa systemowa (Windows 11 + WSL2 Debian)
 - Windows uruchamia maszynę WSL2 z dystrybucją Debian, w której utrzymywany jest kod kliencki w Pythonie 3.9.
 - Sieć WSL umożliwia bezpośrednią komunikację IP (LAN/VPN) pomiędzy Rider-PI a PC.
@@ -59,4 +62,5 @@
 
 ## 7. Konfiguracja i dalsze prace
 - Skonfiguruj bezpieczne kanały sieciowe, adaptery REST/ZMQ, kolejkę zadań oraz monitoring (Prometheus/Grafana).
+
 - Przygotuj pipeline CI/CD dla budowy i testów oraz runbooki operacyjne.
