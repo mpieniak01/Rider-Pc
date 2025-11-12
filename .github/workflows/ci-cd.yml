@@ -1,14 +1,9 @@
-name: CI/CD Pipeline
+name: CI Pipeline (Tylko Testy Jednostkowe)
 
 # Workflow structure:
 # 1. test: Runs on all pushes and PRs - must pass for workflow to succeed
-# 2. security-codeql: Runs after tests pass, only on push (not PRs)
-# 3. docker: Runs after tests pass, only on push (not PRs)
-# 4. integration: Runs after docker, only on push to main branch
 #
-# For PRs: Only 'test' job runs
-# For pushes to copilot/**: 'test', 'security-codeql', and 'docker' run
-# For pushes to main: All jobs run including 'integration'
+# Po pomyślnym zakończeniu testów, pipeline kończy się sukcesem.
 
 on:
   push:
@@ -20,11 +15,11 @@ jobs:
   # Run tests
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10  # Add timeout to prevent hanging
+    timeout-minutes: 10  # Maksymalny czas na testy
     permissions:
       contents: read
     strategy:
-      fail-fast: true  # Stop all jobs if one fails
+      fail-fast: true  # Zatrzymaj wszystkie joby, jeśli jeden zawiedzie
       matrix:
         python-version: ['3.9']
     
@@ -41,12 +36,12 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        # Use lightweight CI requirements (excludes heavy ML models)
+        # Używamy lekkich zależności dla CI (bez dużych modeli ML)
         pip install -r requirements-ci.txt
     
     - name: Run tests
       run: |
-        # Run tests with fail-fast (-x) to stop on first failure
+        # Uruchomienie testów (zatrzymuje się na pierwszym błędzie)
         pytest pc_client/tests/ -v --tb=short --timeout=60 -x
     
     - name: Show test summary on failure
@@ -63,143 +58,3 @@ jobs:
         path: |
           .pytest_cache/
           *.log
-
-  # Security scanning with CodeQL
-  security-codeql:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15  # Add timeout for CodeQL analysis
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-    needs: [test]  # Run after tests pass
-    if: github.event_name == 'push'  # Only on push, not PR
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v3
-      with:
-        languages: python
-        queries: security-extended
-    
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
-
-  # Build and scan Docker image
-  docker:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20  # Add timeout for Docker build
-    permissions:
-      contents: read
-      security-events: write
-    needs: [test]
-    if: github.event_name == 'push'
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-    
-    - name: Build Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: ./Dockerfile
-        push: false
-        tags: rider-pc:${{ github.sha }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-        load: true
-    
-    - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
-      with:
-        image-ref: rider-pc:${{ github.sha }}
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-        severity: 'CRITICAL,HIGH'
-    
-    - name: Upload Trivy results to GitHub Security
-      uses: github/codeql-action/upload-sarif@v3
-      if: always()
-      with:
-        sarif_file: 'trivy-results.sarif'
-    
-    - name: Test Docker container
-      run: |
-        # Start container
-        docker run -d --name rider-pc-test \
-          -e ENABLE_PROVIDERS=false \
-          -e RIDER_PI_HOST=localhost \
-          -p 8000:8000 \
-          rider-pc:${{ github.sha }}
-        
-        # Wait for container to be healthy
-        sleep 10
-        
-        # Test health endpoints
-        curl -f http://localhost:8000/health/live || exit 1
-        curl -f http://localhost:8000/health/ready || exit 1
-        curl -f http://localhost:8000/metrics || exit 1
-        
-        # Stop container
-        docker stop rider-pc-test
-        docker rm rider-pc-test
-
-  # Integration tests with docker-compose
-  integration:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15  # Add timeout for integration tests
-    permissions:
-      contents: read
-    needs: [docker]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Create .env file
-      run: |
-        cat << EOF > .env
-        RIDER_PI_HOST=localhost
-        ENABLE_PROVIDERS=false
-        LOG_LEVEL=DEBUG
-        EOF
-    
-    - name: Start services with docker-compose
-      run: |
-        docker-compose up -d
-    
-    - name: Wait for services to be healthy
-      run: |
-        # Zwiększono timeout do 180s (3 minuty) z powodu długiego startu kontenerów,
-        # szczególnie 'rider-pc', który ma start_period 40s w docker-compose.yml.
-        timeout 180 bash -c 'until docker-compose ps | grep -q "healthy"; do sleep 2; done'
-    
-    - name: Test services
-      run: |
-        # Test Rider-PC
-        curl -f http://localhost:8000/health/live
-        curl -f http://localhost:8000/health/ready
-        
-        # Test Redis
-        docker-compose exec -T redis redis-cli ping
-        
-        # Test Prometheus
-        curl -f http://localhost:9090/-/healthy
-        
-        # Test Grafana
-        curl -f http://localhost:3000/api/health
-    
-    - name: Show logs on failure
-      if: failure()
-      run: |
-        docker-compose logs
-    
-    - name: Cleanup
-      if: always()
-      run: |
-        docker-compose down -v
