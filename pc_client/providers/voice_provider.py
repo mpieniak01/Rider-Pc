@@ -175,7 +175,7 @@ class VoiceProvider(BaseProvider):
                     tmp_file.write(audio_bytes)
                     tmp_path = tmp_file.name
                 # File is now closed before transcription
-                
+                # File is now closed before transcription
                 try:
                     # Transcribe with Whisper
                     result = self.asr_model.transcribe(tmp_path)
