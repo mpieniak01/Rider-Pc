@@ -172,14 +172,68 @@ If the web interface doesn't load:
 2. Check that `view.html` is present
 3. Ensure static files are being served at `/web/`
 
-## Future Enhancements
+## AI Provider Layer (NEW)
 
-Planned features for future releases:
-- Voice Provider (ASR/TTS offload)
-- Vision Provider (image processing)
-- Text Provider (NLU/NLG)
-- Task queue (RabbitMQ/Redis + Celery)
-- Monitoring and metrics (Prometheus/Grafana)
+The PC client now includes an AI provider layer for offloading computational tasks from Rider-PI:
+
+### Features
+
+- **Voice Provider**: ASR (speech-to-text) and TTS (text-to-speech) offload
+- **Vision Provider**: Object detection and frame processing for obstacle avoidance
+- **Text Provider**: LLM text generation and NLU with caching
+- **Task Queue**: Priority-based asynchronous task processing (Redis/RabbitMQ)
+- **Circuit Breaker**: Automatic fallback to local processing on failures
+- **Telemetry**: Real-time metrics and performance monitoring
+
+### Quick Start with Providers
+
+1. Enable providers in `.env`:
+```bash
+ENABLE_PROVIDERS=true
+ENABLE_TASK_QUEUE=true
+TASK_QUEUE_BACKEND=redis
+```
+
+2. Setup Redis (task queue broker):
+```bash
+sudo apt install redis-server
+sudo systemctl start redis-server
+```
+
+3. Run with providers:
+```bash
+python -m pc_client.main
+```
+
+### Documentation
+
+- [Provider Implementation Guide](PROVIDER_IMPLEMENTATION_GUIDE.md) - How to use and extend providers
+- [Network Security Setup](NETWORK_SECURITY_SETUP.md) - VPN/mTLS configuration
+- [Task Queue Setup](TASK_QUEUE_SETUP.md) - Redis/RabbitMQ configuration
+- [Monitoring Setup](MONITORING_SETUP.md) - Prometheus/Grafana setup
+
+### Task Types
+
+- `voice.asr` - Speech-to-text (priority: 5)
+- `voice.tts` - Text-to-speech (priority: 5)
+- `vision.detection` - Object detection (priority: 8)
+- `vision.frame` - Frame processing for obstacle avoidance (priority: 1, critical)
+- `text.generate` - LLM text generation (priority: 3)
+- `text.nlu` - Natural language understanding (priority: 5)
+
+### Testing
+
+All provider functionality includes comprehensive tests:
+```bash
+# Run all tests (73 tests total)
+pytest pc_client/tests/ -v
+
+# Run only provider tests
+pytest pc_client/tests/test_providers.py -v
+
+# Run integration tests
+pytest pc_client/tests/test_integration.py -v
+```
 
 ## License
 
@@ -190,3 +244,4 @@ This project is part of the Rider-PI ecosystem.
 - [Rider-PI Repository](https://github.com/mpieniak01/Rider-Pi)
 - [API Documentation](api-specs/README.md)
 - [Architecture Overview](pc_client_architecture.md)
+- [Provider Implementation Guide](PROVIDER_IMPLEMENTATION_GUIDE.md)
