@@ -181,6 +181,193 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
         metrics_data = generate_latest()
         return Response(content=metrics_data, media_type=CONTENT_TYPE_LATEST)
     
+    # Provider Control Endpoints
+    
+    @app.get("/api/providers/state")
+    async def providers_state() -> JSONResponse:
+        """
+        Get current state of all AI providers.
+        Mock implementation for Phase 3.
+        """
+        providers_data = cache.get("providers_state", {
+            "voice": {
+                "current": "local",
+                "status": "online",
+                "last_health_check": "2025-11-12T14:00:00Z"
+            },
+            "text": {
+                "current": "local",
+                "status": "online",
+                "last_health_check": "2025-11-12T14:00:00Z"
+            },
+            "vision": {
+                "current": "local",
+                "status": "online",
+                "last_health_check": "2025-11-12T14:00:00Z"
+            }
+        })
+        return JSONResponse(content=providers_data)
+    
+    @app.patch("/api/providers/{domain}")
+    async def update_provider(domain: str) -> JSONResponse:
+        """
+        Update provider configuration for a specific domain.
+        Mock implementation for Phase 3.
+        
+        Args:
+            domain: Provider domain (voice, text, vision)
+        """
+        # Validate domain
+        valid_domains = ["voice", "text", "vision"]
+        if domain not in valid_domains:
+            return JSONResponse(
+                status_code=400,
+                content={"error": f"Invalid domain. Must be one of {valid_domains}"}
+            )
+        
+        # Get current state
+        providers_state = cache.get("providers_state", {
+            "voice": {"current": "local", "status": "online"},
+            "text": {"current": "local", "status": "online"},
+            "vision": {"current": "local", "status": "online"}
+        })
+        
+        # Update the provider
+        # In real implementation, this would send command to Rider-PI
+        if domain in providers_state:
+            providers_state[domain]["current"] = "pc"  # Mock switching to PC
+            providers_state[domain]["status"] = "online"
+            cache.set("providers_state", providers_state)
+            
+            logger.info(f"Provider {domain} switched to PC (mock)")
+            
+            return JSONResponse(content={
+                "success": True,
+                "domain": domain,
+                "new_state": providers_state[domain]
+            })
+        
+        return JSONResponse(
+            status_code=404,
+            content={"error": f"Provider {domain} not found"}
+        )
+    
+    @app.get("/api/providers/health")
+    async def providers_health() -> JSONResponse:
+        """
+        Get health status of all providers.
+        Mock implementation for Phase 3.
+        """
+        health_data = cache.get("providers_health", {
+            "voice": {
+                "status": "healthy",
+                "latency_ms": 45.2,
+                "success_rate": 0.98,
+                "last_check": "2025-11-12T14:00:00Z"
+            },
+            "text": {
+                "status": "healthy",
+                "latency_ms": 120.5,
+                "success_rate": 0.95,
+                "last_check": "2025-11-12T14:00:00Z"
+            },
+            "vision": {
+                "status": "healthy",
+                "latency_ms": 85.3,
+                "success_rate": 0.99,
+                "last_check": "2025-11-12T14:00:00Z"
+            }
+        })
+        return JSONResponse(content=health_data)
+    
+    @app.get("/api/services/graph")
+    async def services_graph() -> JSONResponse:
+        """
+        Get system services graph for system dashboard.
+        Mock implementation for Phase 3.
+        """
+        import time
+        
+        graph_data = cache.get("services_graph", {
+            "generated_at": time.time(),
+            "nodes": [
+                {
+                    "label": "FastAPI Server",
+                    "unit": "pc_client.service",
+                    "status": "active",
+                    "group": "api",
+                    "since": "2025-11-12 14:00:00",
+                    "description": "Main REST API server",
+                    "edges_out": ["cache", "zmq"]
+                },
+                {
+                    "label": "Cache Manager",
+                    "unit": "cache.service",
+                    "status": "active",
+                    "group": "data",
+                    "since": "2025-11-12 14:00:00",
+                    "description": "SQLite cache for data buffering",
+                    "edges_out": []
+                },
+                {
+                    "label": "ZMQ Subscriber",
+                    "unit": "zmq.service",
+                    "status": "active",
+                    "group": "messaging",
+                    "since": "2025-11-12 14:00:00",
+                    "description": "Real-time data stream subscriber",
+                    "edges_out": ["cache"]
+                },
+                {
+                    "label": "Voice Provider",
+                    "unit": "voice.provider",
+                    "status": "active",
+                    "group": "providers",
+                    "since": "2025-11-12 14:00:00",
+                    "description": "ASR/TTS processing",
+                    "edges_out": ["task_queue"]
+                },
+                {
+                    "label": "Vision Provider",
+                    "unit": "vision.provider",
+                    "status": "active",
+                    "group": "providers",
+                    "since": "2025-11-12 14:00:00",
+                    "description": "Object detection and frame processing",
+                    "edges_out": ["task_queue"]
+                },
+                {
+                    "label": "Text Provider",
+                    "unit": "text.provider",
+                    "status": "active",
+                    "group": "providers",
+                    "since": "2025-11-12 14:00:00",
+                    "description": "LLM text generation and NLU",
+                    "edges_out": ["task_queue", "cache"]
+                },
+                {
+                    "label": "Task Queue",
+                    "unit": "task_queue.service",
+                    "status": "active",
+                    "group": "queue",
+                    "since": "2025-11-12 14:00:00",
+                    "description": "Redis-based task queue",
+                    "edges_out": []
+                },
+                {
+                    "label": "Telemetry Publisher",
+                    "unit": "telemetry.service",
+                    "status": "active",
+                    "group": "monitoring",
+                    "since": "2025-11-12 14:00:00",
+                    "description": "ZMQ telemetry and Prometheus metrics",
+                    "edges_out": []
+                }
+            ],
+            "edges": []
+        })
+        return JSONResponse(content=graph_data)
+    
     # Serve static files from web directory
     web_path = Path(__file__).parent.parent.parent / "web"
     if web_path.exists():
