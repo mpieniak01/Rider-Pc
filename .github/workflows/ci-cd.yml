@@ -1,0 +1,170 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop, 'copilot/**' ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  # Run tests
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11']
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run tests
+      run: |
+        pytest pc_client/tests/ -v --tb=short --timeout=60
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-py${{ matrix.python-version }}
+        path: |
+          .pytest_cache/
+          *.log
+
+  # Security scanning with CodeQL
+  security-codeql:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: python
+        queries: security-extended
+    
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+
+  # Build and scan Docker image
+  docker:
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.event_name == 'push'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        push: false
+        tags: rider-pc:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        load: true
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: rider-pc:${{ github.sha }}
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        severity: 'CRITICAL,HIGH'
+    
+    - name: Upload Trivy results to GitHub Security
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+    
+    - name: Test Docker container
+      run: |
+        # Start container
+        docker run -d --name rider-pc-test \
+          -e ENABLE_PROVIDERS=false \
+          -e RIDER_PI_HOST=localhost \
+          -p 8000:8000 \
+          rider-pc:${{ github.sha }}
+        
+        # Wait for container to be healthy
+        sleep 10
+        
+        # Test health endpoints
+        curl -f http://localhost:8000/health/live || exit 1
+        curl -f http://localhost:8000/health/ready || exit 1
+        curl -f http://localhost:8000/metrics || exit 1
+        
+        # Stop container
+        docker stop rider-pc-test
+        docker rm rider-pc-test
+
+  # Integration tests with docker-compose
+  integration:
+    runs-on: ubuntu-latest
+    needs: [docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Create .env file
+      run: |
+        cat << EOF > .env
+        RIDER_PI_HOST=localhost
+        ENABLE_PROVIDERS=false
+        LOG_LEVEL=DEBUG
+        EOF
+    
+    - name: Start services with docker-compose
+      run: |
+        docker-compose up -d
+    
+    - name: Wait for services to be healthy
+      run: |
+        timeout 60 bash -c 'until docker-compose ps | grep -q "healthy"; do sleep 2; done'
+    
+    - name: Test services
+      run: |
+        # Test Rider-PC
+        curl -f http://localhost:8000/health/live
+        curl -f http://localhost:8000/health/ready
+        
+        # Test Redis
+        docker-compose exec -T redis redis-cli ping
+        
+        # Test Prometheus
+        curl -f http://localhost:9090/-/healthy
+        
+        # Test Grafana
+        curl -f http://localhost:3000/api/health
+    
+    - name: Show logs on failure
+      if: failure()
+      run: |
+        docker-compose logs
+    
+    - name: Cleanup
+      if: always()
+      run: |
+        docker-compose down -v

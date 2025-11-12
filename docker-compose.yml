@@ -1,0 +1,117 @@
+version: '3.8'
+
+services:
+  # Rider-PC Application
+  rider-pc:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rider-pc
+    ports:
+      - "8000:8000"
+    environment:
+      # Rider-PI connection
+      - RIDER_PI_HOST=${RIDER_PI_HOST:-192.168.1.100}
+      - RIDER_PI_PORT=${RIDER_PI_PORT:-8080}
+      # ZMQ configuration
+      - ZMQ_PUB_PORT=${ZMQ_PUB_PORT:-5555}
+      - ZMQ_SUB_PORT=${ZMQ_SUB_PORT:-5556}
+      # Local server
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8000
+      # Cache
+      - CACHE_DB_PATH=/app/data/cache.db
+      - CACHE_TTL_SECONDS=${CACHE_TTL_SECONDS:-30}
+      # Providers
+      - ENABLE_PROVIDERS=${ENABLE_PROVIDERS:-true}
+      - ENABLE_TASK_QUEUE=${ENABLE_TASK_QUEUE:-true}
+      - TASK_QUEUE_BACKEND=redis
+      - ENABLE_TELEMETRY=${ENABLE_TELEMETRY:-true}
+      # Redis connection
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - rider-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health/live', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Redis (Task Queue Broker)
+  redis:
+    image: redis:7-alpine
+    container_name: rider-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    networks:
+      - rider-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Prometheus (Metrics Collection)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: rider-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./config/prometheus-alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - rider-network
+    depends_on:
+      - rider-pc
+
+  # Grafana (Metrics Visualization)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: rider-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./config/grafana-dashboard.json:/etc/grafana/provisioning/dashboards/dashboard.json:ro
+    restart: unless-stopped
+    networks:
+      - rider-network
+    depends_on:
+      - prometheus
+
+networks:
+  rider-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  prometheus-data:
+  grafana-data:

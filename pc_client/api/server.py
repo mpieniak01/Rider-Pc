@@ -112,9 +112,61 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
     
     @app.get("/healthz")
     async def healthz() -> JSONResponse:
-        """Health check endpoint."""
+        """Health check endpoint (deprecated, use /health/live)."""
         data = cache.get("healthz", {"ok": True, "status": "ok"})
         return JSONResponse(content=data)
+    
+    @app.get("/health/live")
+    async def health_live() -> JSONResponse:
+        """
+        Liveness probe endpoint.
+        Returns 200 if the application is running and responsive.
+        Used by container orchestrators to determine if the app should be restarted.
+        """
+        return JSONResponse(content={
+            "status": "alive",
+            "timestamp": __import__('time').time()
+        })
+    
+    @app.get("/health/ready")
+    async def health_ready() -> JSONResponse:
+        """
+        Readiness probe endpoint.
+        Returns 200 if the application is ready to serve requests.
+        Checks critical components: cache, providers, and queue.
+        Used by container orchestrators to determine if traffic should be routed to this instance.
+        """
+        import time
+        
+        # Check cache health
+        cache_healthy = True
+        try:
+            cache.get("_health_check", None)
+        except Exception as e:
+            logger.error(f"Cache health check failed: {e}")
+            cache_healthy = False
+        
+        # Check if adapters are initialized
+        adapters_ready = (
+            app.state.rest_adapter is not None and
+            app.state.zmq_subscriber is not None
+        )
+        
+        # Overall readiness
+        ready = cache_healthy and adapters_ready
+        status_code = 200 if ready else 503
+        
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "status": "ready" if ready else "not_ready",
+                "timestamp": time.time(),
+                "checks": {
+                    "cache": "healthy" if cache_healthy else "unhealthy",
+                    "adapters": "ready" if adapters_ready else "not_ready"
+                }
+            }
+        )
     
     @app.get("/state")
     async def state() -> JSONResponse:
