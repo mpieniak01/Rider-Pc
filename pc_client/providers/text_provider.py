@@ -9,6 +9,7 @@ from pc_client.providers.base import (
     TaskType,
     TaskStatus
 )
+from pc_client.telemetry.metrics import tasks_processed_total, task_duration_seconds, cache_hits_total, cache_misses_total
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +114,7 @@ class TextProvider(BaseProvider):
             self.logger.info("[provider] Cache hit for text generation")
             generated_text = self._cache[cache_key]
             from_cache = True
+            cache_hits_total.labels(cache_type='text_llm').inc()
         else:
             # TODO: Implement actual text generation
             # Example:
@@ -135,8 +137,16 @@ class TextProvider(BaseProvider):
                 self._cache[cache_key] = generated_text
             
             from_cache = False
+            cache_misses_total.labels(cache_type='text_llm').inc()
         
         self.logger.info(f"[provider] Generated {len(generated_text)} characters")
+        
+        # Update metrics
+        tasks_processed_total.labels(
+            provider='TextProvider',
+            task_type='text.generate',
+            status='completed'
+        ).inc()
         
         return TaskResult(
             task_id=task.task_id,
@@ -205,6 +215,13 @@ class TextProvider(BaseProvider):
             }
         
         self.logger.info(f"[provider] NLU completed for text: {text[:50]}...")
+        
+        # Update metrics
+        tasks_processed_total.labels(
+            provider='TextProvider',
+            task_type='text.nlu',
+            status='completed'
+        ).inc()
         
         return TaskResult(
             task_id=task.task_id,

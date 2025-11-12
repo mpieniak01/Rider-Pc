@@ -9,6 +9,7 @@ from datetime import datetime
 
 from pc_client.providers.base import TaskEnvelope, TaskResult, TaskStatus
 from pc_client.queue.circuit_breaker import CircuitBreaker
+from pc_client.telemetry.metrics import task_queue_size, task_queue_full_count
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,7 @@ class TaskQueue:
         if self.queue.full():
             self.logger.warning(f"Queue is full, cannot enqueue task {task.task_id}")
             self.stats["queue_full_count"] += 1
+            task_queue_full_count.inc()
             return False
         
         prioritized_task = PrioritizedTask(
@@ -83,6 +85,9 @@ class TaskQueue:
             f"Enqueued task {task.task_id} (priority: {task.priority}, "
             f"queue size: {self.queue.qsize()})"
         )
+        
+        # Update metrics
+        task_queue_size.labels(queue_name="main").set(self.queue.qsize())
         
         return True
     
@@ -107,6 +112,9 @@ class TaskQueue:
                 f"Dequeued task {prioritized_task.task.task_id} "
                 f"(queue size: {self.queue.qsize()})"
             )
+            
+            # Update metrics
+            task_queue_size.labels(queue_name="main").set(self.queue.qsize())
             
             return prioritized_task.task
             
@@ -166,7 +174,8 @@ class TaskQueueWorker:
     def __init__(
         self,
         task_queue: TaskQueue,
-        providers: Dict[str, Any]
+        providers: Dict[str, Any],
+        telemetry_publisher: Optional[Any] = None
     ):
         """
         Initialize task queue worker.
@@ -174,9 +183,11 @@ class TaskQueueWorker:
         Args:
             task_queue: Task queue to process
             providers: Dictionary of provider instances by task type
+            telemetry_publisher: Optional ZMQ telemetry publisher
         """
         self.task_queue = task_queue
         self.providers = providers
+        self.telemetry_publisher = telemetry_publisher
         self.running = False
         self.logger = logging.getLogger("[bridge] TaskQueueWorker")
     
@@ -289,8 +300,14 @@ class TaskQueueWorker:
         Args:
             result: Task result to publish
         """
-        # TODO: Implement ZMQ publisher
         self.logger.debug(
             f"Task {result.task_id} completed with status {result.status} "
             f"in {result.processing_time_ms:.2f}ms"
         )
+        
+        # Publish to ZMQ telemetry bus if available
+        if self.telemetry_publisher:
+            try:
+                self.telemetry_publisher.publish_task_result(result)
+            except Exception as e:
+                self.logger.error(f"Failed to publish telemetry: {e}")

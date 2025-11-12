@@ -9,6 +9,7 @@ from fastapi import FastAPI, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 from pc_client.config import Settings
 from pc_client.cache import CacheManager
@@ -173,6 +174,12 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
             b'\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82'
         )
         return Response(content=png_data, media_type="image/png")
+    
+    @app.get("/metrics")
+    async def metrics() -> Response:
+        """Prometheus metrics endpoint."""
+        metrics_data = generate_latest()
+        return Response(content=metrics_data, media_type=CONTENT_TYPE_LATEST)
     
     # Serve static files from web directory
     web_path = Path(__file__).parent.parent.parent / "web"

@@ -9,6 +9,7 @@ from pc_client.providers.base import (
     TaskType,
     TaskStatus
 )
+from pc_client.telemetry.metrics import tasks_processed_total, task_duration_seconds
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +127,13 @@ class VisionProvider(BaseProvider):
         
         self.logger.info(f"[vision] Detected {len(detections)} objects")
         
+        # Update metrics
+        tasks_processed_total.labels(
+            provider='VisionProvider',
+            task_type='vision.detection',
+            status='completed'
+        ).inc()
+        
         return TaskResult(
             task_id=task.task_id,
             status=TaskStatus.COMPLETED,
@@ -190,6 +198,13 @@ class VisionProvider(BaseProvider):
         ]
         
         self.logger.info(f"[vision] Frame {frame_id} processed, found {len(obstacles)} obstacles")
+        
+        # Update metrics
+        tasks_processed_total.labels(
+            provider='VisionProvider',
+            task_type='vision.frame',
+            status='completed'
+        ).inc()
         
         return TaskResult(
             task_id=task.task_id,

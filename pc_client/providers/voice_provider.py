@@ -9,6 +9,7 @@ from pc_client.providers.base import (
     TaskType,
     TaskStatus
 )
+from pc_client.telemetry.metrics import tasks_processed_total, task_duration_seconds
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +111,13 @@ class VoiceProvider(BaseProvider):
         
         self.logger.info(f"[voice] ASR completed: {transcription}")
         
+        # Update metrics
+        tasks_processed_total.labels(
+            provider='VoiceProvider',
+            task_type='voice.asr',
+            status='completed'
+        ).inc()
+        
         return TaskResult(
             task_id=task.task_id,
             status=TaskStatus.COMPLETED,
@@ -159,6 +167,13 @@ class VoiceProvider(BaseProvider):
         audio_data = "base64_encoded_mock_audio_data"
         
         self.logger.info(f"[voice] TTS completed for text: {text[:50]}...")
+        
+        # Update metrics
+        tasks_processed_total.labels(
+            provider='VoiceProvider',
+            task_type='voice.tts',
+            status='completed'
+        ).inc()
         
         return TaskResult(
             task_id=task.task_id,

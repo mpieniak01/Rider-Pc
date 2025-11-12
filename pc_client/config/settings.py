@@ -42,6 +42,11 @@ class Settings:
     task_queue_password: str = field(default_factory=lambda: os.getenv("TASK_QUEUE_PASSWORD", ""))
     task_queue_max_size: int = field(default_factory=lambda: int(os.getenv("TASK_QUEUE_MAX_SIZE", "100")))
     
+    # Telemetry configuration
+    enable_telemetry: bool = field(default_factory=lambda: os.getenv("ENABLE_TELEMETRY", "false").lower() == "true")
+    telemetry_zmq_port: int = field(default_factory=lambda: int(os.getenv("TELEMETRY_ZMQ_PORT", "5557")))
+    telemetry_zmq_host: str = field(default_factory=lambda: os.getenv("TELEMETRY_ZMQ_HOST", "0.0.0.0"))
+    
     @property
     def rider_pi_base_url(self) -> str:
         """Get the base URL for Rider-PI API."""
@@ -56,6 +61,11 @@ class Settings:
     def zmq_sub_endpoint(self) -> str:
         """Get ZMQ SUB endpoint."""
         return f"tcp://{self.rider_pi_host}:{self.zmq_sub_port}"
+    
+    @property
+    def telemetry_zmq_endpoint(self) -> str:
+        """Get telemetry ZMQ PUB endpoint."""
+        return f"tcp://{self.telemetry_zmq_host}:{self.telemetry_zmq_port}"
 
 
 # Global settings instance
