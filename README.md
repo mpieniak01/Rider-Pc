@@ -192,6 +192,7 @@ The PC client now includes an AI provider layer for offloading computational tas
 ENABLE_PROVIDERS=true
 ENABLE_TASK_QUEUE=true
 TASK_QUEUE_BACKEND=redis
+ENABLE_TELEMETRY=true
 ```
 
 2. Setup Redis (task queue broker):
@@ -204,6 +205,31 @@ sudo systemctl start redis-server
 ```bash
 python -m pc_client.main
 ```
+
+4. Access monitoring:
+```bash
+# View Prometheus metrics
+curl http://localhost:8000/metrics
+
+# View application health
+curl http://localhost:8000/healthz
+```
+
+### Telemetry and Monitoring
+
+The PC client includes comprehensive telemetry:
+
+- **Prometheus Metrics**: Task processing metrics, queue size, circuit breaker state
+- **ZMQ Telemetry Publisher**: Send results back to Rider-PI via ZMQ
+- **Logging**: Unified log prefixes ([voice], [vision], [provider], [bridge])
+- **Metrics Endpoint**: `/metrics` for Prometheus scraping
+
+Key metrics exposed:
+- `provider_tasks_processed_total` - Total tasks processed by provider
+- `provider_task_duration_seconds` - Task processing duration histogram  
+- `task_queue_size` - Current task queue size
+- `circuit_breaker_state` - Circuit breaker state per provider
+- `cache_hits_total` / `cache_misses_total` - Cache performance
 
 ### Documentation
 
@@ -225,11 +251,14 @@ python -m pc_client.main
 
 All provider functionality includes comprehensive tests:
 ```bash
-# Run all tests (73 tests total)
+# Run all tests (87 tests total)
 pytest pc_client/tests/ -v
 
 # Run only provider tests
 pytest pc_client/tests/test_providers.py -v
+
+# Run telemetry tests
+pytest pc_client/tests/test_telemetry.py -v
 
 # Run integration tests
 pytest pc_client/tests/test_integration.py -v
