@@ -10,6 +10,8 @@ jobs:
   # Run tests
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       matrix:
         python-version: ['3.9', '3.10', '3.11']
@@ -64,6 +66,9 @@ jobs:
   # Build and scan Docker image
   docker:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     needs: [test]
     if: github.event_name == 'push'
     
@@ -122,6 +127,8 @@ jobs:
   # Integration tests with docker-compose
   integration:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: [docker]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
