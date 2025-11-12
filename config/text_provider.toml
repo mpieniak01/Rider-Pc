@@ -1,0 +1,53 @@
+# Text Provider Configuration for Rider-PC
+# This configuration enables LLM (Large Language Model) text generation and NLU
+# using Ollama with automatic fallback to mock mode.
+
+[text]
+# LLM Model Configuration
+model = "llama3.2:1b"  # Ollama model to use
+                       # Recommended lightweight models:
+                       # - llama3.2:1b (1B params) - FASTEST, good for basic tasks
+                       # - llama3.2:3b (3B params) - Better quality
+                       # - phi3:mini (3.8B params) - Microsoft, good reasoning
+                       # - mistral:7b (7B params) - High quality, slower
+                       #
+                       # Install with: ollama pull llama3.2:1b
+
+# Generation Parameters
+max_tokens = 512        # Maximum tokens to generate
+temperature = 0.7       # Sampling temperature (0.0-2.0)
+                        # Lower = more deterministic, Higher = more creative
+top_p = 0.9            # Nucleus sampling parameter
+top_k = 40             # Top-k sampling parameter
+
+# Ollama Server
+ollama_host = "http://localhost:11434"  # Ollama server URL
+                                         # For WSL: http://localhost:11434
+                                         # For Docker: http://host.docker.internal:11434
+
+# Mock Mode
+use_mock = false  # Set to true to force mock mode (for testing without Ollama)
+                  # Will auto-fallback to mock if Ollama is not available
+
+# Provider Settings
+enabled = true
+priority = 3  # Task priority for text generation (1-10)
+
+# Performance Tuning
+max_concurrent_tasks = 2  # Maximum concurrent text generation tasks
+timeout_seconds = 60      # Task timeout in seconds (longer for LLM generation)
+
+# Cache Settings
+enable_cache = true       # Enable response caching
+cache_ttl_seconds = 7200  # Cache TTL (2 hours)
+cache_max_size = 1000     # Maximum number of cached responses
+
+# NLU (Natural Language Understanding) Settings
+nlu_enabled = true
+nlu_tasks = ["intent", "entities", "sentiment"]  # NLU capabilities
+
+# System Prompts
+[text.system_prompts]
+default = "You are a helpful AI assistant for a robot navigation system."
+navigation = "You are an AI assistant helping with robot navigation. Be concise and clear."
+conversation = "You are a friendly conversational AI for a robot. Be helpful and engaging."

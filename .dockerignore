@@ -16,12 +16,9 @@ parts/
 sdist/
 var/
 wheels/
-pip-wheel-metadata/
-share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 
 # Virtual environments
 venv/
@@ -40,13 +37,17 @@ ENV/
 .DS_Store
 Thumbs.db
 
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+!README.md
+
 # Logs
 *.log
 logs/
-
-# Local configuration
-config/local/*.toml
-!config/local/.gitignore
 
 # Data and snapshots
 data/
@@ -57,17 +58,19 @@ tmp/
 .tmp/
 *.tmp
 
-# Cache database
+# Cache database (will be created fresh)
 *.db
 *.db-journal
 
-# Environment files
-.env
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
 
-# AI Model caches
-.cache/
-models/
-*.pt
-*.onnx
-*.pb
-*.tflite
+# CI/CD
+.github/
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml

@@ -27,7 +27,7 @@ async def test_end_to_end_voice_offload():
         task_id="e2e-asr-1",
         task_type=TaskType.VOICE_ASR,
         payload={
-            "audio_data": "mock_audio_data",
+            "audio_data": "dGVzdCBhdWRpbyBkYXRh",  # Valid base64: "test audio data"
             "format": "wav",
             "sample_rate": 16000
         },
@@ -73,7 +73,7 @@ async def test_end_to_end_vision_offload():
         task_id="e2e-detect-1",
         task_type=TaskType.VISION_DETECTION,
         payload={
-            "image_data": "mock_image_data",
+            "image_data": "dGVzdCBpbWFnZSBkYXRh",  # Valid base64: "test image data"
             "format": "jpeg",
             "width": 640,
             "height": 480
@@ -176,13 +176,13 @@ async def test_end_to_end_priority_queue():
         TaskEnvelope(
             task_id="high-priority-obstacle",
             task_type=TaskType.VISION_FRAME,
-            payload={"frame_data": "test", "frame_id": 1, "timestamp": 123.0},
+            payload={"frame_data": "dGVzdCBmcmFtZSBkYXRh", "frame_id": 1, "timestamp": 123.0},  # Valid base64
             priority=1  # Critical priority
         ),
         TaskEnvelope(
             task_id="medium-priority",
             task_type=TaskType.VOICE_ASR,
-            payload={"audio_data": "test"},
+            payload={"audio_data": "dGVzdCBhdWRpbyBkYXRh"},  # Valid base64
             priority=5  # Medium priority
         )
     ]
@@ -233,7 +233,7 @@ async def test_end_to_end_circuit_breaker_fallback():
     task = TaskEnvelope(
         task_id="e2e-fail-1",
         task_type=TaskType.VOICE_ASR,
-        payload={"audio_data": "test"},
+        payload={"audio_data": "dGVzdCBhdWRpbyBkYXRh"},  # Valid base64
         priority=1  # Critical task
     )
     
@@ -252,8 +252,8 @@ async def test_end_to_end_circuit_breaker_fallback():
 @pytest.mark.asyncio
 async def test_end_to_end_telemetry():
     """Test end-to-end telemetry collection."""
-    # Initialize provider
-    voice_provider = VoiceProvider({"asr_model": "test_model"})
+    # Initialize provider with mock mode
+    voice_provider = VoiceProvider({"asr_model": "test_model", "use_mock": True})
     await voice_provider.initialize()
     
     # Get telemetry before processing
@@ -266,14 +266,15 @@ async def test_end_to_end_telemetry():
     task = TaskEnvelope(
         task_id="e2e-telemetry-1",
         task_type=TaskType.VOICE_ASR,
-        payload={"audio_data": "test"}
+        payload={"audio_data": "dGVzdCBhdWRpbyBkYXRh"}  # Valid base64
     )
     
     result = await voice_provider.process_task(task)
     
     # Verify telemetry data in result
     assert result.processing_time_ms is not None
-    assert result.meta["model"] == "test_model"
+    # In mock mode, the model name in meta should be "mock"
+    assert result.meta["engine"] == "mock"
     
     # Cleanup
     await voice_provider.shutdown()

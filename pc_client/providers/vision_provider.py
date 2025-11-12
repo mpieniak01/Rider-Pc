@@ -1,7 +1,9 @@
 """Vision provider for image and video stream processing."""
 
 import logging
-from typing import Dict, Any, List
+import base64
+import io
+from typing import Dict, Any, Optional
 from pc_client.providers.base import (
     BaseProvider,
     TaskEnvelope,
@@ -12,6 +14,15 @@ from pc_client.providers.base import (
 from pc_client.telemetry.metrics import tasks_processed_total, task_duration_seconds
 
 logger = logging.getLogger(__name__)
+
+# Import AI libraries with fallback to mock mode
+try:
+    from ultralytics import YOLO
+    from PIL import Image
+    YOLO_AVAILABLE = True
+except ImportError:
+    YOLO_AVAILABLE = False
+    logger.warning("YOLOv8 not available, using mock object detection")
 
 
 class VisionProvider(BaseProvider):
@@ -29,31 +40,50 @@ class VisionProvider(BaseProvider):
         
         Args:
             config: Vision provider configuration
-                - detection_model: Detection model to use (default: "mock")
+                - detection_model: Detection model to use (default: "yolov8n")
                 - confidence_threshold: Minimum confidence (default: 0.5)
                 - max_detections: Maximum detections per frame (default: 10)
+                - use_mock: Force mock mode (default: False)
         """
         super().__init__("VisionProvider", config)
-        self.detection_model = self.config.get("detection_model", "mock")
+        self.detection_model_name = self.config.get("detection_model", "yolov8n")
         self.confidence_threshold = self.config.get("confidence_threshold", 0.5)
         self.max_detections = self.config.get("max_detections", 10)
+        self.use_mock = self.config.get("use_mock", False)
+        
+        # Model instance (loaded during initialization)
+        self.detector: Optional[Any] = None
     
     async def _initialize_impl(self) -> None:
         """Initialize vision processing models."""
-        self.logger.info(f"Loading detection model: {self.detection_model}")
+        self.logger.info(f"Loading detection model: {self.detection_model_name}")
         self.logger.info(f"Confidence threshold: {self.confidence_threshold}")
         self.logger.info(f"Max detections: {self.max_detections}")
         
-        # TODO: Load actual vision models
-        # Example: self.detector = load_yolo_model(self.detection_model)
-        # Example: self.depth_estimator = load_depth_model()
+        # Load YOLO model if available and not in mock mode
+        if YOLO_AVAILABLE and not self.use_mock:
+            try:
+                self.logger.info("[vision] Loading YOLOv8 model...")
+                # Load YOLOv8 model (will auto-download if not cached)
+                self.detector = YOLO(f"{self.detection_model_name}.pt")
+                self.logger.info("[vision] YOLOv8 model loaded successfully")
+            except Exception as e:
+                self.logger.error(f"[vision] Failed to load YOLO: {e}")
+                self.logger.warning("[vision] Falling back to mock detection")
+                self.detector = None
+        else:
+            self.logger.info("[vision] Using mock vision implementation")
+            self.detector = None
         
-        self.logger.info("[vision] Vision models loaded (mock implementation)")
+        self.logger.info("[vision] Vision provider initialized")
     
     async def _shutdown_impl(self) -> None:
         """Cleanup vision processing resources."""
         self.logger.info("[vision] Cleaning up vision resources")
-        # TODO: Cleanup models
+        if self.detector is not None:
+            # YOLO models don't require explicit cleanup
+            self.detector = None
+        self.logger.info("[vision] Vision resources cleaned up")
     
     async def _process_task_impl(self, task: TaskEnvelope) -> TaskResult:
         """
@@ -103,13 +133,81 @@ class VisionProvider(BaseProvider):
                 error="Missing image_data in payload"
             )
         
-        # TODO: Implement actual object detection
-        # Example:
-        # image = decode_image(image_data, image_format)
-        # detections = self.detector.detect(image)
-        # filtered = filter_by_confidence(detections, self.confidence_threshold)
+        # Process with real YOLO model if available
+        if self.detector is not None:
+            try:
+                # Decode base64 image data with error handling
+                try:
+                    image_bytes = base64.b64decode(image_data)
+                    image = Image.open(io.BytesIO(image_bytes))
+                except Exception as e:
+                    self.logger.error(f"[vision] Failed to decode image data: {e}")
+                    return TaskResult(
+                        task_id=task.task_id,
+                        status=TaskStatus.FAILED,
+                        error=f"Invalid image data: {str(e)}"
+                    )
+                
+                # Run YOLO detection
+                results = self.detector(image, conf=self.confidence_threshold, max_det=self.max_detections)
+                
+                # Extract detections
+                detections = []
+                for result in results:
+                    boxes = result.boxes
+                    for box in boxes:
+                        # Get box coordinates (xyxy format)
+                        x1, y1, x2, y2 = box.xyxy[0].tolist()
+                        confidence = float(box.conf[0])
+                        class_id = int(box.cls[0])
+                        class_name = result.names[class_id]
+                        
+                        # Calculate center
+                        center_x = int((x1 + x2) / 2)
+                        center_y = int((y1 + y2) / 2)
+                        
+                        detections.append({
+                            "class": class_name,
+                            "confidence": round(confidence, 2),
+                            "bbox": [int(x1), int(y1), int(x2), int(y2)],
+                            "center": [center_x, center_y]
+                        })
+                
+                self.logger.info(f"[vision] Detected {len(detections)} objects")
+                
+                # Update metrics
+                tasks_processed_total.labels(
+                    provider='VisionProvider',
+                    task_type='vision.detection',
+                    status='completed'
+                ).inc()
+                
+                return TaskResult(
+                    task_id=task.task_id,
+                    status=TaskStatus.COMPLETED,
+                    result={
+                        "detections": detections,
+                        "image_width": width,
+                        "image_height": height,
+                        "num_detections": len(detections)
+                    },
+                    meta={
+                        "model": self.detection_model_name,
+                        "confidence_threshold": self.confidence_threshold,
+                        "format": image_format,
+                        "engine": "yolov8"
+                    }
+                )
+                
+            except Exception as e:
+                self.logger.error(f"[vision] Detection processing failed: {e}")
+                return TaskResult(
+                    task_id=task.task_id,
+                    status=TaskStatus.FAILED,
+                    error=f"Detection processing error: {str(e)}"
+                )
         
-        # Mock implementation
+        # Mock implementation fallback
         detections = [
             {
                 "class": "person",
@@ -125,7 +223,7 @@ class VisionProvider(BaseProvider):
             }
         ]
         
-        self.logger.info(f"[vision] Detected {len(detections)} objects")
+        self.logger.info(f"[vision] Detected (mock) {len(detections)} objects")
         
         # Update metrics
         tasks_processed_total.labels(
@@ -144,9 +242,10 @@ class VisionProvider(BaseProvider):
                 "num_detections": len(detections)
             },
             meta={
-                "model": self.detection_model,
+                "model": "mock",
                 "confidence_threshold": self.confidence_threshold,
-                "format": image_format
+                "format": image_format,
+                "engine": "mock"
             }
         )
     
@@ -179,14 +278,106 @@ class VisionProvider(BaseProvider):
                 error="Missing frame_data in payload"
             )
         
-        # TODO: Implement actual frame processing
-        # Example:
-        # frame = decode_frame(frame_data)
-        # detections = self.detector.detect(frame)
-        # depth_map = self.depth_estimator.estimate(frame)
-        # obstacles = merge_detection_and_depth(detections, depth_map)
+        # Process with real YOLO model if available
+        if self.detector is not None:
+            try:
+                # Decode base64 frame data with error handling
+                try:
+                    frame_bytes = base64.b64decode(frame_data)
+                    frame = Image.open(io.BytesIO(frame_bytes))
+                except Exception as e:
+                    self.logger.error(f"[vision] Failed to decode frame data: {e}")
+                    return TaskResult(
+                        task_id=task.task_id,
+                        status=TaskStatus.FAILED,
+                        error=f"Invalid frame data: {str(e)}"
+                    )
+                
+                # Run YOLO detection
+                results = self.detector(frame, conf=self.confidence_threshold)
+                
+                # Load obstacle classes from config, or default to YOLO COCO class names.
+                # See: https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/datasets/coco.yaml
+                obstacle_classes = set(self.config.get('obstacle_classes', [
+                    'person', 'bicycle', 'car', 'motorcycle', 'bus', 'truck',
+                    'chair', 'couch', 'dog', 'cat', 'bottle', 'cup'
+                ]))
+                
+                # Extract obstacles (focus on objects relevant for navigation)
+                obstacles = []
+                
+                for result in results:
+                    boxes = result.boxes
+                    for box in boxes:
+                        class_id = int(box.cls[0])
+                        class_name = result.names[class_id]
+                        
+                        # Only consider obstacles relevant for navigation
+                        if class_name in obstacle_classes:
+                            confidence = float(box.conf[0])
+                            x1, y1, x2, y2 = box.xyxy[0].tolist()
+                            
+                            # Estimate distance based on box size (VERY ROUGH - PLACEHOLDER)
+                            # TODO: Replace with proper depth estimation or stereo vision
+                            # This is a temporary approximation and should not be used for safety-critical decisions.
+                            # Limitations:
+                            #   - The magic number 100000 is arbitrary and not calibrated to camera or scene geometry.
+                            #   - Box area alone does not account for object type or actual size.
+                            #   - No use of camera intrinsic parameters (focal length, sensor size, etc.).
+                            #   - Can produce negative or nonsensical values for large boxes.
+                            box_area = (x2 - x1) * (y2 - y1)
+                            # Assume larger boxes = closer objects (inverse relationship)
+                            # This is highly inaccurate and object-type dependent.
+                            distance = max(0.5, min(5.0, 5.0 - (box_area / 100000)))
+                            
+                            # Calculate angle from center
+                            center_x = (x1 + x2) / 2
+                            frame_width = frame.width
+                            angle = int(((center_x - frame_width/2) / frame_width) * 60)  # ±30 degrees
+                            
+                            obstacles.append({
+                                "type": class_name,
+                                "distance": round(distance, 2),
+                                "angle": angle,
+                                "confidence": round(confidence, 2),
+                                "size": "large" if box_area > 50000 else "medium" if box_area > 10000 else "small"
+                            })
+                
+                self.logger.info(f"[vision] Frame {frame_id} processed, found {len(obstacles)} obstacles")
+                
+                # Update metrics
+                tasks_processed_total.labels(
+                    provider='VisionProvider',
+                    task_type='vision.frame',
+                    status='completed'
+                ).inc()
+                
+                return TaskResult(
+                    task_id=task.task_id,
+                    status=TaskStatus.COMPLETED,
+                    result={
+                        "frame_id": frame_id,
+                        "timestamp": timestamp,
+                        "obstacles": obstacles,
+                        "should_avoid": len(obstacles) > 0,
+                        "suggested_action": "slow_down" if obstacles else "continue"
+                    },
+                    meta={
+                        "model": self.detection_model_name,
+                        "processing_type": "frame_offload",
+                        "engine": "yolov8"
+                    }
+                )
+                
+            except Exception as e:
+                self.logger.error(f"[vision] Frame processing failed: {e}")
+                return TaskResult(
+                    task_id=task.task_id,
+                    status=TaskStatus.FAILED,
+                    error=f"Frame processing error: {str(e)}"
+                )
         
-        # Mock implementation
+        # Mock implementation fallback
         obstacles = [
             {
                 "type": "obstacle",
@@ -197,7 +388,7 @@ class VisionProvider(BaseProvider):
             }
         ]
         
-        self.logger.info(f"[vision] Frame {frame_id} processed, found {len(obstacles)} obstacles")
+        self.logger.info(f"[vision] Frame {frame_id} processed (mock), found {len(obstacles)} obstacles")
         
         # Update metrics
         tasks_processed_total.labels(
@@ -217,8 +408,9 @@ class VisionProvider(BaseProvider):
                 "suggested_action": "slow_down" if obstacles else "continue"
             },
             meta={
-                "model": self.detection_model,
-                "processing_type": "frame_offload"
+                "model": "mock",
+                "processing_type": "frame_offload",
+                "engine": "mock"
             }
         )
     
@@ -230,8 +422,10 @@ class VisionProvider(BaseProvider):
         """Get vision provider telemetry."""
         base_telemetry = super().get_telemetry()
         base_telemetry.update({
-            "detection_model": self.detection_model,
+            "detection_model": self.detection_model_name,
             "confidence_threshold": self.confidence_threshold,
-            "max_detections": self.max_detections
+            "max_detections": self.max_detections,
+            "detector_available": self.detector is not None,
+            "mode": "mock" if self.detector is None else "real"
         })
         return base_telemetry

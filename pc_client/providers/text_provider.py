@@ -13,6 +13,14 @@ from pc_client.telemetry.metrics import tasks_processed_total, task_duration_sec
 
 logger = logging.getLogger(__name__)
 
+# Import AI libraries with fallback to mock mode
+try:
+    import ollama
+    OLLAMA_AVAILABLE = True
+except ImportError:
+    OLLAMA_AVAILABLE = False
+    logger.warning("Ollama not available, using mock LLM")
+
 
 class TextProvider(BaseProvider):
     """
@@ -29,17 +37,22 @@ class TextProvider(BaseProvider):
         
         Args:
             config: Text provider configuration
-                - model: Model to use (default: "mock")
+                - model: Model to use (default: "llama3.2:1b")
                 - max_tokens: Maximum generation tokens (default: 512)
                 - temperature: Sampling temperature (default: 0.7)
                 - use_cache: Enable response caching (default: True)
+                - use_mock: Force mock mode (default: False)
+                - ollama_host: Ollama server host (default: "http://localhost:11434")
         """
         super().__init__("TextProvider", config)
-        self.model = self.config.get("model", "mock")
+        self.model = self.config.get("model", "llama3.2:1b")
         self.max_tokens = self.config.get("max_tokens", 512)
         self.temperature = self.config.get("temperature", 0.7)
         self.use_cache = self.config.get("use_cache", True)
+        self.use_mock = self.config.get("use_mock", False)
+        self.ollama_host = self.config.get("ollama_host", "http://localhost:11434")
         self._cache: Dict[str, str] = {}
+        self.ollama_available = False
     
     async def _initialize_impl(self) -> None:
         """Initialize text processing models."""
@@ -47,12 +60,25 @@ class TextProvider(BaseProvider):
         self.logger.info(f"Max tokens: {self.max_tokens}")
         self.logger.info(f"Temperature: {self.temperature}")
         self.logger.info(f"Caching enabled: {self.use_cache}")
+        self.logger.info(f"Ollama host: {self.ollama_host}")
         
-        # TODO: Load actual LLM model or setup API client
-        # Example: self.llm = load_llm_model(self.model)
-        # Example: self.api_client = OpenAIClient(api_key=...)
+        # Check if Ollama is available and running
+        if OLLAMA_AVAILABLE and not self.use_mock:
+            try:
+                # Try to list models to verify connection
+                self.logger.info("[provider] Checking Ollama connection...")
+                ollama.list()
+                self.ollama_available = True
+                self.logger.info(f"[provider] Ollama connected, using model: {self.model}")
+            except Exception as e:
+                self.logger.warning(f"[provider] Ollama not available: {e}")
+                self.logger.warning("[provider] Falling back to mock LLM")
+                self.ollama_available = False
+        else:
+            self.logger.info("[provider] Using mock text implementation")
+            self.ollama_available = False
         
-        self.logger.info("[provider] Text models loaded (mock implementation)")
+        self.logger.info("[provider] Text provider initialized")
     
     async def _shutdown_impl(self) -> None:
         """Cleanup text processing resources."""
@@ -116,28 +142,55 @@ class TextProvider(BaseProvider):
             from_cache = True
             cache_hits_total.labels(cache_type='text_llm').inc()
         else:
-            # TODO: Implement actual text generation
-            # Example:
-            # messages = [
-            #     {"role": "system", "content": system_prompt},
-            #     {"role": "user", "content": prompt}
-            # ]
-            # response = self.llm.generate(
-            #     messages=messages,
-            #     max_tokens=max_tokens,
-            #     temperature=temperature
-            # )
-            # generated_text = response.text
-            
-            # Mock implementation
-            generated_text = f"Mock LLM response to: {prompt[:50]}..."
-            
-            # Update cache
-            if self.use_cache:
-                self._cache[cache_key] = generated_text
-            
-            from_cache = False
-            cache_misses_total.labels(cache_type='text_llm').inc()
+            # Generate with real Ollama LLM if available
+            if self.ollama_available:
+                try:
+                    self.logger.info(f"[provider] Generating with Ollama model: {self.model}")
+                    
+                    # Build messages
+                    messages = []
+                    if system_prompt:
+                        messages.append({"role": "system", "content": system_prompt})
+                    messages.append({"role": "user", "content": prompt})
+                    
+                    # Call Ollama API
+                    response = ollama.chat(
+                        model=self.model,
+                        messages=messages,
+                        options={
+                            "temperature": temperature,
+                            "num_predict": max_tokens
+                        }
+                    )
+                    
+                    generated_text = response['message']['content']
+                    
+                    # Update cache
+                    if self.use_cache:
+                        self._cache[cache_key] = generated_text
+                    
+                    from_cache = False
+                    cache_misses_total.labels(cache_type='text_llm').inc()
+                    
+                    self.logger.info(f"[provider] Generated {len(generated_text)} characters with Ollama")
+                    
+                except Exception as e:
+                    self.logger.error(f"[provider] Ollama generation failed: {e}")
+                    self.logger.warning("[provider] Falling back to mock generation")
+                    # Fall through to mock implementation
+                    generated_text = f"Mock LLM response to: {prompt[:50]}..."
+                    from_cache = False
+                    cache_misses_total.labels(cache_type='text_llm').inc()
+            else:
+                # Mock implementation
+                generated_text = f"Mock LLM response to: {prompt[:50]}..."
+                
+                # Update cache
+                if self.use_cache:
+                    self._cache[cache_key] = generated_text
+                
+                from_cache = False
+                cache_misses_total.labels(cache_type='text_llm').inc()
         
         self.logger.info(f"[provider] Generated {len(generated_text)} characters")
         
@@ -160,7 +213,8 @@ class TextProvider(BaseProvider):
                 "model": self.model,
                 "max_tokens": max_tokens,
                 "temperature": temperature,
-                "prompt_length": len(prompt)
+                "prompt_length": len(prompt),
+                "engine": "ollama" if self.ollama_available else "mock"
             }
         )
     
@@ -246,6 +300,8 @@ class TextProvider(BaseProvider):
             "max_tokens": self.max_tokens,
             "temperature": self.temperature,
             "cache_size": len(self._cache),
-            "use_cache": self.use_cache
+            "use_cache": self.use_cache,
+            "ollama_available": self.ollama_available,
+            "mode": "mock" if not self.ollama_available else "real"
         })
         return base_telemetry

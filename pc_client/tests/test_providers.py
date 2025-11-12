@@ -11,14 +11,15 @@ async def test_voice_provider_initialization():
     config = {
         "asr_model": "test_asr",
         "tts_model": "test_tts",
-        "sample_rate": 16000
+        "sample_rate": 16000,
+        "use_mock": True  # Force mock mode for testing
     }
     
     provider = VoiceProvider(config)
     await provider.initialize()
     
-    assert provider.asr_model == "test_asr"
-    assert provider.tts_model == "test_tts"
+    assert provider.asr_model_name == "test_asr"
+    assert provider.tts_model_name == "test_tts"
     assert provider.sample_rate == 16000
     
     supported = provider.get_supported_tasks()
@@ -38,7 +39,7 @@ async def test_voice_provider_asr():
         task_id="asr-1",
         task_type=TaskType.VOICE_ASR,
         payload={
-            "audio_data": "base64_audio_data",
+            "audio_data": "dGVzdCBhdWRpbyBkYXRh",  # Valid base64: "test audio data"
             "format": "wav",
             "sample_rate": 16000
         }
@@ -109,13 +110,14 @@ async def test_vision_provider_initialization():
     config = {
         "detection_model": "test_model",
         "confidence_threshold": 0.7,
-        "max_detections": 20
+        "max_detections": 20,
+        "use_mock": True  # Force mock mode for testing
     }
     
     provider = VisionProvider(config)
     await provider.initialize()
     
-    assert provider.detection_model == "test_model"
+    assert provider.detection_model_name == "test_model"
     assert provider.confidence_threshold == 0.7
     assert provider.max_detections == 20
     
@@ -136,7 +138,7 @@ async def test_vision_provider_detection():
         task_id="detect-1",
         task_type=TaskType.VISION_DETECTION,
         payload={
-            "image_data": "base64_image_data",
+            "image_data": "dGVzdCBpbWFnZSBkYXRh",  # Valid base64: "test image data"
             "format": "jpeg",
             "width": 640,
             "height": 480
@@ -164,7 +166,7 @@ async def test_vision_provider_frame():
         task_id="frame-1",
         task_type=TaskType.VISION_FRAME,
         payload={
-            "frame_data": "base64_frame_data",
+            "frame_data": "dGVzdCBmcmFtZSBkYXRh",  # Valid base64: "test frame data"
             "frame_id": 123,
             "timestamp": 1234567890.0
         }

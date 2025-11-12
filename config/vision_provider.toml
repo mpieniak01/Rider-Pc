@@ -1,0 +1,53 @@
+# Vision Provider Configuration for Rider-PC
+# This configuration enables object detection and frame processing
+# using YOLOv8 with automatic fallback to mock mode.
+
+[vision]
+# Object Detection Model
+detection_model = "yolov8n"  # YOLOv8 model variant
+                             # Options:
+                             # - yolov8n: nano, fastest (3.2M params) - RECOMMENDED for PC
+                             # - yolov8s: small (11.2M params)
+                             # - yolov8m: medium (25.9M params)
+                             # - yolov8l: large (43.7M params)
+                             # - yolov8x: extra large (68.2M params)
+
+# Detection Parameters
+confidence_threshold = 0.5  # Minimum confidence for detections (0.0-1.0)
+max_detections = 10        # Maximum number of detections per frame
+iou_threshold = 0.45       # IoU threshold for NMS (Non-Maximum Suppression)
+
+# Mock Mode
+use_mock = false  # Set to true to force mock mode (for testing without models)
+                  # Model will auto-fallback to mock if not available
+
+# Provider Settings
+enabled = true
+priority = 8  # Task priority for detection (1-10, lower is higher priority)
+frame_priority = 1  # Frame processing priority (critical for navigation)
+
+# Performance Tuning
+max_concurrent_tasks = 3  # Maximum concurrent vision processing tasks
+timeout_seconds = 10      # Task timeout in seconds (shorter for real-time)
+image_size = 640         # Input image size for YOLO (640 is standard)
+
+# Frame Processing
+enable_frame_offload = true  # Enable frame offload from Rider-PI
+frame_buffer_size = 5       # Number of frames to buffer
+
+# Obstacle Detection
+obstacle_classes = [
+    "person",
+    "car",
+    "truck",
+    "chair",
+    "couch",
+    "dog",
+    "cat",
+    "bottle",
+    "cup"
+]  # Object classes considered as obstacles
+
+# Distance Estimation (simplified)
+enable_distance_estimation = true
+default_distance_meters = 2.0  # Default distance for detected obstacles

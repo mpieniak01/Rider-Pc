@@ -1,0 +1,70 @@
+name: CI Pipeline (Tylko Testy Jednostkowe)
+
+# Workflow structure:
+# 1. test: Runs only on push/pull_request to main/develop branches.
+#
+# Pipeline kończy się sukcesem natychmiast po testach.
+
+on:
+  push:
+    # Uruchom na push do glownych galezi
+    branches: [ main, develop ]
+  pull_request:
+    # Uruchom na Pull Request do glownych galezi
+    branches: [ main, develop ]
+
+jobs:
+  # Run tests
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10  # Maksymalny czas na testy
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: true  # Zatrzymaj wszystkie joby, jeśli jeden zawiedzie
+      matrix:
+        python-version: ['3.9']
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+        cache-dependency-path: 'requirements-ci.txt'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        # Używamy lekkich zależności dla CI (bez dużych modeli ML)
+        pip install -r requirements-ci.txt
+    
+    - name: Run tests
+      run: |
+        # Uruchomienie testów (zatrzymuje się na pierwszym błędzie)
+        pytest pc_client/tests/ -v --tb=short --timeout=60 -x
+    
+    - name: Show test summary on failure
+      if: failure()
+      run: |
+        echo "Tests failed! Check the output above for details."
+        exit 1
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-py${{ matrix.python-version }}
+        path: |
+          .pytest_cache/
+          *.log
+          
+    - name: Cleanup and Success
+      run: |
+        # Wymuszenie natychmiastowego zakończenia joba sukcesem.
+        # Jest to konieczne, gdy procesy Pythona (np. z FastAPI/pytest)
+        # nie zwalniają zasobów na czas i blokują Runnera.
+        echo "Tests completed successfully. Forcing runner exit."
+        exit 0

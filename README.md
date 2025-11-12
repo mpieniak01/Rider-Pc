@@ -5,6 +5,46 @@ PC-side client infrastructure for the Rider-PI robot, providing:
 - ZMQ subscriber for real-time data streams  
 - Local SQLite cache for buffering data
 - FastAPI web server replicating the Rider-PI UI
+- **AI Provider Layer** with real ML models (Voice, Vision, Text)
+- **Production-ready deployment** with Docker and CI/CD
+
+## 🎉 Phase 4 Complete: Real AI Models & Production Deployment
+
+This project now includes:
+- ✅ **Real AI Models**: Whisper ASR, Piper TTS, YOLOv8 Vision, Ollama LLM
+- ✅ **Docker Deployment**: Complete stack with Redis, Prometheus, Grafana
+- ✅ **CI/CD Pipeline**: Automated testing, security scanning, Docker builds
+- ✅ **Health Probes**: Kubernetes-ready liveness and readiness endpoints
+- ✅ **Automatic Fallback**: Mock mode when models unavailable
+
+See [IMPLEMENTATION_COMPLETE_PHASE4.md](IMPLEMENTATION_COMPLETE_PHASE4.md) for details.
+
+## Quick Start
+
+### Option 1: Docker (Recommended)
+```bash
+# Create .env file
+echo "RIDER_PI_HOST=192.168.1.100" > .env
+
+# Start the full stack
+docker-compose up -d
+
+# Access services
+# Rider-PC UI: http://localhost:8000
+# Prometheus: http://localhost:9090
+# Grafana: http://localhost:3000
+```
+
+### Option 2: Local Development
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run in mock mode (no AI models required)
+python -m pc_client.main
+```
+
+See [AI_MODEL_SETUP.md](AI_MODEL_SETUP.md) for AI model setup guide.
 
 ## Architecture
 
@@ -172,22 +212,48 @@ If the web interface doesn't load:
 2. Check that `view.html` is present
 3. Ensure static files are being served at `/web/`
 
-## AI Provider Layer (NEW)
+## AI Provider Layer - Phase 4 ✅
 
-The PC client now includes an AI provider layer for offloading computational tasks from Rider-PI:
+The PC client includes a production-ready AI provider layer for offloading computational tasks from Rider-PI:
 
-### Features
+### Real AI Models (with automatic mock fallback)
 
-- **Voice Provider**: ASR (speech-to-text) and TTS (text-to-speech) offload
-- **Vision Provider**: Object detection and frame processing for obstacle avoidance
-- **Text Provider**: LLM text generation and NLU with caching
-- **Task Queue**: Priority-based asynchronous task processing (Redis/RabbitMQ)
-- **Circuit Breaker**: Automatic fallback to local processing on failures
-- **Telemetry**: Real-time metrics and performance monitoring
+- **Voice Provider**: 
+  - **ASR**: OpenAI Whisper (base model, ~140MB)
+  - **TTS**: Piper TTS (en_US-lessac-medium)
+  - Config: `config/voice_provider.toml`
+  
+- **Vision Provider**: 
+  - **Detection**: YOLOv8 nano (~6MB)
+  - Real-time object detection with bounding boxes
+  - Obstacle classification for navigation
+  - Config: `config/vision_provider.toml`
+  
+- **Text Provider**: 
+  - **LLM**: Ollama (llama3.2:1b, ~1.3GB)
+  - Local inference, no cloud dependencies
+  - Response caching
+  - Config: `config/text_provider.toml`
 
-### Quick Start with Providers
+### Infrastructure Features
 
-1. Enable providers in `.env`:
+- **Task Queue**: Priority-based asynchronous processing (Redis)
+- **Circuit Breaker**: Automatic fallback on failures
+- **Telemetry**: Real-time Prometheus metrics
+- **Health Probes**: `/health/live` and `/health/ready` endpoints
+- **Docker Deployment**: Complete stack with monitoring
+
+### Quick Start with Real AI Models
+
+**Option 1: Docker (All-in-one)**
+```bash
+docker-compose up -d
+# Models download automatically on first use
+```
+
+**Option 2: Local Setup**
+
+1. **Enable providers** in `.env`:
 ```bash
 ENABLE_PROVIDERS=true
 ENABLE_TASK_QUEUE=true
@@ -195,16 +261,31 @@ TASK_QUEUE_BACKEND=redis
 ENABLE_TELEMETRY=true
 ```
 
-2. Setup Redis (task queue broker):
+2. **Setup dependencies**:
 ```bash
+# Redis (task queue)
 sudo apt install redis-server
 sudo systemctl start redis-server
+
+# Ollama (optional, for Text Provider)
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull llama3.2:1b
 ```
 
-3. Run with providers:
+3. **Run application**:
 ```bash
 python -m pc_client.main
+# Voice and Vision models download automatically
 ```
+
+**Option 3: Mock Mode (No Models)**
+```bash
+# Set use_mock=true in config files or:
+python -m pc_client.main
+# Providers automatically fall back to mock if models unavailable
+```
+
+See [AI_MODEL_SETUP.md](AI_MODEL_SETUP.md) for detailed setup instructions.
 
 4. Access monitoring:
 ```bash

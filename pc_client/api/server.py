@@ -2,6 +2,7 @@
 
 import logging
 import asyncio
+import time
 from pathlib import Path
 from typing import Dict, Any
 
@@ -112,9 +113,64 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
     
     @app.get("/healthz")
     async def healthz() -> JSONResponse:
-        """Health check endpoint."""
+        """Health check endpoint (deprecated, use /health/live)."""
         data = cache.get("healthz", {"ok": True, "status": "ok"})
         return JSONResponse(content=data)
+    
+    @app.get("/health/live")
+    async def health_live() -> JSONResponse:
+        """
+        Liveness probe endpoint.
+        Returns 200 if the application is running and responsive.
+        Used by container orchestrators to determine if the app should be restarted.
+        """
+        return JSONResponse(content={
+            "status": "alive",
+            "timestamp": time.time()
+        })
+    
+    @app.get("/health/ready")
+    async def health_ready() -> JSONResponse:
+        """
+        Readiness probe endpoint.
+        Returns 200 if the application is ready to serve requests.
+        Checks critical components: cache, providers, and queue.
+        Used by container orchestrators to determine if traffic should be routed to this instance.
+        """
+        # Check cache health
+        cache_healthy = True
+        cache_error = None
+        try:
+            cache.get("_health_check", None)
+        except Exception as e:
+            logger.error(f"Cache health check failed: {e}")
+            cache_healthy = False
+            cache_error = str(e)
+        
+        # Check if adapters are initialized
+        adapters_ready = (
+            hasattr(app.state, 'rest_adapter') and app.state.rest_adapter is not None and
+            hasattr(app.state, 'zmq_subscriber') and app.state.zmq_subscriber is not None
+        )
+        
+        # Overall readiness
+        ready = cache_healthy and adapters_ready
+        status_code = 200 if ready else 503
+        
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "status": "ready" if ready else "not_ready",
+                "timestamp": time.time(),
+                "checks": {
+                    "cache": {
+                        "status": "healthy" if cache_healthy else "unhealthy",
+                        "error": cache_error
+                    },
+                    "adapters": "ready" if adapters_ready else "not_ready"
+                }
+            }
+        )
     
     @app.get("/state")
     async def state() -> JSONResponse:
