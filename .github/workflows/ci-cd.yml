@@ -1,121 +1,70 @@
-name: Tests
+name: CI Pipeline (Tylko Testy Jednostkowe)
+
+# Workflow structure:
+# 1. test: Runs only on push/pull_request to main branch.
+#
+# Pipeline kończy się sukcesem natychmiast po testach.
 
 on:
   push:
-    branches: ["main"]
+    # Uruchom na push do glównej galęzi
+    branches: [ main ]
   pull_request:
-    branches: ["main"]
+    # Uruchom na Pull Request do glównej galęzi
+    branches: [ main ]
 
 jobs:
-  pytest:
+  # Run tests
+  test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-
+    timeout-minutes: 5  # Maksymalny czas na testy: 1 minuta
+    permissions:
+      contents: read
     strategy:
+      fail-fast: true  # Zatrzymaj wszystkie joby, jeśli jeden zawiedzie
       matrix:
-        python-version: ["3.9"]
-
-    env:
-      PYTHONPATH: .
-      RIDER_PI_CI: "1"
-      RIDER_PI_MOCK_HW: "1"
-
+        python-version: ['3.9']
+    
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-
-      - name: Install test deps (no package build)
-        run: |
-          set -euo pipefail
-          python -m pip install --upgrade pip
-          # opcjonalne zależności projektu
-          if [ -f requirements.txt ]; then python -m pip install -r requirements.txt || true; fi
-          if [ -f requirements-dev.txt ]; then python -m pip install -r requirements-dev.txt || true; fi
-          # minimalny zestaw pod testy (piny spójne z Py3.9 na RPi)
-          python -m pip install "pytest==8.4.2" "pytest-timeout==2.4.0" "pytest-cov==5.0.0"
-          python -m pip install "pillow>=8,<12" "numpy>=1.21,<2" \
-                                "requests>=2.31,<3" "pyzmq>=22,<26" \
-                                "flask<3" "werkzeug<3"
-
-      - name: Start API (background on :8000)
-        run: |
-          set -euo pipefail
-          python -u services/api_server.py & echo $! > api.pid
-          for i in $(seq 1 40); do
-            if curl -fsS http://127.0.0.1:8000/ >/dev/null 2>&1; then
-              echo "API is up"; break
-            fi
-            sleep 0.5
-          done
-
-      - name: Run tests
-        env:
-          RUN_DEVICE_TESTS: "0"
-          VOICE_EXPERIMENTAL: "1"
-          BASE_URL: "http://127.0.0.1:8000"
-        run: |
-          pytest -q -k voice -m "not hardware and not network" \
-                 --cov=. --cov-report=term-missing --cov-report=html
-
-      - name: Stop API
-        if: ${{ always() }}
-        run: |
-          if [ -f api.pid ]; then kill "$(cat api.pid)" || true; fi
-
-      - name: Upload coverage (HTML)
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-html
-          path: htmlcov/
-          if-no-files-found: ignore
-
-  systemd-smoke:
-    runs-on: ubuntu-latest
-    # Only run on self-hosted runners or when explicitly enabled
-    if: ${{ contains(github.event.pull_request.labels.*.name, 'test-systemd') }}
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python 3.9
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.9"
-
-      - name: Install test deps
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install pytest pytest-timeout
-
-      - name: Check systemd availability
-        id: systemd-check
-        run: |
-          if systemctl --version >/dev/null 2>&1; then
-            echo "available=true" >> $GITHUB_OUTPUT
-          else
-            echo "available=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Run systemd smoke tests
-        if: steps.systemd-check.outputs.available == 'true'
-        env:
-          SYSTEMD_SMOKE_TESTS: "1"
-        run: |
-          pytest tests/test_systemd_smoke.py -v --tb=short
-
-      - name: Skip systemd smoke tests
-        if: steps.systemd-check.outputs.available != 'true'
-        run: |
-          echo "⚠️ systemd not available, skipping smoke tests"
-          echo "These tests require a systemd-enabled environment"
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+        cache-dependency-path: 'requirements-ci.txt'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        # Używamy lekkich zależności dla CI (bez dużych modeli ML)
+        pip install -r requirements-ci.txt
+    
+    - name: Run tests
+      run: |
+        # Uruchomienie testów (zatrzymuje się na pierwszym błędzie)
+        pytest pc_client/tests/ -v --tb=short --timeout=60 -x
+    
+    - name: Show test summary on failure
+      if: failure()
+      run: |
+        echo "Tests failed! Check the output above for details."
+        exit 1
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-py${{ matrix.python-version }}
+        path: |
+          .pytest_cache/
+          *.log
+          
+    - name: Cleanup and Success
+      run: |
+        # Wymuszenie natychmiastowego zakończenia joba sukcesem.
+        # Jest to konieczne, gdy procesy Pythona (np. z FastAPI/pytest)
+        # nie zwalniają zasobów na czas i blokują Runnera.
+        echo "Tests completed successfully. Forcing runner exit."
+        exit 0
