@@ -17,7 +17,7 @@ jobs:
   # Run tests
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 5  # lekki bufor zamiast zewnętrznego 'timeout'
+    timeout-minutes: 5  # niewielki bufor, bez zewnętrznego 'timeout'
     permissions:
       contents: read
     strategy:
@@ -25,7 +25,7 @@ jobs:
       matrix:
         python-version: ['3.9']
 
-    # Zapobiega ładowaniu przypadkowych wtyczek pytesta z obrazu runners
+    # Blokujemy autoload losowych wtyczek pytesta na runnerze GHA
     env:
       PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
 
@@ -47,9 +47,13 @@ jobs:
 
       - name: Run tests
         run: |
-          # Uruchamiamy pytest bez zewnętrznego 'timeout', żeby uniknąć kodu 124.
-          # Dodatkowo ograniczamy wyjście i zatrzymujemy się na pierwszej porażce.
-          pytest pc_client/tests/ -q --maxfail=1 --tb=short
+          # Jawnie ładujemy pytest-asyncio (bo autoload wyłączony) + tryb auto.
+          # Dodajemy również limiter czasu, by uniknąć "zawisów".
+          pytest pc_client/tests/ \
+            -q --maxfail=1 --tb=short \
+            -p pytest_asyncio \
+            --asyncio-mode=auto \
+            --timeout=30 --timeout-method=thread
 
       - name: Show test summary on failure
         if: failure()
