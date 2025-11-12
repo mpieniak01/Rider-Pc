@@ -1,0 +1,180 @@
+# Prometheus Alert Rules for Rider-PC
+# This file defines alerting rules for monitoring the PC client infrastructure
+
+groups:
+  - name: rider_pc_alerts
+    interval: 30s
+    rules:
+      # Task Queue Alerts
+      
+      - alert: TaskQueueFull
+        expr: task_queue_size >= 95
+        for: 5m
+        labels:
+          severity: warning
+          component: task-queue
+        annotations:
+          summary: "Task queue is nearly full"
+          description: "Task queue size is {{ $value }}, approaching capacity of 100. This may lead to task rejections."
+      
+      - alert: TaskQueueCritical
+        expr: task_queue_size >= 98
+        for: 2m
+        labels:
+          severity: critical
+          component: task-queue
+        annotations:
+          summary: "Task queue is critically full"
+          description: "Task queue size is {{ $value }}, critically close to capacity. Immediate action required."
+      
+      # Provider Performance Alerts
+      
+      - alert: HighTaskFailureRate
+        expr: rate(provider_tasks_processed_total{status="failed"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          component: providers
+        annotations:
+          summary: "High task failure rate detected"
+          description: "Provider {{ $labels.provider }} has failure rate of {{ $value }}/s over the last 5 minutes."
+      
+      - alert: HighTaskLatency
+        expr: histogram_quantile(0.95, rate(provider_task_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: providers
+        annotations:
+          summary: "High task processing latency"
+          description: "P95 task latency for {{ $labels.provider }} is {{ $value }}s, exceeding threshold of 5s."
+      
+      - alert: CriticalTaskLatency
+        expr: histogram_quantile(0.95, rate(provider_task_duration_seconds_bucket[5m])) > 10
+        for: 2m
+        labels:
+          severity: critical
+          component: providers
+        annotations:
+          summary: "Critical task processing latency"
+          description: "P95 task latency for {{ $labels.provider }} is {{ $value }}s, critically high."
+      
+      # Service Health Alerts
+      
+      - alert: RiderPCAPIDown
+        expr: up{job="rider_pc_api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "Rider-PC API is down"
+          description: "The Rider-PC API server has been down for more than 1 minute."
+      
+      - alert: NodeExporterDown
+        expr: up{job="node"} == 0
+        for: 2m
+        labels:
+          severity: warning
+          component: monitoring
+        annotations:
+          summary: "Node Exporter is down"
+          description: "System metrics collection is unavailable. Node Exporter has been down for 2 minutes."
+      
+      # System Resource Alerts
+      
+      - alert: HighCPUUsage
+        expr: 100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage on {{ $labels.instance }} is {{ $value }}%, exceeding 80% threshold."
+      
+      - alert: CriticalCPUUsage
+        expr: 100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 95
+        for: 5m
+        labels:
+          severity: critical
+          component: system
+        annotations:
+          summary: "Critical CPU usage detected"
+          description: "CPU usage on {{ $labels.instance }} is {{ $value }}%, critically high."
+      
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 10m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage on {{ $labels.instance }} is {{ $value }}%, exceeding 85% threshold."
+      
+      - alert: CriticalMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 95
+        for: 5m
+        labels:
+          severity: critical
+          component: system
+        annotations:
+          summary: "Critical memory usage detected"
+          description: "Memory usage on {{ $labels.instance }} is {{ $value }}%, critically high. Risk of OOM killer."
+      
+      - alert: LowDiskSpace
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 15
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "Low disk space"
+          description: "Disk space on {{ $labels.instance }} is only {{ $value }}% available."
+      
+      - alert: CriticalDiskSpace
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 5
+        for: 2m
+        labels:
+          severity: critical
+          component: system
+        annotations:
+          summary: "Critical disk space"
+          description: "Disk space on {{ $labels.instance }} is critically low at {{ $value }}% available."
+      
+      # Circuit Breaker Alerts
+      
+      - alert: CircuitBreakerOpen
+        expr: circuit_breaker_state{state="open"} == 1
+        for: 5m
+        labels:
+          severity: warning
+          component: circuit-breaker
+        annotations:
+          summary: "Circuit breaker is open"
+          description: "Circuit breaker for {{ $labels.provider }} is open, indicating repeated failures. Fallback mode active."
+      
+      # Cache Alerts
+      
+      - alert: LowCacheHitRate
+        expr: rate(cache_hits_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])) < 0.5
+        for: 15m
+        labels:
+          severity: warning
+          component: cache
+        annotations:
+          summary: "Low cache hit rate"
+          description: "Cache hit rate is {{ $value }}, below 50% threshold. Consider investigating cache effectiveness."
+      
+      # Network Alerts
+      
+      - alert: HighNetworkErrors
+        expr: rate(node_network_receive_errs_total[5m]) + rate(node_network_transmit_errs_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: network
+        annotations:
+          summary: "High network error rate"
+          description: "Network errors on {{ $labels.device }} at {{ $value }}/s, indicating potential network issues."

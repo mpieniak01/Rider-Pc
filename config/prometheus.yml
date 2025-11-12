@@ -1,0 +1,84 @@
+# Prometheus Configuration for Rider-PC
+# This file configures Prometheus to scrape metrics from various services
+
+global:
+  scrape_interval: 15s      # How often to scrape targets
+  evaluation_interval: 15s  # How often to evaluate rules
+  external_labels:
+    cluster: 'rider-pc'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - 'localhost:9093'
+
+# Load alert rules
+rule_files:
+  - 'prometheus-alerts.yml'
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          instance: 'prometheus-server'
+
+  # Node Exporter - System metrics (CPU, Memory, Disk, Network)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['localhost:9100']
+        labels:
+          instance: 'rider-pc-host'
+          service: 'node-exporter'
+
+  # Rider-PC API - FastAPI application metrics
+  - job_name: 'rider_pc_api'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['localhost:8000']
+        labels:
+          instance: 'rider-pc-api'
+          service: 'fastapi'
+          component: 'api-server'
+
+  # Redis Exporter - Task queue metrics
+  # Uncomment if you install redis_exporter
+  # - job_name: 'redis'
+  #   static_configs:
+  #     - targets: ['localhost:9121']
+  #       labels:
+  #         instance: 'rider-pc-redis'
+  #         service: 'redis'
+  #         component: 'task-queue'
+
+  # RabbitMQ - Alternative task queue (if used)
+  # Uncomment if using RabbitMQ instead of Redis
+  # - job_name: 'rabbitmq'
+  #   static_configs:
+  #     - targets: ['localhost:15692']
+  #       labels:
+  #         instance: 'rider-pc-rabbitmq'
+  #         service: 'rabbitmq'
+  #         component: 'task-queue'
+
+  # Blackbox Exporter - Endpoint health checks
+  # Uncomment if you want to probe endpoints
+  # - job_name: 'blackbox'
+  #   metrics_path: /probe
+  #   params:
+  #     module: [http_2xx]
+  #   static_configs:
+  #     - targets:
+  #       - http://localhost:8000/healthz
+  #   relabel_configs:
+  #     - source_labels: [__address__]
+  #       target_label: __param_target
+  #     - source_labels: [__param_target]
+  #       target_label: instance
+  #     - target_label: __address__
+  #       replacement: localhost:9115
