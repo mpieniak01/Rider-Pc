@@ -9,6 +9,22 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 
+# Import metrics lazily to avoid circular imports
+_metrics_imported = False
+_task_duration_seconds = None
+
+
+def _import_metrics():
+    """Lazy import of metrics to avoid circular dependencies."""
+    global _metrics_imported, _task_duration_seconds
+    if not _metrics_imported:
+        try:
+            from pc_client.telemetry.metrics import task_duration_seconds
+            _task_duration_seconds = task_duration_seconds
+            _metrics_imported = True
+        except ImportError:
+            pass
+
 
 class TaskType(str, Enum):
     """Supported task types."""
@@ -174,6 +190,15 @@ class BaseProvider(ABC):
             self.logger.info(
                 f"Task {task.task_id} completed in {processing_time_ms:.2f}ms"
             )
+            
+            # Record metrics
+            _import_metrics()
+            if _task_duration_seconds:
+                provider_name = self.name.replace("Provider", "")
+                _task_duration_seconds.labels(
+                    provider=provider_name,
+                    task_type=task.task_type.value
+                ).observe(processing_time_ms / 1000.0)
             
             return result
             
