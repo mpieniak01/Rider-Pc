@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Rider-Pi — Google Feed</title>
+  <link rel="stylesheet" href="/web/assets/dashboard-common.css">
+  <style>
+    :root { --pad: 16px; --gap: 12px; }
+    body{ font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif; margin:0; padding:0; background:#0e1823; color:#e6eef7; }
+    .wrap{max-width:1100px;margin:0 auto;padding:var(--pad);}
+    h1{font-size:20px;margin:0 0 var(--pad)}
+    .card{ background:#0f2030; border:1px solid #1e3a56; border-radius:16px; box-shadow:0 1px 8px rgba(0,0,0,.25); padding:var(--pad); margin:0 0 var(--pad); }
+    .row{display:flex;flex-wrap:wrap;gap:var(--gap);align-items:center;margin:8px 0}
+    .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;font-size:13px;border:1px solid #24425e;background:#0b1a27}
+    .pill.ok{color:#6de28a;border-color:#2c6b48;background:#0d2418}
+    .pill.warn{color:#f0c36d;border-color:#7a6434;background:#2a2418}
+    .pill.err{color:#ff8080;border-color:#8a3a3a;background:#2a1818}
+    .pill.off{color:#b7cee3;border-color:#24425e;background:#0b1a27}
+    .muted{opacity:.85; color:#b7cee3}
+    .spacer{flex:1}
+    a{color:#98c7ff; text-decoration:none} a:hover{text-decoration:underline}
+    pre{background:#0b1a27;border:1px solid #1c3349;border-radius:8px;padding:12px;overflow:auto;font-size:13px;line-height:1.5}
+    .data-row{display:flex;gap:8px;margin:4px 0;font-size:14px}
+    .data-label{color:#b7cee3;min-width:120px}
+    .data-value{color:#e6eef7}
+    .spinner{display:inline-block;width:16px;height:16px;border:2px solid #24425e;border-top-color:#6de28a;border-radius:50%;animation:spin 0.8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body data-page="home">
+<div data-dashboard-menu-target></div>
+<div class="wrap">
+  
+  <h1>
+    Rider-Pi — Google Feed
+    <span id="stateBadge" class="pill warn">
+      <span class="spinner"></span> Loading...
+    </span>
+  </h1>
+
+  <!-- Status Card -->
+  <div class="card">
+    <h2 style="font-size:16px;margin:0 0 12px">Status & Metrics</h2>
+    
+    <div class="data-row">
+      <div class="data-label">State:</div>
+      <div class="data-value" id="stateValue">—</div>
+    </div>
+    
+    <div class="data-row">
+      <div class="data-label">Last Update:</div>
+      <div class="data-value" id="timestampValue">—</div>
+    </div>
+    
+    <div class="data-row">
+      <div class="data-label">Requests (24h):</div>
+      <div class="data-value" id="requestsValue">—</div>
+    </div>
+    
+    <div class="data-row">
+      <div class="data-label">Errors (24h):</div>
+      <div class="data-value" id="errorsValue">—</div>
+    </div>
+  </div>
+
+  <!-- Snapshot Card -->
+  <div class="card">
+    <h2 style="font-size:16px;margin:0 0 12px">Last Snapshot</h2>
+    <pre id="snapshotData" class="muted">No data available</pre>
+  </div>
+
+  <!-- Footer -->
+  <div class="row">
+    <a href="/web/view.html" class="muted">↩ dashboard</a>
+    <span class="muted" style="margin: 0 8px;">•</span>
+    <a href="/web/chat.html" class="muted">💬 chat</a>
+    <span class="muted" style="margin: 0 8px;">•</span>
+    <a href="/web/google_home.html" class="muted">🏠 Google Home</a>
+  </div>
+
+</div>
+
+<!-- App Logic -->
+<script type="module">
+  const POLL_INTERVAL_MS = 5000; // 5 seconds
+
+  const qs = (s) => document.querySelector(s);
+  
+  function formatTimestamp(ts) {
+    if (!ts || ts === 0) return '—';
+    const d = new Date(ts * 1000);
+    return d.toLocaleString('pl-PL', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  }
+
+  function updateStateBadge(state) {
+    const badge = qs('#stateBadge');
+    const stateMap = {
+      'ok': { text: 'OK', class: 'pill ok' },
+      'enabled': { text: 'Enabled', class: 'pill warn' },
+      'error': { text: 'Error', class: 'pill err' },
+      'off': { text: 'Off', class: 'pill off' }
+    };
+    
+    const config = stateMap[state] || { text: 'Unknown', class: 'pill warn' };
+    badge.textContent = config.text;
+    badge.className = config.class;
+  }
+
+  async function fetchStatus() {
+    try {
+      const response = await fetch('/api/google/status', { cache: 'no-store' });
+      const data = await response.json();
+      
+      // Update state badge
+      updateStateBadge(data.state || 'off');
+      
+      // Update status values
+      qs('#stateValue').textContent = data.state || 'unknown';
+      qs('#timestampValue').textContent = formatTimestamp(data.timestamp);
+      qs('#requestsValue').textContent = data.metrics?.requests_24h ?? 0;
+      qs('#errorsValue').textContent = data.metrics?.errors_24h ?? 0;
+      
+    } catch (e) {
+      console.error('Failed to fetch status:', e);
+      updateStateBadge('error');
+      qs('#stateValue').textContent = 'error';
+    }
+  }
+
+  async function fetchSnapshot() {
+    try {
+      const response = await fetch('/api/google/raw/last.json', { cache: 'no-store' });
+      
+      // Handle 404 (no snapshot) explicitly
+      if (response.status === 404) {
+        qs('#snapshotData').textContent = 'No snapshot available yet';
+        return;
+      }
+      
+      const data = await response.json();
+      
+      // Pretty print JSON
+      qs('#snapshotData').textContent = JSON.stringify(data, null, 2);
+      
+    } catch (e) {
+      console.error('Failed to fetch snapshot:', e);
+      qs('#snapshotData').textContent = 'Error loading snapshot';
+    }
+  }
+
+  async function updateAll() {
+    await Promise.all([fetchStatus(), fetchSnapshot()]);
+  }
+
+  // Initial update
+  updateAll();
+
+  // Poll every 5 seconds
+  setInterval(updateAll, POLL_INTERVAL_MS);
+</script>
+<script type="module" src="/web/assets/menu.js"></script>
+
+</body>
+</html>
