@@ -56,3 +56,7 @@ snapshots/
 tmp/
 .tmp/
 *.tmp
+
+# Cache database
+*.db
+*.db-journal
