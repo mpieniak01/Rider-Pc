@@ -1,23 +1,15 @@
 name: CI Pipeline (Tylko Testy Jednostkowe)
 
-# Workflow structure:
-# 1. test: Runs only on push/pull_request to main branch.
-#
-# Pipeline kończy się sukcesem natychmiast po testach.
-
 on:
   push:
-    # Uruchom na push do głównej gałęzi
     branches: [ main ]
   pull_request:
-    # Uruchom na Pull Request do głównej gałęzi
     branches: [ main ]
 
 jobs:
-  # Run tests
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 5  # niewielki bufor, bez zewnętrznego 'timeout'
+    timeout-minutes: 5
     permissions:
       contents: read
     strategy:
@@ -25,9 +17,10 @@ jobs:
       matrix:
         python-version: ['3.9']
 
-    # Blokujemy autoload losowych wtyczek pytesta na runnerze GHA
+    # Stabilność: blokujemy autoload i jawnie ładujemy potrzebne pluginy.
     env:
       PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+      PYTEST_ASYNCIO_MODE: "auto"   # zamiast --asyncio-mode=auto
 
     steps:
       - uses: actions/checkout@v4
@@ -42,17 +35,17 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # Lekkie zależności dla CI (bez dużych modeli ML)
           pip install -r requirements-ci.txt
 
       - name: Run tests
         run: |
-          # Jawnie ładujemy pytest-asyncio (bo autoload wyłączony) + tryb auto.
-          # Dodajemy również limiter czasu, by uniknąć "zawisów".
+          # Ładujemy pluginy po nazwie modułu:
+          #  - pytest_asyncio.plugin (rejestruje marker asyncio)
+          #  - pytest_timeout (dodaje --timeout)
           pytest pc_client/tests/ \
             -q --maxfail=1 --tb=short \
-            -p pytest_asyncio \
-            --asyncio-mode=auto \
+            -p pytest_asyncio.plugin \
+            -p pytest_timeout \
             --timeout=30 --timeout-method=thread
 
       - name: Show test summary on failure
@@ -60,8 +53,6 @@ jobs:
         run: |
           echo "Tests failed! Check the output above for details."
           exit 1
-
-      # KROK USUNIĘTY: Upload Artefaktów (często blokuje Runnera)
 
       - name: Final Success Acknowledgment
         if: success()
