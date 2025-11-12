@@ -1,5 +1,8 @@
 # Rider-PI Device — Architektura zmian pod integrację z providerem PC
 
+## Projekt Powiązany
+https://github.com/mpieniak01/Rider-Pi
+
 ## 1. Cel i zakres
 - Zapewnienie dynamicznego wyboru źródła usług AI (lokalne modele na Rider-PI vs. providery PC).
 - Rozszerzenie UI oraz API tak, aby operator mógł przełączać kanały obsługi głosu, tekstu i obrazu w locie.
@@ -62,4 +65,5 @@
 - Przygotuj testy integracyjne:
   - symulacja przełączenia providerów (pytest + fixtures ZMQ).
   - scenariusze degradacji (brak odpowiedzi PC, opóźnienia, błędy kontraktu).
+
 - Dodaj checklistę w runbooku operacyjnym dotyczącą monitorowania providerów i ręcznego przełączania.
