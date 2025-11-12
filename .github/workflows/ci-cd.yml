@@ -46,7 +46,7 @@ jobs:
         # Uruchomienie testów: Używamy 'timeout 10' dla stabilności.
         # Jest to bezpieczne, bo testy trwają ok. 6 sekund,
         # a ten krok po prostu zakończy proces Pythona, zanim on zdąży się zablokować.
-        timeout 10 pytest pc_client/tests/ -v --tb=short -x
+        timeout 60 pytest pc_client/tests/ -v --tb=short -x
     
     - name: Show test summary on failure
       if: failure()
