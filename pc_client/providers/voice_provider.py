@@ -2,8 +2,8 @@
 
 import logging
 import base64
-import io
 import tempfile
+import wave
 from typing import Dict, Any, Optional
 from pathlib import Path
 from pc_client.providers.base import (
@@ -157,13 +157,24 @@ class VoiceProvider(BaseProvider):
         # Process with real Whisper model if available
         if self.asr_model is not None:
             try:
-                # Decode base64 audio data
-                audio_bytes = base64.b64decode(audio_data)
+                # Decode base64 audio data with error handling
+                try:
+                    audio_bytes = base64.b64decode(audio_data)
+                    if len(audio_bytes) == 0:
+                        raise ValueError("Audio data is empty")
+                except (Exception, ValueError) as e:
+                    self.logger.error(f"[voice] Failed to decode audio data: {e}")
+                    return TaskResult(
+                        task_id=task.task_id,
+                        status=TaskStatus.FAILED,
+                        error=f"Invalid audio data: {str(e)}"
+                    )
                 
                 # Save to temporary file for Whisper
                 with tempfile.NamedTemporaryFile(suffix=f'.{audio_format}', delete=False) as tmp_file:
                     tmp_file.write(audio_bytes)
                     tmp_path = tmp_file.name
+                # File is now closed before transcription
                 
                 try:
                     # Transcribe with Whisper
@@ -260,6 +271,22 @@ class VoiceProvider(BaseProvider):
                 error="Missing text in payload"
             )
         
+        # Validate text input
+        if not text.strip():
+            return TaskResult(
+                task_id=task.task_id,
+                status=TaskStatus.FAILED,
+                error="Text cannot be empty"
+            )
+        
+        max_text_length = 5000  # Reasonable limit
+        if len(text) > max_text_length:
+            return TaskResult(
+                task_id=task.task_id,
+                status=TaskStatus.FAILED,
+                error=f"Text too long (max {max_text_length} chars)"
+            )
+        
         # Process with real Piper TTS if available
         if self.tts_available:
             try:
@@ -268,12 +295,11 @@ class VoiceProvider(BaseProvider):
                     output_path = tmp_file.name
                 
                 try:
-                    # Run Piper TTS (simple implementation)
+                    # Run Piper TTS (using stdin for safety - no shell injection)
                     # Note: This assumes piper is installed and in PATH
-                    # For production, you'd want more sophisticated voice selection
                     process = subprocess.run(
-                        ['echo', text, '|', 'piper', '--output_file', output_path],
-                        shell=True,
+                        ['piper', '--output_file', output_path],
+                        input=text.encode('utf-8'),
                         capture_output=True,
                         timeout=30
                     )
@@ -283,6 +309,16 @@ class VoiceProvider(BaseProvider):
                         with open(output_path, 'rb') as f:
                             audio_bytes = f.read()
                         audio_data = base64.b64encode(audio_bytes).decode('utf-8')
+                        
+                        # Calculate duration using wave module
+                        try:
+                            with wave.open(output_path, 'rb') as wf:
+                                frames = wf.getnframes()
+                                rate = wf.getframerate()
+                                duration_ms = int((frames / rate) * 1000)
+                        except Exception:
+                            # Fallback to rough estimate if wave parsing fails
+                            duration_ms = len(audio_bytes) // (self.sample_rate * 2 // 1000)
                         
                         self.logger.info(f"[voice] TTS completed for text: {text[:50]}...")
                         
@@ -300,7 +336,7 @@ class VoiceProvider(BaseProvider):
                                 "audio_data": audio_data,
                                 "format": "wav",
                                 "sample_rate": self.sample_rate,
-                                "duration_ms": len(audio_bytes) // (self.sample_rate * 2)  # Rough estimate
+                                "duration_ms": duration_ms
                             },
                             meta={
                                 "model": self.tts_model_name,

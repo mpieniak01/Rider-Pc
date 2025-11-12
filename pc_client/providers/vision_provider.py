@@ -3,9 +3,7 @@
 import logging
 import base64
 import io
-import tempfile
-from typing import Dict, Any, List, Optional
-from pathlib import Path
+from typing import Dict, Any, Optional
 from pc_client.providers.base import (
     BaseProvider,
     TaskEnvelope,
@@ -21,7 +19,6 @@ logger = logging.getLogger(__name__)
 try:
     from ultralytics import YOLO
     from PIL import Image
-    import numpy as np
     YOLO_AVAILABLE = True
 except ImportError:
     YOLO_AVAILABLE = False
@@ -139,9 +136,17 @@ class VisionProvider(BaseProvider):
         # Process with real YOLO model if available
         if self.detector is not None:
             try:
-                # Decode base64 image data
-                image_bytes = base64.b64decode(image_data)
-                image = Image.open(io.BytesIO(image_bytes))
+                # Decode base64 image data with error handling
+                try:
+                    image_bytes = base64.b64decode(image_data)
+                    image = Image.open(io.BytesIO(image_bytes))
+                except Exception as e:
+                    self.logger.error(f"[vision] Failed to decode image data: {e}")
+                    return TaskResult(
+                        task_id=task.task_id,
+                        status=TaskStatus.FAILED,
+                        error=f"Invalid image data: {str(e)}"
+                    )
                 
                 # Run YOLO detection
                 results = self.detector(image, conf=self.confidence_threshold, max_det=self.max_detections)
@@ -276,16 +281,30 @@ class VisionProvider(BaseProvider):
         # Process with real YOLO model if available
         if self.detector is not None:
             try:
-                # Decode base64 frame data
-                frame_bytes = base64.b64decode(frame_data)
-                frame = Image.open(io.BytesIO(frame_bytes))
+                # Decode base64 frame data with error handling
+                try:
+                    frame_bytes = base64.b64decode(frame_data)
+                    frame = Image.open(io.BytesIO(frame_bytes))
+                except Exception as e:
+                    self.logger.error(f"[vision] Failed to decode frame data: {e}")
+                    return TaskResult(
+                        task_id=task.task_id,
+                        status=TaskStatus.FAILED,
+                        error=f"Invalid frame data: {str(e)}"
+                    )
                 
                 # Run YOLO detection
                 results = self.detector(frame, conf=self.confidence_threshold)
                 
+                # Load obstacle classes from config, or default to YOLO COCO class names.
+                # See: https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/datasets/coco.yaml
+                obstacle_classes = set(self.config.get('obstacle_classes', [
+                    'person', 'bicycle', 'car', 'motorcycle', 'bus', 'truck',
+                    'chair', 'couch', 'dog', 'cat', 'bottle', 'cup'
+                ]))
+                
                 # Extract obstacles (focus on objects relevant for navigation)
                 obstacles = []
-                obstacle_classes = {'person', 'car', 'truck', 'chair', 'couch', 'dog', 'cat', 'bottle', 'cup'}
                 
                 for result in results:
                     boxes = result.boxes
@@ -298,9 +317,18 @@ class VisionProvider(BaseProvider):
                             confidence = float(box.conf[0])
                             x1, y1, x2, y2 = box.xyxy[0].tolist()
                             
-                            # Estimate distance based on box size (simplified)
+                            # Estimate distance based on box size (VERY ROUGH - PLACEHOLDER)
+                            # TODO: Replace with proper depth estimation or stereo vision
+                            # This is a temporary approximation and should not be used for safety-critical decisions.
+                            # Limitations:
+                            #   - The magic number 100000 is arbitrary and not calibrated to camera or scene geometry.
+                            #   - Box area alone does not account for object type or actual size.
+                            #   - No use of camera intrinsic parameters (focal length, sensor size, etc.).
+                            #   - Can produce negative or nonsensical values for large boxes.
                             box_area = (x2 - x1) * (y2 - y1)
-                            distance = max(0.5, 5.0 - (box_area / 100000))  # Very rough estimate
+                            # Assume larger boxes = closer objects (inverse relationship)
+                            # This is highly inaccurate and object-type dependent.
+                            distance = max(0.5, min(5.0, 5.0 - (box_area / 100000)))
                             
                             # Calculate angle from center
                             center_x = (x1 + x2) / 2

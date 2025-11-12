@@ -2,6 +2,7 @@
 
 import logging
 import asyncio
+import time
 from pathlib import Path
 from typing import Dict, Any
 
@@ -125,7 +126,7 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
         """
         return JSONResponse(content={
             "status": "alive",
-            "timestamp": __import__('time').time()
+            "timestamp": time.time()
         })
     
     @app.get("/health/ready")
@@ -136,20 +137,20 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
         Checks critical components: cache, providers, and queue.
         Used by container orchestrators to determine if traffic should be routed to this instance.
         """
-        import time
-        
         # Check cache health
         cache_healthy = True
+        cache_error = None
         try:
             cache.get("_health_check", None)
         except Exception as e:
             logger.error(f"Cache health check failed: {e}")
             cache_healthy = False
+            cache_error = str(e)
         
         # Check if adapters are initialized
         adapters_ready = (
-            app.state.rest_adapter is not None and
-            app.state.zmq_subscriber is not None
+            hasattr(app.state, 'rest_adapter') and app.state.rest_adapter is not None and
+            hasattr(app.state, 'zmq_subscriber') and app.state.zmq_subscriber is not None
         )
         
         # Overall readiness
@@ -162,7 +163,10 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
                 "status": "ready" if ready else "not_ready",
                 "timestamp": time.time(),
                 "checks": {
-                    "cache": "healthy" if cache_healthy else "unhealthy",
+                    "cache": {
+                        "status": "healthy" if cache_healthy else "unhealthy",
+                        "error": cache_error
+                    },
                     "adapters": "ready" if adapters_ready else "not_ready"
                 }
             }

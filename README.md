@@ -286,13 +286,6 @@ python -m pc_client.main
 ```
 
 See [AI_MODEL_SETUP.md](AI_MODEL_SETUP.md) for detailed setup instructions.
-sudo systemctl start redis-server
-```
-
-3. Run with providers:
-```bash
-python -m pc_client.main
-```
 
 4. Access monitoring:
 ```bash
