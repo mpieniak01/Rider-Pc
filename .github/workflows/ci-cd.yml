@@ -61,7 +61,10 @@ jobs:
           .pytest_cache/
           *.log
           
-    - name: Finalize job
+    - name: Cleanup and Success
       run: |
-        # Zapewnia natychmiastowe zamknięcie joba po pomyślnym zakończeniu testów
-        echo "Tests completed and artifacts uploaded. Finishing job."
+        # Wymuszenie natychmiastowego zakończenia joba sukcesem.
+        # Jest to konieczne, gdy procesy Pythona (np. z FastAPI/pytest)
+        # nie zwalniają zasobów na czas i blokują Runnera.
+        echo "Tests completed successfully. Forcing runner exit."
+        exit 0
