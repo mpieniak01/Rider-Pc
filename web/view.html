@@ -234,8 +234,8 @@ const REFRESH_MS = 2000;
 const SNAP_STALE_S = 5;
 
 const el = id=>document.getElementById(id);
-const setTxt=(id,txt)=>{const e=el(id); if(e) e.textContent=txt}
-const setCls=(id,cls)=>{const e=el(id); if(e) e.className=cls}
+const setTxt=(id,txt)=>{const e=el(id); if(e) e.textContent=txt};
+const setCls=(id,cls)=>{const e=el(id); if(e) e.className=cls};
 const fmt=(n,d=1)=> (n==null? '—' : (typeof n==='number'? Number(n).toFixed(d): n));
 
 /* --- black preview helper --- */

@@ -407,7 +407,7 @@
     if(unit === 'rider-cam-preview.service') return t('motion.preview_cam');
     if(unit === 'rider-edge-preview.service') return t('motion.preview_edge');
     if(unit === 'rider-ssd-preview.service') return t('motion.preview_ssd');
-    return unit || 'n/a';
+    return unit ?? 'n/a';
   }
 
   const FEATURE_STATUS = {
