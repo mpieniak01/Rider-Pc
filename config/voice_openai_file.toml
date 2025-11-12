@@ -1,0 +1,64 @@
+# ---------------------------------------------------------------------------
+# Rider-Pi / config/voice_openai_file.toml
+# OpenAI (ASR + Chat + TTS) – tryb plikowy
+# Uwaga: walidator wymaga playback.backend = "aplay"
+# ---------------------------------------------------------------------------
+
+[capture]
+device        = "wm8960_in"
+sample_rate   = 16000
+channels      = 1
+sample_format = "S16_LE"
+
+[playback]
+backend = "aplay"         # wymagane przez walidator
+device  = "wm8960_out"    # KLUCZOWE: omijamy 'default', gramy przez alias ALSA
+volume  = 55
+
+[asr]
+backend  = "openai"
+model    = "whisper-1"
+language = "pl"
+
+[chat]
+backend       = "openai"
+model         = "gpt-4o-mini"
+language      = "pl"
+system_prompt = "Jesteś asystentem głosowym Rider-Pi. Odpowiadaj krótko po polsku."
+
+[tts]
+backend = "openai"
+format  = "wav"
+voice   = "ash"
+
+[nlu]
+backend        = "openai"      # dozwolone: dummy | openai | passthrough
+chat_threshold = 0.6
+llm_model      = "gpt-4o-mini"
+
+[nlu.command_keywords]
+stop        = ["stop", "przerwij"]
+volume_up   = ["głośniej", "głośniej proszę"]
+volume_down = ["ciszej", "ciszej proszę"]
+
+[hotword]
+enabled = false
+engine  = "ptt"
+
+[vad]
+mode             = 2
+frame_ms         = 20
+tail_ms          = 200
+energy_gate_dbfs = -27.0
+max_len_ms       = 5000
+
+[service]
+beep                 = false
+pre_speech_wait_ms   = 250
+mic_open_delay_ms    = 30
+post_tts_mute_ms     = 200
+min_capture_ms       = 350
+no_speech_timeout_ms = 1600
+silence_rms_gate     = 260
+save_audio           = false
+recordings_dir       = "/tmp/voice-recs"
