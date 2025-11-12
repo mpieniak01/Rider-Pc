@@ -6,31 +6,40 @@ on:
   pull_request:
     branches: [ main ]
 
+# Nie anuluj trwającego biegu, gdy wpadnie kolejny push do tej samej gałęzi/PR
+# (dzięki temu testy dociągną do końca i damy zielonego checka).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: read
+
     strategy:
       fail-fast: true
       matrix:
         python-version: ['3.9']
 
-    # Stabilność: blokujemy autoload i jawnie ładujemy potrzebne pluginy.
     env:
+      # Stabilność: nie ładuj losowych pluginów z runnera
       PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
-      PYTEST_ASYNCIO_MODE: "auto"   # zamiast --asyncio-mode=auto
+      # Tryb dla pytest-asyncio (zamiast flagi CLI)
+      PYTEST_ASYNCIO_MODE: "auto"
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'
-          cache-dependency-path: 'requirements-ci.txt'
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
 
       - name: Install dependencies
         run: |
@@ -39,9 +48,9 @@ jobs:
 
       - name: Run tests
         run: |
-          # Ładujemy pluginy po nazwie modułu:
-          #  - pytest_asyncio.plugin (rejestruje marker asyncio)
-          #  - pytest_timeout (dodaje --timeout)
+          # Jawne pluginy (autoload wyłączony):
+          # - pytest_asyncio.plugin: obsługa async i markera @pytest.mark.asyncio
+          # - pytest_timeout: per-test timeouty
           pytest pc_client/tests/ \
             -q --maxfail=1 --tb=short \
             -p pytest_asyncio.plugin \
