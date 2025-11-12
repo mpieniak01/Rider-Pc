@@ -1,5 +1,15 @@
 name: CI/CD Pipeline
 
+# Workflow structure:
+# 1. test: Runs on all pushes and PRs - must pass for workflow to succeed
+# 2. security-codeql: Runs after tests pass, only on push (not PRs)
+# 3. docker: Runs after tests pass, only on push (not PRs)
+# 4. integration: Runs after docker, only on push to main branch
+#
+# For PRs: Only 'test' job runs
+# For pushes to copilot/**: 'test', 'security-codeql', and 'docker' run
+# For pushes to main: All jobs run including 'integration'
+
 on:
   push:
     branches: [ main, develop, 'copilot/**' ]
@@ -10,6 +20,7 @@ jobs:
   # Run tests
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10  # Add timeout to prevent hanging
     permissions:
       contents: read
     strategy:
@@ -56,10 +67,13 @@ jobs:
   # Security scanning with CodeQL
   security-codeql:
     runs-on: ubuntu-latest
+    timeout-minutes: 15  # Add timeout for CodeQL analysis
     permissions:
       actions: read
       contents: read
       security-events: write
+    needs: [test]  # Run after tests pass
+    if: github.event_name == 'push'  # Only on push, not PR
     
     steps:
     - uses: actions/checkout@v4
@@ -76,6 +90,7 @@ jobs:
   # Build and scan Docker image
   docker:
     runs-on: ubuntu-latest
+    timeout-minutes: 20  # Add timeout for Docker build
     permissions:
       contents: read
       security-events: write
@@ -137,6 +152,7 @@ jobs:
   # Integration tests with docker-compose
   integration:
     runs-on: ubuntu-latest
+    timeout-minutes: 15  # Add timeout for integration tests
     permissions:
       contents: read
     needs: [docker]
