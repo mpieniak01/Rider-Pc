@@ -2,7 +2,7 @@
 
 import httpx
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -10,17 +10,49 @@ logger = logging.getLogger(__name__)
 class RestAdapter:
     """Adapter for consuming REST API from Rider-PI."""
     
-    def __init__(self, base_url: str, timeout: float = 5.0):
+    def __init__(
+        self, 
+        base_url: str, 
+        timeout: float = 5.0,
+        secure_mode: bool = False,
+        mtls_cert_path: Optional[str] = None,
+        mtls_key_path: Optional[str] = None,
+        mtls_ca_path: Optional[str] = None
+    ):
         """
         Initialize the REST adapter.
         
         Args:
             base_url: Base URL for Rider-PI API (e.g., http://robot-ip:8080)
             timeout: Request timeout in seconds
+            secure_mode: Enable secure mode with mTLS
+            mtls_cert_path: Path to client certificate (for mTLS)
+            mtls_key_path: Path to client private key (for mTLS)
+            mtls_ca_path: Path to CA certificate (for mTLS)
         """
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
-        self.client = httpx.AsyncClient(timeout=timeout)
+        
+        # Initialize httpx client based on secure mode
+        if secure_mode:
+            if mtls_cert_path and mtls_key_path and mtls_ca_path:
+                logger.info("RestAdapter initializing in SECURE mode (Production) with mTLS")
+                cert: Tuple[str, str] = (mtls_cert_path, mtls_key_path)
+                self.client = httpx.AsyncClient(
+                    timeout=timeout,
+                    cert=cert,
+                    verify=mtls_ca_path
+                )
+            else:
+                logger.warning(
+                    "SECURE_MODE=true but mTLS certificates not fully configured. "
+                    "Falling back to insecure mode. Please provide MTLS_CERT_PATH, "
+                    "MTLS_KEY_PATH, and MTLS_CA_PATH."
+                )
+                self.client = httpx.AsyncClient(timeout=timeout)
+        else:
+            logger.info("RestAdapter initializing in DEVELOPMENT mode (Insecure)")
+            self.client = httpx.AsyncClient(timeout=timeout)
     
     async def close(self):
         """Close the HTTP client."""

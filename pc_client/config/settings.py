@@ -47,6 +47,12 @@ class Settings:
     telemetry_zmq_port: int = field(default_factory=lambda: int(os.getenv("TELEMETRY_ZMQ_PORT", "5557")))
     telemetry_zmq_host: str = field(default_factory=lambda: os.getenv("TELEMETRY_ZMQ_HOST", "0.0.0.0"))
     
+    # Network security configuration
+    secure_mode: bool = field(default_factory=lambda: os.getenv("SECURE_MODE", "false").lower() == "true")
+    mtls_cert_path: Optional[str] = field(default_factory=lambda: os.getenv("MTLS_CERT_PATH"))
+    mtls_key_path: Optional[str] = field(default_factory=lambda: os.getenv("MTLS_KEY_PATH"))
+    mtls_ca_path: Optional[str] = field(default_factory=lambda: os.getenv("MTLS_CA_PATH"))
+    
     @property
     def rider_pi_base_url(self) -> str:
         """Get the base URL for Rider-PI API."""
