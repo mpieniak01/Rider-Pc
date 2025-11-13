@@ -335,4 +335,4 @@ Total storage for recommended models: ~2-3GB
 4. Test providers individually
 5. Deploy with Docker Compose
 
-See [IMPLEMENTATION_COMPLETE_PHASE4.md](IMPLEMENTATION_COMPLETE_PHASE4.md) for full deployment guide.
+See [IMPLEMENTATION_COMPLETE_PHASE4.md](PR/IMPLEMENTATION_COMPLETE_PHASE4.md) for full deployment guide.

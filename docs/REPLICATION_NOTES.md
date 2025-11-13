@@ -193,7 +193,7 @@ api-specs/
 - Set up provider discovery and negotiation
 
 ## Additional Resources
-- [Rider-Pc Architecture](pc_client_architecture.md)
-- [Rider-Pc Next Steps](pc_client_next_steps.md)
-- [Rider-Pi Device Architecture](rider_pi_device_architecture.md)
+- [Rider-Pc Architecture](ARCHITECTURE.md)
+- [Rider-Pc Next Steps](FUTURE_WORK.md)
+- [Rider-Pi Device Architecture](RIDER_PI_ARCH.md)
 - [Rider-Pi Project](https://github.com/mpieniak01/Rider-Pi)
