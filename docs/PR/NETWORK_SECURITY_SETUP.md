@@ -148,12 +148,12 @@ sudo systemctl enable wg-quick@wg0
 
 ### Update PC Client Configuration
 
-Update `.env` to use VPN addresses with secure mode:
+Update `.env` to use VPN addresses:
 ```bash
 RIDER_PI_HOST=10.0.0.1
-SECURE_MODE=true
-# VPN provides transport security, so mTLS is optional
-# Leave certificate paths unset to use VPN without mTLS
+# VPN provides transport security, so keep SECURE_MODE=false
+SECURE_MODE=false
+# Certificate paths not needed when using VPN
 ```
 
 ## Option 3: Production Mode - mTLS (Mutual TLS)

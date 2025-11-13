@@ -193,23 +193,27 @@ async def test_secure_mode_initialization_with_certificates(caplog):
     """Test REST adapter initializes correctly in secure mode with certificates."""
     with caplog.at_level(logging.INFO):
         with patch('pc_client.adapters.rest_adapter.httpx.AsyncClient') as mock_client:
-            adapter = RestAdapter(
-                base_url="https://test-robot:8443",
-                secure_mode=True,
-                mtls_cert_path="/path/to/cert.pem",
-                mtls_key_path="/path/to/key.pem",
-                mtls_ca_path="/path/to/ca.pem"
-            )
-            
-            assert adapter.client is not None
-            assert "SECURE mode (Production) with mTLS" in caplog.text
-            
-            # Verify that AsyncClient was called with cert and verify parameters
-            mock_client.assert_called_once()
-            call_kwargs = mock_client.call_args[1]
-            assert 'cert' in call_kwargs
-            assert call_kwargs['cert'] == ("/path/to/cert.pem", "/path/to/key.pem")
-            assert call_kwargs['verify'] == "/path/to/ca.pem"
+            with patch('pc_client.adapters.rest_adapter.Path') as mock_path:
+                # Mock Path.exists() to return True for all certificate files
+                mock_path.return_value.exists.return_value = True
+                
+                adapter = RestAdapter(
+                    base_url="https://test-robot:8443",
+                    secure_mode=True,
+                    mtls_cert_path="/path/to/cert.pem",
+                    mtls_key_path="/path/to/key.pem",
+                    mtls_ca_path="/path/to/ca.pem"
+                )
+                
+                assert adapter.client is not None
+                assert "SECURE mode (Production) with mTLS" in caplog.text
+                
+                # Verify that AsyncClient was called with cert and verify parameters
+                mock_client.assert_called_once()
+                call_kwargs = mock_client.call_args[1]
+                assert 'cert' in call_kwargs
+                assert call_kwargs['cert'] == ("/path/to/cert.pem", "/path/to/key.pem")
+                assert call_kwargs['verify'] == "/path/to/ca.pem"
 
 
 @pytest.mark.asyncio
@@ -244,3 +248,26 @@ async def test_secure_mode_partial_certificates_warning(caplog):
         assert "SECURE_MODE=true but mTLS certificates not fully configured" in caplog.text
         
         await adapter.close()
+
+
+@pytest.mark.asyncio
+async def test_secure_mode_nonexistent_certificate_files(caplog):
+    """Test REST adapter warns when certificate files don't exist."""
+    with caplog.at_level(logging.WARNING):
+        with patch('pc_client.adapters.rest_adapter.Path') as mock_path:
+            # Mock Path.exists() to return False for certificate files
+            mock_path.return_value.exists.return_value = False
+            
+            adapter = RestAdapter(
+                base_url="http://test-robot:8080",
+                secure_mode=True,
+                mtls_cert_path="/path/to/cert.pem",
+                mtls_key_path="/path/to/key.pem",
+                mtls_ca_path="/path/to/ca.pem"
+            )
+            
+            assert adapter.client is not None
+            assert "one or more certificate files not found" in caplog.text
+            assert "Falling back to insecure mode" in caplog.text
+            
+            await adapter.close()
