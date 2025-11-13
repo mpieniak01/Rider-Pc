@@ -60,7 +60,13 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
         logger.info("Starting Rider-PC Client API server...")
         
         # Initialize REST adapter
-        app.state.rest_adapter = RestAdapter(settings.rider_pi_base_url)
+        app.state.rest_adapter = RestAdapter(
+            base_url=settings.rider_pi_base_url,
+            secure_mode=settings.secure_mode,
+            mtls_cert_path=settings.mtls_cert_path,
+            mtls_key_path=settings.mtls_key_path,
+            mtls_ca_path=settings.mtls_ca_path
+        )
         logger.info(f"REST adapter initialized for {settings.rider_pi_base_url}")
         
         # Initialize ZMQ subscriber

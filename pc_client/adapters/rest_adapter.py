@@ -2,7 +2,8 @@
 
 import httpx
 import logging
-from typing import Any, Dict, Optional
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -10,17 +11,62 @@ logger = logging.getLogger(__name__)
 class RestAdapter:
     """Adapter for consuming REST API from Rider-PI."""
     
-    def __init__(self, base_url: str, timeout: float = 5.0):
+    def __init__(
+        self, 
+        base_url: str, 
+        timeout: float = 5.0,
+        secure_mode: bool = False,
+        mtls_cert_path: Optional[str] = None,
+        mtls_key_path: Optional[str] = None,
+        mtls_ca_path: Optional[str] = None
+    ):
         """
         Initialize the REST adapter.
         
         Args:
             base_url: Base URL for Rider-PI API (e.g., http://robot-ip:8080)
             timeout: Request timeout in seconds
+            secure_mode: Enable secure mode with mTLS. If True but any of the
+                certificate paths (mtls_cert_path, mtls_key_path, mtls_ca_path) are
+                not provided, falls back to insecure mode with a warning.
+            mtls_cert_path: Path to client certificate (required for mTLS when secure_mode=True)
+            mtls_key_path: Path to client private key (required for mTLS when secure_mode=True)
+            mtls_ca_path: Path to CA certificate (required for mTLS when secure_mode=True)
         """
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
-        self.client = httpx.AsyncClient(timeout=timeout)
+        
+        # Initialize httpx client based on secure mode
+        client_kwargs = {"timeout": timeout}
+        
+        if secure_mode:
+            if mtls_cert_path and mtls_key_path and mtls_ca_path:
+                # Validate certificate files exist
+                cert_file = Path(mtls_cert_path)
+                key_file = Path(mtls_key_path)
+                ca_file = Path(mtls_ca_path)
+                
+                if not all([cert_file.exists(), key_file.exists(), ca_file.exists()]):
+                    logger.warning(
+                        f"SECURE_MODE=true but one or more certificate files not found. "
+                        f"Cert: {cert_file.exists()}, Key: {key_file.exists()}, CA: {ca_file.exists()}. "
+                        f"Falling back to insecure mode."
+                    )
+                else:
+                    logger.info("RestAdapter initializing in SECURE mode (Production) with mTLS")
+                    cert: Tuple[str, str] = (mtls_cert_path, mtls_key_path)
+                    client_kwargs["cert"] = cert
+                    client_kwargs["verify"] = mtls_ca_path
+            else:
+                logger.warning(
+                    "SECURE_MODE=true but mTLS certificates not fully configured. "
+                    "Falling back to insecure mode. Please provide MTLS_CERT_PATH, "
+                    "MTLS_KEY_PATH, and MTLS_CA_PATH."
+                )
+        else:
+            logger.info("RestAdapter initializing in DEVELOPMENT mode (Insecure)")
+        
+        self.client = httpx.AsyncClient(**client_kwargs)
     
     async def close(self):
         """Close the HTTP client."""

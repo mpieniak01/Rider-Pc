@@ -2,9 +2,87 @@
 
 ## Overview
 
-This document describes the secure network channel setup between Rider-PI and the PC Client (WSL environment).
+This document describes the secure network channel setup between Rider-PI and the PC Client (WSL environment). The PC Client supports two modes of operation:
 
-## Option 1: WireGuard VPN (Recommended)
+- **Development Mode (Insecure)**: For local development without VPN/mTLS
+- **Production Mode (Secure)**: With VPN or mTLS for production deployments
+
+## Mode Selection
+
+The PC Client uses the `SECURE_MODE` environment variable to determine the connection mode:
+
+```bash
+# Development mode (default)
+SECURE_MODE=false
+
+# Production mode
+SECURE_MODE=true
+```
+
+### Development Mode
+
+In development mode (`SECURE_MODE=false`), the PC Client connects to Rider-PI without any encryption or certificate verification. This is suitable for:
+- Local network development
+- Testing and debugging
+- Scenarios where Rider-PI is on a trusted local network
+
+**Configuration:**
+```bash
+# .env file
+RIDER_PI_HOST=192.168.1.100
+RIDER_PI_PORT=8080
+SECURE_MODE=false
+```
+
+**Logs:**
+When starting in development mode, you will see:
+```
+INFO: RestAdapter initializing in DEVELOPMENT mode (Insecure)
+```
+
+### Production Mode
+
+In production mode (`SECURE_MODE=true`), the PC Client requires either VPN or mTLS configuration. If mTLS certificates are not provided, the client will log a warning and fall back to insecure mode.
+
+**Configuration:**
+```bash
+# .env file
+RIDER_PI_HOST=10.0.0.1  # or VPN IP
+RIDER_PI_PORT=8443      # HTTPS port for mTLS
+SECURE_MODE=true
+MTLS_CERT_PATH=/path/to/client-cert.pem
+MTLS_KEY_PATH=/path/to/client-key.pem
+MTLS_CA_PATH=/path/to/ca-cert.pem
+```
+
+**Logs:**
+When starting in production mode with certificates:
+```
+INFO: RestAdapter initializing in SECURE mode (Production) with mTLS
+```
+
+When starting in production mode without certificates:
+```
+WARNING: SECURE_MODE=true but mTLS certificates not fully configured. Falling back to insecure mode.
+```
+
+## Option 1: Development Mode (Local Network)
+
+For development and testing on a local network:
+
+1. Ensure Rider-PI is accessible on your local network
+2. Configure `.env`:
+   ```bash
+   RIDER_PI_HOST=192.168.1.100  # Your Rider-PI IP
+   RIDER_PI_PORT=8080
+   SECURE_MODE=false
+   ```
+3. Start the PC Client:
+   ```bash
+   python -m pc_client.main
+   ```
+
+## Option 2: Production Mode - WireGuard VPN (Recommended)
 
 WireGuard is a lightweight, modern VPN protocol that provides secure communication with minimal overhead.
 
@@ -73,9 +151,12 @@ sudo systemctl enable wg-quick@wg0
 Update `.env` to use VPN addresses:
 ```bash
 RIDER_PI_HOST=10.0.0.1
+# VPN provides transport security, so keep SECURE_MODE=false
+SECURE_MODE=false
+# Certificate paths not needed when using VPN
 ```
 
-## Option 2: mTLS (Mutual TLS)
+## Option 3: Production Mode - mTLS (Mutual TLS)
 
 For scenarios where VPN is not feasible, use mutual TLS authentication.
 
@@ -125,13 +206,17 @@ server {
 
 ### PC Client Configuration
 
-Update the REST adapter to use client certificates:
-```python
-client = httpx.AsyncClient(
-    cert=("client-cert.pem", "client-key.pem"),
-    verify="ca-cert.pem"
-)
+Update `.env` to use HTTPS endpoint with mTLS:
+```bash
+RIDER_PI_HOST=192.168.1.100  # or domain name
+RIDER_PI_PORT=8443           # HTTPS port with mTLS
+SECURE_MODE=true
+MTLS_CERT_PATH=/path/to/client-cert.pem
+MTLS_KEY_PATH=/path/to/client-key.pem
+MTLS_CA_PATH=/path/to/ca-cert.pem
 ```
+
+The REST adapter will automatically configure httpx to use the provided certificates for mutual TLS authentication.
 
 ## IP Addressing Plan
 
