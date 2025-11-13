@@ -202,5 +202,5 @@ pc_client/
 
 For issues or questions:
 - Check the main [README.md](README.md)
-- Review [pc_client_architecture.md](pc_client_architecture.md)
-- See API specs in [api-specs/](api-specs/)
+- Review [ARCHITECTURE.md](ARCHITECTURE.md)
+- See API specs in [../api-specs/](../api-specs/)

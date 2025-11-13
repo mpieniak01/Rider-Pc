@@ -17,7 +17,7 @@ This project now includes:
 - ✅ **Health Probes**: Kubernetes-ready liveness and readiness endpoints
 - ✅ **Automatic Fallback**: Mock mode when models unavailable
 
-See [IMPLEMENTATION_COMPLETE_PHASE4.md](IMPLEMENTATION_COMPLETE_PHASE4.md) for details.
+See [IMPLEMENTATION_COMPLETE_PHASE4.md](PR/IMPLEMENTATION_COMPLETE_PHASE4.md) for details.
 
 ## Quick Start
 
@@ -314,10 +314,10 @@ Key metrics exposed:
 
 ### Documentation
 
-- [Provider Implementation Guide](PROVIDER_IMPLEMENTATION_GUIDE.md) - How to use and extend providers
-- [Network Security Setup](NETWORK_SECURITY_SETUP.md) - VPN/mTLS configuration
-- [Task Queue Setup](TASK_QUEUE_SETUP.md) - Redis/RabbitMQ configuration
-- [Monitoring Setup](MONITORING_SETUP.md) - Prometheus/Grafana setup
+- [Provider Implementation Guide](PR/PROVIDER_IMPLEMENTATION_GUIDE.md) - How to use and extend providers
+- [Network Security Setup](PR/NETWORK_SECURITY_SETUP.md) - VPN/mTLS configuration
+- [Task Queue Setup](PR/TASK_QUEUE_SETUP.md) - Redis/RabbitMQ configuration
+- [Monitoring Setup](PR/MONITORING_SETUP.md) - Prometheus/Grafana setup
 
 ### Task Types
 
@@ -352,6 +352,6 @@ This project is part of the Rider-PI ecosystem.
 ## See Also
 
 - [Rider-PI Repository](https://github.com/mpieniak01/Rider-Pi)
-- [API Documentation](api-specs/README.md)
-- [Architecture Overview](pc_client_architecture.md)
-- [Provider Implementation Guide](PROVIDER_IMPLEMENTATION_GUIDE.md)
+- [API Documentation](../api-specs/README.md)
+- [Architecture Overview](ARCHITECTURE.md)
+- [Provider Implementation Guide](PR/PROVIDER_IMPLEMENTATION_GUIDE.md)
