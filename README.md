@@ -42,6 +42,19 @@ pip install -r requirements.txt
 python -m pc_client.main
 ```
 
+### Development Workflow
+
+- **Python**: develop with Python 3.11 (CI target) while keeping code compatible with Rider-PI’s Python 3.9.
+- **Tooling**: install lightweight dev deps and hooks:
+  ```bash
+  pip install -r requirements-ci.txt
+  pre-commit install
+  ```
+- **Checks**: use the Make targets to stay aligned with CI:
+  - `make lint` → `ruff check .`
+  - `make format` → `ruff format .`
+  - `make test` → pytest suite with async/timeouts configured like GitHub Actions.
+
 ## Documentation
 
 📚 **[Full Documentation](docs/README.md)** - Complete documentation and guides

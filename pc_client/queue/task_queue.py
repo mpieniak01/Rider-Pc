@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from typing import Optional, Dict, Any
-from queue import PriorityQueue
+from queue import PriorityQueue, Empty
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -102,24 +102,21 @@ class TaskQueue:
             Task envelope or None if timeout
         """
         try:
-            # Use asyncio.to_thread for sync queue operations
-            prioritized_task = await asyncio.wait_for(
-                asyncio.to_thread(self.queue.get),
-                timeout=timeout
+            prioritized_task = await asyncio.to_thread(
+                self.queue.get,
+                True,
+                timeout
             )
-            
-            self.logger.debug(
-                f"Dequeued task {prioritized_task.task.task_id} "
-                f"(queue size: {self.queue.qsize()})"
-            )
-            
-            # Update metrics
-            task_queue_size.labels(queue_name="main").set(self.queue.qsize())
-            
-            return prioritized_task.task
-            
-        except asyncio.TimeoutError:
+        except Empty:
             return None
+        
+        self.logger.debug(
+            f"Dequeued task {prioritized_task.task.task_id} "
+            f"(queue size: {self.queue.qsize()})"
+        )
+        
+        task_queue_size.labels(queue_name="main").set(self.queue.qsize())
+        return prioritized_task.task
     
     def size(self) -> int:
         """Get current queue size."""
