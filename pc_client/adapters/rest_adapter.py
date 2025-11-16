@@ -213,6 +213,62 @@ class RestAdapter:
             logger.error(f"Error fetching /api/bus/health: {e}")
             return {"error": str(e)}
 
+    async def get_ai_mode(self) -> Dict[str, Any]:
+        """Fetch current AI mode from Rider-PI."""
+        try:
+            response = await self.client.get(f"{self.base_url}/api/system/ai-mode")
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error fetching /api/system/ai-mode: {e}")
+            return {"error": str(e)}
+
+    async def set_ai_mode(self, mode: str) -> Dict[str, Any]:
+        """Set AI mode on Rider-PI."""
+        try:
+            response = await self.client.put(
+                f"{self.base_url}/api/system/ai-mode",
+                json={"mode": mode},
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error setting /api/system/ai-mode: {e}")
+            return {"error": str(e)}
+
+    async def get_providers_state(self) -> Dict[str, Any]:
+        """Fetch provider state information."""
+        try:
+            response = await self.client.get(f"{self.base_url}/api/providers/state")
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error fetching /api/providers/state: {e}")
+            return {"error": str(e)}
+
+    async def patch_provider(self, domain: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Update provider selection for a domain."""
+        try:
+            response = await self.client.patch(
+                f"{self.base_url}/api/providers/{domain}",
+                json=payload,
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error patching /api/providers/{domain}: {e}")
+            return {"error": str(e)}
+
+    async def get_providers_health(self) -> Dict[str, Any]:
+        """Fetch provider health information."""
+        try:
+            response = await self.client.get(f"{self.base_url}/api/providers/health")
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error fetching /api/providers/health: {e}")
+            return {"error": str(e)}
+
     async def get_resource(self, resource_name: str) -> Dict[str, Any]:
         """
         Get resource status from /api/resource/{resource_name}.

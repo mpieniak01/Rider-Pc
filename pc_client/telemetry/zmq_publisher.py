@@ -40,9 +40,19 @@ class ZMQTelemetryPublisher:
         try:
             self.context = zmq.Context()
             self.socket = self.context.socket(zmq.PUB)
-            self.socket.bind(self.endpoint)
+            endpoint = self.endpoint
+            mode = "connect"
+
+            # Allow opt-in binding by prefixing endpoint with "bind://"
+            if endpoint.startswith("bind://"):
+                endpoint = endpoint.replace("bind://", "", 1)
+                self.socket.bind(endpoint)
+                mode = "bind"
+            else:
+                self.socket.connect(endpoint)
+
             self._enabled = True
-            self.logger.info(f"ZMQ telemetry publisher initialized on {self.endpoint}")
+            self.logger.info(f"ZMQ telemetry publisher initialized ({mode} {endpoint})")
         except Exception as e:
             self.logger.error(f"Failed to initialize ZMQ publisher: {e}")
             self._enabled = False
@@ -136,6 +146,29 @@ class ZMQTelemetryPublisher:
         data = {'queue_stats': queue_stats, 'timestamp': time.time()}
 
         self.publish('telemetry.queue.metrics', data)
+
+    def publish_voice_asr_result(self, payload: Dict[str, Any]):
+        """Publish ASR results back to Rider-PI."""
+        import time as _time
+
+        data = dict(payload)
+        data.setdefault("ts", _time.time())
+        self.publish('voice.asr.result', data)
+
+    def publish_voice_tts_chunk(self, chunk: Dict[str, Any], meta: Dict[str, Any]):
+        """Publish synthesized audio chunk back to Rider-PI."""
+        import time as _time
+
+        data = {
+            'audio_data': chunk.get('audio_data'),
+            'format': chunk.get('format', 'wav'),
+            'sample_rate': chunk.get('sample_rate'),
+            'duration_ms': chunk.get('duration_ms'),
+            'meta': meta,
+            'ts': meta.get('timestamp') or _time.time(),
+            'task_id': chunk.get('task_id'),
+        }
+        self.publish('voice.tts.chunk', data)
 
     def close(self):
         """Close ZMQ publisher and cleanup resources."""

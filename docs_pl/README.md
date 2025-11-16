@@ -102,7 +102,17 @@ export CACHE_TTL_SECONDS="30"         # TTL cache w sekundach
 
 # Logowanie
 export LOG_LEVEL="INFO"               # Poziom logowania (DEBUG, INFO, WARNING, ERROR)
+
+# Providerzy / Offload wizji
+export ENABLE_PROVIDERS="true"
+export ENABLE_TASK_QUEUE="true"
+export ENABLE_VISION_OFFLOAD="true"
+export ENABLE_VOICE_OFFLOAD="true"
+export ENABLE_TEXT_OFFLOAD="true"
+export TELEMETRY_ZMQ_HOST="$RIDER_PI_HOST"  # PC publikuje vision.obstacle.enhanced
 ```
+
+Szczegółowy opis procesu offload znajdziesz w dokumencie [docs/PC_OFFLOAD_INTEGRATION.md](../docs/PC_OFFLOAD_INTEGRATION.md).
 
 ## Uruchamianie
 
@@ -250,22 +260,24 @@ Klient PC zawiera gotową do produkcji warstwę providerów AI do odciążenia z
 
 ### Prawdziwe Modele AI (z automatycznym fallbackiem do mock)
 
-- **Provider Głosu**: 
+> **Uwaga:** dawne pliki `config/vision_provider.toml`, `voice_provider.toml`, `text_provider.toml` zostały połączone w `config/providers.toml`, gdzie każda sekcja (`[vision]`, `[voice]`, `[text]`) zachowuje swoje ustawienia.
+
+- **Provider Głosu**:
   - **ASR**: OpenAI Whisper (model base, ~140MB)
   - **TTS**: Piper TTS (en_US-lessac-medium)
-  - Konfiguracja: `config/voice_provider.toml`
+  - Konfiguracja sekcji `[voice]` w `config/providers.toml`
   
-- **Provider Wizji**: 
+- **Provider Wizji**:
   - **Detekcja**: YOLOv8 nano (~6MB)
   - Wykrywanie obiektów w czasie rzeczywistym z ramkami ograniczającymi
   - Klasyfikacja przeszkód dla nawigacji
-  - Konfiguracja: `config/vision_provider.toml`
+  - Konfiguracja sekcji `[vision]` w `config/providers.toml`
   
-- **Provider Tekstu**: 
+- **Provider Tekstu**:
   - **LLM**: Ollama (llama3.2:1b, ~1.3GB)
   - Lokalne wnioskowanie, brak zależności chmurowych
   - Cachowanie odpowiedzi
-  - Konfiguracja: `config/text_provider.toml`
+  - Konfiguracja sekcji `[text]` w `config/providers.toml`
 
 ### Funkcje Infrastruktury
 
@@ -384,6 +396,6 @@ Ten projekt jest częścią ekosystemu Rider-PI.
 ## Zobacz Również
 
 - [Repozytorium Rider-PI](https://github.com/mpieniak01/Rider-Pi)
-- [Dokumentacja API](../api-specs_pl/README.md)
+- [Dokumentacja API](api-specs/README.md)
 - [Przegląd Architektury](ARCHITEKTURA.md)
 - [Przewodnik Implementacji Providerów](PR/PRZEWODNIK_IMPLEMENTACJI_PROVIDEROW.md)

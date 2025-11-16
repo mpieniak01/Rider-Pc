@@ -4,9 +4,15 @@ import asyncio
 import json
 import logging
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - Python 3.9 compatibility
+    import tomli as tomllib  # type: ignore
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.staticfiles import StaticFiles
@@ -18,8 +24,182 @@ from starlette.datastructures import MutableHeaders
 from pc_client.config import Settings
 from pc_client.cache import CacheManager
 from pc_client.adapters import RestAdapter, ZmqSubscriber
+from pc_client.queue import TaskQueue
+from pc_client.queue.task_queue import TaskQueueWorker
+from pc_client.providers import VisionProvider, VoiceProvider, TextProvider
+from pc_client.providers.base import TaskEnvelope, TaskType, TaskStatus
+from pc_client.telemetry import ZMQTelemetryPublisher
 
 logger = logging.getLogger(__name__)
+
+
+def _load_provider_config(config_path: str, section: Optional[str] = None) -> Dict[str, Any]:
+    """Load optional TOML config for providers."""
+    if not config_path:
+        return {}
+
+    file_path = Path(config_path)
+    if not file_path.exists():
+        logger.warning(f"Provider config not found at {config_path}, using defaults")
+        return {}
+
+    try:
+        with file_path.open("rb") as fp:
+            data = tomllib.load(fp)
+            if isinstance(data, dict):
+                if section:
+                    return data.get(section, data) or {}
+                return data
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.error(f"Failed to parse provider config {config_path}: {exc}")
+    return {}
+
+
+def _build_vision_frame_task(payload: Dict[str, Any], priority: int) -> Optional[TaskEnvelope]:
+    """Convert a vision.frame.offload payload into a TaskEnvelope."""
+    frame_data = payload.get("frame_jpeg") or payload.get("frame_data")
+    if not frame_data:
+        logger.debug("Skipping vision frame without frame_jpeg/frame_data")
+        return None
+
+    frame_id = payload.get("frame_id") or payload.get("rid") or str(uuid.uuid4())
+    timestamp = payload.get("timestamp") or payload.get("ts")
+
+    task_payload: Dict[str, Any] = {
+        "frame_data": frame_data,
+        "frame_id": frame_id,
+        "timestamp": timestamp,
+        "format": payload.get("format", "jpeg"),
+    }
+
+    for key in ("rid", "roi", "meta"):
+        if key in payload:
+            task_payload[key] = payload[key]
+
+    task_meta = {"source_topic": "vision.frame.offload", "frame_id": frame_id}
+
+    return TaskEnvelope(
+        task_id=f"vision-frame-{frame_id}",
+        task_type=TaskType.VISION_FRAME,
+        payload=task_payload,
+        meta=task_meta,
+        priority=priority,
+    )
+
+
+def _build_voice_asr_task(payload: Dict[str, Any], priority: int) -> Optional[TaskEnvelope]:
+    """Convert voice.asr.request payload into TaskEnvelope."""
+    audio_data = payload.get("chunk_pcm") or payload.get("audio_data")
+    if not audio_data:
+        logger.debug("Skipping voice request without audio data")
+        return None
+
+    request_id = payload.get("request_id") or payload.get("seq") or str(uuid.uuid4())
+    sample_rate = payload.get("sample_rate")
+    lang = payload.get("lang") or payload.get("language")
+    format_hint = payload.get("format", "wav")
+
+    task_payload = {
+        "audio_data": audio_data,
+        "format": format_hint,
+        "sample_rate": sample_rate,
+        "language": lang,
+    }
+
+    task_meta = {
+        "source_topic": "voice.asr.request",
+        "request_id": request_id,
+        "rid": payload.get("rid"),
+        "timestamp": payload.get("ts"),
+    }
+
+    return TaskEnvelope(
+        task_id=f"voice-asr-{request_id}",
+        task_type=TaskType.VOICE_ASR,
+        payload=task_payload,
+        meta=task_meta,
+        priority=priority,
+    )
+
+
+def _build_voice_tts_task(payload: Dict[str, Any], priority: int) -> Optional[TaskEnvelope]:
+    """Convert voice.tts.request payload into TaskEnvelope."""
+    text = payload.get("text")
+    if not text:
+        logger.debug("Skipping voice TTS request without text")
+        return None
+
+    request_id = payload.get("request_id") or payload.get("seq") or str(uuid.uuid4())
+
+    task_payload = {
+        "text": text,
+        "voice": payload.get("voice"),
+        "speed": payload.get("speed"),
+    }
+    task_meta = {
+        "source_topic": "voice.tts.request",
+        "request_id": request_id,
+        "ts": payload.get("ts"),
+    }
+
+    return TaskEnvelope(
+        task_id=f"voice-tts-{request_id}",
+        task_type=TaskType.VOICE_TTS,
+        payload=task_payload,
+        meta=task_meta,
+        priority=priority,
+    )
+
+
+def _vision_offload_requested(settings: Settings) -> bool:
+    """Return True if all toggles required for vision offload are enabled."""
+    return settings.enable_providers and settings.enable_task_queue and settings.enable_vision_offload
+
+
+def _voice_offload_requested(settings: Settings) -> bool:
+    """Return True if toggles required for voice offload are enabled."""
+    return settings.enable_providers and settings.enable_task_queue and settings.enable_voice_offload
+
+
+def _text_offload_requested(settings: Settings) -> bool:
+    """Return True if toggles required for text offload are enabled."""
+    return settings.enable_providers and settings.enable_text_offload
+
+
+def _get_provider_capabilities(settings: Settings) -> Dict[str, Any]:
+    """Build capability payload for Rider-PI handshake."""
+    vision_cfg = _load_provider_config(settings.vision_provider_config_path, "vision")
+    voice_cfg = _load_provider_config(settings.voice_provider_config_path, "voice")
+    text_cfg = _load_provider_config(settings.text_provider_config_path, "text")
+
+    def mode(enabled: bool) -> str:
+        return "pc" if enabled else "local"
+
+    return {
+        "vision": {
+            "version": vision_cfg.get("schema_version", "1.0.0"),
+            "features": ["frame_offload", "obstacle_enhanced"],
+            "frame_schema": vision_cfg.get("frame_schema", "vision.frame.v1"),
+            "model": vision_cfg.get("detection_model", settings.vision_model),
+            "priority": {"frame": int(vision_cfg.get("frame_priority", 1))},
+            "mode": mode(settings.enable_vision_offload),
+        },
+        "voice": {
+            "version": voice_cfg.get("schema_version", "1.0.0"),
+            "features": ["asr", "tts"],
+            "asr_model": voice_cfg.get("asr_model", settings.voice_model),
+            "tts_model": voice_cfg.get("tts_model", voice_cfg.get("voice", "piper")),
+            "sample_rate": voice_cfg.get("sample_rate", 16000),
+            "mode": mode(settings.enable_voice_offload),
+        },
+        "text": {
+            "version": text_cfg.get("schema_version", "1.0.0"),
+            "features": ["chat", "nlu"],
+            "model": text_cfg.get("model", settings.text_model),
+            "nlu_tasks": text_cfg.get("nlu_tasks", []),
+            "mode": mode(settings.enable_text_offload),
+        },
+    }
 
 
 def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
@@ -49,6 +229,17 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
     app.state.cache = cache
     app.state.rest_adapter = None
     app.state.zmq_subscriber = None
+    app.state.task_queue: Optional[TaskQueue] = None
+    app.state.providers: Dict[str, Any] = {}
+    app.state.provider_worker: Optional[TaskQueueWorker] = None
+    app.state.provider_worker_task: Optional[asyncio.Task] = None
+    app.state.telemetry_publisher: Optional[ZMQTelemetryPublisher] = None
+    app.state.vision_offload_enabled = False
+    app.state.vision_frame_priority = 1
+    app.state.voice_offload_enabled = False
+    app.state.voice_asr_priority = 5
+    app.state.voice_tts_priority = 6
+    app.state.text_provider: Optional[TextProvider] = None
     app.state.control_state = {
         "tracking": {"mode": "none", "enabled": False},
         "navigator": {"active": False, "strategy": "standard", "state": "idle"},
@@ -114,6 +305,30 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
     }
     app.state.event_subscribers: List[asyncio.Queue] = []
 
+    provider_domains = ("voice", "text", "vision")
+
+    def default_provider_state() -> Dict[str, Any]:
+        return {
+            "domains": {
+                domain: {"mode": "local", "status": "local_only", "changed_ts": None} for domain in provider_domains
+            },
+            "pc_health": {"reachable": False, "status": "unknown"},
+        }
+
+    def default_provider_health() -> Dict[str, Any]:
+        return {
+            domain: {
+                "status": "unknown",
+                "latency_ms": 0.0,
+                "success_rate": 1.0,
+                "last_check": None,
+            }
+            for domain in provider_domains
+        }
+
+    def default_ai_mode() -> Dict[str, Any]:
+        return {"mode": "local", "changed_ts": None}
+
     def publish_event(topic: str, data: Dict[str, Any]):
         """Publish server-sent events to all subscribers."""
         payload = {"topic": topic, "data": data, "ts": time.time()}
@@ -145,9 +360,14 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
         )
         logger.info(f"REST adapter initialized for {settings.rider_pi_base_url}")
 
+        # Initialize provider pipelines
+        await _initialize_vision_pipeline(app)
+        await _initialize_voice_pipeline(app)
+        await _initialize_text_provider(app)
+
         # Initialize ZMQ subscriber
         app.state.zmq_subscriber = ZmqSubscriber(
-            settings.zmq_pub_endpoint, topics=["vision.*", "motion.*", "robot.*", "navigator.*"]
+            settings.zmq_pub_endpoint, topics=["vision.*", "voice.*", "motion.*", "robot.*", "navigator.*"]
         )
 
         # Register ZMQ handlers to update cache
@@ -156,8 +376,54 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
             cache.set(f"zmq:{topic}", data)
             logger.debug(f"Cached ZMQ message for topic: {topic}")
 
-        for topic in ["vision.*", "motion.*", "robot.*", "navigator.*"]:
+        async def vision_frame_handler(topic: str, data: Dict[str, Any]):
+            """Convert Rider-PI vision frames into queue tasks."""
+            if not app.state.vision_offload_enabled or not app.state.task_queue:
+                return
+
+            task = _build_vision_frame_task(data, app.state.vision_frame_priority)
+            if task is None:
+                return
+
+            enqueued = await app.state.task_queue.enqueue(task)
+            if not enqueued:
+                logger.warning("Vision task queue is full – dropped frame %s", task.task_id)
+
+        async def voice_asr_handler(topic: str, data: Dict[str, Any]):
+            """Enqueue ASR requests coming from Rider-PI."""
+            if not app.state.voice_offload_enabled or not app.state.task_queue:
+                return
+
+            task = _build_voice_asr_task(data, app.state.voice_asr_priority)
+            if task is None:
+                return
+
+            enqueued = await app.state.task_queue.enqueue(task)
+            if not enqueued:
+                logger.warning("Voice ASR queue full – dropped request %s", task.task_id)
+
+        async def voice_tts_handler(topic: str, data: Dict[str, Any]):
+            """Enqueue TTS requests coming from Rider-PI."""
+            if not app.state.voice_offload_enabled or not app.state.task_queue:
+                return
+
+            task = _build_voice_tts_task(data, app.state.voice_tts_priority)
+            if task is None:
+                return
+
+            enqueued = await app.state.task_queue.enqueue(task)
+            if not enqueued:
+                logger.warning("Voice TTS queue full – dropped request %s", task.task_id)
+
+        for topic in ["vision.*", "voice.*", "motion.*", "robot.*", "navigator.*"]:
             app.state.zmq_subscriber.subscribe_topic(topic, cache_handler)
+
+        if app.state.vision_offload_enabled:
+            app.state.zmq_subscriber.subscribe_topic("vision.frame.offload", vision_frame_handler)
+
+        if app.state.voice_offload_enabled:
+            app.state.zmq_subscriber.subscribe_topic("voice.asr.request", voice_asr_handler)
+            app.state.zmq_subscriber.subscribe_topic("voice.tts.request", voice_tts_handler)
 
         # Start ZMQ subscriber in background
         asyncio.create_task(app.state.zmq_subscriber.start())
@@ -180,6 +446,31 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
             except asyncio.CancelledError:
                 pass
 
+        # Stop task queue worker / providers
+        if app.state.provider_worker:
+            await app.state.provider_worker.stop()
+
+        if app.state.provider_worker_task:
+            try:
+                await app.state.provider_worker_task
+            except asyncio.CancelledError:
+                pass
+
+        if app.state.telemetry_publisher:
+            app.state.telemetry_publisher.close()
+
+        for provider in app.state.providers.values():
+            try:
+                await provider.shutdown()
+            except Exception as exc:
+                logger.warning(f"Failed to shutdown provider {provider}: {exc}")
+
+        if app.state.text_provider:
+            try:
+                await app.state.text_provider.shutdown()
+            except Exception as exc:
+                logger.warning(f"Failed to shutdown TextProvider: {exc}")
+
         # Stop ZMQ subscriber
         if app.state.zmq_subscriber:
             await app.state.zmq_subscriber.stop()
@@ -191,6 +482,55 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
         logger.info("Shutdown complete")
 
     # API Endpoints
+    @app.get("/providers/capabilities")
+    async def providers_capabilities() -> JSONResponse:
+        """Expose provider capabilities for Rider-PI handshake."""
+        return JSONResponse(content=_get_provider_capabilities(settings))
+
+    @app.get("/api/providers/capabilities")
+    async def providers_capabilities_api() -> JSONResponse:
+        """API-prefixed alias."""
+        return await providers_capabilities()
+
+    @app.post("/providers/text/generate")
+    async def providers_text_generate(payload: Dict[str, Any]) -> JSONResponse:
+        """Generate text via TextProvider (chat/NLU)."""
+        provider: Optional[TextProvider] = app.state.text_provider
+        if provider is None:
+            raise HTTPException(status_code=503, detail="Text provider not initialized")
+
+        prompt = (payload or {}).get("prompt")
+        if not prompt:
+            raise HTTPException(status_code=400, detail="Missing 'prompt' in payload")
+
+        task = TaskEnvelope(
+            task_id=f"text-generate-{uuid.uuid4()}",
+            task_type=TaskType.TEXT_GENERATE,
+            payload={
+                "prompt": prompt,
+                "max_tokens": payload.get("max_tokens"),
+                "temperature": payload.get("temperature"),
+                "system_prompt": payload.get("system_prompt"),
+            },
+            meta={"mode": payload.get("mode", "chat"), "context": payload.get("context")},
+        )
+
+        result = await provider.process_task(task)
+        if result.status != TaskStatus.COMPLETED:
+            raise HTTPException(status_code=502, detail=result.error or "Text generation failed")
+
+        response_body = {
+            "task_id": result.task_id,
+            "text": (result.result or {}).get("text"),
+            "meta": result.meta,
+            "from_cache": (result.result or {}).get("from_cache", False),
+            "tokens_used": (result.result or {}).get("tokens_used"),
+        }
+        return JSONResponse(content=response_body)
+
+    @app.post("/api/providers/text/generate")
+    async def providers_text_generate_api(payload: Dict[str, Any]) -> JSONResponse:
+        return await providers_text_generate(payload)
 
     @app.get("/healthz")
     async def healthz() -> JSONResponse:
@@ -344,91 +684,133 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
         """Proxy snapshot images (e.g., obstacle annotations)."""
         return await proxy_remote_media(f"/snapshots/{snapshot_path}", request)
 
-    # Provider Control Endpoints
+    # AI mode & Provider Control Endpoints
+
+    @app.get("/api/system/ai-mode")
+    async def get_ai_mode_route() -> JSONResponse:
+        """Fetch AI mode from Rider-PI or cache."""
+        adapter: Optional[RestAdapter] = app.state.rest_adapter
+        cached = cache.get("ai_mode", default_ai_mode())
+        if adapter:
+            try:
+                data = await adapter.get_ai_mode()
+                if isinstance(data, dict) and data:
+                    cache.set("ai_mode", data)
+                    return JSONResponse(content=data)
+            except Exception as exc:
+                logger.error("Failed to fetch AI mode from Rider-PI: %s", exc)
+        if cached:
+            return JSONResponse(content=cached)
+        raise HTTPException(status_code=502, detail="Unable to fetch AI mode")
+
+    async def _set_ai_mode(payload: Dict[str, Any]) -> JSONResponse:
+        mode = str(payload.get("mode") or "").lower()
+        if mode not in {"local", "pc_offload"}:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Invalid mode. Must be 'local' or 'pc_offload'"},
+            )
+        adapter: Optional[RestAdapter] = app.state.rest_adapter
+        if not adapter:
+            return JSONResponse(
+                status_code=503,
+                content={"error": "REST adapter not initialized"},
+            )
+        result = await adapter.set_ai_mode(mode)
+        if isinstance(result, dict) and "error" not in result:
+            cache.set("ai_mode", result)
+            return JSONResponse(content=result)
+        logger.error("Failed to set AI mode via Rider-PI: %s", result)
+        return JSONResponse(content=result or {"error": "Failed to set mode"}, status_code=502)
+
+    @app.put("/api/system/ai-mode")
+    async def put_ai_mode_route(payload: Dict[str, Any]) -> JSONResponse:
+        return await _set_ai_mode(payload)
+
+    @app.post("/api/system/ai-mode")
+    async def post_ai_mode_route(payload: Dict[str, Any]) -> JSONResponse:
+        return await _set_ai_mode(payload)
 
     @app.get("/api/providers/state")
     async def providers_state() -> JSONResponse:
-        """
-        Get current state of all AI providers.
-        Mock implementation for Phase 3.
-        """
-        providers_data = cache.get(
-            "providers_state",
-            {
-                "voice": {"current": "local", "status": "online", "last_health_check": "2025-11-12T14:00:00Z"},
-                "text": {"current": "local", "status": "online", "last_health_check": "2025-11-12T14:00:00Z"},
-                "vision": {"current": "local", "status": "online", "last_health_check": "2025-11-12T14:00:00Z"},
-            },
-        )
-        return JSONResponse(content=providers_data)
+        """Fetch provider state information."""
+        adapter: Optional[RestAdapter] = app.state.rest_adapter
+        cached = cache.get("providers_state", default_provider_state())
+        if adapter:
+            try:
+                data = await adapter.get_providers_state()
+                if isinstance(data, dict) and data:
+                    cache.set("providers_state", data)
+                    return JSONResponse(content=data)
+            except Exception as exc:
+                logger.error("Failed to fetch provider state from Rider-PI: %s", exc)
+        if cached:
+            return JSONResponse(content=cached)
+        raise HTTPException(status_code=502, detail="Unable to fetch provider state")
 
     @app.patch("/api/providers/{domain}")
-    async def update_provider(domain: str) -> JSONResponse:
-        """
-        Update provider configuration for a specific domain.
-        Mock implementation for Phase 3.
-
-        Args:
-            domain: Provider domain (voice, text, vision)
-        """
-        # Validate domain
-        valid_domains = ["voice", "text", "vision"]
+    async def update_provider(domain: str, payload: Dict[str, Any]) -> JSONResponse:
+        """Update provider configuration for a specific domain."""
+        domain = (domain or "").lower()
+        valid_domains = {"voice", "text", "vision"}
         if domain not in valid_domains:
-            return JSONResponse(status_code=400, content={"error": f"Invalid domain. Must be one of {valid_domains}"})
+            return JSONResponse(
+                status_code=400,
+                content={"error": f"Invalid domain. Must be one of {sorted(valid_domains)}"},
+            )
+        target = str(payload.get("target") or "").lower()
+        if target not in {"local", "pc"}:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Invalid target. Must be 'local' or 'pc'."},
+            )
+        adapter: Optional[RestAdapter] = app.state.rest_adapter
+        if adapter:
+            forwarded_payload = {"target": target}
+            if "force" in payload:
+                forwarded_payload["force"] = bool(payload.get("force"))
+            result = await adapter.patch_provider(domain, forwarded_payload)
+            if isinstance(result, dict) and "error" not in result:
+                cached_state = cache.get("providers_state", default_provider_state())
+                domains = cached_state.get("domains") if isinstance(cached_state, dict) else None
+                if isinstance(domains, dict) and domain in domains:
+                    domains[domain]["mode"] = target
+                    domains[domain]["status"] = "pc_active" if target == "pc" else "local_only"
+                    domains[domain]["changed_ts"] = time.time()
+                    cache.set("providers_state", cached_state)
+                return JSONResponse(content=result)
+            logger.error("Failed to patch provider via Rider-PI: %s", result)
+            return JSONResponse(content=result or {"error": "Failed to update provider"}, status_code=502)
 
-        # Get current state
-        providers_state = cache.get(
-            "providers_state",
-            {
-                "voice": {"current": "local", "status": "online"},
-                "text": {"current": "local", "status": "online"},
-                "vision": {"current": "local", "status": "online"},
-            },
+        cached_state = cache.get("providers_state", default_provider_state())
+        domains = cached_state.setdefault("domains", {})
+        domain_entry = domains.get(domain, {"mode": "local", "status": "local_only", "changed_ts": None})
+        domain_entry["mode"] = target
+        domain_entry["status"] = "pc_active" if target == "pc" else "local_only"
+        domain_entry["changed_ts"] = time.time()
+        domains[domain] = domain_entry
+        cache.set("providers_state", cached_state)
+        return JSONResponse(
+            content={"success": True, "domain": domain, "new_state": domain_entry},
+            status_code=200,
         )
-
-        # Update the provider
-        # In real implementation, this would send command to Rider-PI
-        if domain in providers_state:
-            providers_state[domain]["current"] = "pc"  # Mock switching to PC
-            providers_state[domain]["status"] = "online"
-            cache.set("providers_state", providers_state)
-
-            logger.info(f"Provider {domain} switched to PC (mock)")
-
-            return JSONResponse(content={"success": True, "domain": domain, "new_state": providers_state[domain]})
-
-        return JSONResponse(status_code=404, content={"error": f"Provider {domain} not found"})
 
     @app.get("/api/providers/health")
     async def providers_health() -> JSONResponse:
-        """
-        Get health status of all providers.
-        Mock implementation for Phase 3.
-        """
-        health_data = cache.get(
-            "providers_health",
-            {
-                "voice": {
-                    "status": "healthy",
-                    "latency_ms": 45.2,
-                    "success_rate": 0.98,
-                    "last_check": "2025-11-12T14:00:00Z",
-                },
-                "text": {
-                    "status": "healthy",
-                    "latency_ms": 120.5,
-                    "success_rate": 0.95,
-                    "last_check": "2025-11-12T14:00:00Z",
-                },
-                "vision": {
-                    "status": "healthy",
-                    "latency_ms": 85.3,
-                    "success_rate": 0.99,
-                    "last_check": "2025-11-12T14:00:00Z",
-                },
-            },
-        )
-        return JSONResponse(content=health_data)
+        """Fetch provider health metrics."""
+        adapter: Optional[RestAdapter] = app.state.rest_adapter
+        cached = cache.get("providers_health", default_provider_health())
+        if adapter:
+            try:
+                data = await adapter.get_providers_health()
+                if isinstance(data, dict) and data:
+                    cache.set("providers_health", data)
+                    return JSONResponse(content=data)
+            except Exception as exc:
+                logger.error("Failed to fetch provider health from Rider-PI: %s", exc)
+        if cached:
+            return JSONResponse(content=cached)
+        raise HTTPException(status_code=502, detail="Unable to fetch provider health")
 
     @app.get("/api/services/graph")
     async def services_graph() -> JSONResponse:
@@ -782,6 +1164,141 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
             app.get(route_path)(make_page_handler(web_path / filename))
 
     return app
+
+
+async def _ensure_task_queue(app: FastAPI) -> None:
+    """Ensure task queue + worker exist when at least one provider is enabled."""
+    settings: Settings = app.state.settings
+
+    if app.state.task_queue:
+        return
+
+    queue = TaskQueue(max_size=settings.task_queue_max_size)
+
+    telemetry_endpoint = None
+    if settings.enable_telemetry or settings.enable_vision_offload or settings.enable_voice_offload:
+        telemetry_endpoint = settings.telemetry_zmq_endpoint
+
+    telemetry_publisher = (
+        ZMQTelemetryPublisher(telemetry_endpoint) if telemetry_endpoint else ZMQTelemetryPublisher(None)
+    )
+    worker = TaskQueueWorker(queue, app.state.providers, telemetry_publisher=telemetry_publisher)
+    worker_task = asyncio.create_task(worker.start())
+
+    app.state.task_queue = queue
+    app.state.provider_worker = worker
+    app.state.provider_worker_task = worker_task
+    app.state.telemetry_publisher = telemetry_publisher
+
+    logger.info("Task queue initialized (max_size=%s)", settings.task_queue_max_size)
+
+
+async def _initialize_vision_pipeline(app: FastAPI) -> None:
+    """Create TaskQueue/Provider worker for vision frame offload if enabled."""
+    settings: Settings = app.state.settings
+
+    if not _vision_offload_requested(settings):
+        logger.info(
+            "Vision offload disabled (ENABLE_PROVIDERS=%s, ENABLE_TASK_QUEUE=%s, ENABLE_VISION_OFFLOAD=%s)",
+            settings.enable_providers,
+            settings.enable_task_queue,
+            settings.enable_vision_offload,
+        )
+        return
+
+    await _ensure_task_queue(app)
+
+    vision_config = _load_provider_config(settings.vision_provider_config_path, "vision")
+    if settings.vision_model == "mock":
+        vision_config.setdefault("use_mock", True)
+
+    provider = VisionProvider(vision_config)
+
+    try:
+        await provider.initialize()
+    except Exception as exc:  # pragma: no cover - defensive log
+        logger.error(f"Failed to initialize VisionProvider: {exc}")
+        await provider.shutdown()
+        return
+
+    app.state.providers["vision"] = provider
+    app.state.vision_offload_enabled = True
+    app.state.vision_frame_priority = int(vision_config.get("frame_priority") or 1)
+
+    logger.info(
+        "Vision offload enabled (queue size=%s, frame priority=%s)",
+        settings.task_queue_max_size,
+        app.state.vision_frame_priority,
+    )
+
+
+async def _initialize_voice_pipeline(app: FastAPI) -> None:
+    """Enable TaskQueue + VoiceProvider for ASR/TTS offload."""
+    settings: Settings = app.state.settings
+
+    if not _voice_offload_requested(settings):
+        logger.info(
+            "Voice offload disabled (ENABLE_PROVIDERS=%s, ENABLE_TASK_QUEUE=%s, ENABLE_VOICE_OFFLOAD=%s)",
+            settings.enable_providers,
+            settings.enable_task_queue,
+            settings.enable_voice_offload,
+        )
+        return
+
+    await _ensure_task_queue(app)
+
+    voice_config = _load_provider_config(settings.voice_provider_config_path, "voice")
+    if settings.voice_model == "mock":
+        voice_config.setdefault("use_mock", True)
+
+    provider = VoiceProvider(voice_config)
+
+    try:
+        await provider.initialize()
+    except Exception as exc:  # pragma: no cover
+        logger.error(f"Failed to initialize VoiceProvider: {exc}")
+        await provider.shutdown()
+        return
+
+    app.state.providers["voice"] = provider
+    app.state.voice_offload_enabled = True
+    app.state.voice_asr_priority = int(voice_config.get("asr_priority") or voice_config.get("priority") or 5)
+    app.state.voice_tts_priority = int(voice_config.get("tts_priority") or (app.state.voice_asr_priority + 1))
+
+    logger.info(
+        "Voice offload enabled (ASR priority=%s, TTS priority=%s)",
+        app.state.voice_asr_priority,
+        app.state.voice_tts_priority,
+    )
+
+
+async def _initialize_text_provider(app: FastAPI) -> None:
+    """Initialize TextProvider for chat/NLU offload."""
+    settings: Settings = app.state.settings
+
+    if not _text_offload_requested(settings):
+        logger.info(
+            "Text offload disabled (ENABLE_PROVIDERS=%s, ENABLE_TEXT_OFFLOAD=%s)",
+            settings.enable_providers,
+            settings.enable_text_offload,
+        )
+        return
+
+    text_config = _load_provider_config(settings.text_provider_config_path, "text")
+    if settings.text_model == "mock":
+        text_config.setdefault("use_mock", True)
+
+    provider = TextProvider(text_config)
+
+    try:
+        await provider.initialize()
+    except Exception as exc:  # pragma: no cover
+        logger.error(f"Failed to initialize TextProvider: {exc}")
+        await provider.shutdown()
+        return
+
+    app.state.text_provider = provider
+    logger.info("Text offload enabled (model=%s)", text_config.get("model", settings.text_model))
 
 
 async def sync_data_periodically(app: FastAPI):

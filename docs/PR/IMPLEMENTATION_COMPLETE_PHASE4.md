@@ -22,7 +22,7 @@ Phase 4 requirements (Real AI Models Integration and Production Hardening) have 
   - Fast, lightweight synthesis
   - Automatic fallback to mock mode
   
-- **Configuration**: `config/voice_provider.toml`
+- **Configuration**: `[voice]` section in `config/providers.toml`
 
 #### Vision Provider (`pc_client/providers/vision_provider.py`)
 - **✅ Object Detection**: YOLOv8 nano integration
@@ -37,7 +37,7 @@ Phase 4 requirements (Real AI Models Integration and Production Hardening) have 
   - Publishes results to `vision.obstacle.enhanced`
   - Priority queue for critical navigation frames
   
-- **Configuration**: `config/vision_provider.toml`
+- **Configuration**: `[vision]` section in `config/providers.toml`
 
 #### Text Provider (`pc_client/providers/text_provider.py`)
 - **✅ LLM Integration**: Ollama local LLM server
@@ -50,7 +50,7 @@ Phase 4 requirements (Real AI Models Integration and Production Hardening) have 
   - Supports multiple NLU tasks
   - Configurable system prompts
   
-- **Configuration**: `config/text_provider.toml`
+- **Configuration**: `[text]` section in `config/providers.toml`
 
 ---
 
@@ -300,9 +300,9 @@ All provider configurations support:
 - **Priority settings**: Task queue priorities
 
 Configuration locations:
-- `config/voice_provider.toml`: Voice ASR/TTS settings
-- `config/vision_provider.toml`: Vision detection settings
-- `config/text_provider.toml`: Text LLM settings
+- `config/providers.toml` (`[voice]`): Voice ASR/TTS settings
+- `config/providers.toml` (`[vision]`): Vision detection settings
+- `config/providers.toml` (`[text]`): Text LLM settings
 - `config/prometheus.yml`: Prometheus scraping config
 - `config/prometheus-alerts.yml`: Alert rules
 - `config/grafana-dashboard.json`: Grafana dashboard

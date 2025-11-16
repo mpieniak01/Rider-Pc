@@ -281,15 +281,15 @@ PROVIDERS = {
 
 ## Konfiguracja
 
-### Pliki Konfiguracyjne
+### Plik Konfiguracyjny
 
-Każdy provider ma swój plik konfiguracyjny:
+Wszystkie providery korzystają z jednego pliku `config/providers.toml`. Każda domena ma własną sekcję:
 
-- `config/voice_provider.toml` - Konfiguracja głosu
-- `config/vision_provider.toml` - Konfiguracja wizji
-- `config/text_provider.toml` - Konfiguracja tekstu
+- `[voice]` – ustawienia głosu (ASR/TTS)
+- `[vision]` – ustawienia wizji (YOLO, frame offload)
+- `[text]` – ustawienia LLM/NLU
 
-**Przykład Konfiguracji:**
+**Przykład konfiguracji sekcji `[voice]`:**
 ```toml
 [voice]
 asr_model = "whisper-base"
@@ -335,7 +335,7 @@ timeout = 60
 tail -f logs/rider-pc.log | grep "\[provider\]"
 
 # Sprawdź konfigurację
-cat config/voice_provider.toml
+cat config/providers.toml
 
 # Testuj ręcznie
 python -c "from pc_client.providers import VoiceProvider; ..."

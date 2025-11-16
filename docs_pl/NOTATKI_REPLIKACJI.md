@@ -111,12 +111,12 @@ config/
 - Używaj tych konfiguracji do definiowania domyślnych wyborów providerów dla klienta PC
 - Konfiguruj parametry konektora PC dla negocjacji kontraktu
 
-### 3. `api-specs/` - Dokumentacja API (3 pliki)
+### 3. `docs_pl/api-specs/` - Dokumentacja API (3 pliki)
 Cel: Służy jako kontrakty API dla generacji klienta REST i testów kontraktowych.
 
 **Struktura:**
 ```
-api-specs/
+docs_pl/api-specs/
 ├── README.md        # Przegląd API i wspólne wzorce
 ├── control.md       # API ruchu i sterowania robota
 └── navigator.md     # API nawigacji autonomicznej
@@ -153,7 +153,7 @@ api-specs/
 - **Całkowita liczba skopiowanych plików:** 47
 - **web/:** 14 plików (HTML, CSS, JavaScript, SVG)
 - **config/:** 30 plików (TOML, skrypty shell)
-- **api-specs/:** 3 pliki (Dokumentacja Markdown)
+- **docs_pl/api-specs/:** 3 pliki (Dokumentacja Markdown)
 
 ## Informacje Źródłowe
 - **Repozytorium Źródłowe:** https://github.com/mpieniak01/Rider-Pi
@@ -166,7 +166,7 @@ api-specs/
 ### 1. Implementacja Adaptera API
 - Generuj klienta REST z specyfikacji API używając `httpx`
 - Implementuj gniazdo ZMQ SUB dla tematów magistrali (`vision.*`, `voice.*`, `motion.state`, `robot.pose`)
-- Twórz testy kontraktowe oparte na dokumentacji api-specs
+- Twórz testy kontraktowe oparte na dokumentacji docs_pl/api-specs
 - Obsługuj punkty końcowe REST: `/healthz`, `/api/control`, `/api/chat/*`, itp.
 - Mapuj tematy ZMQ na lokalne zdarzenia domenowe
 

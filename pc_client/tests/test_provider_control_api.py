@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from pc_client.api.server import create_app
 from pc_client.cache import CacheManager
 from pc_client.config import Settings
+from pc_client.providers.base import TaskResult, TaskStatus, TaskEnvelope, TaskType
 
 
 @pytest.fixture
@@ -26,6 +27,30 @@ def test_client():
         yield client, cache
 
 
+@pytest.fixture
+def text_client():
+    """Client with mock text provider available."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = Path(tmpdir) / "test_cache.db"
+        settings = Settings(enable_text_offload=True)
+        cache = CacheManager(db_path=str(db_path))
+        app = create_app(settings, cache)
+
+        class DummyTextProvider:
+            async def process_task(self, task: TaskEnvelope) -> TaskResult:
+                assert task.task_type == TaskType.TEXT_GENERATE
+                return TaskResult(
+                    task_id=task.task_id,
+                    status=TaskStatus.COMPLETED,
+                    result={"text": task.payload.get("prompt") + " response", "tokens_used": 2, "from_cache": False},
+                    meta={"model": "mock-text"},
+                )
+
+        app.state.text_provider = DummyTextProvider()
+        client = TestClient(app)
+        yield client
+
+
 def test_providers_state_endpoint(test_client):
     """Test GET /api/providers/state returns provider states."""
     client, cache = test_client
@@ -35,19 +60,14 @@ def test_providers_state_endpoint(test_client):
     assert response.status_code == 200
     data = response.json()
 
-    # Check structure
-    assert "voice" in data
-    assert "text" in data
-    assert "vision" in data
-
-    # Check voice provider structure
-    assert "current" in data["voice"]
-    assert "status" in data["voice"]
-    assert "last_health_check" in data["voice"]
-
-    # Check default values
-    assert data["voice"]["current"] in ["local", "pc"]
-    assert data["voice"]["status"] in ["online", "degraded", "offline"]
+    assert "domains" in data
+    assert "pc_health" in data
+    for domain in ("voice", "text", "vision"):
+        assert domain in data["domains"]
+        entry = data["domains"][domain]
+        assert "mode" in entry
+        assert "status" in entry
+        assert entry["mode"] in ["local", "pc"]
 
 
 def test_providers_state_from_cache(test_client):
@@ -56,9 +76,12 @@ def test_providers_state_from_cache(test_client):
 
     # Set custom state in cache
     custom_state = {
-        "voice": {"current": "pc", "status": "degraded", "last_health_check": "2025-11-12T15:00:00Z"},
-        "text": {"current": "local", "status": "online", "last_health_check": "2025-11-12T15:00:00Z"},
-        "vision": {"current": "pc", "status": "online", "last_health_check": "2025-11-12T15:00:00Z"},
+        "domains": {
+            "voice": {"mode": "pc", "status": "pc_active", "changed_ts": 123.0},
+            "text": {"mode": "local", "status": "local_only", "changed_ts": 120.0},
+            "vision": {"mode": "pc", "status": "pc_active", "changed_ts": 121.0},
+        },
+        "pc_health": {"reachable": True, "latency_ms": 42},
     }
     cache.set("providers_state", custom_state)
 
@@ -67,9 +90,9 @@ def test_providers_state_from_cache(test_client):
     assert response.status_code == 200
     data = response.json()
 
-    assert data["voice"]["current"] == "pc"
-    assert data["voice"]["status"] == "degraded"
-    assert data["text"]["current"] == "local"
+    assert data["domains"]["voice"]["mode"] == "pc"
+    assert data["domains"]["voice"]["status"] == "pc_active"
+    assert data["domains"]["text"]["mode"] == "local"
 
 
 def test_update_provider_valid_domain(test_client):
@@ -84,7 +107,7 @@ def test_update_provider_valid_domain(test_client):
     assert data["success"] is True
     assert data["domain"] == "voice"
     assert "new_state" in data
-    assert data["new_state"]["current"] == "pc"
+    assert data["new_state"]["mode"] == "pc"
 
 
 def test_update_provider_invalid_domain(test_client):
@@ -105,9 +128,12 @@ def test_update_provider_updates_cache(test_client):
 
     # Set initial state
     initial_state = {
-        "voice": {"current": "local", "status": "online"},
-        "text": {"current": "local", "status": "online"},
-        "vision": {"current": "local", "status": "online"},
+        "domains": {
+            "voice": {"mode": "local", "status": "local_only"},
+            "text": {"mode": "local", "status": "local_only"},
+            "vision": {"mode": "local", "status": "local_only"},
+        },
+        "pc_health": {"reachable": False},
     }
     cache.set("providers_state", initial_state)
 
@@ -118,8 +144,8 @@ def test_update_provider_updates_cache(test_client):
 
     # Verify cache was updated
     cached_state = cache.get("providers_state")
-    assert cached_state["voice"]["current"] == "pc"
-    assert cached_state["text"]["current"] == "local"  # Others unchanged
+    assert cached_state["domains"]["voice"]["mode"] == "pc"
+    assert cached_state["domains"]["text"]["mode"] == "local"  # Others unchanged
 
 
 def test_providers_health_endpoint(test_client):
@@ -131,21 +157,8 @@ def test_providers_health_endpoint(test_client):
     assert response.status_code == 200
     data = response.json()
 
-    # Check structure
-    assert "voice" in data
-    assert "text" in data
-    assert "vision" in data
-
-    # Check voice health structure
+    assert set(data.keys()) == {"voice", "text", "vision"}
     assert "status" in data["voice"]
-    assert "latency_ms" in data["voice"]
-    assert "success_rate" in data["voice"]
-    assert "last_check" in data["voice"]
-
-    # Check data types
-    assert isinstance(data["voice"]["latency_ms"], (int, float))
-    assert isinstance(data["voice"]["success_rate"], (int, float))
-    assert 0 <= data["voice"]["success_rate"] <= 1
 
 
 def test_providers_health_from_cache(test_client):
@@ -173,6 +186,24 @@ def test_providers_health_from_cache(test_client):
     assert data["voice"]["status"] == "degraded"
     assert data["voice"]["latency_ms"] == 250.5
     assert data["voice"]["success_rate"] == 0.85
+
+
+def test_ai_mode_default(test_client):
+    """GET /api/system/ai-mode should return default local mode when adapter missing."""
+    client, _ = test_client
+    response = client.get("/api/system/ai-mode")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["mode"] == "local"
+
+
+def test_ai_mode_set_without_adapter(test_client):
+    """PUT /api/system/ai-mode should fail when adapter not initialized."""
+    client, _ = test_client
+    response = client.put("/api/system/ai-mode", json={"mode": "pc_offload"})
+    assert response.status_code == 503
+    data = response.json()
+    assert "error" in data
 
 
 def test_services_graph_endpoint(test_client):
@@ -269,7 +300,9 @@ def test_providers_endpoints_cache_fallback(test_client):
     # Test state endpoint
     response = client.get("/api/providers/state")
     assert response.status_code == 200
-    assert "voice" in response.json()
+    state = response.json()
+    assert "domains" in state
+    assert "voice" in state["domains"]
 
     # Test health endpoint
     response = client.get("/api/providers/health")
@@ -286,14 +319,14 @@ def test_provider_status_values(test_client):
     """Test that provider status values are valid."""
     client, cache = test_client
 
-    valid_statuses = ["online", "degraded", "offline"]
+    valid_statuses = ["local_only", "pc_active", "pc_pending", "status_unknown"]
 
     response = client.get("/api/providers/state")
     assert response.status_code == 200
 
     data = response.json()
     for domain in ["voice", "text", "vision"]:
-        assert data[domain]["status"] in valid_statuses
+        assert data["domains"][domain]["status"] in valid_statuses
 
 
 def test_service_graph_node_structure(test_client):
@@ -309,3 +342,36 @@ def test_service_graph_node_structure(test_client):
     for node in data["nodes"]:
         for field in required_fields:
             assert field in node, f"Node missing required field: {field}"
+
+
+def test_provider_capabilities_endpoint(test_client):
+    """Ensure GET /providers/capabilities returns capability data."""
+    client, _ = test_client
+
+    response = client.get("/providers/capabilities")
+    assert response.status_code == 200
+    payload = response.json()
+    assert "vision" in payload
+    assert "voice" in payload
+    assert "text" in payload
+    assert payload["vision"]["features"]
+
+    # Alias path
+    response_alias = client.get("/api/providers/capabilities")
+    assert response_alias.status_code == 200
+
+
+def test_text_generate_without_provider(test_client):
+    """POST /providers/text/generate should fail without provider."""
+    client, _ = test_client
+    resp = client.post("/providers/text/generate", json={"prompt": "Hello"})
+    assert resp.status_code == 503
+
+
+def test_text_generate_success(text_client):
+    """POST /providers/text/generate should return text."""
+    resp = text_client.post("/providers/text/generate", json={"prompt": "Hello"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["text"].startswith("Hello")
+    assert data["meta"]["model"] == "mock-text"

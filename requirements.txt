@@ -19,6 +19,9 @@ celery==5.3.4
 prometheus-client==0.21.0
 prometheus-fastapi-instrumentator==7.0.0
 
+# TOML parsing (Python 3.9 compatibility)
+tomli==2.0.1
+
 # AI/ML Models
 openai-whisper==20240930
 ultralytics==8.3.43

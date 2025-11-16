@@ -22,7 +22,7 @@ Wymagania Fazy 4 (Integracja Prawdziwych Modeli AI i Hartowanie Produkcyjne) zos
   - Szybka, lekka synteza
   - Automatyczny fallback do trybu mock
   
-- **Konfiguracja**: `config/voice_provider.toml`
+- **Konfiguracja**: sekcja `[voice]` w `config/providers.toml`
 
 #### Provider Wizji (`pc_client/providers/vision_provider.py`)
 - **✅ Wykrywanie Obiektów**: Integracja YOLOv8 nano
@@ -37,7 +37,7 @@ Wymagania Fazy 4 (Integracja Prawdziwych Modeli AI i Hartowanie Produkcyjne) zos
   - Publikuje wyniki do `vision.obstacle.enhanced`
   - Kolejka priorytetowa dla krytycznych klatek nawigacyjnych
   
-- **Konfiguracja**: `config/vision_provider.toml`
+- **Konfiguracja**: sekcja `[vision]` w `config/providers.toml`
 
 #### Provider Tekstu (`pc_client/providers/text_provider.py`)
 - **✅ Integracja LLM**: Lokalny serwer LLM Ollama
@@ -50,7 +50,7 @@ Wymagania Fazy 4 (Integracja Prawdziwych Modeli AI i Hartowanie Produkcyjne) zos
   - Wspiera wiele zadań NLU
   - Konfigurowalne prompty systemowe
   
-- **Konfiguracja**: `config/text_provider.toml`
+- **Konfiguracja**: sekcja `[text]` w `config/providers.toml`
 
 ---
 
@@ -300,9 +300,9 @@ Wszystkie konfiguracje providerów wspierają:
 - **Ustawienia priorytetów**: Priorytety kolejki zadań
 
 Lokalizacje konfiguracji:
-- `config/voice_provider.toml`: Ustawienia ASR/TTS głosu
-- `config/vision_provider.toml`: Ustawienia detekcji wizji
-- `config/text_provider.toml`: Ustawienia LLM tekstu
+- `config/providers.toml` (`[voice]`): Ustawienia ASR/TTS głosu
+- `config/providers.toml` (`[vision]`): Ustawienia detekcji wizji
+- `config/providers.toml` (`[text]`): Ustawienia LLM tekstu
 - `config/prometheus.yml`: Konfiguracja scrapowania Prometheus
 - `config/prometheus-alerts.yml`: Reguły alertów
 - `config/grafana-dashboard.json`: Dashboard Grafana

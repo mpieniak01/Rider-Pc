@@ -54,6 +54,13 @@ python -m pc_client.main
   - `make lint` → `ruff check .`
   - `make format` → `ruff format .`
   - `make test` → pytest suite with async/timeouts configured like GitHub Actions.
+- **Rider-PI Integration**:
+  - UI (`web/control.html`) now mirrors Rider-Pi, including “AI Mode” and “Provider Control” cards.
+  - Backend proxies `/api/system/ai-mode` and `/api/providers/*` to Rider-Pi via the `RestAdapter`, caching results for offline development.
+  - To test locally with the real device, update `.env` (`RIDER_PI_HOST`, `RIDER_PI_PORT`) and run `make start`, then open `http://localhost:8000/web/control.html`.
+  - Vision offload is now wired end-to-end: set `ENABLE_PROVIDERS=true`, `ENABLE_TASK_QUEUE=true`, `ENABLE_VISION_OFFLOAD=true`, and point `TELEMETRY_ZMQ_HOST` at Rider-Pi so the PC publishes `vision.obstacle.enhanced` after processing `vision.frame.offload`.
+  - Voice offload mirrors the same flow: `ENABLE_VOICE_OFFLOAD=true` lets Rider-PC consume `voice.asr.request` / `voice.tts.request`, run Whisper/Piper (or mock), and publish `voice.asr.result` / `voice.tts.chunk` back to Rider-Pi for immediate playback.
+  - Text/LLM integration exposes `/providers/text/generate` plus a capability handshake (`GET /providers/capabilities`) so Rider-PI knows which domains/versions Rider-PC supports before przełączeniem.
 
 ## Documentation
 
@@ -64,12 +71,13 @@ python -m pc_client.main
 - **[Quick Start Guide](docs/QUICKSTART.md)** - Get started quickly
 - **[AI Model Setup](docs/AI_MODEL_SETUP.md)** - Setup real AI models
 - **[Architecture](docs/ARCHITECTURE.md)** - System architecture overview
-- **[API Documentation](api-specs/README.md)** - REST API reference
+- **[API Documentation](docs/api-specs/README.md)** - REST API reference
 - **[Replication Notes](docs/REPLICATION_NOTES.md)** - Notes for replicating the project
 
 ### Implementation Guides
 
 - **[Provider Implementation Guide](docs/PR/PROVIDER_IMPLEMENTATION_GUIDE.md)** - How to use and extend AI providers
+- **[PC Offload Integration](docs/PC_OFFLOAD_INTEGRATION.md)** - Enabling AI mode / provider parity between Rider-Pi and Rider-PC
 - **[Task Queue Setup](docs/PR/TASK_QUEUE_SETUP.md)** - Redis/RabbitMQ configuration
 - **[Monitoring Setup](docs/PR/MONITORING_SETUP.md)** - Prometheus/Grafana setup
 - **[Network Security Setup](docs/PR/NETWORK_SECURITY_SETUP.md)** - VPN/mTLS configuration

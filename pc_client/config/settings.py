@@ -33,6 +33,24 @@ class Settings:
     voice_model: str = field(default_factory=lambda: os.getenv("VOICE_MODEL", "mock"))
     vision_model: str = field(default_factory=lambda: os.getenv("VISION_MODEL", "mock"))
     text_model: str = field(default_factory=lambda: os.getenv("TEXT_MODEL", "mock"))
+    enable_vision_offload: bool = field(
+        default_factory=lambda: os.getenv("ENABLE_VISION_OFFLOAD", "false").lower() == "true"
+    )
+    enable_voice_offload: bool = field(
+        default_factory=lambda: os.getenv("ENABLE_VOICE_OFFLOAD", "false").lower() == "true"
+    )
+    enable_text_offload: bool = field(
+        default_factory=lambda: os.getenv("ENABLE_TEXT_OFFLOAD", "false").lower() == "true"
+    )
+    vision_provider_config_path: str = field(
+        default_factory=lambda: os.getenv("VISION_PROVIDER_CONFIG", "config/providers.toml")
+    )
+    voice_provider_config_path: str = field(
+        default_factory=lambda: os.getenv("VOICE_PROVIDER_CONFIG", "config/providers.toml")
+    )
+    text_provider_config_path: str = field(
+        default_factory=lambda: os.getenv("TEXT_PROVIDER_CONFIG", "config/providers.toml")
+    )
 
     # Task queue configuration
     enable_task_queue: bool = field(default_factory=lambda: os.getenv("ENABLE_TASK_QUEUE", "false").lower() == "true")
@@ -45,7 +63,9 @@ class Settings:
     # Telemetry configuration
     enable_telemetry: bool = field(default_factory=lambda: os.getenv("ENABLE_TELEMETRY", "false").lower() == "true")
     telemetry_zmq_port: int = field(default_factory=lambda: int(os.getenv("TELEMETRY_ZMQ_PORT", "5557")))
-    telemetry_zmq_host: str = field(default_factory=lambda: os.getenv("TELEMETRY_ZMQ_HOST", "0.0.0.0"))
+    telemetry_zmq_host: str = field(
+        default_factory=lambda: os.getenv("TELEMETRY_ZMQ_HOST") or os.getenv("RIDER_PI_HOST", "localhost")
+    )
 
     # Network security configuration
     secure_mode: bool = field(default_factory=lambda: os.getenv("SECURE_MODE", "false").lower() == "true")

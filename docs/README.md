@@ -8,19 +8,7 @@ PC-side client infrastructure for the Rider-PI robot, providing:
 - **AI Provider Layer** with real ML models (Voice, Vision, Text)
 - **Production-ready deployment** with Docker and CI/CD
 
-## 🎉 Phase 4 Complete: Real AI Models & Production Deployment
-
-This project now includes:
-- ✅ **Real AI Models**: Whisper ASR, Piper TTS, YOLOv8 Vision, Ollama LLM
-- ✅ **Docker Deployment**: Complete stack with Redis, Prometheus, Grafana
-- ✅ **CI/CD Pipeline**: Automated testing, security scanning, Docker builds
-- ✅ **Health Probes**: Kubernetes-ready liveness and readiness endpoints
-- ✅ **Automatic Fallback**: Mock mode when models unavailable
-
-See [IMPLEMENTATION_COMPLETE_PHASE4.md](PR/IMPLEMENTATION_COMPLETE_PHASE4.md) for details.
-
 ## Quick Start
-
 ### Option 1: Docker (Recommended)
 ```bash
 # Create .env file
@@ -34,7 +22,6 @@ docker-compose up -d
 # Prometheus: http://localhost:9090
 # Grafana: http://localhost:3000
 ```
-
 ### Option 2: Local Development
 ```bash
 # Install dependencies
@@ -45,6 +32,19 @@ python -m pc_client.main
 ```
 
 See [AI_MODEL_SETUP.md](AI_MODEL_SETUP.md) for AI model setup guide.
+
+### Development Workflow
+
+- **Python**: develop on Python 3.11 (CI target) while keeping code compatible with Rider-PI’s Python 3.9.
+- **Tooling**: `pip install -r requirements-ci.txt` and `pre-commit install` to get `ruff` hooks.
+- **Make targets**: `make lint`, `make format`, `make test` mirror GitHub Actions.
+- **Rider-Pi integration**:
+  - Control panel (`web/control.html`) mirrors Rider-Pi, including the *AI Mode* card and *Provider Control* toggles.
+  - Backend proxy endpoints (`/api/system/ai-mode`, `/api/providers/*`) forward to Rider-Pi via the `RestAdapter` and cache responses for offline dev/tests.
+  - To operate the real robot, point `.env` at Rider-Pi and run `make start`, then browse `http://localhost:8000/web/control.html`.
+  - Vision offload is wired to Rider-Pi’s ZMQ broker. Enable it by setting `ENABLE_PROVIDERS=true`, `ENABLE_TASK_QUEUE=true`, `ENABLE_VISION_OFFLOAD=true`, and `TELEMETRY_ZMQ_HOST=<Rider-Pi IP>` so the PC consumes `vision.frame.offload` and publishes `vision.obstacle.enhanced`.
+  - Voice offload works the same way: add `ENABLE_VOICE_OFFLOAD=true` to stream `voice.asr.request`/`voice.tts.request` into the PC queue and emit `voice.asr.result`/`voice.tts.chunk` back to Rider-Pi.
+  - Text/LLM support is exposed via `/providers/text/generate` (handshake: `GET /providers/capabilities`), so Rider-Pi can negotiate before delegating chat/NLU workloads. Use `ENABLE_TEXT_OFFLOAD=true` once gotowy.
 
 ## Architecture
 
@@ -102,7 +102,17 @@ export CACHE_TTL_SECONDS="30"         # Cache TTL in seconds
 
 # Logging
 export LOG_LEVEL="INFO"               # Log level (DEBUG, INFO, WARNING, ERROR)
+
+# Providers / Vision offload
+export ENABLE_PROVIDERS="true"
+export ENABLE_TASK_QUEUE="true"
+export ENABLE_VISION_OFFLOAD="true"
+export ENABLE_VOICE_OFFLOAD="true"
+export ENABLE_TEXT_OFFLOAD="true"
+export TELEMETRY_ZMQ_HOST="$RIDER_PI_HOST"  # Publishes vision.obstacle.enhanced back to Rider-Pi
 ```
+
+See [PC_OFFLOAD_INTEGRATION.md](PC_OFFLOAD_INTEGRATION.md) for the full workflow and troubleshooting tips.
 
 ## Running
 
@@ -252,22 +262,24 @@ The PC client includes a production-ready AI provider layer for offloading compu
 
 ### Real AI Models (with automatic mock fallback)
 
-- **Voice Provider**: 
+> **Note:** wcześniejsze pliki `config/vision_provider.toml`, `voice_provider.toml`, `text_provider.toml` zostały skonsolidowane w `config/providers.toml`, zachowując te same sekcje (`[vision]`, `[voice]`, `[text]`).
+
+- **Voice Provider**:
   - **ASR**: OpenAI Whisper (base model, ~140MB)
   - **TTS**: Piper TTS (en_US-lessac-medium)
-  - Config: `config/voice_provider.toml`
+  - Konfiguracja sekcji `[voice]` w `config/providers.toml`
   
-- **Vision Provider**: 
+- **Vision Provider**:
   - **Detection**: YOLOv8 nano (~6MB)
   - Real-time object detection with bounding boxes
   - Obstacle classification for navigation
-  - Config: `config/vision_provider.toml`
+  - Konfiguracja sekcji `[vision]` w `config/providers.toml`
   
-- **Text Provider**: 
+- **Text Provider**:
   - **LLM**: Ollama (llama3.2:1b, ~1.3GB)
   - Local inference, no cloud dependencies
   - Response caching
-  - Config: `config/text_provider.toml`
+  - Konfiguracja sekcji `[text]` w `config/providers.toml`
 
 ### Infrastructure Features
 
@@ -378,14 +390,12 @@ pytest pc_client/tests/test_telemetry.py -v
 # Run integration tests
 pytest pc_client/tests/test_integration.py -v
 ```
-
 ## License
 
 This project is part of the Rider-PI ecosystem.
-
 ## See Also
 
 - [Rider-PI Repository](https://github.com/mpieniak01/Rider-Pi)
-- [API Documentation](../api-specs/README.md)
+- [API Documentation](api-specs/README.md)
 - [Architecture Overview](ARCHITECTURE.md)
 - [Provider Implementation Guide](PR/PROVIDER_IMPLEMENTATION_GUIDE.md)

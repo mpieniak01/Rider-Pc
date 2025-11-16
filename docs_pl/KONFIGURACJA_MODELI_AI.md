@@ -133,9 +133,9 @@ Zobacz wszystkie modele: https://ollama.com/library
 
 ---
 
-## Konfiguracja
+## Konfiguracja (`config/providers.toml`)
 
-### Provider Głosu (`config/voice_provider.toml`)
+### Provider Głosu (sekcja `[voice]`)
 ```toml
 [voice]
 asr_model = "base"              # Model Whisper
@@ -144,7 +144,7 @@ sample_rate = 16000
 use_mock = false                # Ustaw true aby wymusić tryb mock
 ```
 
-### Provider Wizji (`config/vision_provider.toml`)
+### Provider Wizji (sekcja `[vision]`)
 ```toml
 [vision]
 detection_model = "yolov8n"     # Model YOLO
@@ -153,7 +153,7 @@ max_detections = 10
 use_mock = false                # Ustaw true aby wymusić tryb mock
 ```
 
-### Provider Tekstu (`config/text_provider.toml`)
+### Provider Tekstu (sekcja `[text]`)
 ```toml
 [text]
 model = "llama3.2:1b"           # Model Ollama

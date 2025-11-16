@@ -2,12 +2,13 @@
 
 import asyncio
 import logging
+import time
 from typing import Optional, Dict, Any
 from queue import PriorityQueue, Empty
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from pc_client.providers.base import TaskEnvelope, TaskResult, TaskStatus
+from pc_client.providers.base import TaskEnvelope, TaskResult, TaskStatus, TaskType
 from pc_client.queue.circuit_breaker import CircuitBreaker
 from pc_client.telemetry.metrics import task_queue_size, task_queue_full_count
 
@@ -186,7 +187,7 @@ class TaskQueueWorker:
                     self.task_queue.stats["total_failed"] += 1
 
                 # Publish result to ZMQ bus (TODO: implement ZMQ publisher)
-                await self._publish_result(result)
+                await self._publish_result(task, result)
 
             except Exception as e:
                 self.logger.error(f"Error in worker loop: {e}", exc_info=True)
@@ -252,13 +253,14 @@ class TaskQueueWorker:
             meta={"fallback_required": True},
         )
 
-    async def _publish_result(self, result: TaskResult):
+    async def _publish_result(self, task: TaskEnvelope, result: TaskResult):
         """
         Publish task result to ZMQ bus.
 
         This publishes telemetry data about task completion back to Rider-PI.
 
         Args:
+            task: Original task envelope
             result: Task result to publish
         """
         self.logger.debug(
@@ -269,5 +271,49 @@ class TaskQueueWorker:
         if self.telemetry_publisher:
             try:
                 self.telemetry_publisher.publish_task_result(result)
+
+                # Publish enhanced vision data for frame tasks
+                if task.task_type == TaskType.VISION_FRAME and result.status == TaskStatus.COMPLETED:
+                    result_payload = result.result or {}
+                    frame_id = result_payload.get("frame_id") or task.meta.get("frame_id") or task.task_id
+                    timestamp = result_payload.get("timestamp") or result.meta.get("timestamp")
+                    meta = dict(task.meta)
+                    meta.update(result.meta)
+                    if timestamp and "timestamp" not in meta:
+                        meta["timestamp"] = timestamp
+                    meta.setdefault("source_topic", task.meta.get("source_topic"))
+
+                    self.telemetry_publisher.publish_vision_obstacle_enhanced(
+                        frame_id=str(frame_id),
+                        obstacles=result_payload.get("obstacles", []),
+                        meta=meta,
+                    )
+                elif task.task_type == TaskType.VOICE_ASR and result.status == TaskStatus.COMPLETED:
+                    result_payload = result.result or {}
+                    message = {
+                        "task_id": task.task_id,
+                        "text": result_payload.get("text", ""),
+                        "confidence": result_payload.get("confidence"),
+                        "language": result_payload.get("language"),
+                        "ts": time.time(),
+                        "meta": {**task.meta, **result.meta},
+                    }
+                    self.telemetry_publisher.publish_voice_asr_result(message)
+                elif task.task_type == TaskType.VOICE_TTS and result.status == TaskStatus.COMPLETED:
+                    result_payload = result.result or {}
+                    audio_data = result_payload.get("audio_data")
+                    if audio_data:
+                        chunk_meta = {**task.meta, **result.meta}
+                        chunk_meta.setdefault("timestamp", time.time())
+                        self.telemetry_publisher.publish_voice_tts_chunk(
+                            {
+                                "task_id": task.task_id,
+                                "audio_data": audio_data,
+                                "format": result_payload.get("format", "wav"),
+                                "sample_rate": result_payload.get("sample_rate"),
+                                "duration_ms": result_payload.get("duration_ms"),
+                            },
+                            chunk_meta,
+                        )
             except Exception as e:
                 self.logger.error(f"Failed to publish telemetry: {e}")

@@ -133,9 +133,9 @@ See all models: https://ollama.com/library
 
 ---
 
-## Configuration
+## Configuration (`config/providers.toml`)
 
-### Voice Provider (`config/voice_provider.toml`)
+### Voice Provider Section
 ```toml
 [voice]
 asr_model = "base"              # Whisper model
@@ -144,7 +144,7 @@ sample_rate = 16000
 use_mock = false                # Set true to force mock mode
 ```
 
-### Vision Provider (`config/vision_provider.toml`)
+### Vision Provider Section
 ```toml
 [vision]
 detection_model = "yolov8n"     # YOLO model
@@ -153,7 +153,7 @@ max_detections = 10
 use_mock = false                # Set true to force mock mode
 ```
 
-### Text Provider (`config/text_provider.toml`)
+### Text Provider Section
 ```toml
 [text]
 model = "llama3.2:1b"           # Ollama model

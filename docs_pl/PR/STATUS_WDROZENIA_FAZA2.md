@@ -116,7 +116,7 @@ ENABLE_PROVIDERS=true
 ### Pliki Konfiguracyjne
 - `.env` - Konfiguracja środowiska
 - `config/prometheus.yml` - Konfiguracja Prometheus
-- `config/*_provider.toml` - Konfiguracje providerów
+- `config/providers.toml` - Konfiguracje providerów (`[voice]`, `[vision]`, `[text]`)
 
 ## Monitoring
 

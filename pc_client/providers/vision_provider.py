@@ -332,7 +332,12 @@ class VisionProvider(BaseProvider):
                         "should_avoid": len(obstacles) > 0,
                         "suggested_action": "slow_down" if obstacles else "continue",
                     },
-                    meta={"model": self.detection_model_name, "processing_type": "frame_offload", "engine": "yolov8"},
+                    meta={
+                        "model": self.detection_model_name,
+                        "processing_type": "frame_offload",
+                        "engine": "yolov8",
+                        "timestamp": timestamp,
+                    },
                 )
 
             except Exception as e:
@@ -365,7 +370,7 @@ class VisionProvider(BaseProvider):
                 "should_avoid": len(obstacles) > 0,
                 "suggested_action": "slow_down" if obstacles else "continue",
             },
-            meta={"model": "mock", "processing_type": "frame_offload", "engine": "mock"},
+            meta={"model": "mock", "processing_type": "frame_offload", "engine": "mock", "timestamp": timestamp},
         )
 
     def get_supported_tasks(self) -> list[TaskType]:

@@ -203,4 +203,4 @@ pc_client/
 W przypadku problemów lub pytań:
 - Sprawdź główny [README.md](README.md)
 - Przejrzyj [ARCHITEKTURA.md](ARCHITEKTURA.md)
-- Zobacz specyfikacje API w [../api-specs_pl/](../api-specs_pl/)
+- Zobacz specyfikacje API w [api-specs/](api-specs/)

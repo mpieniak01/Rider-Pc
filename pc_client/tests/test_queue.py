@@ -1,9 +1,14 @@
 """Tests for task queue and circuit breaker."""
 
-import pytest
 import asyncio
+from unittest.mock import MagicMock
+
+import pytest
+
 from pc_client.queue import TaskQueue, CircuitBreaker
 from pc_client.queue.circuit_breaker import CircuitState, CircuitBreakerConfig
+from pc_client.queue.task_queue import TaskQueueWorker
+from pc_client.providers import VisionProvider, VoiceProvider
 from pc_client.providers.base import TaskEnvelope, TaskResult, TaskType, TaskStatus
 
 
@@ -243,9 +248,6 @@ async def test_task_queue_with_circuit_breaker():
 @pytest.mark.asyncio
 async def test_task_queue_worker_mock():
     """Test task queue worker basic functionality."""
-    # This is a simplified test since TaskQueueWorker requires providers
-    from pc_client.queue.task_queue import TaskQueueWorker
-
     queue = TaskQueue(max_size=10)
     providers = {}  # Empty for this test
 
@@ -254,3 +256,95 @@ async def test_task_queue_worker_mock():
     assert worker.task_queue == queue
     assert worker.providers == providers
     assert worker.running is False
+
+
+@pytest.mark.asyncio
+async def test_worker_publishes_vision_results():
+    """Vision frame results should trigger telemetry publication."""
+    queue = TaskQueue(max_size=5)
+    provider = VisionProvider({"use_mock": True})
+    await provider.initialize()
+
+    telemetry = MagicMock()
+    worker = TaskQueueWorker(queue, {"vision": provider}, telemetry_publisher=telemetry)
+
+    task = TaskEnvelope(
+        task_id="vision-test-1",
+        task_type=TaskType.VISION_FRAME,
+        payload={
+            "frame_data": "ZGVtby1mcmFtZQ==",  # "demo-frame"
+            "frame_id": "frame-123",
+            "timestamp": 123.456,
+        },
+        priority=1,
+    )
+
+    result = await provider.process_task(task)
+    await worker._publish_result(task, result)
+
+    telemetry.publish_task_result.assert_called_once()
+    telemetry.publish_vision_obstacle_enhanced.assert_called_once()
+    _, kwargs = telemetry.publish_vision_obstacle_enhanced.call_args
+    assert kwargs["frame_id"] == "frame-123"
+    assert isinstance(kwargs["obstacles"], list)
+
+    await provider.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_worker_publishes_voice_asr_results():
+    """Voice ASR results should be published to ZMQ."""
+    queue = TaskQueue(max_size=5)
+    provider = VoiceProvider({"use_mock": True})
+    await provider.initialize()
+
+    telemetry = MagicMock()
+    worker = TaskQueueWorker(queue, {"voice": provider}, telemetry_publisher=telemetry)
+
+    task = TaskEnvelope(
+        task_id="voice-asr-1",
+        task_type=TaskType.VOICE_ASR,
+        payload={
+            "audio_data": "ZGVtby1hdWRpbw==",
+            "format": "wav",
+            "sample_rate": 16000,
+        },
+        meta={"request_id": "req-1"},
+    )
+
+    result = await provider.process_task(task)
+    await worker._publish_result(task, result)
+
+    telemetry.publish_voice_asr_result.assert_called_once()
+    payload = telemetry.publish_voice_asr_result.call_args[0][0]
+    assert isinstance(payload["text"], str)
+
+    await provider.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_worker_publishes_voice_tts_chunks():
+    """Voice TTS results publish audio chunks."""
+    queue = TaskQueue(max_size=5)
+    provider = VoiceProvider({"use_mock": True})
+    await provider.initialize()
+
+    telemetry = MagicMock()
+    worker = TaskQueueWorker(queue, {"voice": provider}, telemetry_publisher=telemetry)
+
+    task = TaskEnvelope(
+        task_id="voice-tts-1",
+        task_type=TaskType.VOICE_TTS,
+        payload={"text": "Hello Rider"},
+        meta={"request_id": "req-2"},
+    )
+
+    result = await provider.process_task(task)
+    await worker._publish_result(task, result)
+
+    telemetry.publish_voice_tts_chunk.assert_called_once()
+    args, kwargs = telemetry.publish_voice_tts_chunk.call_args
+    assert "audio_data" in args[0]
+    assert args[1]["request_id"] == "req-2"
+
+    await provider.shutdown()

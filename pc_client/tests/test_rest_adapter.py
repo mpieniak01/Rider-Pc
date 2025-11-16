@@ -195,6 +195,65 @@ async def test_post_control(rest_adapter):
 
 
 @pytest.mark.asyncio
+async def test_ai_mode_methods(rest_adapter):
+    """Test AI mode getter and setter."""
+    with patch.object(rest_adapter.client, "get", new_callable=AsyncMock) as mock_get:
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"mode": "local", "changed_ts": 123}
+        mock_resp.raise_for_status.return_value = None
+        mock_get.return_value = mock_resp
+        data = await rest_adapter.get_ai_mode()
+        assert data["mode"] == "local"
+        mock_get.assert_called_once_with("http://test-robot:8080/api/system/ai-mode")
+
+    with patch.object(rest_adapter.client, "put", new_callable=AsyncMock) as mock_put:
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"mode": "pc_offload"}
+        mock_resp.raise_for_status.return_value = None
+        mock_put.return_value = mock_resp
+        data = await rest_adapter.set_ai_mode("pc_offload")
+        assert data["mode"] == "pc_offload"
+        mock_put.assert_called_once_with(
+            "http://test-robot:8080/api/system/ai-mode",
+            json={"mode": "pc_offload"},
+        )
+
+
+@pytest.mark.asyncio
+async def test_provider_methods(rest_adapter):
+    """Test provider state and health helpers."""
+    with patch.object(rest_adapter.client, "get", new_callable=AsyncMock) as mock_get_state:
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"domains": {}}
+        mock_resp.raise_for_status.return_value = None
+        mock_get_state.return_value = mock_resp
+        data = await rest_adapter.get_providers_state()
+        assert "domains" in data
+        mock_get_state.assert_called_once_with("http://test-robot:8080/api/providers/state")
+
+    with patch.object(rest_adapter.client, "patch", new_callable=AsyncMock) as mock_patch:
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"success": True}
+        mock_resp.raise_for_status.return_value = None
+        mock_patch.return_value = mock_resp
+        result = await rest_adapter.patch_provider("voice", {"target": "pc"})
+        assert result["success"] is True
+        mock_patch.assert_called_once_with(
+            "http://test-robot:8080/api/providers/voice",
+            json={"target": "pc"},
+        )
+
+    with patch.object(rest_adapter.client, "get", new_callable=AsyncMock) as mock_get_health:
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"voice": {"status": "online"}}
+        mock_resp.raise_for_status.return_value = None
+        mock_get_health.return_value = mock_resp
+        data = await rest_adapter.get_providers_health()
+        assert "voice" in data
+        mock_get_health.assert_called_once_with("http://test-robot:8080/api/providers/health")
+
+
+@pytest.mark.asyncio
 async def test_close(rest_adapter):
     """Test closing the REST adapter."""
     with patch.object(rest_adapter.client, "aclose", new_callable=AsyncMock) as mock_close:

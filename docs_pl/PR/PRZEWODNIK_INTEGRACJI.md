@@ -166,10 +166,10 @@ RABBITMQ_PASSWORD=secure_password
 
 ### 4.3 Konfiguruj Providerów
 
-Edytuj pliki w `config/`:
-- `voice_provider.toml` - Konfiguracja ASR/TTS
-- `vision_provider.toml` - Konfiguracja wykrywania
-- `text_provider.toml` - Konfiguracja LLM
+Edytuj sekcje w `config/providers.toml`:
+- `[voice]` - Konfiguracja ASR/TTS
+- `[vision]` - Konfiguracja wykrywania
+- `[text]` - Konfiguracja LLM
 
 **Dla mock mode (bez prawdziwych modeli):**
 ```toml
