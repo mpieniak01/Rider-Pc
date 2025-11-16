@@ -122,6 +122,38 @@ Serwer uruchomi się domyślnie na `http://localhost:8000`.
 
 Dostęp do interfejsu użytkownika pod adresem: `http://localhost:8000/`
 
+### Lokalny stos usług (bez Dockera)
+
+Gdy Docker/WSL2 nie jest dostępny, cały zestaw usług (Redis, Prometheus, Grafana, FastAPI) możesz uruchomić lokalnie:
+
+```bash
+# Jednorazowe przygotowanie (Ubuntu)
+sudo apt install redis-server prometheus grafana
+
+cd ~/Rider-Pc
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env   # ustaw host Rider-PI
+
+# Start wszystkich usług
+scripts/start_local_stack.sh
+
+# Logi znajdziesz w logs/, PID-y w .pids/
+
+# Zatrzymanie stosu
+scripts/stop_local_stack.sh
+```
+
+Skrypty obsługują zmienną `PANEL_PORT` (domyślnie `8080`), która definiuje port interfejsu FastAPI. Przykład: `PANEL_PORT=8000 scripts/start_local_stack.sh`. Logi panelu trafiają do pliku `logs/panel-<port>.log`, więc konsola pozostaje czytelna.
+
+Możesz także skorzystać z wygodnych celów Makefile:
+
+```bash
+make start   # uruchomienie usług
+make stop    # zatrzymanie usług
+make reload  # stop + start
+```
+
 ## Punkty Końcowe API
 
 Klient PC replikuje następujące punkty końcowe Rider-PI:

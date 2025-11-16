@@ -67,6 +67,27 @@ class RestAdapter:
             logger.info("RestAdapter initializing in DEVELOPMENT mode (Insecure)")
         
         self.client = httpx.AsyncClient(**client_kwargs)
+
+    async def fetch_binary(self, path: str, params: Optional[Dict[str, Any]] = None) -> Tuple[bytes, str]:
+        """
+        Fetch binary content (images, streams) from Rider-PI endpoints.
+
+        Args:
+            path: Endpoint path starting with '/'
+            params: Optional query parameters
+
+        Returns:
+            Tuple of (content bytes, media type)
+        """
+        url = f"{self.base_url}{path}"
+        try:
+            response = await self.client.get(url, params=params)
+            response.raise_for_status()
+            media_type = response.headers.get("content-type", "application/octet-stream")
+            return response.content, media_type
+        except Exception as e:
+            logger.error(f"Error fetching binary content from {url}: {e}")
+            raise
     
     async def close(self):
         """Close the HTTP client."""

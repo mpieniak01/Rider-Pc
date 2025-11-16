@@ -122,6 +122,40 @@ The server will start on `http://localhost:8000` by default.
 
 Access the UI at: `http://localhost:8000/`
 
+### Local Stack (no Docker)
+
+If Docker/WSL2 is unavailable you can launch every service directly from the repository using the helper scripts:
+
+```bash
+# One-time setup (Ubuntu)
+sudo apt install redis-server prometheus grafana
+
+cd ~/Rider-Pc
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env   # adjust Rider-PI host if needed
+
+# Start all services (Redis + Prometheus + Grafana + FastAPI)
+scripts/start_local_stack.sh
+
+# View logs under logs/, PIDs under .pids/
+
+# When finished
+scripts/stop_local_stack.sh
+```
+
+The helper scripts read the `PANEL_PORT` environment variable (default: `8080`) to decide where to expose the FastAPI panel. Example: `PANEL_PORT=8000 scripts/start_local_stack.sh`. Each run stores Python logs in `logs/panel-<port>.log`, so you can tail them without noisy console output.
+
+For convenience you can also run:
+
+```bash
+make start   # start all services
+make stop    # stop all services
+make reload  # stop + start
+```
+
+The script takes care of creating/updating the virtualenv, setting environment variables from `.env`, and launching background processes. Logs are stored in `logs/` so you can inspect them for troubleshooting.
+
 ## API Endpoints
 
 The PC client replicates the following Rider-PI endpoints:

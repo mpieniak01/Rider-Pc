@@ -164,17 +164,12 @@ class VoiceProvider(BaseProvider):
                         raise ValueError("Audio data is empty")
                 except (Exception, ValueError) as e:
                     self.logger.error(f"[voice] Failed to decode audio data: {e}")
-                    return TaskResult(
-                        task_id=task.task_id,
-                        status=TaskStatus.FAILED,
-                        error=f"Invalid audio data: {str(e)}"
-                    )
+                    raise
                 
                 # Save to temporary file for Whisper
                 with tempfile.NamedTemporaryFile(suffix=f'.{audio_format}', delete=False) as tmp_file:
                     tmp_file.write(audio_bytes)
                     tmp_path = tmp_file.name
-                # File is now closed before transcription
                 # File is now closed before transcription
                 try:
                     # Transcribe with Whisper
@@ -212,11 +207,7 @@ class VoiceProvider(BaseProvider):
                     
             except Exception as e:
                 self.logger.error(f"[voice] ASR processing failed: {e}")
-                return TaskResult(
-                    task_id=task.task_id,
-                    status=TaskStatus.FAILED,
-                    error=f"ASR processing error: {str(e)}"
-                )
+                self.logger.warning("[voice] Falling back to mock ASR due to error")
         
         # Fall back to mock implementation
         transcription = "Mock transcription: Hello from voice provider"

@@ -1,16 +1,19 @@
 """FastAPI server for replicating Rider-PI UI."""
 
-import logging
 import asyncio
+import json
+import logging
 import time
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict, List
 
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from starlette.datastructures import MutableHeaders
 
 from pc_client.config import Settings
 from pc_client.cache import CacheManager
@@ -50,6 +53,86 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
     app.state.cache = cache
     app.state.rest_adapter = None
     app.state.zmq_subscriber = None
+    app.state.control_state = {
+        "tracking": {"mode": "none", "enabled": False},
+        "navigator": {"active": False, "strategy": "standard", "state": "idle"},
+        "camera": {
+            "vision_enabled": True,
+            "on": True,
+            "res": [1280, 720]
+        }
+    }
+    app.state.resources: Dict[str, Dict[str, Any]] = {
+        "mic": {"name": "mic", "free": True, "holders": [], "checked_at": time.time()},
+        "speaker": {"name": "speaker", "free": True, "holders": [], "checked_at": time.time()},
+        "camera": {"name": "camera", "free": False, "holders": [{"pid": 4242, "cmd": "rider-cam", "service": "rider-cam-preview.service"}], "checked_at": time.time()},
+        "lcd": {"name": "lcd", "free": True, "holders": [], "checked_at": time.time()}
+    }
+    app.state.services: List[Dict[str, Any]] = [
+        {
+            "unit": "rider-cam-preview.service",
+            "desc": "Camera preview pipeline",
+            "active": "active",
+            "sub": "running",
+            "enabled": "enabled"
+        },
+        {
+            "unit": "rider-edge-preview.service",
+            "desc": "Edge detection preview",
+            "active": "inactive",
+            "sub": "dead",
+            "enabled": "enabled"
+        },
+        {
+            "unit": "rider-vision.service",
+            "desc": "Vision main stack",
+            "active": "active",
+            "sub": "running",
+            "enabled": "enabled"
+        },
+        {
+            "unit": "rider-tracker.service",
+            "desc": "Vision tracker",
+            "active": "inactive",
+            "sub": "dead",
+            "enabled": "enabled"
+        },
+        {
+            "unit": "rider-tracking-controller.service",
+            "desc": "Tracking controller",
+            "active": "inactive",
+            "sub": "dead",
+            "enabled": "enabled"
+        }
+    ]
+    app.state.motion_queue: List[Dict[str, Any]] = []
+    app.state.last_camera_frame = {
+        "content": (
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x02\x00\x00\x00\x02"
+            b"\x08\x06\x00\x00\x00\xf4x\xd4\xfa\x00\x00\x00\x19IDATx\x9cc```\xf8"
+            b"\x0f\x04\x0c\x0c\x0c\x0c\x00\x01\x04\x01\x00tC^\x8f\x00\x00\x00\x00IEND"
+            b"\xaeB`\x82"
+        ),
+        "timestamp": time.time()
+    }
+    app.state.event_subscribers: List[asyncio.Queue] = []
+    
+    def publish_event(topic: str, data: Dict[str, Any]):
+        """Publish server-sent events to all subscribers."""
+        payload = {
+            "topic": topic,
+            "data": data,
+            "ts": time.time()
+        }
+        stale_subscribers: List[asyncio.Queue] = []
+        for queue in app.state.event_subscribers:
+            try:
+                queue.put_nowait(payload)
+            except asyncio.QueueFull:
+                stale_subscribers.append(queue)
+        for queue in stale_subscribers:
+            if queue in app.state.event_subscribers:
+                app.state.event_subscribers.remove(queue)
     
     # Background task for data synchronization
     app.state.sync_task = None
@@ -243,6 +326,40 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
         metrics_data = generate_latest()
         return Response(content=metrics_data, media_type=CONTENT_TYPE_LATEST)
     
+    async def proxy_remote_media(remote_path: str, request: Request) -> Response:
+        """Proxy binary media endpoints to Rider-PI."""
+        adapter: RestAdapter = app.state.rest_adapter
+        if adapter is None:
+            raise HTTPException(status_code=503, detail="REST adapter not initialized")
+        
+        params = dict(request.query_params)
+        try:
+            content, media_type = await adapter.fetch_binary(remote_path, params=params)
+            return Response(content=content, media_type=media_type)
+        except Exception as e:
+            logger.error(f"Failed to proxy {remote_path}: {e}")
+            raise HTTPException(status_code=502, detail="Unable to fetch remote media")
+    
+    @app.get("/vision/cam")
+    async def vision_cam_proxy(request: Request):
+        """Proxy raw camera feed."""
+        return await proxy_remote_media("/vision/cam", request)
+    
+    @app.get("/vision/edge")
+    async def vision_edge_proxy(request: Request):
+        """Proxy processed edge feed."""
+        return await proxy_remote_media("/vision/edge", request)
+    
+    @app.get("/vision/tracker")
+    async def vision_tracker_proxy(request: Request):
+        """Proxy tracker overlay feed."""
+        return await proxy_remote_media("/vision/tracker", request)
+    
+    @app.get("/snapshots/{snapshot_path:path}")
+    async def snapshots_proxy(snapshot_path: str, request: Request):
+        """Proxy snapshot images (e.g., obstacle annotations)."""
+        return await proxy_remote_media(f"/snapshots/{snapshot_path}", request)
+    
     # Provider Control Endpoints
     
     @app.get("/api/providers/state")
@@ -430,20 +547,240 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
         })
         return JSONResponse(content=graph_data)
     
+    @app.post("/api/control")
+    async def api_control_endpoint(command: Dict[str, Any]) -> JSONResponse:
+        """Receive control commands from client UI."""
+        cmd = command.get("cmd", "noop")
+        entry = {
+            "ts": time.time(),
+            "command": command
+        }
+        app.state.motion_queue.append(entry)
+        app.state.motion_queue[:] = app.state.motion_queue[-50:]
+        if cmd == "move":
+            publish_event("cmd.move", command)
+        elif cmd == "stop":
+            publish_event("cmd.stop", command)
+        return JSONResponse({"ok": True, "queued": len(app.state.motion_queue)})
+    
+    @app.get("/api/control/state")
+    async def api_control_state() -> JSONResponse:
+        """Return current mock control state."""
+        state = dict(app.state.control_state)
+        state["updated_at"] = time.time()
+        return JSONResponse(content=state)
+    
+    @app.post("/api/vision/tracking/mode")
+    async def update_tracking_mode(payload: Dict[str, Any]) -> JSONResponse:
+        """Update tracking mode state."""
+        mode = payload.get("mode", "none")
+        enabled = bool(payload.get("enabled", False)) and mode != "none"
+        app.state.control_state["tracking"] = {
+            "mode": mode,
+            "enabled": enabled
+        }
+        publish_event("motion.bridge.event", {
+            "event": "tracking_mode",
+            "detail": {"mode": mode, "enabled": enabled}
+        })
+        return JSONResponse({"ok": True, "mode": mode, "enabled": enabled})
+    
+    @app.post("/api/navigator/start")
+    async def navigator_start(payload: Dict[str, Any]) -> JSONResponse:
+        """Start navigator with selected strategy."""
+        strategy = payload.get("strategy", "standard")
+        app.state.control_state["navigator"] = {
+            "active": True,
+            "strategy": strategy,
+            "state": "navigating"
+        }
+        publish_event("navigator.start", {"strategy": strategy})
+        return JSONResponse({"ok": True, "strategy": strategy})
+    
+    @app.post("/api/navigator/stop")
+    async def navigator_stop() -> JSONResponse:
+        """Stop navigator."""
+        strategy = app.state.control_state.get("navigator", {}).get("strategy", "standard")
+        app.state.control_state["navigator"] = {
+            "active": False,
+            "strategy": strategy,
+            "state": "idle"
+        }
+        publish_event("navigator.stop", {})
+        return JSONResponse({"ok": True})
+    
+    @app.post("/api/navigator/return_home")
+    async def navigator_return_home() -> JSONResponse:
+        """Simulate navigator return home action."""
+        navigator = app.state.control_state.get("navigator", {})
+        navigator_state = {
+            "active": navigator.get("active", True),
+            "strategy": navigator.get("strategy", "standard"),
+            "state": "returning"
+        }
+        app.state.control_state["navigator"] = navigator_state
+        publish_event("navigator.return_home", {})
+        return JSONResponse({"ok": True, "state": "returning"})
+    
+    @app.get("/api/resource/{resource_name}")
+    async def get_resource_status(resource_name: str) -> JSONResponse:
+        """Return mock resource status (mic, speaker, lcd, camera)."""
+        resource = app.state.resources.get(resource_name)
+        if not resource:
+            return JSONResponse(
+                {"error": f"Resource {resource_name} not found"},
+                status_code=404
+            )
+        resource["checked_at"] = time.time()
+        return JSONResponse(content=resource)
+    
+    @app.post("/api/resource/{resource_name}")
+    async def update_resource(resource_name: str, payload: Dict[str, Any]) -> JSONResponse:
+        """Handle resource actions (release/stop)."""
+        resource = app.state.resources.get(resource_name)
+        if not resource:
+            return JSONResponse(
+                {"error": f"Resource {resource_name} not found"},
+                status_code=404
+            )
+        action = (payload or {}).get("action")
+        if action in {"release", "stop"}:
+            resource["free"] = True
+            resource["holders"] = []
+            resource["checked_at"] = time.time()
+            publish_event("resource.update", {"resource": resource_name, "action": action})
+            return JSONResponse({"ok": True, "resource": resource_name})
+        return JSONResponse({"error": f"Unsupported action {action}"}, status_code=400)
+    
+    @app.get("/svc")
+    async def list_services() -> JSONResponse:
+        """Return mock systemd service states."""
+        services = [
+            {**svc, "ts": time.time()}
+            for svc in app.state.services
+        ]
+        return JSONResponse({"services": services, "timestamp": time.time()})
+    
+    @app.post("/svc/{unit}")
+    async def control_service(unit: str, payload: Dict[str, Any]) -> JSONResponse:
+        """Handle service control actions."""
+        service = next((s for s in app.state.services if s["unit"] == unit), None)
+        if not service:
+            return JSONResponse({"error": f"Service {unit} not found"}, status_code=404)
+        action = (payload or {}).get("action")
+        if action == "start":
+            service["active"] = "active"
+            service["sub"] = "running"
+        elif action == "stop":
+            service["active"] = "inactive"
+            service["sub"] = "dead"
+        elif action == "restart":
+            service["active"] = "active"
+            service["sub"] = "running"
+        elif action == "enable":
+            service["enabled"] = "enabled"
+        elif action == "disable":
+            service["enabled"] = "disabled"
+        else:
+            return JSONResponse({"error": f"Unsupported action {action}"}, status_code=400)
+        publish_event("service.action", {"unit": unit, "action": action})
+        return JSONResponse({"ok": True, "unit": unit, "action": action})
+    
+    def _camera_last_headers() -> Dict[str, str]:
+        ts = app.state.last_camera_frame["timestamp"]
+        dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+        return {"Last-Modified": dt.strftime("%a, %d %b %Y %H:%M:%S GMT")}
+    
+    @app.get("/camera/last")
+    async def camera_last() -> Response:
+        """Return last camera frame placeholder."""
+        headers = _camera_last_headers()
+        return Response(
+            content=app.state.last_camera_frame["content"],
+            media_type="image/png",
+            headers=headers
+        )
+    
+    @app.head("/camera/last")
+    async def camera_last_head() -> Response:
+        """HEAD variant for last camera frame."""
+        headers = _camera_last_headers()
+        return Response(content=b"", media_type="image/png", headers=headers)
+    
+    @app.get("/events")
+    async def events(request: Request):
+        """Server-sent events endpoint for UI panels."""
+        queue: asyncio.Queue = asyncio.Queue()
+        app.state.event_subscribers.append(queue)
+        
+        async def event_generator():
+            try:
+                while True:
+                    if await request.is_disconnected():
+                        break
+                    try:
+                        payload = await asyncio.wait_for(queue.get(), timeout=5.0)
+                    except asyncio.TimeoutError:
+                        payload = {"topic": "heartbeat", "data": {"status": "ok"}, "ts": time.time()}
+                    yield f"data: {json.dumps(payload)}\n\n"
+            finally:
+                if queue in app.state.event_subscribers:
+                    app.state.event_subscribers.remove(queue)
+        
+        return StreamingResponse(event_generator(), media_type="text/event-stream")
+    
+    class NoCacheStaticFiles(StaticFiles):
+        """StaticFiles variant that disables conditional caching."""
+        
+        async def __call__(self, scope, receive, send):
+            if scope["type"] == "http":
+                stripped_headers = [
+                    (key, value)
+                    for key, value in scope["headers"]
+                    if key not in (b"if-none-match", b"if-modified-since")
+                ]
+                scope = dict(scope)
+                scope["headers"] = stripped_headers
+            
+            async def send_wrapper(message):
+                if message["type"] == "http.response.start":
+                    headers = MutableHeaders(scope=message)
+                    headers["cache-control"] = "no-store"
+                await send(message)
+            
+            await super().__call__(scope, receive, send_wrapper)
+    
     # Serve static files from web directory
     web_path = Path(__file__).parent.parent.parent / "web"
     if web_path.exists():
-        app.mount("/web", StaticFiles(directory=str(web_path)), name="web")
+        app.mount("/web", NoCacheStaticFiles(directory=str(web_path)), name="web")
         logger.info(f"Serving static files from: {web_path}")
         
-        # Serve view.html at root
-        @app.get("/")
-        async def root():
-            """Serve view.html at root."""
-            view_file = web_path / "view.html"
-            if view_file.exists():
-                return FileResponse(view_file)
-            return JSONResponse({"error": "view.html not found"}, status_code=404)
+        page_map = {
+            "": "view.html",
+            "view": "view.html",
+            "control": "control.html",
+            "navigation": "navigation.html",
+            "system": "system.html",
+            "home": "home.html",
+            "google_home": "google_home.html",
+            "chat": "chat.html",
+            "providers": "providers.html"
+        }
+        
+        def make_page_handler(file_path: Path):
+            async def handler():
+                if file_path.exists():
+                    return FileResponse(file_path)
+                return JSONResponse(
+                    {"error": f"{file_path.name} not found"},
+                    status_code=404
+                )
+            return handler
+        
+        for route_suffix, filename in page_map.items():
+            route_path = "/" if route_suffix == "" else f"/{route_suffix}"
+            app.get(route_path)(make_page_handler(web_path / filename))
     
     return app
 

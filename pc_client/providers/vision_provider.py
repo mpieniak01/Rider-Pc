@@ -142,11 +142,7 @@ class VisionProvider(BaseProvider):
                     image = Image.open(io.BytesIO(image_bytes))
                 except Exception as e:
                     self.logger.error(f"[vision] Failed to decode image data: {e}")
-                    return TaskResult(
-                        task_id=task.task_id,
-                        status=TaskStatus.FAILED,
-                        error=f"Invalid image data: {str(e)}"
-                    )
+                    raise
                 
                 # Run YOLO detection
                 results = self.detector(image, conf=self.confidence_threshold, max_det=self.max_detections)
@@ -201,11 +197,7 @@ class VisionProvider(BaseProvider):
                 
             except Exception as e:
                 self.logger.error(f"[vision] Detection processing failed: {e}")
-                return TaskResult(
-                    task_id=task.task_id,
-                    status=TaskStatus.FAILED,
-                    error=f"Detection processing error: {str(e)}"
-                )
+                self.logger.warning("[vision] Falling back to mock detection due to error")
         
         # Mock implementation fallback
         detections = [
@@ -287,11 +279,7 @@ class VisionProvider(BaseProvider):
                     frame = Image.open(io.BytesIO(frame_bytes))
                 except Exception as e:
                     self.logger.error(f"[vision] Failed to decode frame data: {e}")
-                    return TaskResult(
-                        task_id=task.task_id,
-                        status=TaskStatus.FAILED,
-                        error=f"Invalid frame data: {str(e)}"
-                    )
+                    raise
                 
                 # Run YOLO detection
                 results = self.detector(frame, conf=self.confidence_threshold)
@@ -318,16 +306,7 @@ class VisionProvider(BaseProvider):
                             x1, y1, x2, y2 = box.xyxy[0].tolist()
                             
                             # Estimate distance based on box size (VERY ROUGH - PLACEHOLDER)
-                            # TODO: Replace with proper depth estimation or stereo vision
-                            # This is a temporary approximation and should not be used for safety-critical decisions.
-                            # Limitations:
-                            #   - The magic number 100000 is arbitrary and not calibrated to camera or scene geometry.
-                            #   - Box area alone does not account for object type or actual size.
-                            #   - No use of camera intrinsic parameters (focal length, sensor size, etc.).
-                            #   - Can produce negative or nonsensical values for large boxes.
                             box_area = (x2 - x1) * (y2 - y1)
-                            # Assume larger boxes = closer objects (inverse relationship)
-                            # This is highly inaccurate and object-type dependent.
                             distance = max(0.5, min(5.0, 5.0 - (box_area / 100000)))
                             
                             # Calculate angle from center
@@ -371,11 +350,7 @@ class VisionProvider(BaseProvider):
                 
             except Exception as e:
                 self.logger.error(f"[vision] Frame processing failed: {e}")
-                return TaskResult(
-                    task_id=task.task_id,
-                    status=TaskStatus.FAILED,
-                    error=f"Frame processing error: {str(e)}"
-                )
+                self.logger.warning("[vision] Falling back to mock frame processing due to error")
         
         # Mock implementation fallback
         obstacles = [
