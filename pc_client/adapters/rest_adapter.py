@@ -10,19 +10,19 @@ logger = logging.getLogger(__name__)
 
 class RestAdapter:
     """Adapter for consuming REST API from Rider-PI."""
-    
+
     def __init__(
-        self, 
-        base_url: str, 
+        self,
+        base_url: str,
         timeout: float = 5.0,
         secure_mode: bool = False,
         mtls_cert_path: Optional[str] = None,
         mtls_key_path: Optional[str] = None,
-        mtls_ca_path: Optional[str] = None
+        mtls_ca_path: Optional[str] = None,
     ):
         """
         Initialize the REST adapter.
-        
+
         Args:
             base_url: Base URL for Rider-PI API (e.g., http://robot-ip:8080)
             timeout: Request timeout in seconds
@@ -35,17 +35,17 @@ class RestAdapter:
         """
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
-        
+
         # Initialize httpx client based on secure mode
         client_kwargs = {"timeout": timeout}
-        
+
         if secure_mode:
             if mtls_cert_path and mtls_key_path and mtls_ca_path:
                 # Validate certificate files exist
                 cert_file = Path(mtls_cert_path)
                 key_file = Path(mtls_key_path)
                 ca_file = Path(mtls_ca_path)
-                
+
                 if not all([cert_file.exists(), key_file.exists(), ca_file.exists()]):
                     logger.warning(
                         f"SECURE_MODE=true but one or more certificate files not found. "
@@ -65,7 +65,7 @@ class RestAdapter:
                 )
         else:
             logger.info("RestAdapter initializing in DEVELOPMENT mode (Insecure)")
-        
+
         self.client = httpx.AsyncClient(**client_kwargs)
 
     async def fetch_binary(self, path: str, params: Optional[Dict[str, Any]] = None) -> Tuple[bytes, str]:
@@ -88,15 +88,15 @@ class RestAdapter:
         except Exception as e:
             logger.error(f"Error fetching binary content from {url}: {e}")
             raise
-    
+
     async def close(self):
         """Close the HTTP client."""
         await self.client.aclose()
-    
+
     async def get_healthz(self) -> Dict[str, Any]:
         """
         Get health status from /healthz endpoint.
-        
+
         Returns:
             Health status data
         """
@@ -107,11 +107,11 @@ class RestAdapter:
         except Exception as e:
             logger.error(f"Error fetching /healthz: {e}")
             return {"ok": False, "error": str(e)}
-    
+
     async def get_state(self) -> Dict[str, Any]:
         """
         Get state from /state endpoint.
-        
+
         Returns:
             State data
         """
@@ -122,11 +122,11 @@ class RestAdapter:
         except Exception as e:
             logger.error(f"Error fetching /state: {e}")
             return {"error": str(e)}
-    
+
     async def get_sysinfo(self) -> Dict[str, Any]:
         """
         Get system info from /sysinfo endpoint.
-        
+
         Returns:
             System info data
         """
@@ -137,11 +137,11 @@ class RestAdapter:
         except Exception as e:
             logger.error(f"Error fetching /sysinfo: {e}")
             return {"error": str(e)}
-    
+
     async def get_vision_snap_info(self) -> Dict[str, Any]:
         """
         Get vision snapshot info from /vision/snap-info endpoint.
-        
+
         Returns:
             Vision snapshot info data
         """
@@ -152,11 +152,11 @@ class RestAdapter:
         except Exception as e:
             logger.error(f"Error fetching /vision/snap-info: {e}")
             return {"error": str(e)}
-    
+
     async def get_vision_obstacle(self) -> Dict[str, Any]:
         """
         Get vision obstacle data from /vision/obstacle endpoint.
-        
+
         Returns:
             Vision obstacle data
         """
@@ -167,11 +167,11 @@ class RestAdapter:
         except Exception as e:
             logger.error(f"Error fetching /vision/obstacle: {e}")
             return {"error": str(e)}
-    
+
     async def get_app_metrics(self) -> Dict[str, Any]:
         """
         Get app metrics from /api/app-metrics endpoint.
-        
+
         Returns:
             App metrics data
         """
@@ -182,11 +182,11 @@ class RestAdapter:
         except Exception as e:
             logger.error(f"Error fetching /api/app-metrics: {e}")
             return {"ok": False, "error": str(e)}
-    
+
     async def get_camera_resource(self) -> Dict[str, Any]:
         """
         Get camera resource info from /api/resource/camera endpoint.
-        
+
         Returns:
             Camera resource data
         """
@@ -197,11 +197,11 @@ class RestAdapter:
         except Exception as e:
             logger.error(f"Error fetching /api/resource/camera: {e}")
             return {"error": str(e)}
-    
+
     async def get_bus_health(self) -> Dict[str, Any]:
         """
         Get bus health from /api/bus/health endpoint.
-        
+
         Returns:
             Bus health data
         """
@@ -212,14 +212,14 @@ class RestAdapter:
         except Exception as e:
             logger.error(f"Error fetching /api/bus/health: {e}")
             return {"error": str(e)}
-    
+
     async def get_resource(self, resource_name: str) -> Dict[str, Any]:
         """
         Get resource status from /api/resource/{resource_name}.
-        
+
         Args:
             resource_name: Name of the resource (mic, speaker, camera, lcd, etc.)
-        
+
         Returns:
             Resource status data
         """
@@ -230,44 +230,38 @@ class RestAdapter:
         except Exception as e:
             logger.error(f"Error fetching /api/resource/{resource_name}: {e}")
             return {"error": str(e)}
-    
+
     async def post_resource_action(self, resource_name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         """
         Send resource action to /api/resource/{resource_name}.
-        
+
         Args:
             resource_name: Name of the resource
             payload: Action payload (e.g., {"action": "release"})
-        
+
         Returns:
             Response data
         """
         try:
-            response = await self.client.post(
-                f"{self.base_url}/api/resource/{resource_name}",
-                json=payload
-            )
+            response = await self.client.post(f"{self.base_url}/api/resource/{resource_name}", json=payload)
             response.raise_for_status()
             return response.json()
         except Exception as e:
             logger.error(f"Error posting /api/resource/{resource_name}: {e}")
             return {"ok": False, "error": str(e)}
-    
+
     async def post_control(self, command: Dict[str, Any]) -> Dict[str, Any]:
         """
         Send control command to /api/control endpoint.
-        
+
         Args:
             command: Control command data
-            
+
         Returns:
             Response data
         """
         try:
-            response = await self.client.post(
-                f"{self.base_url}/api/control",
-                json=command
-            )
+            response = await self.client.post(f"{self.base_url}/api/control", json=command)
             response.raise_for_status()
             return response.json()
         except Exception as e:
