@@ -145,6 +145,55 @@ async def test_get_app_metrics(rest_adapter):
 
 
 @pytest.mark.asyncio
+async def test_get_resource_success(rest_adapter):
+    """Test fetching a specific resource."""
+    mock_response = {"name": "mic", "free": True}
+    
+    with patch.object(rest_adapter.client, "get", new_callable=AsyncMock) as mock_get:
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = mock_response
+        mock_resp.raise_for_status.return_value = None
+        mock_get.return_value = mock_resp
+        
+        result = await rest_adapter.get_resource("mic")
+        
+        assert result == mock_response
+        mock_get.assert_called_once_with("http://test-robot:8080/api/resource/mic")
+
+
+@pytest.mark.asyncio
+async def test_get_resource_error(rest_adapter):
+    """Test error while fetching resource."""
+    with patch.object(rest_adapter.client, "get", new_callable=AsyncMock) as mock_get:
+        mock_get.side_effect = httpx.RequestError("boom")
+        
+        result = await rest_adapter.get_resource("mic")
+        
+        assert "error" in result
+
+
+@pytest.mark.asyncio
+async def test_post_resource_action(rest_adapter):
+    """Test posting a resource action."""
+    payload = {"action": "release"}
+    mock_response = {"ok": True}
+    
+    with patch.object(rest_adapter.client, "post", new_callable=AsyncMock) as mock_post:
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = mock_response
+        mock_resp.raise_for_status.return_value = None
+        mock_post.return_value = mock_resp
+        
+        result = await rest_adapter.post_resource_action("mic", payload)
+        
+        assert result == mock_response
+        mock_post.assert_called_once_with(
+            "http://test-robot:8080/api/resource/mic",
+            json=payload
+        )
+
+
+@pytest.mark.asyncio
 async def test_post_control(rest_adapter):
     """Test control command post."""
     command = {"type": "drive", "lx": 0.5, "az": 0.0}

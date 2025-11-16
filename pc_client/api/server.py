@@ -549,7 +549,7 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
     
     @app.post("/api/control")
     async def api_control_endpoint(command: Dict[str, Any]) -> JSONResponse:
-        """Receive control commands from client UI."""
+        """Forward control commands from the UI to Rider-PI."""
         cmd = command.get("cmd", "noop")
         entry = {
             "ts": time.time(),
@@ -561,7 +561,35 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
             publish_event("cmd.move", command)
         elif cmd == "stop":
             publish_event("cmd.stop", command)
-        return JSONResponse({"ok": True, "queued": len(app.state.motion_queue)})
+        
+        forward_result: Dict[str, Any]
+        status_code = 200
+        adapter: RestAdapter = app.state.rest_adapter
+        if adapter is None:
+            forward_result = {"ok": False, "error": "REST adapter not initialized"}
+            status_code = 503
+            logger.error("Cannot forward /api/control command: REST adapter unavailable")
+        else:
+            try:
+                forward_result = await adapter.post_control(command)
+            except Exception as exc:  # pragma: no cover - defensive guard
+                logger.error("Error forwarding control command to Rider-PI: %s", exc)
+                forward_result = {"ok": False, "error": str(exc)}
+                status_code = 502
+        
+        forward_ok = bool(forward_result.get("ok"))
+        if not forward_ok:
+            status = str(forward_result.get("status", "")).lower()
+            forward_ok = status == "ok"
+        
+        response_payload = {
+            "ok": forward_ok,
+            "queued": len(app.state.motion_queue),
+            "device_response": forward_result
+        }
+        if not forward_ok and "error" in forward_result:
+            response_payload["error"] = forward_result["error"]
+        return JSONResponse(response_payload, status_code=status_code if not forward_ok else 200)
     
     @app.get("/api/control/state")
     async def api_control_state() -> JSONResponse:
@@ -624,33 +652,66 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
     
     @app.get("/api/resource/{resource_name}")
     async def get_resource_status(resource_name: str) -> JSONResponse:
-        """Return mock resource status (mic, speaker, lcd, camera)."""
-        resource = app.state.resources.get(resource_name)
-        if not resource:
+        """Return resource status, preferring Rider-PI data when available."""
+        local_resource = app.state.resources.get(resource_name)
+        if not local_resource:
             return JSONResponse(
                 {"error": f"Resource {resource_name} not found"},
                 status_code=404
             )
-        resource["checked_at"] = time.time()
-        return JSONResponse(content=resource)
+        
+        adapter: RestAdapter = app.state.rest_adapter
+        result: Dict[str, Any]
+        if adapter:
+            try:
+                remote_data = await adapter.get_resource(resource_name)
+                if remote_data and not remote_data.get("error"):
+                    result = remote_data
+                else:
+                    result = dict(local_resource)
+                    if remote_data and remote_data.get("error"):
+                        result["error"] = remote_data["error"]
+            except Exception as exc:  # pragma: no cover - defensive network error
+                logger.error("Error fetching resource %s from Rider-PI: %s", resource_name, exc)
+                result = dict(local_resource)
+                result["error"] = str(exc)
+        else:
+            result = dict(local_resource)
+        
+        result.setdefault("checked_at", time.time())
+        return JSONResponse(content=result)
     
     @app.post("/api/resource/{resource_name}")
     async def update_resource(resource_name: str, payload: Dict[str, Any]) -> JSONResponse:
-        """Handle resource actions (release/stop)."""
-        resource = app.state.resources.get(resource_name)
-        if not resource:
+        """Forward resource actions (release/stop) to Rider-PI."""
+        local_resource = app.state.resources.get(resource_name)
+        if not local_resource:
             return JSONResponse(
                 {"error": f"Resource {resource_name} not found"},
                 status_code=404
             )
-        action = (payload or {}).get("action")
-        if action in {"release", "stop"}:
-            resource["free"] = True
-            resource["holders"] = []
-            resource["checked_at"] = time.time()
-            publish_event("resource.update", {"resource": resource_name, "action": action})
-            return JSONResponse({"ok": True, "resource": resource_name})
-        return JSONResponse({"error": f"Unsupported action {action}"}, status_code=400)
+        adapter: RestAdapter = app.state.rest_adapter
+        if not adapter:
+            action = (payload or {}).get("action")
+            if action in {"release", "stop"}:
+                local_resource["free"] = True
+                local_resource["holders"] = []
+                local_resource["checked_at"] = time.time()
+                publish_event("resource.update", {"resource": resource_name, "action": action})
+                return JSONResponse({"ok": True, "resource": resource_name, "note": "local-only"})
+            return JSONResponse({"error": f"Unsupported action {action}"}, status_code=400)
+        
+        action_payload = payload or {}
+        try:
+            response = await adapter.post_resource_action(resource_name, action_payload)
+        except Exception as exc:  # pragma: no cover
+            logger.error("Error posting resource action for %s: %s", resource_name, exc)
+            response = {"ok": False, "error": str(exc)}
+        
+        status_code = 200
+        if not response.get("ok", True) and "error" in response:
+            status_code = 502
+        return JSONResponse(content=response, status_code=status_code)
     
     @app.get("/svc")
     async def list_services() -> JSONResponse:

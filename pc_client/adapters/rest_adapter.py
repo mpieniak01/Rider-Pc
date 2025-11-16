@@ -213,6 +213,46 @@ class RestAdapter:
             logger.error(f"Error fetching /api/bus/health: {e}")
             return {"error": str(e)}
     
+    async def get_resource(self, resource_name: str) -> Dict[str, Any]:
+        """
+        Get resource status from /api/resource/{resource_name}.
+        
+        Args:
+            resource_name: Name of the resource (mic, speaker, camera, lcd, etc.)
+        
+        Returns:
+            Resource status data
+        """
+        try:
+            response = await self.client.get(f"{self.base_url}/api/resource/{resource_name}")
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error fetching /api/resource/{resource_name}: {e}")
+            return {"error": str(e)}
+    
+    async def post_resource_action(self, resource_name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Send resource action to /api/resource/{resource_name}.
+        
+        Args:
+            resource_name: Name of the resource
+            payload: Action payload (e.g., {"action": "release"})
+        
+        Returns:
+            Response data
+        """
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/api/resource/{resource_name}",
+                json=payload
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error posting /api/resource/{resource_name}: {e}")
+            return {"ok": False, "error": str(e)}
+    
     async def post_control(self, command: Dict[str, Any]) -> Dict[str, Any]:
         """
         Send control command to /api/control endpoint.
