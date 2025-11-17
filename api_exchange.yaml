@@ -1,0 +1,91 @@
+```yaml
+version: v1
+description: |
+  Publiczne API integrujące Rider-Pi z Rider-PC. Endpoints
+  są używane przez panel operatora, watchdog oraz sam Rider-PC do
+  wymiany heartbeatów, capabilities i danych trackingowych.
+
+endpoints:
+  - path: /providers/state
+    method: GET
+    purpose: "Rider-PC pyta, jaki tryb jest ustawiony dla vision/voice/text oraz czy PC jest reachable."
+    response:
+      domains:
+        vision: {mode, status, changed_ts, reason}
+        voice: {mode, status, changed_ts, reason}
+        text: {mode, status, changed_ts, reason}
+      pc_health: {reachable, status, latency_ms, reason, updated_ts}
+      pc_base_url: "<rider-pc URL>"
+
+  - path: /providers/health
+    method: GET
+    purpose: "Zwraca metryki i stan zdrowia ostatnich heartbeatów (latency, status) dla monitoringowego dashboardu."
+    response:
+      pc_health: {reachable, latency_ms, status, reason, last_success_ts}
+
+  - path: /providers/pc-heartbeat
+    method: POST
+    purpose: "Rider-PC wysyła heartbeat, aby watchdog na Pi mógł utrzymać status PC jako reachable."
+    request:
+      base_url: "http://pc-host:8000"
+      status: "online"|"offline"
+      reason: "heartbeat"
+      latency_ms: float
+    response: {ok: true, base_url: normalized}
+
+  - path: /providers/{domain}
+    method: PATCH
+    purpose: "Przełącza konkretne domeny (vision/voice/text) między lokalnym przetwarzaniem a PC."
+    request:
+      target: "local"|"pc"
+      force: boolean (opcjonalny)
+    response:
+      domain: vision|voice|text
+      state: {mode, status, changed_ts, reason}
+      changed: boolean
+
+  - path: /vision/tracking/mode
+    method: POST
+    purpose: "Rider-PC steruje trybem Follow Me (face/hand/none)."
+    request:
+      mode: "face"|"hand"|"none"
+      enabled: boolean
+    response:
+      ok: boolean
+      mode: normalized mode
+      enabled: boolean
+
+  - path: /vision/tracker
+    method: GET
+    purpose: "Zwraca overlay z wykryciami i FPS do PC dashboard."
+    response:
+      image/png stream
+      headers: {X-Tracker-FPS, X-Tracker-TS}
+
+  - path: /vision/capabilities
+    method: GET
+    purpose: "Handshake; Pi pyta PC jakie domeny i schematy obsługuje."
+    response:
+      vision: {version, features, frame_schema, model, priority.frame, mode}
+      voice: {...}
+      text: {...}
+
+  - path: /vision/obstacle.enhanced (ZMQ)
+    protocol: zmq
+    publish: Rider-PC -> Rider-Pi
+    description: "Wzbogacone dane przeszkód (offset, confidence, distance)."
+
+  - path: /vision/frame.offload (ZMQ)
+    protocol: zmq
+    publish: Rider-Pi -> Rider-PC
+    description: "Rider-Pi przesyła klatki/ROI do obróbki."
+
+  - path: /vision/edge (proxy)
+    method: GET
+    purpose: "Proxy do Pi; używane w dashboardzie Rider-PC."
+
+  - path: /metrics
+    method: GET
+    purpose: "Prometheus metrics od Rider-PC."
+
+```*** End Patch##
