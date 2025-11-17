@@ -25,6 +25,7 @@ export const I18N = {
     brand_sub:     { pl: "Panel operatora", en: "Operator console" },
     view:          { pl: "Przegląd", en: "Overview" },
     control:       { pl: "Sterowanie", en: "Control" },
+    mode:          { pl: "Tryb", en: "Mode" },
     navigation:    { pl: "Nawigacja", en: "Navigation" },
     system:        { pl: "System", en: "System" },
     home:          { pl: "Statusy", en: "Status" },
@@ -32,6 +33,10 @@ export const I18N = {
     chat:          { pl: "Chat", en: "Chat" },
     lang_pl_title: { pl: "Przełącz na polski", en: "Switch to Polish" },
     lang_en_title: { pl: "Przełącz na angielski", en: "Switch to English" },
+  },
+
+  mode: {
+    page_title: { pl: "Tryby i Provider Control", en: "Modes & Provider Control" },
   },
 
   // ===== MINI DASHBOARD =====
@@ -341,6 +346,9 @@ export const I18N = {
     title:              { pl: "Tryb AI", en: "AI Mode" },
     description:        { pl: "Wybierz tryb przetwarzania AI: lokalny (wszystko na Pi) lub offload (ciężkie obliczenia na PC).", en: "Choose AI processing mode: local (all on Pi) or offload (heavy processing on PC)." },
     loading:            { pl: "ładowanie…", en: "loading…" },
+    current_label:      { pl: "Aktualny tryb", en: "Current mode" },
+    switch_label:       { pl: "Przełącz tryb", en: "Switch mode" },
+    op_status_label:    { pl: "Stan operacji", en: "Operation status" },
     mode_local:         { pl: "🏠 Local (Pi)", en: "🏠 Local (Pi)" },
     mode_offload:       { pl: "💻 PC Offload", en: "💻 PC Offload" },
     btn_local:          { pl: "🏠 Local (Pi)", en: "🏠 Local (Pi)" },
