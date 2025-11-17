@@ -10,16 +10,18 @@ from pc_client.telemetry.metrics import tasks_processed_total, task_duration_sec
 
 logger = logging.getLogger(__name__)
 
-# Import AI libraries with fallback to mock mode
+try:
+    from PIL import Image, ImageDraw, ImageFont
+except ImportError:
+    Image = ImageDraw = ImageFont = None  # type: ignore
+    logger.warning("Pillow not installed; tracker overlay will be disabled")
+
 try:
     from ultralytics import YOLO
-    from PIL import Image, ImageDraw, ImageFont
 
     YOLO_AVAILABLE = True
 except ImportError:
     YOLO_AVAILABLE = False
-    ImageDraw = None  # type: ignore
-    ImageFont = None  # type: ignore
     logger.warning("YOLOv8 not available, using mock object detection")
 
 
