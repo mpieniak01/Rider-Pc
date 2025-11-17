@@ -3,6 +3,7 @@
 import logging
 import base64
 import io
+import time
 from typing import Dict, Any, Optional
 from pc_client.providers.base import BaseProvider, TaskEnvelope, TaskResult, TaskType, TaskStatus
 from pc_client.telemetry.metrics import tasks_processed_total, task_duration_seconds
@@ -12,11 +13,13 @@ logger = logging.getLogger(__name__)
 # Import AI libraries with fallback to mock mode
 try:
     from ultralytics import YOLO
-    from PIL import Image
+    from PIL import Image, ImageDraw, ImageFont
 
     YOLO_AVAILABLE = True
 except ImportError:
     YOLO_AVAILABLE = False
+    ImageDraw = None  # type: ignore
+    ImageFont = None  # type: ignore
     logger.warning("YOLOv8 not available, using mock object detection")
 
 
@@ -48,6 +51,10 @@ class VisionProvider(BaseProvider):
 
         # Model instance (loaded during initialization)
         self.detector: Optional[Any] = None
+        self._tracker_overlay: bytes = self._build_tracker_placeholder()
+        self._tracker_ts: float = 0.0
+        self._tracker_fps: float = 0.0
+        self._tracker_last_frame_ts: float = 0.0
 
     async def _initialize_impl(self) -> None:
         """Initialize vision processing models."""
@@ -160,6 +167,7 @@ class VisionProvider(BaseProvider):
                             }
                         )
 
+                self._update_tracker_snapshot(image, detections)
                 self.logger.info(f"[vision] Detected {len(detections)} objects")
 
                 # Update metrics
@@ -199,6 +207,8 @@ class VisionProvider(BaseProvider):
             {"class": "obstacle", "confidence": 0.87, "bbox": [400, 200, 550, 400], "center": [475, 300]},
         ]
 
+        placeholder = Image.new("RGBA", (width, height), (20, 20, 30, 255))
+        self._update_tracker_snapshot(placeholder, detections)
         self.logger.info(f"[vision] Detected (mock) {len(detections)} objects")
 
         # Update metrics
@@ -220,6 +230,42 @@ class VisionProvider(BaseProvider):
                 "engine": "mock",
             },
         )
+
+    def _build_tracker_placeholder(self) -> bytes:
+        canvas = Image.new("RGBA", (640, 360), (10, 10, 25, 255))
+        draw = ImageDraw.Draw(canvas)
+        font = ImageFont.load_default() if ImageFont else None
+        draw.text((10, 10), "Tracker idle", fill=(180, 220, 255), font=font)
+        return self._to_png_bytes(canvas)
+
+    def _update_tracker_snapshot(self, image: Image.Image, detections: list[dict[str, Any]]) -> None:
+        now = time.time()
+        delta = now - self._tracker_last_frame_ts if self._tracker_last_frame_ts else 0.0
+        self._tracker_last_frame_ts = now
+        if delta > 0:
+            self._tracker_fps = 1.0 / delta
+        self._tracker_overlay = self._render_tracker_overlay(image, detections)
+        self._tracker_ts = now
+
+    def _render_tracker_overlay(self, image: Image.Image, detections: list[dict[str, Any]]) -> bytes:
+        canvas = image.convert("RGBA")
+        draw = ImageDraw.Draw(canvas)
+        font = ImageFont.load_default() if ImageFont else None
+        for det in detections:
+            bbox = det.get("bbox", [0, 0, 0, 0])
+            draw.rectangle(bbox, outline=(100, 255, 100), width=3)
+            label = f"{det.get('class','')} {det.get('confidence',0):.2f}"
+            draw.text((bbox[0], max(0, bbox[1] - 14)), label, fill=(0, 255, 0), font=font)
+        draw.text((10, 10), f"FPS: {self._tracker_fps:.1f}", fill=(255, 255, 0), font=font)
+        return self._to_png_bytes(canvas)
+
+    def _to_png_bytes(self, image: Image.Image) -> bytes:
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG")
+        return buffer.getvalue()
+
+    def get_tracker_snapshot(self) -> tuple[bytes, float, float]:
+        return self._tracker_overlay, self._tracker_ts, self._tracker_fps
 
     async def _process_frame(self, task: TaskEnvelope) -> TaskResult:
         """

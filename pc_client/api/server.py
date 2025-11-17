@@ -734,7 +734,16 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
 
     @app.get("/vision/tracker")
     async def vision_tracker_proxy(request: Request):
-        """Proxy tracker overlay feed."""
+        """Serve tracker overlay feed."""
+        provider = app.state.providers.get("vision")
+        if isinstance(provider, VisionProvider):
+            overlay, ts, fps = provider.get_tracker_snapshot()
+            if overlay:
+                headers = {
+                    "X-Tracker-FPS": f"{fps:.1f}",
+                    "X-Tracker-TS": f"{ts:.3f}",
+                }
+                return Response(content=overlay, media_type="image/png", headers=headers)
         return await proxy_remote_media("/vision/tracker", request)
 
     @app.get("/snapshots/{snapshot_path:path}")
