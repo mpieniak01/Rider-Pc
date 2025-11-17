@@ -48,7 +48,7 @@ https://github.com/mpieniak01/Rider-Pi
 - **Zmiana ustawień**: Operator w UI → `PATCH /api/providers/{domain}` → `provider_registry` zapisuje wybór → publikacja zdarzenia → moduły domenowe przełączają destynację.
 - **Obsługa zadań głosowych**: Rider-PI nagrywa audio → `ProviderGateway` decyduje ścieżkę → (lokalne modele / wysyłka do PC) → wynik trafia do UI/twarzy.
 - **Przetwarzanie wizji**: Kamera → `VisionDispatcher` → (lokalne przetwarzanie / offload) → publikacja wyników → mapowanie/nawigacja.
-- **Telemetria stanu**: `provider_registry` agreguje heartbeat z PC (`/providers/heartbeat`, ZMQ) i udostępnia UI/monitoringowi.
+- **Telemetria stanu**: `provider_registry` agreguje heartbeat z PC (`POST /api/providers/pc-heartbeat` + ZMQ) i udostępnia UI/monitoringowi; endpoint aktualizuje także ostatni znany adres PC.
 
 ## 6. Konfiguracja i negocjacja kontraktów
 - Dodaj sekcję `providers` w plikach TOML (`config/voice.toml`, `config/vision.toml`) definiującą domyślny wybór oraz parametry konektora PC (adresy, time-outy, wersje API).
@@ -58,7 +58,7 @@ https://github.com/mpieniak01/Rider-Pi
 ## 7. Bezpieczeństwo i niezawodność
 - Endpointy przełączników wymagają silnego uwierzytelnienia (token operatora) oraz audytu (logi `[provider] switch domain=voice target=pc`).
 - Kanały komunikacji z PC zabezpieczone mTLS/VPN; klucze rotowane zgodnie z polityką bezpieczeństwa.
-- Mechanizm watchdog monitoruje RTT z PC; przekroczenie progu wyzwala alarm i automatyczny failback do `local`.
+- Mechanizm watchdog monitoruje RTT z PC (pobierając URL z rejestru aktualizowanego przez `pc-heartbeat`); przekroczenie progu wyzwala alarm i automatyczny failback do `local`.
 
 ## 8. Wymagane aktualizacje dokumentacji i testów
 - Zaktualizuj `ARCHITECTURE.md` oraz dokumentację API (`docs/api/`) o nowe endpointy i przepływy.

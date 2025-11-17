@@ -16,12 +16,13 @@ pip install -r requirements.txt
 ```
 
 ### 2. Configure Connection
-Set environment variables to point to your Rider-PI device:
+Set environment variables to point to your Rider-PI device and advertise the PC panel URL (reachable from Rider-Pi):
 
 ```bash
 export RIDER_PI_HOST="192.168.1.100"  # Replace with your Rider-PI IP
 export RIDER_PI_PORT="8080"
 export ZMQ_PUB_PORT="5555"
+export PC_PUBLIC_BASE_URL="http://192.168.1.179:8080"  # <PC-IP>:<panel-port>
 ```
 
 ### 3. Run the Server
@@ -124,6 +125,7 @@ Environment variables:
 | `ZMQ_SUB_PORT` | `5556` | ZMQ subscriber port |
 | `SERVER_HOST` | `0.0.0.0` | PC client server host |
 | `SERVER_PORT` | `8000` | PC client server port |
+| `PC_PUBLIC_BASE_URL` | _(unset)_ | URL Rider-Pi uses to reach this PC (`http://<pc_ip>:<panel_port>`) |
 | `CACHE_DB_PATH` | `data/cache.db` | SQLite database path |
 | `CACHE_TTL_SECONDS` | `30` | Cache TTL in seconds |
 | `LOG_LEVEL` | `INFO` | Logging level |

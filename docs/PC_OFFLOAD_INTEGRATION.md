@@ -19,13 +19,19 @@ Rider-Pi exposes a provider registry (`/api/system/ai-mode`, `/api/providers/*`)
    ```
    (or edit `.env`)
 
-2. **Start local stack**
+2. **Advertise Rider-PC URL (required for Provider Control)**
+   ```bash
+   export PC_PUBLIC_BASE_URL="http://192.168.1.179:8080"   # IP/port reachable from Rider-Pi
+   ```
+   The heartbeat loop is skipped when this variable is missing, causing Rider-Pi to mark the PC as `pc_unreachable`.
+
+3. **Start local stack**
    ```bash
    make start
    # UI: http://localhost:8000/web/control.html
    ```
 
-3. **Optional**: enable real providers (`ENABLE_PROVIDERS=true`, Redis, etc.) as documented in `docs/AI_MODEL_SETUP.md`.
+4. **Optional**: enable real providers (`ENABLE_PROVIDERS=true`, Redis, etc.) as documented in `docs/AI_MODEL_SETUP.md`.
 
 ## Vision Offload Runtime (Rider-PC)
 
@@ -121,6 +127,14 @@ When Rider-Pi is unreachable, FastAPI falls back to cached defaults so the UI re
 - **Tryb AI** card polls `/api/system/ai-mode` every few seconds and updates the badge (`Local` / `PC Offload`).
 - **Provider Control** card reads `domains` from `/api/providers/state` and renders per-domain pills + buttons. Clicking a button issues `PATCH /api/providers/{domain}` via the proxy.
 - A PC health badge reflects `pc_health` from the same payload (latency, reachability).
+
+## Provider Heartbeat & PC Reachability
+
+- Rider-Pi exposes `POST /api/providers/pc-heartbeat` which records the last reachable PC URL and latency.  
+  Rider-PC’s FastAPI server calls this endpoint every ~5 seconds via the `RestAdapter`.
+- The loop is enabled only when `PC_PUBLIC_BASE_URL` is set (in `.env`). Set it to the URL that Rider-Pi can reach, e.g. `http://192.168.1.179:8080`.
+- The heartbeat payload bundles the advertised base URL plus the latest capability snapshot, letting Rider-Pi show accurate `pc_health` badges in Provider Control.
+- If the watchdog on Rider-Pi does not receive heartbeats for `FAIL_THRESHOLD` intervals it falls back to `local` mode automatically, so keeping the base URL routable (VPN/NAT/forwarding) is critical.
 
 ## Testing & Diagnostics
 
