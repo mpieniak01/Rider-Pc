@@ -1,7 +1,7 @@
 // web/i18n.js
 export const I18N = {
   meta: {
-    app_title: { pl: "Rider-Pi — Sterowanie ruchem (REST /api)", en: "Rider-Pi — Motion Control (REST /api)" },
+    app_title: { pl: "Rider-PC — Sterowanie ruchem (REST /api)", en: "Rider-PC — Motion Control (REST /api)" },
     loading:   { pl: "Ładowanie…", en: "Loading…" },
     ok:        { pl: "OK", en: "OK" },
     warn:      { pl: "Ostrzeżenie", en: "Warning" },
@@ -21,7 +21,7 @@ export const I18N = {
   },
 
   nav: {
-    brand_title:   { pl: "Rider-Pi", en: "Rider-Pi" },
+    brand_title:   { pl: "Rider-PC", en: "Rider-PC" },
     brand_sub:     { pl: "Panel operatora", en: "Operator console" },
     view:          { pl: "Przegląd", en: "Overview" },
     control:       { pl: "Sterowanie", en: "Control" },
@@ -41,7 +41,7 @@ export const I18N = {
 
   // ===== MINI DASHBOARD =====
   dash: {
-    page_title:     { pl: "Rider-Pi — mini dashboard", en: "Rider-Pi — mini dashboard" },
+    page_title:     { pl: "Rider-PC — mini dashboard", en: "Rider-PC — mini dashboard" },
     hint_prefix:    { pl: "Auto-refresh co ≈ 2 s.",   en: "Auto-refresh every ≈ 2 s." },
     hint_endpoints: { pl: "Endpointy:",                en: "Endpoints:" },
 
@@ -302,7 +302,7 @@ export const I18N = {
 
   // ===== GOOGLE HOME =====
   home: {
-    page_title:         { pl: "Rider-Pi — Sterowanie Google Home", en: "Rider-Pi — Google Home Control" },
+    page_title:         { pl: "Rider-PC — Sterowanie Google Home", en: "Rider-PC — Google Home Control" },
     auth_checking:      { pl: "Sprawdzanie…", en: "Checking…" },
     auth_ok:            { pl: "Zalogowano", en: "Authenticated" },
     auth_required:      { pl: "Wymagane logowanie", en: "Auth Required" },
