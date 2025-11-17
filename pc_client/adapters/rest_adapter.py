@@ -4,6 +4,7 @@ import httpx
 import logging
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
+from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
 
@@ -322,4 +323,60 @@ class RestAdapter:
             return response.json()
         except Exception as e:
             logger.error(f"Error posting to /api/control: {e}")
+            return {"ok": False, "error": str(e)}
+
+    async def get_control_state(self) -> Dict[str, Any]:
+        """Fetch control state snapshot from Rider-PI."""
+        try:
+            response = await self.client.get(f"{self.base_url}/api/control/state")
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error fetching /api/control/state: {e}")
+            return {"error": str(e)}
+
+    async def post_pc_heartbeat(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Send provider heartbeat information to Rider-PI."""
+        try:
+            response = await self.client.post(f"{self.base_url}/api/providers/pc-heartbeat", json=payload)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error posting /api/providers/pc-heartbeat: {e}")
+            return {"ok": False, "error": str(e)}
+
+    async def post_tracking_mode(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Send tracking mode command to Rider-PI."""
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/api/vision/tracking/mode",
+                json=payload,
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error posting /api/vision/tracking/mode: {e}")
+            return {"ok": False, "error": str(e)}
+
+    async def get_services(self) -> Dict[str, Any]:
+        """Fetch systemd service list from Rider-PI."""
+        try:
+            response = await self.client.get(f"{self.base_url}/svc")
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error fetching /svc: {e}")
+            return {"error": str(e)}
+
+    async def service_action(self, unit: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Forward service control action to Rider-PI."""
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/svc/{quote(unit, safe='')}",
+                json=payload or {},
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error posting /svc/{unit}: {e}")
             return {"ok": False, "error": str(e)}

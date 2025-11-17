@@ -1,13 +1,14 @@
 """FastAPI server for replicating Rider-PI UI."""
 
 import asyncio
+import contextlib
 import json
 import logging
 import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 try:
     import tomllib
@@ -342,8 +343,59 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
             if queue in app.state.event_subscribers:
                 app.state.event_subscribers.remove(queue)
 
-    # Background task for data synchronization
+    def _normalize_tracking_request(payload: Dict[str, Any]) -> Tuple[str, bool]:
+        """Validate and normalize tracking payload similar to Rider-PI."""
+        raw_mode = str(payload.get("mode", "none")).strip().lower()
+        if raw_mode not in {"face", "hand", "none"}:
+            raise HTTPException(status_code=400, detail=f"Invalid tracking mode '{raw_mode}'")
+        enabled = bool(payload.get("enabled", raw_mode in {"face", "hand"}))
+        if not enabled:
+            raw_mode = "none"
+        return raw_mode, raw_mode != "none"
+
+    def _set_local_tracking_state(mode: str, enabled: bool) -> Dict[str, Any]:
+        """Update local tracking state cache + emit SSE."""
+        state = {"mode": mode, "enabled": enabled}
+        app.state.control_state["tracking"] = state
+        publish_event("motion.bridge.event", {"event": "tracking_mode", "detail": state})
+        return {"ok": True, **state}
+
+    async def start_provider_heartbeat():
+        base_url = (settings.pc_public_base_url or "").strip()
+        if not base_url:
+            logger.info("PC_PUBLIC_BASE_URL not set; skipping provider heartbeat loop")
+            return
+        capabilities = _get_provider_capabilities(settings)
+        normalized = base_url.rstrip("/")
+
+        async def _heartbeat_loop():
+            while True:
+                adapter: Optional[RestAdapter] = app.state.rest_adapter
+                if not adapter:
+                    await asyncio.sleep(5)
+                    continue
+                payload = {
+                    "base_url": normalized,
+                    "capabilities": capabilities,
+                    "timestamp": time.time(),
+                }
+                try:
+                    result = await adapter.post_pc_heartbeat(payload)
+                    if isinstance(result, dict) and result.get("error"):
+                        logger.warning("Provider heartbeat rejected: %s", result["error"])
+                except Exception as exc:  # pragma: no cover - defensive
+                    logger.warning("Provider heartbeat failed: %s", exc)
+                await asyncio.sleep(5)
+
+        if app.state.provider_heartbeat_task:
+            app.state.provider_heartbeat_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await app.state.provider_heartbeat_task
+        app.state.provider_heartbeat_task = asyncio.create_task(_heartbeat_loop())
+
+    # Background tasks for data sync + provider heartbeat
     app.state.sync_task = None
+    app.state.provider_heartbeat_task = None
 
     @app.on_event("startup")
     async def startup_event():
@@ -429,6 +481,8 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
         asyncio.create_task(app.state.zmq_subscriber.start())
         logger.info("ZMQ subscriber started")
 
+        await start_provider_heartbeat()
+
         # Start background sync task
         app.state.sync_task = asyncio.create_task(sync_data_periodically(app))
         logger.info("Background sync task started")
@@ -445,6 +499,10 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
                 await app.state.sync_task
             except asyncio.CancelledError:
                 pass
+        if app.state.provider_heartbeat_task:
+            app.state.provider_heartbeat_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await app.state.provider_heartbeat_task
 
         # Stop task queue worker / providers
         if app.state.provider_worker:
@@ -942,19 +1000,46 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
 
     @app.get("/api/control/state")
     async def api_control_state() -> JSONResponse:
-        """Return current mock control state."""
+        """Return current control state, preferring Rider-PI data."""
+        adapter: Optional[RestAdapter] = app.state.rest_adapter
         state = dict(app.state.control_state)
+        if adapter:
+            try:
+                remote_state = await adapter.get_control_state()
+                if isinstance(remote_state, dict) and "error" not in remote_state:
+                    state = remote_state
+                    app.state.control_state.update(remote_state)
+                else:
+                    logger.warning("Falling back to local control state: %s", remote_state.get("error"))
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.error("Failed to fetch control state from Rider-PI: %s", exc)
         state["updated_at"] = time.time()
         return JSONResponse(content=state)
 
     @app.post("/api/vision/tracking/mode")
     async def update_tracking_mode(payload: Dict[str, Any]) -> JSONResponse:
-        """Update tracking mode state."""
-        mode = payload.get("mode", "none")
-        enabled = bool(payload.get("enabled", False)) and mode != "none"
-        app.state.control_state["tracking"] = {"mode": mode, "enabled": enabled}
-        publish_event("motion.bridge.event", {"event": "tracking_mode", "detail": {"mode": mode, "enabled": enabled}})
-        return JSONResponse({"ok": True, "mode": mode, "enabled": enabled})
+        """Update tracking mode state, forwarding to Rider-PI when possible."""
+        adapter: Optional[RestAdapter] = app.state.rest_adapter
+        body = payload or {}
+        if adapter:
+            try:
+                result = await adapter.post_tracking_mode(body)
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.error("Failed to forward tracking mode: %s", exc)
+                return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+
+            status_code = 200
+            if not result.get("ok", True):
+                status_code = 502
+            else:
+                mode = str(result.get("mode", "none")).strip().lower()
+                enabled = bool(result.get("enabled", mode != "none"))
+                _set_local_tracking_state(mode, enabled)
+            return JSONResponse(result, status_code=status_code)
+
+        mode, enabled = _normalize_tracking_request(body)
+        result = _set_local_tracking_state(mode, enabled)
+        return JSONResponse(result)
 
     @app.post("/api/navigator/start")
     async def navigator_start(payload: Dict[str, Any]) -> JSONResponse:
@@ -1044,13 +1129,28 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
 
     @app.get("/svc")
     async def list_services() -> JSONResponse:
-        """Return mock systemd service states."""
+        """Return systemd service states (proxy Rider-PI when possible)."""
+        adapter: Optional[RestAdapter] = app.state.rest_adapter
+        if adapter:
+            remote = await adapter.get_services()
+            if remote and not remote.get("error"):
+                return JSONResponse(remote)
+            logger.warning("Falling back to local /svc list: %s", remote.get("error") if remote else "unknown error")
+
         services = [{**svc, "ts": time.time()} for svc in app.state.services]
         return JSONResponse({"services": services, "timestamp": time.time()})
 
     @app.post("/svc/{unit}")
     async def control_service(unit: str, payload: Dict[str, Any]) -> JSONResponse:
-        """Handle service control actions."""
+        """Handle service control actions (proxy Rider-PI when possible)."""
+        adapter: Optional[RestAdapter] = app.state.rest_adapter
+        if adapter:
+            result = await adapter.service_action(unit, payload or {})
+            status_code = 200
+            if not result.get("ok", True) or result.get("error"):
+                status_code = 502
+            return JSONResponse(result, status_code=status_code)
+
         service = next((s for s in app.state.services if s["unit"] == unit), None)
         if not service:
             return JSONResponse({"error": f"Service {unit} not found"}, status_code=404)
