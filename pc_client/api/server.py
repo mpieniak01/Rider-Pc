@@ -998,6 +998,27 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
             response_payload["error"] = forward_result["error"]
         return JSONResponse(response_payload, status_code=status_code if not forward_ok else 200)
 
+    @app.get("/api/motion/queue")
+    async def api_motion_queue() -> JSONResponse:
+        """Expose the latest motion queue entries collected during control calls."""
+        now = time.time()
+        items: List[Dict[str, Any]] = []
+        for entry in reversed(app.state.motion_queue or []):
+            cmd = entry.get("command", {}) if isinstance(entry, dict) else {}
+            ts = entry.get("ts", 0) if isinstance(entry, dict) else 0
+            items.append(
+                {
+                    "source": cmd.get("source") or cmd.get("provider") or "pc-ui",
+                    "vx": cmd.get("vx"),
+                    "vy": cmd.get("vy"),
+                    "yaw": cmd.get("yaw"),
+                    "time_s": cmd.get("t"),
+                    "status": cmd.get("status") or cmd.get("cmd"),
+                    "age_s": round(max(0.0, now - ts), 2) if ts else None,
+                }
+            )
+        return JSONResponse({"items": items})
+
     @app.get("/api/control/state")
     async def api_control_state() -> JSONResponse:
         """Return current control state, preferring Rider-PI data."""
