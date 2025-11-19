@@ -31,7 +31,7 @@ Rider-Pi udostępnia rejestr providerów (`/api/system/ai-mode`, `/api/providers
    # Interfejs: http://localhost:8000/web/control.html
    ```
 
-4. **Opcjonalnie**: włącz prawdziwe providery (`ENABLE_PROVIDERS=true`, Redis, itp.) jak udokumentowano w `docs/AI_MODEL_SETUP.md`.
+4. **Opcjonalnie**: włącz prawdziwe providery (`ENABLE_PROVIDERS=true`, Redis, itp.) jak udokumentowano w `KONFIGURACJA_MODELI_AI.md`.
 
 ## Środowisko Wykonawcze Offload Wizji (Rider-PC)
 
