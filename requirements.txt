@@ -30,6 +30,7 @@ numpy==1.26.4
 torch==2.5.1
 piper-tts==1.2.0
 ollama==0.4.4
+mediapipe==0.10.18
 
 # Testing (optional - for development)
 pytest==8.4.2

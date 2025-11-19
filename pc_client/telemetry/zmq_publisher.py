@@ -119,6 +119,22 @@ class ZMQTelemetryPublisher:
 
         self.publish('vision.obstacle.enhanced', data)
 
+    def publish_tracking_offset(self, payload: Dict[str, Any]):
+        """Publish tracking offset updates to Rider-PI."""
+        import time as _time
+
+        if payload.get("offset") is None:
+            return
+
+        data = {
+            "offset_x": float(payload.get("offset")),
+            "mode": payload.get("mode", "none"),
+            "confidence": payload.get("confidence"),
+            "ts": payload.get("ts") or _time.time(),
+            "source": payload.get("source", "pc"),
+        }
+        self.publish('vision.tracking.offset', data)
+
     def publish_provider_status(self, provider_name: str, status: str, telemetry: Dict[str, Any]):
         """
         Publish provider status and telemetry.

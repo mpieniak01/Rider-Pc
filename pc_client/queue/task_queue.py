@@ -288,6 +288,9 @@ class TaskQueueWorker:
                         obstacles=result_payload.get("obstacles", []),
                         meta=meta,
                     )
+                    tracking_payload = result_payload.get("tracking")
+                    if tracking_payload and tracking_payload.get("offset") is not None:
+                        self.telemetry_publisher.publish_tracking_offset(tracking_payload)
                 elif task.task_type == TaskType.VOICE_ASR and result.status == TaskStatus.COMPLETED:
                     result_payload = result.result or {}
                     message = {

@@ -56,7 +56,9 @@ def _load_provider_config(config_path: str, section: Optional[str] = None) -> Di
     return {}
 
 
-def _build_vision_frame_task(payload: Dict[str, Any], priority: int) -> Optional[TaskEnvelope]:
+def _build_vision_frame_task(
+    payload: Dict[str, Any], priority: int, tracking_state: Optional[Dict[str, Any]] = None
+) -> Optional[TaskEnvelope]:
     """Convert a vision.frame.offload payload into a TaskEnvelope."""
     frame_data = payload.get("frame_jpeg") or payload.get("frame_data")
     if not frame_data:
@@ -78,6 +80,8 @@ def _build_vision_frame_task(payload: Dict[str, Any], priority: int) -> Optional
             task_payload[key] = payload[key]
 
     task_meta = {"source_topic": "vision.frame.offload", "frame_id": frame_id}
+    if tracking_state:
+        task_meta["tracking_state"] = tracking_state
 
     return TaskEnvelope(
         task_id=f"vision-frame-{frame_id}",
@@ -433,7 +437,12 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
             if not app.state.vision_offload_enabled or not app.state.task_queue:
                 return
 
-            task = _build_vision_frame_task(data, app.state.vision_frame_priority)
+            tracking_state = app.state.control_state.get("tracking") or {}
+            tracking_snapshot: Optional[Dict[str, Any]] = None
+            if tracking_state:
+                tracking_snapshot = dict(tracking_state)
+
+            task = _build_vision_frame_task(data, app.state.vision_frame_priority, tracking_snapshot)
             if task is None:
                 return
 
@@ -1452,6 +1461,9 @@ async def sync_data_periodically(app: FastAPI):
 
             state_data = await adapter.get_state()
             cache.set("state", state_data)
+            tracking_remote = state_data.get("tracking")
+            if isinstance(tracking_remote, dict):
+                app.state.control_state["tracking"] = tracking_remote
 
             sysinfo_data = await adapter.get_sysinfo()
             cache.set("sysinfo", sysinfo_data)
