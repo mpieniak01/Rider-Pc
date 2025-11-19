@@ -128,6 +128,6 @@ Wiele punktów końcowych API publikuje komendy do wewnętrznej magistrali komun
 
 ## Zobacz Również
 
-- [ARCHITEKTURA.md](../docs_pl/ARCHITEKTURA.md) - Ogólna architektura systemu
+- [ARCHITEKTURA.md](../ARCHITEKTURA.md) - Ogólna architektura systemu
 - [common/bus.py](../../common/bus.py) - Definicje tematów magistrali
 - [services/api_server.py](../../services/api_server.py) - Implementacja serwera API
