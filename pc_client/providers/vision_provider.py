@@ -553,7 +553,7 @@ class VisionProvider(BaseProvider):
             frame = None
 
         # Process with real YOLO model if available
-        if self.detector is not None:
+        if self.detector is not None and frame is not None:
             try:
                 # Run YOLO detection
                 results = self.detector(frame.copy(), conf=self.confidence_threshold)
