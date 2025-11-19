@@ -177,7 +177,7 @@ async def update_provider(request: Request, domain: str, payload: Dict[str, Any]
     """Update provider configuration for a specific domain."""
     adapter: Optional[RestAdapter] = request.app.state.rest_adapter
     cache: CacheManager = request.app.state.cache
-    
+
     domain = (domain or "").lower()
     valid_domains = {"voice", "text", "vision"}
     if domain not in valid_domains:
@@ -248,7 +248,7 @@ async def services_graph(request: Request) -> JSONResponse:
     Mock implementation for Phase 3.
     """
     cache: CacheManager = request.app.state.cache
-    
+
     graph_data = cache.get(
         "services_graph",
         {

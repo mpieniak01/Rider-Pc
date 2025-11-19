@@ -131,7 +131,11 @@ async def api_control_endpoint(request: Request, command: Dict[str, Any]) -> JSO
         status = str(forward_result.get("status", "")).lower()
         forward_ok = status == "ok"
 
-    response_payload = {"ok": forward_ok, "queued": len(request.app.state.motion_queue), "device_response": forward_result}
+    response_payload = {
+        "ok": forward_ok,
+        "queued": len(request.app.state.motion_queue),
+        "device_response": forward_result,
+    }
     if not forward_ok and "error" in forward_result:
         response_payload["error"] = forward_result["error"]
     return JSONResponse(response_payload, status_code=status_code if not forward_ok else 200)

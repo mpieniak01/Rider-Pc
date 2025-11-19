@@ -41,7 +41,7 @@ async def health_ready(request: Request) -> JSONResponse:
     Used by container orchestrators to determine if traffic should be routed to this instance.
     """
     cache: CacheManager = request.app.state.cache
-    
+
     # Check cache health
     cache_healthy = True
     cache_error = None

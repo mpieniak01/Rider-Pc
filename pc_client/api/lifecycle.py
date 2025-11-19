@@ -228,12 +228,12 @@ async def sync_data_periodically(app: FastAPI):
 async def start_provider_heartbeat(app: FastAPI):
     """Start provider heartbeat loop to register with Rider-PI."""
     settings: Settings = app.state.settings
-    
+
     base_url = (settings.pc_public_base_url or "").strip()
     if not base_url:
         logger.info("PC_PUBLIC_BASE_URL not set; skipping provider heartbeat loop")
         return
-    
+
     capabilities = get_provider_capabilities(settings)
     normalized = base_url.rstrip("/")
 
@@ -265,7 +265,7 @@ async def start_provider_heartbeat(app: FastAPI):
 
 def create_zmq_handlers(app: FastAPI, cache: CacheManager):
     """Create and return ZMQ message handlers."""
-    
+
     def cache_handler(topic: str, data: Dict[str, Any]):
         """Handler to cache ZMQ messages."""
         cache.set(f"zmq:{topic}", data)
@@ -321,7 +321,7 @@ def create_zmq_handlers(app: FastAPI, cache: CacheManager):
 async def startup_event(app: FastAPI):
     """Initialize connections on startup."""
     logger.info("Starting Rider-PC Client API server...")
-    
+
     settings: Settings = app.state.settings
 
     # Initialize REST adapter
@@ -341,6 +341,7 @@ async def startup_event(app: FastAPI):
 
     # Initialize ZMQ subscriber
     from pc_client.adapters import ZmqSubscriber
+
     app.state.zmq_subscriber = ZmqSubscriber(
         settings.zmq_pub_endpoint, topics=["vision.*", "voice.*", "motion.*", "robot.*", "navigator.*"]
     )
