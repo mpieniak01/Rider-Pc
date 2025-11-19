@@ -3,13 +3,8 @@
 import asyncio
 import contextlib
 import logging
-from pathlib import Path
+import time
 from typing import Any, Dict, Optional
-
-try:
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - Python 3.9 compatibility
-    import tomli as tomllib  # type: ignore
 
 from fastapi import FastAPI
 
@@ -21,30 +16,9 @@ from pc_client.queue import TaskQueue
 from pc_client.queue.task_queue import TaskQueueWorker
 from pc_client.telemetry import ZMQTelemetryPublisher
 from pc_client.api.task_utils import build_vision_frame_task, build_voice_asr_task, build_voice_tts_task
+from pc_client.api.config_utils import load_provider_config, get_provider_capabilities
 
 logger = logging.getLogger(__name__)
-
-
-def load_provider_config(config_path: str, section: Optional[str] = None) -> Dict[str, Any]:
-    """Load optional TOML config for providers."""
-    if not config_path:
-        return {}
-
-    file_path = Path(config_path)
-    if not file_path.exists():
-        logger.warning(f"Provider config not found at {config_path}, using defaults")
-        return {}
-
-    try:
-        with file_path.open("rb") as fp:
-            data = tomllib.load(fp)
-            if isinstance(data, dict):
-                if section:
-                    return data.get(section, data) or {}
-                return data
-    except Exception as exc:  # pragma: no cover - defensive
-        logger.error(f"Failed to parse provider config {config_path}: {exc}")
-    return {}
 
 
 def vision_offload_requested(settings: Settings) -> bool:
@@ -253,8 +227,6 @@ async def sync_data_periodically(app: FastAPI):
 
 async def start_provider_heartbeat(app: FastAPI):
     """Start provider heartbeat loop to register with Rider-PI."""
-    import time
-    
     settings: Settings = app.state.settings
     
     base_url = (settings.pc_public_base_url or "").strip()
@@ -262,7 +234,6 @@ async def start_provider_heartbeat(app: FastAPI):
         logger.info("PC_PUBLIC_BASE_URL not set; skipping provider heartbeat loop")
         return
     
-    from pc_client.api.routers.provider_router import get_provider_capabilities
     capabilities = get_provider_capabilities(settings)
     normalized = base_url.rstrip("/")
 
@@ -410,6 +381,7 @@ async def shutdown_event(app: FastAPI):
         try:
             await app.state.sync_task
         except asyncio.CancelledError:
+            # Task cancellation is expected during shutdown; ignore.
             pass
     if app.state.provider_heartbeat_task:
         app.state.provider_heartbeat_task.cancel()
@@ -424,6 +396,7 @@ async def shutdown_event(app: FastAPI):
         try:
             await app.state.provider_worker_task
         except asyncio.CancelledError:
+            # Cancellation is expected during shutdown; ignore.
             pass
 
     if app.state.telemetry_publisher:

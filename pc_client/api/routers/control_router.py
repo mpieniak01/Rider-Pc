@@ -11,7 +11,6 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from pc_client.adapters import RestAdapter
-from pc_client.cache import CacheManager
 from pc_client.providers import VisionProvider
 
 logger = logging.getLogger(__name__)

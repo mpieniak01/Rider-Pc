@@ -13,47 +13,11 @@ from pc_client.cache import CacheManager
 from pc_client.config import Settings
 from pc_client.providers import TextProvider
 from pc_client.providers.base import TaskEnvelope, TaskType, TaskStatus
-from pc_client.api.lifecycle import load_provider_config
+from pc_client.api.config_utils import get_provider_capabilities
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-def get_provider_capabilities(settings: Settings) -> Dict[str, Any]:
-    """Build capability payload for Rider-PI handshake."""
-    vision_cfg = load_provider_config(settings.vision_provider_config_path, "vision")
-    voice_cfg = load_provider_config(settings.voice_provider_config_path, "voice")
-    text_cfg = load_provider_config(settings.text_provider_config_path, "text")
-
-    def mode(enabled: bool) -> str:
-        return "pc" if enabled else "local"
-
-    return {
-        "vision": {
-            "version": vision_cfg.get("schema_version", "1.0.0"),
-            "features": ["frame_offload", "obstacle_enhanced"],
-            "frame_schema": vision_cfg.get("frame_schema", "vision.frame.v1"),
-            "model": vision_cfg.get("detection_model", settings.vision_model),
-            "priority": {"frame": int(vision_cfg.get("frame_priority", 1))},
-            "mode": mode(settings.enable_vision_offload),
-        },
-        "voice": {
-            "version": voice_cfg.get("schema_version", "1.0.0"),
-            "features": ["asr", "tts"],
-            "asr_model": voice_cfg.get("asr_model", settings.voice_model),
-            "tts_model": voice_cfg.get("tts_model", voice_cfg.get("voice", "piper")),
-            "sample_rate": voice_cfg.get("sample_rate", 16000),
-            "mode": mode(settings.enable_voice_offload),
-        },
-        "text": {
-            "version": text_cfg.get("schema_version", "1.0.0"),
-            "features": ["chat", "nlu"],
-            "model": text_cfg.get("model", settings.text_model),
-            "nlu_tasks": text_cfg.get("nlu_tasks", []),
-            "mode": mode(settings.enable_text_offload),
-        },
-    }
 
 
 @router.get("/providers/capabilities")
