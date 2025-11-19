@@ -112,7 +112,7 @@ export ENABLE_TEXT_OFFLOAD="true"
 export TELEMETRY_ZMQ_HOST="$RIDER_PI_HOST"  # PC publikuje vision.obstacle.enhanced
 ```
 
-Szczegółowy opis procesu offload znajdziesz w dokumencie [docs/PC_OFFLOAD_INTEGRATION.md](../docs/PC_OFFLOAD_INTEGRATION.md).
+Szczegółowy opis procesu offload znajdziesz w dokumencie [INTEGRACJA_OFFLOAD_PC.md](INTEGRACJA_OFFLOAD_PC.md).
 
 ## Uruchamianie
 

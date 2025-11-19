@@ -13,8 +13,8 @@ The API server runs on port **8080** and provides REST endpoints for controlling
 ## Available Endpoints
 
 ### Core APIs
-- [Control API](control.md) - Robot movement and control
-- [Navigator API](navigator.md) - Autonomous navigation (Rekonesans mode)
+- [Control API](CONTROL.md) - Robot movement and control
+- [Navigator API](NAVIGATOR.md) - Autonomous navigation (Rekonesans mode)
 
 <!-- The following API documentation files are planned for future documentation: -->
 <!-- - [Camera API](camera.md) - Camera access and vision system -->
