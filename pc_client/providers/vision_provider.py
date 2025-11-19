@@ -544,19 +544,18 @@ class VisionProvider(BaseProvider):
         if not frame_data:
             return TaskResult(task_id=task.task_id, status=TaskStatus.FAILED, error="Missing frame_data in payload")
 
+        try:
+            frame_bytes = base64.b64decode(frame_data)
+            frame = Image.open(io.BytesIO(frame_bytes))
+        except Exception as exc:
+            self.logger.error(f"[vision] Failed to decode frame data: {exc}")
+            return TaskResult(task_id=task.task_id, status=TaskStatus.FAILED, error="Invalid frame payload")
+
         # Process with real YOLO model if available
         if self.detector is not None:
             try:
-                # Decode base64 frame data with error handling
-                try:
-                    frame_bytes = base64.b64decode(frame_data)
-                    frame = Image.open(io.BytesIO(frame_bytes))
-                except Exception as e:
-                    self.logger.error(f"[vision] Failed to decode frame data: {e}")
-                    raise
-
                 # Run YOLO detection
-                results = self.detector(frame, conf=self.confidence_threshold)
+                results = self.detector(frame.copy(), conf=self.confidence_threshold)
 
                 # Load obstacle classes from config, or default to YOLO COCO class names.
                 # See: https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/datasets/coco.yaml
