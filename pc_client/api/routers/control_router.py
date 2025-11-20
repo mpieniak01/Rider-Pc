@@ -336,6 +336,22 @@ async def list_services(request: Request) -> JSONResponse:
     return JSONResponse({"services": services, "timestamp": time.time()})
 
 
+@router.get("/api/systemd/services")
+@router.get("/api/services/systemd")
+@router.get("/api/services")
+async def list_services_alias(request: Request) -> JSONResponse:
+    """Compatibility aliases for legacy Rider-PI endpoints."""
+    return await list_services(request)
+
+
+def _extract_service_unit(payload: Dict[str, Any]) -> Optional[str]:
+    for key in ("unit", "service", "name", "id"):
+        unit = payload.get(key)
+        if unit:
+            return str(unit)
+    return None
+
+
 @router.post("/svc/{unit}")
 async def control_service(request: Request, unit: str, payload: Dict[str, Any]) -> JSONResponse:
     """Handle service control actions (proxy Rider-PI when possible)."""
@@ -368,6 +384,22 @@ async def control_service(request: Request, unit: str, payload: Dict[str, Any]) 
         return JSONResponse({"error": f"Unsupported action {action}"}, status_code=400)
     _publish_event(request, "service.action", {"unit": unit, "action": action})
     return JSONResponse({"ok": True, "unit": unit, "action": action})
+
+
+async def _control_service_alias(request: Request, payload: Optional[Dict[str, Any]]) -> JSONResponse:
+    data = payload or {}
+    unit = _extract_service_unit(data)
+    if not unit:
+        return JSONResponse({"error": "Missing service unit"}, status_code=400)
+    return await control_service(request, unit, data)
+
+
+@router.post("/api/systemd/action")
+@router.post("/api/services/systemd/action")
+@router.post("/api/services/action")
+async def api_service_action_alias(request: Request, payload: Dict[str, Any]) -> JSONResponse:
+    """Compatibility endpoints matching Rider-PI API."""
+    return await _control_service_alias(request, payload)
 
 
 def _camera_last_headers(request: Request) -> Dict[str, str]:

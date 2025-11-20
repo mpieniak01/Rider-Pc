@@ -214,6 +214,40 @@ class RestAdapter:
             logger.error(f"Error fetching /api/motion/queue: {e}")
             return {"error": str(e)}
 
+    async def get_voice_providers(self) -> Dict[str, Any]:
+        """Get voice provider catalog from Rider-PI."""
+        try:
+            response = await self.client.get(f"{self.base_url}/api/voice/providers")
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error fetching /api/voice/providers: {e}")
+            return {"error": str(e)}
+
+    async def test_voice_providers(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Trigger Rider-PI provider tests."""
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/api/voice/providers/test",
+                json=payload,
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error posting /api/voice/providers/test: {e}")
+            return {"error": str(e)}
+
+    async def post_voice_tts(self, payload: Dict[str, Any]) -> Tuple[bytes, str]:
+        """Proxy TTS synthesis request to Rider-PI."""
+        try:
+            response = await self.client.post(f"{self.base_url}/api/voice/tts", json=payload)
+            response.raise_for_status()
+            media_type = response.headers.get("content-type", "audio/wav")
+            return response.content, media_type
+        except Exception as e:
+            logger.error(f"Error posting /api/voice/tts: {e}")
+            raise
+
     async def get_bus_health(self) -> Dict[str, Any]:
         """
         Get bus health from /api/bus/health endpoint.
