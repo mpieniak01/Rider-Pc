@@ -63,25 +63,20 @@ config/
 ├── local/                         # Local configuration overrides
 │   └── .gitignore                # Ignore local config files
 ├── camera.toml                    # Camera configuration
-├── camera.toml.example            # Camera config template
 ├── choreography.toml              # Event-to-action mappings
 ├── face.toml                      # Robot face animation config
 ├── google_bridge.toml             # Google Home bridge config
-├── google_bridge.toml.example     # Google bridge template
 ├── jupyter.toml                   # Jupyter notebook config
-├── jupyter.toml.example           # Jupyter template
 ├── motion.toml                    # Motion control configuration
-├── motion.toml.example            # Motion config template
 ├── motion_actions.toml            # Predefined motion actions
-├── vision.toml.example            # Vision module config template
+├── providers.toml                 # Provider configuration
 ├── voice.toml                     # Active voice configuration
 ├── voice_gemini_example.toml      # Google Gemini voice example
 ├── voice_gemini_file.toml         # Gemini file-based config
 ├── voice_local_file.toml          # Local voice processing
 ├── voice_openai_file.toml         # OpenAI file-based config
 ├── voice_openai_streaming.toml    # OpenAI streaming config
-├── voice_openai_streaming_fallback.toml  # OpenAI with fallback
-└── voice_web.toml.example         # Web-based voice template
+└── voice_openai_streaming_fallback.toml  # OpenAI with fallback
 ```
 
 **Key Configuration Categories:**
@@ -106,7 +101,8 @@ config/
 - Event-driven motion responses
 
 **Integration Notes:**
-- Copy templates from `*.toml.example` to `config/local/*.toml` for customization
+- Default configurations are provided in the `config/` directory
+- To customize, copy any config file to `config/local/*.toml` and modify as needed
 - Local configs are gitignored to prevent committing sensitive data
 - Use these configs to define default provider choices for PC client
 - Configure PC connector parameters for contract negotiation
@@ -186,7 +182,7 @@ docs/api-specs/
 
 ### 4. Provider Configuration
 - Review and customize config files for PC environment
-- Copy relevant `*.toml.example` files to `config/local/`
+- Copy relevant config files from `config/` to `config/local/` and customize as needed
 - Configure Voice Provider for ASR/TTS offload
 - Configure Vision Provider for image processing
 - Configure Text Provider for NLU/NLG tasks
