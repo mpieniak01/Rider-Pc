@@ -1,6 +1,5 @@
-# config/camera.toml.example
-# Camera module configuration template
-# Copy to config/local/camera.toml and customize as needed
+# Camera module configuration
+# To customize, copy to config/local/camera.toml and modify as needed
 
 # -----------------------------------------------------------------------------
 # Camera Common Settings

@@ -1,6 +1,5 @@
-# config/motion.toml.example
-# Motion control configuration template
-# Copy to config/local/motion.toml and customize as needed
+# Motion control configuration
+# To customize, copy to config/local/motion.toml and modify as needed
 
 # -----------------------------------------------------------------------------
 # Motion Bridge Configuration (rider-motion-bridge.service)

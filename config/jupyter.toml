@@ -1,5 +1,5 @@
-# Jupyter Lab configuration template
-# Copy this file to jupyter.toml and customize as needed
+# Jupyter Lab configuration
+# To customize, copy to config/local/jupyter.toml and modify as needed
 
 [jupyter]
 # Server network configuration

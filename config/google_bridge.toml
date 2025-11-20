@@ -1,6 +1,5 @@
-# config/google_bridge.toml.example
-# Google Bridge configuration template
-# Copy to config/local/google_bridge.toml and customize as needed
+# Google Bridge configuration
+# To customize, copy to config/local/google_bridge.toml and modify as needed
 
 # -----------------------------------------------------------------------------
 # Google Bridge Configuration (rider-google-bridge.service)

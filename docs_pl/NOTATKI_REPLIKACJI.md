@@ -63,25 +63,20 @@ config/
 ├── local/                         # Lokalne nadpisania konfiguracji
 │   └── .gitignore                # Ignoruj lokalne pliki konfiguracyjne
 ├── camera.toml                    # Konfiguracja kamery
-├── camera.toml.example            # Szablon konfiguracji kamery
 ├── choreography.toml              # Mapowania zdarzeń na akcje
 ├── face.toml                      # Konfiguracja animacji twarzy robota
 ├── google_bridge.toml             # Konfiguracja mostu Google Home
-├── google_bridge.toml.example     # Szablon mostu Google
 ├── jupyter.toml                   # Konfiguracja notebooka Jupyter
-├── jupyter.toml.example           # Szablon Jupyter
 ├── motion.toml                    # Konfiguracja sterowania ruchem
-├── motion.toml.example            # Szablon konfiguracji ruchu
 ├── motion_actions.toml            # Predefiniowane akcje ruchu
-├── vision.toml.example            # Szablon konfiguracji modułu wizji
+├── providers.toml                 # Konfiguracja providerów
 ├── voice.toml                     # Aktywna konfiguracja głosu
 ├── voice_gemini_example.toml      # Przykład głosu Google Gemini
 ├── voice_gemini_file.toml         # Konfiguracja oparta na pliku Gemini
 ├── voice_local_file.toml          # Lokalne przetwarzanie głosu
 ├── voice_openai_file.toml         # Konfiguracja oparta na pliku OpenAI
 ├── voice_openai_streaming.toml    # Konfiguracja streamingu OpenAI
-├── voice_openai_streaming_fallback.toml  # OpenAI z fallbackiem
-└── voice_web.toml.example         # Szablon głosu opartego na web
+└── voice_openai_streaming_fallback.toml  # OpenAI z fallbackiem
 ```
 
 **Kluczowe Kategorie Konfiguracji:**
@@ -106,7 +101,8 @@ config/
 - Odpowiedzi ruchu sterowane zdarzeniami
 
 **Notatki Integracyjne:**
-- Kopiuj szablony z `*.toml.example` do `config/local/*.toml` dla dostosowania
+- Domyślne konfiguracje są dostarczone w katalogu `config/`
+- Aby dostosować, skopiuj dowolny plik konfiguracyjny do `config/local/*.toml` i zmodyfikuj według potrzeb
 - Lokalne konfiguracje są w gitignore aby zapobiec commitowaniu wrażliwych danych
 - Używaj tych konfiguracji do definiowania domyślnych wyborów providerów dla klienta PC
 - Konfiguruj parametry konektora PC dla negocjacji kontraktu
@@ -186,7 +182,7 @@ docs_pl/api-specs/
 
 ### 4. Konfiguracja Providera
 - Przejrzyj i dostosuj pliki konfiguracyjne dla środowiska PC
-- Kopiuj odpowiednie pliki `*.toml.example` do `config/local/`
+- Kopiuj odpowiednie pliki konfiguracyjne z `config/` do `config/local/` i dostosuj według potrzeb
 - Konfiguruj Provider Głosu dla offloadu ASR/TTS
 - Konfiguruj Provider Wizji dla przetwarzania obrazów
 - Konfiguruj Provider Tekstu dla zadań NLU/NLG
