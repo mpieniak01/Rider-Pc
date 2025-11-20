@@ -248,6 +248,16 @@ class RestAdapter:
             logger.error(f"Error posting /api/voice/tts: {e}")
             raise
 
+    async def post_chat_send(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Forward chat requests to Rider-PI."""
+        try:
+            response = await self.client.post(f"{self.base_url}/api/chat/send", json=payload)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error posting /api/chat/send: {e}")
+            return {"error": str(e)}
+
     async def get_bus_health(self) -> Dict[str, Any]:
         """
         Get bus health from /api/bus/health endpoint.

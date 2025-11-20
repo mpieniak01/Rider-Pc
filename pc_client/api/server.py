@@ -15,7 +15,7 @@ from starlette.datastructures import MutableHeaders
 from pc_client.config import Settings
 from pc_client.cache import CacheManager
 from pc_client.api import lifecycle
-from pc_client.api.routers import status_router, provider_router, control_router, voice_router
+from pc_client.api.routers import status_router, provider_router, control_router, voice_router, chat_router
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +139,7 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
     app.include_router(provider_router)
     app.include_router(control_router)
     app.include_router(voice_router)
+    app.include_router(chat_router)
 
     class NoCacheStaticFiles(StaticFiles):
         """StaticFiles variant that disables conditional caching."""
