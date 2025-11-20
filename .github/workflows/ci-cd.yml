@@ -1,4 +1,4 @@
-name: CI Pipeline (Tylko Testy Jednostkowe)
+name: CI Pipeline (Testy Jednostkowe + E2E)
 
 on:
   push:
@@ -15,7 +15,7 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
       contents: read
 
@@ -46,7 +46,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-ci.txt
 
-      - name: Run tests
+      - name: Install Playwright browsers
+        run: |
+          python -m playwright install chromium --with-deps
+
+      - name: Run unit tests
         run: |
           # Jawne pluginy (autoload wyłączony):
           # - pytest_asyncio.plugin: obsługa async i markera @pytest.mark.asyncio
@@ -56,6 +60,14 @@ jobs:
             -p pytest_asyncio.plugin \
             -p pytest_timeout \
             --timeout=30 --timeout-method=thread
+
+      - name: Run E2E tests
+        run: |
+          # E2E testy dla interfejsu webowego
+          # Używają Playwright do testowania UI w przeglądarce
+          pytest tests/e2e/ \
+            -v --tb=short \
+            --timeout=0
 
       - name: Show test summary on failure
         if: failure()
