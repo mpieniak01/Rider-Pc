@@ -199,6 +199,21 @@ class RestAdapter:
             logger.error(f"Error fetching /api/resource/camera: {e}")
             return {"error": str(e)}
 
+    async def get_motion_queue(self) -> Dict[str, Any]:
+        """
+        Get motion queue info from Rider-PI.
+
+        Returns:
+            Motion queue payload (should contain `items`)
+        """
+        try:
+            response = await self.client.get(f"{self.base_url}/api/motion/queue")
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error fetching /api/motion/queue: {e}")
+            return {"error": str(e)}
+
     async def get_bus_health(self) -> Dict[str, Any]:
         """
         Get bus health from /api/bus/health endpoint.

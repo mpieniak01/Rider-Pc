@@ -333,6 +333,39 @@
       </table>
     </div>
   </div>
+  <div class="c-card service-card">
+    <h2 class="c-card__title">
+      <span data-i18n="services.title">Usługi (systemd)</span>
+      <button
+        id="svcRefresh"
+        class="c-btn c-btn-sm section-action"
+        data-i18n="services.refresh"
+      >⟳ odśwież</button>
+    </h2>
+    <div id="svcInfo" class="muted">
+      <span data-i18n="meta.loading">Ładowanie…</span>
+      <span id="svcTs"></span>
+    </div>
+    <table class="svc-table" id="svcTable" hidden>
+      <thead>
+      <tr>
+        <th data-i18n="services.unit">Unit</th>
+        <th data-i18n="services.desc">Opis</th>
+        <th data-i18n="services.status">Status</th>
+        <th data-i18n="services.autostart">Autostart</th>
+        <th data-i18n="services.actions">Akcje</th>
+      </tr>
+      </thead>
+      <tbody id="svcBody"></tbody>
+    </table>
+  </div>
+
+  <!-- LOG -->
+  <div class="c-card log-card">
+    <h2 class="c-card__title" data-i18n="events.title">Zdarzenia (SSE /events)</h2>
+    <div id="log"></div>
+  </div>
+
   <div class="c-card motion-queue-card">
     <h2 class="c-card__title">
       <span data-i18n="motion_queue.title">Kolejka ruchu</span>
@@ -367,39 +400,6 @@
       </tr>
       </tbody>
     </table>
-  </div>
-
-  <div class="c-card service-card">
-    <h2 class="c-card__title">
-      <span data-i18n="services.title">Usługi (systemd)</span>
-      <button
-        id="svcRefresh"
-        class="c-btn c-btn-sm section-action"
-        data-i18n="services.refresh"
-      >⟳ odśwież</button>
-    </h2>
-    <div id="svcInfo" class="muted">
-      <span data-i18n="meta.loading">Ładowanie…</span>
-      <span id="svcTs"></span>
-    </div>
-    <table class="svc-table" id="svcTable" hidden>
-      <thead>
-      <tr>
-        <th data-i18n="services.unit">Unit</th>
-        <th data-i18n="services.desc">Opis</th>
-        <th data-i18n="services.status">Status</th>
-        <th data-i18n="services.autostart">Autostart</th>
-        <th data-i18n="services.actions">Akcje</th>
-      </tr>
-      </thead>
-      <tbody id="svcBody"></tbody>
-    </table>
-  </div>
-
-  <!-- LOG -->
-  <div class="c-card log-card">
-    <h2 class="c-card__title" data-i18n="events.title">Zdarzenia (SSE /events)</h2>
-    <div id="log"></div>
   </div>
 </div>
 

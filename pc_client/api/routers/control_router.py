@@ -131,9 +131,15 @@ async def api_control_endpoint(request: Request, command: Dict[str, Any]) -> JSO
         status = str(forward_result.get("status", "")).lower()
         forward_ok = status == "ok"
 
+    queued_remote = forward_result.get("queued")
+    if not isinstance(queued_remote, int):
+        try:
+            queued_remote = int(queued_remote)
+        except (TypeError, ValueError):
+            queued_remote = None
     response_payload = {
         "ok": forward_ok,
-        "queued": len(request.app.state.motion_queue),
+        "queued": queued_remote if isinstance(queued_remote, int) else len(request.app.state.motion_queue),
         "device_response": forward_result,
     }
     if not forward_ok and "error" in forward_result:
@@ -141,12 +147,11 @@ async def api_control_endpoint(request: Request, command: Dict[str, Any]) -> JSO
     return JSONResponse(response_payload, status_code=status_code if not forward_ok else 200)
 
 
-@router.get("/api/motion/queue")
-async def api_motion_queue(request: Request) -> JSONResponse:
-    """Expose the latest motion queue entries collected during control calls."""
+def _local_motion_queue_snapshot(entries: Optional[List[Dict[str, Any]]]) -> Dict[str, Any]:
+    """Return motion queue items based on locally captured commands."""
     now = time.time()
     items: List[Dict[str, Any]] = []
-    for entry in reversed(request.app.state.motion_queue or []):
+    for entry in reversed(entries or []):
         cmd = entry.get("command", {}) if isinstance(entry, dict) else {}
         ts = entry.get("ts", 0) if isinstance(entry, dict) else 0
         items.append(
@@ -160,7 +165,25 @@ async def api_motion_queue(request: Request) -> JSONResponse:
                 "age_s": round(max(0.0, now - ts), 2) if ts else None,
             }
         )
-    return JSONResponse({"items": items})
+    return {"items": items}
+
+
+@router.get("/api/motion/queue")
+async def api_motion_queue(request: Request) -> JSONResponse:
+    """Expose the latest motion queue entries from Rider-PI, with a local fallback."""
+    adapter: Optional[RestAdapter] = request.app.state.rest_adapter
+    if adapter:
+        try:
+            remote_queue = await adapter.get_motion_queue()
+            if isinstance(remote_queue, dict):
+                if remote_queue.get("error"):
+                    logger.warning("Remote motion queue returned error: %s", remote_queue["error"])
+                elif "items" in remote_queue:
+                    return JSONResponse(remote_queue)
+        except Exception as exc:  # pragma: no cover - network failure
+            logger.error("Failed to fetch motion queue from Rider-PI: %s", exc)
+
+    return JSONResponse(_local_motion_queue_snapshot(request.app.state.motion_queue))
 
 
 @router.get("/api/control/state")
