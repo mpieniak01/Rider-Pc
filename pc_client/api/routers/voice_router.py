@@ -49,6 +49,16 @@ def _decode_audio_payload(audio_data: Optional[str]) -> bytes:
         return base64.b64decode(_MOCK_WAV_BASE64)
 
 
+def _fallback_tts_response(reason: str) -> Response:
+    """Return silent audio when real TTS is unavailable."""
+    logger.warning("Returning fallback TTS audio: %s", reason)
+    headers = {
+        "X-Voice-Fallback": "pc-mock",
+        "X-Voice-Error": reason,
+    }
+    return Response(content=_decode_audio_payload(None), media_type="audio/wav", headers=headers)
+
+
 def _lookup_service_state(request: Request, alias: str) -> Optional[Dict[str, Any]]:
     """Find service state in app.state.services."""
     services: List[Dict[str, Any]] = getattr(request.app.state, "services", [])
@@ -194,10 +204,7 @@ async def voice_tts(request: Request, payload: Optional[Dict[str, Any]] = None) 
             return JSONResponse({"ok": False, "error": "Brak tekstu do odczytu"}, status_code=400)
         result = await provider.process_task(envelope)
         if result.status != TaskStatus.COMPLETED or not result.result:
-            return JSONResponse(
-                {"ok": False, "error": result.error or "Voice provider failed"},
-                status_code=502,
-            )
+            return _fallback_tts_response(result.error or "voice provider failed")
         audio_bytes = _decode_audio_payload(result.result.get("audio_data"))
         headers = {
             "X-Voice-Provider": task_payload.get("provider") or "local",
@@ -212,6 +219,6 @@ async def voice_tts(request: Request, payload: Optional[Dict[str, Any]] = None) 
             return Response(content=content, media_type=media_type)
         except Exception as exc:  # pragma: no cover - network failure
             logger.error("Voice TTS proxy failed: %s", exc)
-            return JSONResponse({"ok": False, "error": f"voice tts proxy failed: {exc}"}, status_code=502)
+            return _fallback_tts_response(str(exc) or "voice tts proxy failed")
 
-    return JSONResponse({"ok": False, "error": "Voice provider unavailable"}, status_code=503)
+    return _fallback_tts_response("voice provider unavailable")
