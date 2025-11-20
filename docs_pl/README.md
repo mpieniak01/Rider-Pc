@@ -48,7 +48,7 @@ Zobacz [KONFIGURACJA_MODELI_AI.md](KONFIGURACJA_MODELI_AI.md) dla przewodnika ko
 
 ## Architektura
 
-Rider-PC to **autonomiczny system typu Digital Twin** z trzema głównymi warstwami:
+Rider-PC to **autonomiczny system typu Digital Twin** z czterema głównymi warstwami:
 
 1. **Warstwa Adaptera** - Konsumuje dane z Rider-Pi przez REST API i strumienie ZMQ (porty 8080, 5555/5556)
 2. **Warstwa Cache** - Przechowuje bieżące stany w SQLite (CacheManager) dla szybkiego dostępu, aktualizowana co 2 sekundy
