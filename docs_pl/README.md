@@ -48,11 +48,16 @@ Zobacz [KONFIGURACJA_MODELI_AI.md](KONFIGURACJA_MODELI_AI.md) dla przewodnika ko
 
 ## Architektura
 
-Klient PC składa się z trzech głównych warstw:
+Rider-PC to **autonomiczny system typu Digital Twin** z czterema głównymi warstwami:
 
-1. **Warstwa Adaptera** - Konsumuje dane z Rider-PI przez REST API i strumienie ZMQ
-2. **Warstwa Cache** - Przechowuje bieżące stany w SQLite dla szybkiego dostępu
-3. **Warstwa Serwera Web** - Serwer FastAPI służący pliki statyczne i udostępniający punkty końcowe API odczytujące z cache
+1. **Warstwa Adaptera** - Konsumuje dane z Rider-Pi przez REST API i strumienie ZMQ (porty 8080, 5555/5556)
+2. **Warstwa Cache** - Przechowuje bieżące stany w SQLite (CacheManager) dla szybkiego dostępu, aktualizowana co 2 sekundy
+3. **Warstwa Serwera Web** - Serwer FastAPI serwujący lokalne pliki statyczne z `web/` i udostępniający punkty końcowe API odczytujące z cache
+4. **Warstwa Providerów AI** - Lokalne modele AI (Vision/Voice/Text) przetwarzające zadania offloadowane z Rider-Pi
+
+**Kluczowa różnica:** Rider-PC NIE pobiera kodu interfejsu (HTML/JS) z Rider-Pi w runtime. Synchronizowane są tylko **dane stanu** robota.
+
+Szczegółowa dokumentacja: [ARCHITEKTURA.md](ARCHITEKTURA.md)
 
 ## Wymagania Wstępne
 
