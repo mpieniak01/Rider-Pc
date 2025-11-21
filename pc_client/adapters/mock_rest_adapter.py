@@ -42,7 +42,9 @@ class MockRestAdapter:
         Returns:
             Tuple of (content bytes, media type, response headers)
         """
-        # Small 2x2 PNG image
+        # Small 2x2 PNG image (valid PNG format)
+        # This is a minimal valid PNG file with a 2x2 pixel image
+        # Format: PNG signature + IHDR chunk (2x2, RGBA) + IDAT chunk (compressed pixel data) + IEND chunk
         mock_image = (
             b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x02\x00\x00\x00\x02"
             b"\x08\x06\x00\x00\x00\xf4x\xd4\xfa\x00\x00\x00\x19IDATx\x9cc```\xf8"
@@ -152,7 +154,9 @@ class MockRestAdapter:
 
     async def post_voice_tts(self, payload: Dict[str, Any]) -> Tuple[bytes, str]:
         """Return mock TTS audio."""
-        # Mock WAV file header (silence)
+        # Mock WAV file header (minimal valid WAV file with silence)
+        # Format: RIFF header + WAV format chunk + data chunk
+        # Parameters: 1 channel, 44100 Hz sample rate, 16-bit PCM, 0 bytes of audio data (silence)
         mock_wav = b"RIFF$\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00D\xac\x00\x00\x88X\x01\x00\x02\x00\x10\x00data\x00\x00\x00\x00"
         return mock_wav, "audio/wav"
 
