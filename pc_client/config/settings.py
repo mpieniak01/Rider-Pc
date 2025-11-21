@@ -76,6 +76,9 @@ class Settings:
     # Public base URL advertised to Rider-PI (for provider heartbeat)
     pc_public_base_url: Optional[str] = field(default_factory=lambda: os.getenv("PC_PUBLIC_BASE_URL"))
 
+    # Test mode - use mock adapters instead of real connections
+    test_mode: bool = field(default_factory=lambda: os.getenv("TEST_MODE", "false").lower() == "true")
+
     @property
     def rider_pi_base_url(self) -> str:
         """Get the base URL for Rider-PI API."""

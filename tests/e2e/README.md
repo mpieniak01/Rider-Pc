@@ -49,6 +49,25 @@ pytest tests/e2e/ -v
 pytest tests/e2e/test_web_control.py::test_control_page_loads -v
 ```
 
+### Run with Mock Backend (Default)
+
+The tests automatically use a mock backend to avoid connection errors and timeouts. This happens automatically when running tests - no additional configuration is needed.
+
+The mock backend (MockRestAdapter) provides deterministic responses for all Rider-PI endpoints without requiring a real device or network connection.
+
+### Run with Real Backend (Advanced)
+
+If you have a real Rider-PI device and want to test against it, you can disable test mode:
+
+```bash
+# Set environment variables before running tests
+export TEST_MODE=false
+export RIDER_PI_HOST=<your-rider-pi-ip>
+pytest tests/e2e/ -v
+```
+
+**Note:** Running tests against a real backend requires a properly configured Rider-PI device and may take longer due to network latency.
+
 ### Run with Timeout Disabled (for debugging)
 
 ```bash
@@ -60,9 +79,28 @@ pytest tests/e2e/ -v --timeout=0
 The tests follow this pattern:
 
 1. **Server Setup** - A test server is started in a background thread using a dynamically allocated port
-2. **Browser Launch** - Playwright launches Chromium in headless mode
-3. **Test Execution** - Tests navigate to pages, interact with elements, and verify behavior
-4. **Cleanup** - Browser and server are automatically cleaned up after tests
+2. **Mock Backend** - TEST_MODE is automatically enabled, which replaces RestAdapter with MockRestAdapter
+3. **Browser Launch** - Playwright launches Chromium in headless mode
+4. **Test Execution** - Tests navigate to pages, interact with elements, and verify behavior
+5. **Cleanup** - Browser and server are automatically cleaned up after tests
+
+## Mock Backend
+
+The e2e tests use a mock REST adapter (`MockRestAdapter`) that provides deterministic responses for all Rider-PI endpoints. This eliminates:
+
+- Connection timeouts to non-existent Rider-PI devices
+- Network latency and reliability issues
+- The need for complex test environment setup
+
+The mock backend automatically returns realistic test data for endpoints like:
+- `/sysinfo` - System information
+- `/vision/snap-info` - Vision snapshot data
+- `/api/providers/state` - Provider state
+- `/camera/last` - Camera images
+- `/svc` - Service status
+- And all other Rider-PI REST endpoints
+
+You can review the mock implementation in `pc_client/adapters/mock_rest_adapter.py`.
 
 ## CI/CD Integration
 
@@ -103,6 +141,8 @@ When adding new E2E tests:
 
 ## Known Limitations
 
-- Tests use a mock backend (no real Rider-PI device connection)
+- Tests use a mock backend by default (MockRestAdapter) - no real Rider-PI device connection required
+- The mock backend provides deterministic test data that may differ from real device responses
 - Some advanced features (like actual robot control) are stubbed
 - SSE (Server-Sent Events) connections may cause `networkidle` state to timeout, so tests use `load` state instead
+- ZMQ subscriber is disabled in test mode to avoid connection attempts

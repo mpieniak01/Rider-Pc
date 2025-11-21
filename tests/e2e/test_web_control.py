@@ -9,6 +9,16 @@ Tests cover:
 - API status indicators
 
 Note: These tests run the FastAPI server in a background thread and use Playwright's sync API directly.
+
+Mock Backend:
+The tests automatically enable TEST_MODE which uses MockRestAdapter instead of RestAdapter.
+This eliminates connection errors and timeouts when testing without a real Rider-PI device.
+MockRestAdapter provides deterministic mock responses for all Rider-PI endpoints.
+
+To run these tests locally:
+    pytest tests/e2e/test_web_control.py -v
+
+The mock backend is enabled automatically - no manual configuration needed.
 """
 
 import json
@@ -27,6 +37,9 @@ def run_server_thread():
 
     # Get port from environment
     port = int(os.environ.get('TEST_SERVER_PORT', 18765))
+
+    # Enable TEST_MODE for mock backend
+    os.environ['TEST_MODE'] = 'true'
 
     # Add project root to path (go up 3 levels from tests/e2e/test_web_control.py)
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

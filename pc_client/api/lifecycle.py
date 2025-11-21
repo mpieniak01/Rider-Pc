@@ -373,48 +373,59 @@ async def startup_event(app: FastAPI):
 
     settings: Settings = app.state.settings
 
-    # Initialize REST adapter
-    app.state.rest_adapter = RestAdapter(
-        base_url=settings.rider_pi_base_url,
-        secure_mode=settings.secure_mode,
-        mtls_cert_path=settings.mtls_cert_path,
-        mtls_key_path=settings.mtls_key_path,
-        mtls_ca_path=settings.mtls_ca_path,
-    )
-    logger.info(f"REST adapter initialized for {settings.rider_pi_base_url}")
+    # Initialize REST adapter (mock or real based on test_mode)
+    if settings.test_mode:
+        from pc_client.adapters import MockRestAdapter
+
+        app.state.rest_adapter = MockRestAdapter()
+        logger.info("REST adapter initialized in TEST MODE (using MockRestAdapter)")
+    else:
+        app.state.rest_adapter = RestAdapter(
+            base_url=settings.rider_pi_base_url,
+            secure_mode=settings.secure_mode,
+            mtls_cert_path=settings.mtls_cert_path,
+            mtls_key_path=settings.mtls_key_path,
+            mtls_ca_path=settings.mtls_ca_path,
+        )
+        logger.info(f"REST adapter initialized for {settings.rider_pi_base_url}")
 
     # Initialize provider pipelines
     await initialize_vision_pipeline(app)
     await initialize_voice_pipeline(app)
     await initialize_text_provider(app)
 
-    # Initialize ZMQ subscriber
-    from pc_client.adapters import ZmqSubscriber
+    # Initialize ZMQ subscriber (skip in test mode)
+    if not settings.test_mode:
+        from pc_client.adapters import ZmqSubscriber
 
-    app.state.zmq_subscriber = ZmqSubscriber(
-        settings.zmq_pub_endpoint, topics=["vision.*", "voice.*", "motion.*", "robot.*", "navigator.*"]
-    )
+        app.state.zmq_subscriber = ZmqSubscriber(
+            settings.zmq_pub_endpoint, topics=["vision.*", "voice.*", "motion.*", "robot.*", "navigator.*"]
+        )
 
-    # Register ZMQ handlers to update cache
-    cache_handler, vision_frame_handler, voice_asr_handler, voice_tts_handler = create_zmq_handlers(
-        app, app.state.cache
-    )
+        # Register ZMQ handlers to update cache
+        cache_handler, vision_frame_handler, voice_asr_handler, voice_tts_handler = create_zmq_handlers(
+            app, app.state.cache
+        )
 
-    for topic in ["vision.*", "voice.*", "motion.*", "robot.*", "navigator.*"]:
-        app.state.zmq_subscriber.subscribe_topic(topic, cache_handler)
+        for topic in ["vision.*", "voice.*", "motion.*", "robot.*", "navigator.*"]:
+            app.state.zmq_subscriber.subscribe_topic(topic, cache_handler)
 
-    if app.state.vision_offload_enabled:
-        app.state.zmq_subscriber.subscribe_topic("vision.frame.offload", vision_frame_handler)
+        if app.state.vision_offload_enabled:
+            app.state.zmq_subscriber.subscribe_topic("vision.frame.offload", vision_frame_handler)
 
-    if app.state.voice_offload_enabled:
-        app.state.zmq_subscriber.subscribe_topic("voice.asr.request", voice_asr_handler)
-        app.state.zmq_subscriber.subscribe_topic("voice.tts.request", voice_tts_handler)
+        if app.state.voice_offload_enabled:
+            app.state.zmq_subscriber.subscribe_topic("voice.asr.request", voice_asr_handler)
+            app.state.zmq_subscriber.subscribe_topic("voice.tts.request", voice_tts_handler)
 
-    # Start ZMQ subscriber in background
-    asyncio.create_task(app.state.zmq_subscriber.start())
-    logger.info("ZMQ subscriber started")
+        # Start ZMQ subscriber in background
+        asyncio.create_task(app.state.zmq_subscriber.start())
+        logger.info("ZMQ subscriber started")
+    else:
+        logger.info("ZMQ subscriber skipped in TEST MODE")
 
-    await start_provider_heartbeat(app)
+    # Skip provider heartbeat in test mode
+    if not settings.test_mode:
+        await start_provider_heartbeat(app)
 
     if app.state.camera_sync_task:
         app.state.camera_sync_task.cancel()
