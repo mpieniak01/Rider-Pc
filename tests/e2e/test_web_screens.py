@@ -14,7 +14,22 @@ Mock Backend:
 The tests automatically enable TEST_MODE which uses MockRestAdapter.
 """
 
-import time
+
+def _filter_test_env_console_errors(console_messages):
+    """Filter out expected console errors in test environment.
+    
+    Filters:
+    - External resource loading failures (CDN)
+    - WebSocket connection failures (not available in test mode)
+    
+    Returns only actual JavaScript execution errors.
+    """
+    return [
+        msg for msg in console_messages 
+        if msg.type == "error" 
+        and "Failed to load resource" not in msg.text
+        and "WebSocket connection" not in msg.text
+    ]
 
 
 def test_system_page_loads(browser_context):
@@ -42,14 +57,12 @@ def test_system_graph_element_visible(browser_context):
     page.goto(f"{base_url}/web/system.html")
     page.wait_for_load_state("load")
 
-    # Wait a moment for dynamic content
-    time.sleep(1)
+    # Wait for system-graph element to be visible
+    page.wait_for_selector("#system-graph", state="visible", timeout=5000)
 
-    # Check that system-graph element exists
+    # Check that system-graph element exists and is visible
     system_graph = page.locator("#system-graph")
     assert system_graph.count() > 0, "System graph element should exist"
-
-    # Check it is visible
     assert system_graph.is_visible(), "System graph should be visible"
 
 
@@ -63,15 +76,8 @@ def test_navigation_page_loads(browser_context):
     # Wait for page to be fully loaded
     page.wait_for_load_state("load")
 
-    # Filter out expected errors in test environment:
-    # - External resource loading failures (CDN)
-    # - WebSocket connection failures (not available in test mode)
-    js_errors = [
-        msg for msg in page.console_messages 
-        if msg.type == "error" 
-        and "Failed to load resource" not in msg.text
-        and "WebSocket connection" not in msg.text
-    ]
+    # Filter out expected errors in test environment
+    js_errors = _filter_test_env_console_errors(page.console_messages)
     assert len(js_errors) == 0, f"JavaScript errors found: {[msg.text for msg in js_errors]}"
 
     # Check no page errors (actual JavaScript exceptions)
@@ -119,8 +125,10 @@ def test_chat_critical_elements_present(browser_context):
     page.goto(f"{base_url}/web/chat.html")
     page.wait_for_load_state("load")
 
-    # Wait for elements to render
-    time.sleep(1)
+    # Wait for critical elements to be present
+    page.wait_for_selector("#board", state="attached", timeout=5000)
+    page.wait_for_selector("#input", state="attached", timeout=5000)
+    page.wait_for_selector("#sendBtn", state="visible", timeout=5000)
 
     # Check board (chat messages container)
     board = page.locator("#board")
