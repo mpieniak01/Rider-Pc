@@ -21,17 +21,27 @@ The mock backend is enabled automatically - no manual configuration needed.
 
 import json
 import time
+import pytest
+from playwright.sync_api import TimeoutError
+
+pytestmark = pytest.mark.timeout(60)
+
+
+def _open_control_page(page, base_url):
+    """Open control.html without blocking on long-lived requests."""
+    try:
+        response = page.goto(f"{base_url}/web/control.html", wait_until="commit", timeout=5000)
+    except TimeoutError:
+        response = None
+    return response
 
 
 def test_control_page_loads(browser_context):
     """Test that control.html loads without errors."""
     page, base_url = browser_context
 
-    response = page.goto(f"{base_url}/web/control.html")
+    response = _open_control_page(page, base_url)
     assert response.status == 200
-
-    # Wait for page to be fully loaded
-    page.wait_for_load_state("load")
 
     # Check no JavaScript errors occurred
     js_errors = [msg for msg in page.console_messages if msg.type == "error"]
@@ -45,21 +55,27 @@ def test_critical_elements_render(browser_context):
     """Test that critical UI elements are rendered correctly."""
     page, base_url = browser_context
 
-    page.goto(f"{base_url}/web/control.html")
-    page.wait_for_load_state("load")
+    _open_control_page(page, base_url)
+    page.wait_for_timeout(500)
 
     # Check resource diagnostics table exists and is visible
-    assert page.locator("#resTable").is_visible()
+    res_table = page.locator("#resTable")
+    assert res_table.count() > 0
+    assert res_table.first.is_visible()
 
     # Check resource table has content
     res_rows = page.locator("#resBody tr").count()
     assert res_rows > 0, "Resource table should have rows"
 
     # Check services table is visible
-    assert page.locator("#svcTable").is_visible()
+    svc_table = page.locator("#svcTable")
+    assert svc_table.count() > 0
+    assert svc_table.first.is_visible()
 
     # Check camera preview section exists
-    assert page.locator("#camPrev").is_visible()
+    cam_prev = page.locator("#camPrev")
+    assert cam_prev.count() > 0
+    assert cam_prev.first.is_visible()
 
     # Verify camera preview has src attribute
     cam_src = page.locator("#camPrev").get_attribute("src")
@@ -70,10 +86,8 @@ def test_api_status_indicator(browser_context):
     """Test that API status indicator element exists in the page."""
     page, base_url = browser_context
 
-    response = page.goto(f"{base_url}/web/control.html")
+    response = _open_control_page(page, base_url)
     assert response.status == 200, "Page should load successfully"
-
-    page.wait_for_load_state("domcontentloaded")
 
     # Wait for JavaScript to initialize
     time.sleep(3)
@@ -91,8 +105,7 @@ def test_motion_button_forward_sends_api_request(browser_context):
     """Test that clicking Forward button sends correct API request."""
     page, base_url = browser_context
 
-    page.goto(f"{base_url}/web/control.html")
-    page.wait_for_load_state("load")
+    _open_control_page(page, base_url)
 
     # Click forward button and wait for API request
     with page.expect_request("**/api/control") as request_info:
@@ -119,8 +132,7 @@ def test_stop_button_sends_stop_command(browser_context):
     """Test that Stop button sends stop command."""
     page, base_url = browser_context
 
-    page.goto(f"{base_url}/web/control.html")
-    page.wait_for_load_state("load")
+    _open_control_page(page, base_url)
 
     # Click stop button and wait for API request
     with page.expect_request("**/api/control") as request_info:
@@ -139,8 +151,7 @@ def test_speed_slider_updates_label(browser_context):
     """Test that speed sliders update their labels correctly."""
     page, base_url = browser_context
 
-    page.goto(f"{base_url}/web/control.html")
-    page.wait_for_load_state("load")
+    _open_control_page(page, base_url)
 
     # Test turning speed slider
     speed_spin_val = page.locator("#speedSpinVal")

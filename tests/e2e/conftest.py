@@ -96,8 +96,20 @@ def browser_context(test_server):
         tuple: (page, base_url) where page is a Playwright Page object
     """
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(
+            headless=True,
+            args=[
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--single-process",
+                "--disable-features=IsolateOrigins,site-per-process",
+                "--disable-site-isolation-trials",
+            ],
+        )
         context = browser.new_context()
+        context.set_default_navigation_timeout(10000)
+        context.set_default_timeout(10000)
         page = context.new_page()
 
         # Track network requests
