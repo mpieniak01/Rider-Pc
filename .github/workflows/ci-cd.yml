@@ -110,8 +110,7 @@ jobs:
           # E2E testy dla interfejsu webowego
           # Używają Playwright do testowania UI w przeglądarce
           pytest tests/e2e/ \
-            -v --tb=short \
-            --timeout=0
+            -v --tb=short
 
       - name: Show test summary on failure
         if: failure()
