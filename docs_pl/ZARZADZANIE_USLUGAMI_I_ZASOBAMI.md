@@ -16,19 +16,19 @@ Dokument odtworzony na bazie realnych unitów i targetów z `systemd/` w Rider-P
 | `rider-api.service` | API HTTP/SSE | TAK (core) | CPU; After=network-online | Wszystkie kafelki API/zdrowie |
 | `rider-broker.service` | Broker ZMQ (XSUB/XPUB) | TAK (core) | CPU; After=network-online | Wszystkie funkcje ruchu/wizji |
 | `rider-web-bridge.service` | HTTP→ZMQ mostek ruchu | TAK (core) | CPU; Wants=network-online | Sterowanie ruchem z UI |
-| `rider-vision.service` | Vision Dispatcher | TAK (core/minimal) | Kamera/GPU; może kolidować z preview/tracker | Wsparcie wizji (diag/autonomia) |
+| `rider-vision.service` | Vision Dispatcher | TAK (core/minimal) | Kamera/GPU; może kolidować z preview/tracker | Podstawowy podgląd/analiza w wizji |
 | `rider-vision-offload.service` | Dispatcher offload | NIE (opcjonalny) | GPU/CPU; jeśli używasz offloadu | Offload wizji |
-| `rider-choreographer.service` | Orkiestracja zdarzeń | NIE/TRYB | CPU; zależny od brokera | Automaty/pilot zdarzeń |
-| `rider-motion-bridge.service` | Ruch/XGO – telemetria i sterowanie | TAK (ruch) | CPU; After=broker | Sterowanie ruchem, Follow Face/Hand, Rekonesans |
-| `rider-odometry.service` | Odometria | TAK (ruch/autonomia) | CPU; After=broker, motion-bridge | Rekonesans (autonomiczny) |
-| `rider-mapper.service` | SLAM / mapa zajętości | NIE/TRYB | CPU; After=broker, odometry | Rekonesans (autonomiczny) |
-| `rider-obstacle.service` | Detekcja przeszkód (ROI na edge preview) | NIE/TRYB | Kamera + CPU/GPU; After=edge-preview | Rekonesans (autonomiczny) |
-| `rider-navigator.service` | Nawigator autonomiczny | NIE/TRYB | CPU; After=broker/motion/vision/obstacle/odometry/mapper | Rekonesans (autonomiczny) |
-| `rider-cam-preview.service` | Podgląd kamery surowy | NIE (diag/manual) | Kamera – wyłączny dostęp | Podgląd kamery |
-| `rider-edge-preview.service` | Podgląd z filtrem krawędziowym | NIE (diag) | Kamera + CPU/GPU; koliduje z innymi preview | Podgląd krawędzi / wejście dla obstacle |
+| `rider-choreographer.service` | Orkiestracja zdarzeń | NIE/TRYB | CPU; zależny od brokera | Automaty/Pilot eventów |
+| `rider-motion-bridge.service` | Ruch/XGO – telemetria i sterowanie | TAK (ruch) | CPU; After=broker | Wysyłanie komend ruchu z UI |
+| `rider-odometry.service` | Odometria | TAK (ruch/autonomia) | CPU; After=broker, motion-bridge | Diagnostyka pozycji |
+| `rider-mapper.service` | SLAM / mapa zajętości | NIE/TRYB | CPU; After=broker, odometry | Tryb rekonesansu/autonomia |
+| `rider-obstacle.service` | Detekcja przeszkód (ROI na edge preview) | NIE/TRYB | Kamera + CPU/GPU; After=edge-preview | Tryb rekonesansu/autonomia |
+| `rider-navigator.service` | Nawigator autonomiczny | NIE/TRYB | CPU; After=broker/motion/vision/obstacle/odometry/mapper | Tryb rekonesansu (autonomiczny) |
+| `rider-cam-preview.service` | Podgląd kamery surowy | NIE (diag/manual) | Kamera – wyłączny dostęp | Podgląd kamery (kafel) |
+| `rider-edge-preview.service` | Podgląd z filtrem krawędziowym | NIE (diag) | Kamera + CPU/GPU; koliduje z innymi preview | Podgląd z filtrem (diag) |
 | `rider-ssd-preview.service` | Podgląd SSD z ramkami | NIE (diag) | Kamera + GPU; 1 usługa kamerowa naraz | Podgląd SSD (diag) |
 | `rider-tracker.service` | Tracker MediaPipe (twarz/dłoń) | NIE (feature) | Kamera + GPU/CPU; preferowany vs preview | `Śledź Twarz` / `Śledź Dłoń` |
-| `rider-tracking-controller.service` | Sterownik obrotu „Follow Me” | NIE (feature) | CPU; After=tracker | `Śledź Twarz` / `Śledź Dłoń` (ruch) |
+| `rider-tracking-controller.service` | Sterownik obrotu „Follow Me” | NIE (feature) | CPU; After=tracker | `Śledź Twarz` / `Śledź Dłoń` (kontroler ruchu) |
 | `rider-face.service` | Renderer twarzy na LCD | NIE/TRYB | LCD 2"; After=api | Wyświetlanie twarzy (LCD) |
 | `rider-google-bridge.service` | Integracja Google Home | NIE (opcjonalne) | Sieć zewn.; może używać audio | Integracja GH |
 | `rider-voice-web.service` | Web API głosu (Piper TTS + Vosk ASR) | NIE (włącz na żądanie) | Mikrofon + głośnik | Sterowanie głosowe (web) |
@@ -40,13 +40,17 @@ Dokument odtworzony na bazie realnych unitów i targetów z `systemd/` w Rider-P
 
 Legenda autostartu: “TAK (core)” – sugerowane w każdym starcie; “NIE/TRYB” – włącz w konkretnym profilu (autonomia/diag/feature). Kolumna „Powiązane funkcje w UI” mapuje kafelki: `Śledź Twarz/Śledź Dłoń` → tracker + tracking-controller; „Tryb rekonesansu (autonomiczny)” → navigator + obstacle + mapper + odometry (+ motion/vision jako zależności).
 
-## Funkcje UI → wymagane usługi
+## Funkcje w UI a uruchamiane usługi
 
-| Funkcja w UI | Wymagane usługi | Zasoby | Notatki operacyjne |
-| --- | --- | --- | --- |
-| `Śledź Twarz (Follow Face)` | `rider-tracker.service` + `rider-tracking-controller.service` + `rider-motion-bridge.service` (+ core: broker, api, web-bridge) | Kamera, CPU/GPU | Jeśli kamera zajęta przez preview/vision – zatrzymaj je lub użyj locka; kontroler wysyła ruch przez motion-bridge. |
-| `Śledź Dłoń (Follow Hand)` | Jak wyżej (`rider-tracker`, `rider-tracking-controller`, `rider-motion-bridge`) z trybem dłoni | Kamera, CPU/GPU | Ten sam pipeline, inny tryb trackera. |
-| `Tryb rekonesansu (autonomiczny)` | `rider-motion-bridge`, `rider-odometry`, `rider-mapper`, `rider-edge-preview`, `rider-obstacle`, `rider-vision`, `rider-navigator` (+ core) | Kamera, CPU/GPU | Obstacle wymaga edge-preview; navigator zależy na vision/odometry/mapper/motion. Upewnij się, że kamera wolna przed startem. |
+Kafelki „Funkcje” nie wykonują logiki ruchu/wizji samodzielnie – wywołują API Rider-Pi, które startuje/stopuje unity systemd. Jawne mapowanie przycisków Start/Stop:
+
+| Funkcja w UI | `Start` uruchamia usługi | `Stop` zatrzymuje | Zasoby / konflikty | Uwagi operacyjne |
+| --- | --- | --- | --- | --- |
+| `Śledź Twarz (Follow Face)` | `rider-tracker.service`, `rider-tracking-controller.service`, `rider-motion-bridge.service` (+ core) | Te same: tracker + tracking-controller (+ motion-bridge jeśli nie wspólny) | Kamera, CPU/GPU; konflikt z innymi usługami kamerowymi (cam/edge/ssd/vision) | Upewnij się, że kamera wolna; gdy zajęta, zatrzymaj preview/vision lub użyj locka. Kontroler wysyła komendy ruchu przez motion-bridge. |
+| `Śledź Dłoń (Follow Hand)` | Jak wyżej: `rider-tracker`, `rider-tracking-controller`, `rider-motion-bridge` (tracker w trybie dłoni) | Jak wyżej | Kamera, CPU/GPU; konflikt z preview/vision | Ten sam pipeline, inny tryb trackera; nie uruchamiaj równolegle z podglądami kamery. |
+| `Tryb rekonesansu (autonomiczny)` | `rider-motion-bridge`, `rider-odometry`, `rider-mapper`, `rider-edge-preview`, `rider-obstacle`, `rider-vision`, `rider-navigator` (+ core) | Te same: navigator + obstacle + mapper + odometry + motion-bridge (+ vision/edge-preview jeśli startowane z trybu) | Kamera, CPU/GPU; konflikt z innymi podglądami (cam/ssd) | Edge-preview potrzebne dla obstacle; vision dla navigatora; odometry+mapper dla planowania. Przed startem zwolnij kamerę z innych usług. |
+
+Jeśli UI otrzyma nowe kafelki, dodaj wiersz z listą unitów startowanych/przerywanych przez przyciski `Start`/`Stop`.
 
 ## Rezerwacja zasobów (stan vs. rekomendacja)
 
