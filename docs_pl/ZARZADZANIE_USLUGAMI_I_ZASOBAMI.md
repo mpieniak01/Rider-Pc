@@ -1,51 +1,63 @@
-# Zarządzanie usługami i zasobami (systemd) – Rider-PC
+# Zarządzanie usługami i zasobami (systemd) – Rider-Pi (stan repo)
 
-Dokument operacyjny porządkujący autostart, profile uruchomieniowe, zależności usług i rezerwacje zasobów (kamera, mikrofon, głośnik, LCD). Powstał na bazie obecnego zestawu unitów `rider-*.service` widocznych w UI sterowania.
+Dokument odtworzony na bazie realnych unitów i targetów z `systemd/` w Rider-Pi. Usunięto wymyślone targety (`rider-manual.target`, `rider-autonomy.target` itd.). Sekcja „Propozycje” na końcu pokazuje ewentualne brakujące profile, ale nadal są to rzeczy do utworzenia.
 
-## Profile uruchomieniowe (targety)
+## Aktualne targety (istniejące w repo)
 
-| Profil/target (propozycja) | Co uruchamia | Autostart | Zastosowanie | Komenda start/stop |
+| Target | Co uruchamia (Wants/After) | Autostart | Zastosowanie | Komenda start/stop |
 | --- | --- | --- | --- | --- |
-| `rider-core.target` | `rider-api`, `rider-broker`, `rider-web-bridge` | TAK | Minimalne sterowanie i monitoring (REST/SSE + mostek ZMQ) | `systemctl enable --now rider-core.target` / `systemctl stop rider-core.target` |
-| `rider-manual.target` | `core` + `rider-cam-preview` (surowy podgląd) | NIE | Jazda ręczna z podglądem kamery bez filtrów | `systemctl start rider-manual.target` / `systemctl stop rider-manual.target` |
-| `rider-autonomy.target` | `core` + `rider-navigator`, `rider-mapper`, `rider-obstacle`, `rider-odometry` | NIE | Tryb autonomiczny / rekonesans, komplet percepcji ruchu | `systemctl start rider-autonomy.target` / `systemctl stop rider-autonomy.target` |
-| `rider-voice.target` | `rider-voice-web` **lub** `rider-voice` (jeden stos na raz) | NIE | Sterowanie głosowe lokalne lub web | `systemctl start rider-voice.target` / `systemctl stop rider-voice.target` |
-| `rider-diagnostics.target` | `rider-edge-preview`, `rider-ssd-preview`, inne preview testowe | NIE (tylko czasowo) | Diagnostyka obrazu/obciążenia, krótkie sesje | `systemctl start rider-diagnostics.target` / `systemctl stop rider-diagnostics.target` |
+| `rider-minimal.target` | Minimalny zestaw: broker, API, vision, splash/post-splash | TAK (WantedBy=multi-user.target) | Start podstawowy robota (web + bus + dispatcher) | `systemctl enable --now rider-minimal.target` / `systemctl stop rider-minimal.target` |
+| `rider-dev.target` | `jupyter.service` (+ zależności GUI) | NIE (enable ręcznie) | Profil deweloperski z JupyterLab | `systemctl start rider-dev.target` / `systemctl stop rider-dev.target` |
 
-## Rekomendacje autostartu i rola usług
+## Usługi z repo i zalecenia autostartu
 
-| Usługa (systemd unit) | Rola | Autostart (zalec.) | Włączać w trybie | Zasoby krytyczne / uwagi |
+| Usługa (systemd unit) | Rola | Autostart (zalec.) | Zasoby / uwagi | Powiązane funkcje w UI |
 | --- | --- | --- | --- | --- |
-| `rider-api.service` | Serwer REST/SSE sterowania i monitoringu | TAK | Wszystkie | CPU; brak sprzętowych blokad |
-| `rider-broker.service` | Mostek ZMQ między modułami | TAK | Wszystkie | CPU; utrzymuje magistralę |
-| `rider-web-bridge.service` | Mostek HTTP↔ZMQ dla komend ruchu | TAK | Wszystkie | CPU; bez zasobów fizycznych |
-| `rider-cam-preview.service` | Surowy podgląd kamery | NIE (tylko manual) | Manual, diagnostyka lekka | Kamera (wyłączny dostęp) |
-| `rider-edge-preview.service` | Podgląd kamery z filtrem krawędziowym | NIE (diag) | Diagnostyka obrazu | Kamera + CPU/GPU; koliduje z innymi podglądami |
-| `rider-ssd-preview.service` | Podgląd SSD z ramkami detekcji | NIE (diag) | Diagnostyka obrazu | Kamera + GPU; tylko 1 usługa kamerowa naraz |
-| `rider-tracker.service` | Wizyjny tracker (twarz/dłoń, MediaPipe) | NIE (opcjonalnie) | Manual z “Follow Face/Hand” | Kamera + GPU/CPU; preferowany nad podglądami |
-| `rider-vision.service` | Dispatcher wizyjny (YOLO/SSD) | NIE (opcjonalnie) | Autonomia/Recon jeśli offload na PC | Kamera + GPU/CPU; koliduje z podglądami |
-| `rider-navigator.service` | Nawigator autonomiczny (Recon) | NIE | Autonomia | CPU; zależy na danych mapy/odometrii |
-| `rider-mapper.service` | SLAM/mapowanie zajętości | NIE | Autonomia | CPU; wymaga sensora pozycji i kamery (pośrednio) |
-| `rider-obstacle.service` | Detekcja przeszkód (ROI) | NIE | Autonomia | CPU/GPU jeśli używa wizji |
-| `rider-odometry.service` | Odometria (śl. pozycji) | NIE | Autonomia | CPU; wejścia enkoderów/IMU (bez blokady kamery) |
-| `rider-motion-bridge.service` | Mostek ruch/XGO – telemetria i sterowanie | AUTOSTART ZALEŻNY* | Core + Autonomia | CPU; krytyczny dla komend ruchu |
-| `rider-google-bridge.service` | Integracja Google Home | NIE | Dodatki/Integracje | Mikrofon/głośnik pośrednio; sieć zewnętrzna |
-| `rider-voice-web.service` | Webowy stos głosu (Piper TTS + Vosk ASR) | NIE | Voice (web) | Mikrofon + głośnik; koliduje z `rider-voice.service` |
-| `rider-voice.service` | CLI asystent głosowy lokalny | NIE | Voice (CLI) | Mikrofon + głośnik; konflikt z `rider-voice-web.service` |
+| `rider-api.service` | API HTTP/SSE | TAK (core) | CPU; After=network-online | Wszystkie kafelki API/zdrowie |
+| `rider-broker.service` | Broker ZMQ (XSUB/XPUB) | TAK (core) | CPU; After=network-online | Wszystkie funkcje ruchu/wizji |
+| `rider-web-bridge.service` | HTTP→ZMQ mostek ruchu | TAK (core) | CPU; Wants=network-online | Sterowanie ruchem z UI |
+| `rider-vision.service` | Vision Dispatcher | TAK (core/minimal) | Kamera/GPU; może kolidować z preview/tracker | Wsparcie wizji (diag/autonomia) |
+| `rider-vision-offload.service` | Dispatcher offload | NIE (opcjonalny) | GPU/CPU; jeśli używasz offloadu | Offload wizji |
+| `rider-choreographer.service` | Orkiestracja zdarzeń | NIE/TRYB | CPU; zależny od brokera | Automaty/pilot zdarzeń |
+| `rider-motion-bridge.service` | Ruch/XGO – telemetria i sterowanie | TAK (ruch) | CPU; After=broker | Sterowanie ruchem, Follow Face/Hand, Rekonesans |
+| `rider-odometry.service` | Odometria | TAK (ruch/autonomia) | CPU; After=broker, motion-bridge | Rekonesans (autonomiczny) |
+| `rider-mapper.service` | SLAM / mapa zajętości | NIE/TRYB | CPU; After=broker, odometry | Rekonesans (autonomiczny) |
+| `rider-obstacle.service` | Detekcja przeszkód (ROI na edge preview) | NIE/TRYB | Kamera + CPU/GPU; After=edge-preview | Rekonesans (autonomiczny) |
+| `rider-navigator.service` | Nawigator autonomiczny | NIE/TRYB | CPU; After=broker/motion/vision/obstacle/odometry/mapper | Rekonesans (autonomiczny) |
+| `rider-cam-preview.service` | Podgląd kamery surowy | NIE (diag/manual) | Kamera – wyłączny dostęp | Podgląd kamery |
+| `rider-edge-preview.service` | Podgląd z filtrem krawędziowym | NIE (diag) | Kamera + CPU/GPU; koliduje z innymi preview | Podgląd krawędzi / wejście dla obstacle |
+| `rider-ssd-preview.service` | Podgląd SSD z ramkami | NIE (diag) | Kamera + GPU; 1 usługa kamerowa naraz | Podgląd SSD (diag) |
+| `rider-tracker.service` | Tracker MediaPipe (twarz/dłoń) | NIE (feature) | Kamera + GPU/CPU; preferowany vs preview | `Śledź Twarz` / `Śledź Dłoń` |
+| `rider-tracking-controller.service` | Sterownik obrotu „Follow Me” | NIE (feature) | CPU; After=tracker | `Śledź Twarz` / `Śledź Dłoń` (ruch) |
+| `rider-face.service` | Renderer twarzy na LCD | NIE/TRYB | LCD 2"; After=api | Wyświetlanie twarzy (LCD) |
+| `rider-google-bridge.service` | Integracja Google Home | NIE (opcjonalne) | Sieć zewn.; może używać audio | Integracja GH |
+| `rider-voice-web.service` | Web API głosu (Piper TTS + Vosk ASR) | NIE (włącz na żądanie) | Mikrofon + głośnik | Sterowanie głosowe (web) |
+| `rider-voice.service` | CLI asystent głosowy (bazuje na voice-web) | NIE (włącz na żądanie) | Mikrofon + głośnik; After=voice-web | Sterowanie głosowe (CLI) |
+| `rider-post-splash.service` | Post-splash (po API/IP) | Wraz z minimal | Lekka; WantedBy=rider-minimal.target | Ekran info po starcie |
+| `rider-boot-splash.service` | Splash na starcie | Wraz z minimal | Lekka; cleanup + LCD off | Ekran startowy |
+| `wifi-unblock.service` | Odblokowanie Wi‑Fi | TAK (system) | Uruchamiane przed siecią | — |
+| `jupyter.service` | JupyterLab DEV | NIE (tylko dev target) | Używany przez `rider-dev.target` | Dev |
 
-* Jeśli mostek ruchu jest wymagany zawsze dla sterowania, można włączyć go w `core.target`; w przeciwnym razie dodać do `manual/autonomy`.
+Legenda autostartu: “TAK (core)” – sugerowane w każdym starcie; “NIE/TRYB” – włącz w konkretnym profilu (autonomia/diag/feature). Kolumna „Powiązane funkcje w UI” mapuje kafelki: `Śledź Twarz/Śledź Dłoń` → tracker + tracking-controller; „Tryb rekonesansu (autonomiczny)” → navigator + obstacle + mapper + odometry (+ motion/vision jako zależności).
 
-## Rezerwacja zasobów (kamera, audio, LCD)
+## Funkcje UI → wymagane usługi
 
-| Zasób | Usługi korzystające | Reguła | Notatka operacyjna |
+| Funkcja w UI | Wymagane usługi | Zasoby | Notatki operacyjne |
 | --- | --- | --- | --- |
-| Kamera (`/dev/video0`) | `rider-cam-preview`, `rider-edge-preview`, `rider-ssd-preview`, `rider-tracker`, `rider-vision` | `Conflicts=` między wszystkimi usługami kamerowymi lub lock w `/run/rider/camera.lock` | UI: przed startem pyta o zwolnienie zasobu; restart po zwolnieniu |
-| Mikrofon | `rider-voice-web`, `rider-voice`, `rider-google-bridge` (jeśli nasłuch) | `Conflicts=rider-voice-web.service rider-voice.service` | Wybieraj jeden stos głosowy; drugi pozostaje `inactive` |
-| Głośnik | `rider-voice-web`, `rider-voice`, `rider-google-bridge` | Jak wyżej + limiter głośności w UI | Wstrzymuj TTS przy zmianie stosu |
-| LCD 2" | Usługa wyświetlająca status (jeśli istnieje) | `Conflicts=` gdy pojawią się inne konsumenty LCD | Aktualnie brak konkurencji |
+| `Śledź Twarz (Follow Face)` | `rider-tracker.service` + `rider-tracking-controller.service` + `rider-motion-bridge.service` (+ core: broker, api, web-bridge) | Kamera, CPU/GPU | Jeśli kamera zajęta przez preview/vision – zatrzymaj je lub użyj locka; kontroler wysyła ruch przez motion-bridge. |
+| `Śledź Dłoń (Follow Hand)` | Jak wyżej (`rider-tracker`, `rider-tracking-controller`, `rider-motion-bridge`) z trybem dłoni | Kamera, CPU/GPU | Ten sam pipeline, inny tryb trackera. |
+| `Tryb rekonesansu (autonomiczny)` | `rider-motion-bridge`, `rider-odometry`, `rider-mapper`, `rider-edge-preview`, `rider-obstacle`, `rider-vision`, `rider-navigator` (+ core) | Kamera, CPU/GPU | Obstacle wymaga edge-preview; navigator zależy na vision/odometry/mapper/motion. Upewnij się, że kamera wolna przed startem. |
 
-Przykładowy fragment override dla usług kamerowych:
+## Rezerwacja zasobów (stan vs. rekomendacja)
 
+| Zasób | Usługi korzystające | Rekomendacja (do dodania) | Notatka operacyjna |
+| --- | --- | --- | --- |
+| Kamera (`/dev/video0`) | `rider-cam-preview`, `rider-edge-preview`, `rider-ssd-preview`, `rider-tracker`, `rider-vision` | Dodać `Conflicts=` między usługami kamerowymi lub lock `/run/rider/camera.lock` | Uruchamiaj tylko jedną usługę kamerową naraz; tracker ma priorytet nad preview |
+| Mikrofon | `rider-voice-web`, `rider-voice`, `rider-google-bridge` (jeśli nasłuch) | `Conflicts=rider-voice-web.service rider-voice.service` | Wybierz jeden stos głosu; drugi pozostaje `inactive` |
+| Głośnik | `rider-voice-web`, `rider-voice`, `rider-google-bridge` | Jak wyżej + limiter głośności w UI | Wstrzymaj TTS przy zmianie stosu |
+| LCD 2" | `rider-face.service`, (splash/post-splash) | `Conflicts=` jeśli pojawią się inne konsumenty LCD | Aktualnie brak konkurencji |
+
+Przykład override dla usług kamerowych:
 ```
 [Unit]
 Requires=dev-video0.device
@@ -59,28 +71,37 @@ StartLimitIntervalSec=60
 StartLimitBurst=5
 ```
 
-## Procedury operacyjne
+## Procedury operacyjne (na bazie istniejących targetów)
 
 | Czynność | Kroki | Uwagi |
 | --- | --- | --- |
-| Start trybu ręcznego | `systemctl start rider-manual.target` | W razie blokady kamery – zatrzymaj preview diag. |
-| Start trybu autonomicznego | `systemctl start rider-autonomy.target` | Upewnij się, że offload wizji nie blokuje kamery. |
-| Włączenie sterowania głosowego | `systemctl start rider-voice.target` | Sprawdź, który stos (web/CLI) jest wybrany; drugi pozostaje wyłączony. |
-| Diagnostyka obrazu | `systemctl start rider-diagnostics.target`, po testach `systemctl stop rider-diagnostics.target` | Krótkie sesje, bo obciąża GPU/CPU i blokuje kamerę. |
-| Zwolnienie zasobu | `systemctl stop <usługa_kolidująca>` lub przycisk „Zwolnij” w UI | Po zwolnieniu ponownie uruchom docelową usługę. |
+| Start profilu minimalnego | `systemctl start rider-minimal.target` | Podstawowy zestaw (broker+API+vision+splash) |
+| Profil deweloperski | `systemctl start rider-dev.target` | Uruchamia Jupyter; zatrzymaj po sesji |
+| Włączenie sterowania głosowego | `systemctl start rider-voice-web.service` (lub `.service` + `.socket`) | Upewnij się, że mikrofon/głośnik wolny; nie uruchamiaj równolegle `rider-voice.service` |
+| Tryb „Follow Face/Hand” | `systemctl start rider-tracker.service rider-tracking-controller.service` | Jeśli kamera zajęta przez preview/vision – zwolnij zasób i ponów start |
+| Tryb autonomiczny (ręczny zestaw) | `systemctl start rider-motion-bridge rider-odometry rider-mapper rider-obstacle rider-navigator` | Startuj w podanej kolejności; upewnij się, że vision/edge-preview dostępne |
+| Diagnostyka obrazu | `systemctl start rider-edge-preview.service` lub `rider-ssd-preview.service` | Po testach `systemctl stop ...` by oddać kamerę |
 
-## Minimalne ustawienia unitów (zalecenia)
+## Minimalne ustawienia unitów (zalecenia do wprowadzenia)
 
-- `Restart=on-failure`, `RestartSec=1`, `StartLimitIntervalSec` + `StartLimitBurst` aby uniknąć flappingu.
-- `After=network.target` oraz `After=dev-video0.device` dla usług kamerowych.
-- Usługi opcjonalne (`voice`, preview, integracje) – bez autostartu.
-- Autostart tylko w `core.target`; pozostałe uruchamiane przez targety trybów lub przyciski w UI.
+- `Restart=on-failure`, `RestartSec=1`, `StartLimitIntervalSec` + `StartLimitBurst` (większość unitów już ma restart; warto dodać limity).
+- `After=network-online.target` oraz `After=dev-video0.device` dla usług kamerowych.
+- Services opcjonalne (voice, preview, integracje) – nie włączaj w autostarcie; aktywuj per tryb.
+- Autostart utrzymywać w `rider-minimal.target`; `rider-dev.target` tylko gdy potrzebujesz środowiska DEV.
+
+## Propozycje brakujących targetów (do utworzenia, jeśli chcesz)
+
+| Propozycja targetu | Co grupuje | Po co | Status |
+| --- | --- | --- | --- |
+| `rider-autonomy.target` | motion-bridge, odometry, mapper, obstacle, navigator, vision | Jeden start dla autonomii | Do stworzenia (nie istnieje w repo) |
+| `rider-voice.target` | voice-web **lub** voice (wyłączność audio) | Szybkie włączanie sterowania głosem | Do stworzenia |
+| `rider-diagnostics.target` | edge-preview, ssd-preview, cam-preview | Sesje diagnostyczne, blokuje kamerę | Do stworzenia |
 
 ## Checklist wdrożenia porządku
 
-1. Wyłącz autostart wszystkiego poza `rider-core.target` (API, broker, web-bridge).
-2. Utwórz targety: `rider-manual.target`, `rider-autonomy.target`, `rider-voice.target`, `rider-diagnostics.target`.
-3. Dodaj `Conflicts` (lub lock) dla wszystkich usług kamerowych; analogicznie dla dwóch stosów głosu.
-4. Ustaw limity restartów i `Restart=on-failure` w unitach optional/previews.
-5. W UI: przed startem usługi sprawdzaj dostępność zasobu i proponuj „Zwolnij zasób → Start”.
-6. Dodaj endpoint `/health` w `rider-api` raportujący stany unitów i locki zasobów do widoku diagnostycznego.
+1. Zweryfikuj, które usługi są faktycznie w `enable` (domyślne WantedBy=multi-user.target); zostaw autostart dla core (`rider-broker`, `rider-api`, `rider-web-bridge`, `rider-vision`, `wifi-unblock`, splash/post-splash).
+2. Wyłącz autostart opcyjnych: preview, tracker, obstacle, mapper, navigator, voice*, google-bridge, choreographer, vision-offload, jupyter (chyba że dev box).
+3. Dodaj `Conflicts`/lock na kamerę i symetryczne `Conflicts` między `rider-voice-web.service` i `rider-voice.service`.
+4. Rozważ stworzenie targetów `rider-autonomy.target` i `rider-diagnostics.target` dla prostych procedur start/stop.
+5. W UI przed startem usługi sprawdzaj zasoby; jeśli zajęte, proponuj „Zwolnij zasób → Start”.
+6. Dodaj endpoint `/health` w `rider-api` z listą unitów i locków zasobów do widoku diagnostycznego.
