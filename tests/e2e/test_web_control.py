@@ -28,6 +28,9 @@ def run_server_thread():
     # Get port from environment
     port = int(os.environ.get('TEST_SERVER_PORT', 18765))
 
+    # Enable TEST_MODE for mock backend
+    os.environ['TEST_MODE'] = 'true'
+
     # Add project root to path (go up 3 levels from tests/e2e/test_web_control.py)
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     if project_root not in sys.path:
