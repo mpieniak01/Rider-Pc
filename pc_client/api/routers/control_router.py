@@ -26,8 +26,9 @@ async def proxy_remote_media(request: Request, remote_path: str) -> Response:
 
     params = dict(request.query_params)
     try:
-        content, media_type = await adapter.fetch_binary(remote_path, params=params)
-        return Response(content=content, media_type=media_type)
+        content, media_type, remote_headers = await adapter.fetch_binary(remote_path, params=params)
+        headers = {key: value for key, value in remote_headers.items() if key.lower() != "content-type"}
+        return Response(content=content, media_type=media_type, headers=headers)
     except Exception as e:
         logger.error(f"Failed to proxy {remote_path}: {e}")
         raise HTTPException(status_code=502, detail="Unable to fetch remote media")
@@ -403,7 +404,7 @@ async def api_service_action_alias(request: Request, payload: Dict[str, Any]) ->
 
 
 def _camera_last_headers(request: Request) -> Dict[str, str]:
-    ts = request.app.state.last_camera_frame["timestamp"]
+    ts = request.app.state.last_camera_frame.get("timestamp", time.time())
     dt = datetime.fromtimestamp(ts, tz=timezone.utc)
     return {"Last-Modified": dt.strftime("%a, %d %b %Y %H:%M:%S GMT")}
 
@@ -412,14 +413,20 @@ def _camera_last_headers(request: Request) -> Dict[str, str]:
 async def camera_last(request: Request) -> Response:
     """Return last camera frame placeholder."""
     headers = _camera_last_headers(request)
-    return Response(content=request.app.state.last_camera_frame["content"], media_type="image/png", headers=headers)
+    media_type = request.app.state.last_camera_frame.get("media_type", "image/png")
+    return Response(
+        content=request.app.state.last_camera_frame["content"],
+        media_type=media_type,
+        headers=headers,
+    )
 
 
 @router.head("/camera/last")
 async def camera_last_head(request: Request) -> Response:
     """HEAD variant for last camera frame."""
     headers = _camera_last_headers(request)
-    return Response(content=b"", media_type="image/png", headers=headers)
+    media_type = request.app.state.last_camera_frame.get("media_type", "image/png")
+    return Response(content=b"", media_type=media_type, headers=headers)
 
 
 @router.get("/events")

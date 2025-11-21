@@ -120,10 +120,12 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
             b"\xaeB`\x82"
         ),
         "timestamp": time.time(),
+        "media_type": "image/png",
     }
     app.state.event_subscribers: List[asyncio.Queue] = []
     app.state.sync_task = None
     app.state.provider_heartbeat_task = None
+    app.state.camera_sync_task = None
 
     # Register lifecycle events
     @app.on_event("startup")

@@ -4,10 +4,11 @@ import asyncio
 import contextlib
 import logging
 import time
+from datetime import timezone
+from email.utils import parsedate_to_datetime
 from typing import Any, Dict, Optional
 
 from fastapi import FastAPI
-
 from pc_client.adapters import RestAdapter
 from pc_client.cache import CacheManager
 from pc_client.config import Settings
@@ -225,6 +226,54 @@ async def sync_data_periodically(app: FastAPI):
         await asyncio.sleep(2)
 
 
+def _last_modified_timestamp(headers: Dict[str, str]) -> Optional[float]:
+    """Return UNIX timestamp if Last-Modified header is present."""
+    last_modified = next((value for key, value in headers.items() if key.lower() == "last-modified"), None)
+    if not last_modified:
+        return None
+    try:
+        parsed = parsedate_to_datetime(last_modified)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.timestamp()
+    except Exception as exc:  # pragma: no cover - defensive parsing
+        logger.debug("Failed to parse Last-Modified header '%s': %s", last_modified, exc)
+        return None
+
+
+async def _fetch_and_store_camera_frame(app: FastAPI) -> None:
+    """Fetch the latest camera frame from Rider-PI and cache it locally."""
+    adapter: Optional[RestAdapter] = app.state.rest_adapter
+    if adapter is None:
+        logger.debug("REST adapter unavailable, skipping camera frame fetch")
+        return
+
+    content, media_type, headers = await adapter.fetch_binary("/camera/last")
+    timestamp = _last_modified_timestamp(headers) or time.time()
+    app.state.last_camera_frame = {
+        "content": content,
+        "media_type": media_type,
+        "timestamp": timestamp,
+    }
+
+
+async def sync_camera_frame_periodically(app: FastAPI, interval: float = 0.8):
+    """
+    Background task to continuously refresh the cached camera frame.
+    """
+    logger.info("Starting camera frame sync task (interval=%.2fs)", interval)
+    try:
+        while True:
+            try:
+                await _fetch_and_store_camera_frame(app)
+            except Exception as exc:
+                logger.debug("Camera frame sync failed: %s", exc)
+            await asyncio.sleep(interval)
+    except asyncio.CancelledError:
+        logger.info("Camera frame sync task cancelled")
+        raise
+
+
 async def start_provider_heartbeat(app: FastAPI):
     """Start provider heartbeat loop to register with Rider-PI."""
     settings: Settings = app.state.settings
@@ -367,6 +416,13 @@ async def startup_event(app: FastAPI):
 
     await start_provider_heartbeat(app)
 
+    if app.state.camera_sync_task:
+        app.state.camera_sync_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await app.state.camera_sync_task
+    app.state.camera_sync_task = asyncio.create_task(sync_camera_frame_periodically(app))
+    logger.info("Camera frame sync task started")
+
     # Start background sync task
     app.state.sync_task = asyncio.create_task(sync_data_periodically(app))
     logger.info("Background sync task started")
@@ -388,6 +444,11 @@ async def shutdown_event(app: FastAPI):
         app.state.provider_heartbeat_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await app.state.provider_heartbeat_task
+
+    if app.state.camera_sync_task:
+        app.state.camera_sync_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await app.state.camera_sync_task
 
     # Stop task queue worker / providers
     if app.state.provider_worker:

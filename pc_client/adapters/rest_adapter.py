@@ -69,7 +69,9 @@ class RestAdapter:
 
         self.client = httpx.AsyncClient(**client_kwargs)
 
-    async def fetch_binary(self, path: str, params: Optional[Dict[str, Any]] = None) -> Tuple[bytes, str]:
+    async def fetch_binary(
+        self, path: str, params: Optional[Dict[str, Any]] = None
+    ) -> Tuple[bytes, str, Dict[str, str]]:
         """
         Fetch binary content (images, streams) from Rider-PI endpoints.
 
@@ -78,14 +80,15 @@ class RestAdapter:
             params: Optional query parameters
 
         Returns:
-            Tuple of (content bytes, media type)
+            Tuple of (content bytes, media type, response headers)
         """
         url = f"{self.base_url}{path}"
         try:
             response = await self.client.get(url, params=params)
             response.raise_for_status()
             media_type = response.headers.get("content-type", "application/octet-stream")
-            return response.content, media_type
+            headers = {key: value for key, value in response.headers.items()}
+            return response.content, media_type, headers
         except Exception as e:
             logger.error(f"Error fetching binary content from {url}: {e}")
             raise
