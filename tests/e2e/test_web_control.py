@@ -1,4 +1,4 @@
-"""E2E tests for control.html interface using Playwright without pytest-playwright plugin.
+"""E2E tests for control.html interface.
 
 Tests cover:
 - Rendering of critical UI elements
@@ -7,8 +7,6 @@ Tests cover:
 - Speed slider functionality
 - Feature management (tracking modes)
 - API status indicators
-
-Note: These tests run the FastAPI server in a background thread and use Playwright's sync API directly.
 
 Mock Backend:
 The tests automatically enable TEST_MODE which uses MockRestAdapter instead of RestAdapter.
@@ -22,103 +20,7 @@ The mock backend is enabled automatically - no manual configuration needed.
 """
 
 import json
-import threading
 import time
-
-import pytest
-import uvicorn
-from playwright.sync_api import sync_playwright
-
-
-def run_server_thread():
-    """Run FastAPI server in a background thread."""
-    import sys
-    import os
-
-    # Get port from environment
-    port = int(os.environ.get('TEST_SERVER_PORT', 18765))
-
-    # Enable TEST_MODE for mock backend
-    os.environ['TEST_MODE'] = 'true'
-
-    # Add project root to path (go up 3 levels from tests/e2e/test_web_control.py)
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    if project_root not in sys.path:
-        sys.path.insert(0, project_root)
-
-    from pc_client.api.server import create_app
-    from pc_client.cache import CacheManager
-    from pc_client.config import Settings
-
-    settings = Settings()
-    cache = CacheManager()
-    app = create_app(settings, cache)
-
-    config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error")
-    server = uvicorn.Server(config)
-    server.run()
-
-
-@pytest.fixture(scope="module")
-def test_server():
-    """Start test server in a background thread."""
-    import socket
-
-    # Find a free port
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(('127.0.0.1', 0))
-        port = s.getsockname()[1]
-
-    # Store port for server function
-    import os
-
-    os.environ['TEST_SERVER_PORT'] = str(port)
-
-    thread = threading.Thread(target=run_server_thread, daemon=True)
-    thread.start()
-
-    # Wait for server to be ready with shorter initial wait
-    time.sleep(1)
-
-    # Verify server is up
-    import urllib.request
-
-    base_url = f"http://127.0.0.1:{port}"
-    for i in range(20):
-        try:
-            urllib.request.urlopen(f"{base_url}/healthz", timeout=1)
-            break
-        except Exception as e:
-            if i == 19:
-                raise Exception(f"Server failed to start: {e}")
-            time.sleep(0.5)
-
-    yield base_url
-    # Thread will be cleaned up automatically as it's daemonic
-
-
-@pytest.fixture
-def browser_context(test_server):
-    """Create a Playwright browser context for testing."""
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context()
-        page = context.new_page()
-
-        # Track network requests
-        page.requests = []
-        page.on("request", lambda request: page.requests.append(request))
-
-        # Track console messages
-        page.console_messages = []
-        page.on("console", lambda msg: page.console_messages.append(msg))
-
-        # Track page errors
-        page.errors = []
-        page.on("pageerror", lambda error: page.errors.append(error))
-
-        yield page, test_server
-        # Context manager handles cleanup automatically
 
 
 def test_control_page_loads(browser_context):
