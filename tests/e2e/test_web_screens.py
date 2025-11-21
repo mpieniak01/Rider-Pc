@@ -17,18 +17,17 @@ The tests automatically enable TEST_MODE which uses MockRestAdapter.
 
 def _filter_test_env_console_errors(console_messages):
     """Filter out expected console errors in test environment.
-    
+
     Filters:
     - External resource loading failures (CDN)
     - WebSocket connection failures (not available in test mode)
-    
+
     Returns only actual JavaScript execution errors.
     """
     return [
-        msg for msg in console_messages 
-        if msg.type == "error" 
-        and "Failed to load resource" not in msg.text
-        and "WebSocket connection" not in msg.text
+        msg
+        for msg in console_messages
+        if msg.type == "error" and "Failed to load resource" not in msg.text and "WebSocket connection" not in msg.text
     ]
 
 

@@ -44,7 +44,7 @@ def run_server_thread():
 @pytest.fixture(scope="session")
 def test_server():
     """Start test server in a background thread.
-    
+
     The server is started once per test session and shared across all tests.
     Uses dynamic port allocation to prevent conflicts.
     Includes robust health check loop to wait for server readiness.
@@ -83,15 +83,15 @@ def test_server():
 @pytest.fixture
 def browser_context(test_server):
     """Create a Playwright browser context for testing.
-    
+
     Provides a fresh browser page for each test with automatic tracking of:
     - Network requests
     - Console messages
     - Page errors
-    
+
     Args:
         test_server: The base URL of the test server
-        
+
     Yields:
         tuple: (page, base_url) where page is a Playwright Page object
     """
