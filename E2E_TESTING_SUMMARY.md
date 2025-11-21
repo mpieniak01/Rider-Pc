@@ -13,7 +13,7 @@ This PR successfully implements End-to-End (E2E) testing for the Rider-PC web in
 ## Solution Delivered
 
 ### Test Infrastructure
-- ✅ **Playwright Integration**: Added `pytest-playwright==0.6.2` for browser automation
+- ✅ **Playwright Integration**: Added `playwright==1.48.0` for browser automation
 - ✅ **Project Structure**: Created `tests/e2e/` with proper organization
 - ✅ **CI/CD Integration**: Updated GitHub Actions workflow to run E2E tests
 - ✅ **Documentation**: Comprehensive README and demo tests
@@ -143,7 +143,7 @@ From original issue requirements:
 
 | Requirement | Status | Implementation |
 |------------|--------|----------------|
-| Add Playwright to requirements-ci.txt | ✅ | Added `pytest-playwright==0.6.2` |
+| Add Playwright to requirements-ci.txt | ✅ | Added `playwright==1.48.0` |
 | Configure pytest for headless | ✅ | Uses `headless=True` in fixture |
 | Tests run in CI | ✅ | Updated workflow with browser installation |
 | Test critical elements render | ✅ | `test_critical_elements_render` |
@@ -176,7 +176,7 @@ Created comprehensive documentation:
 ### Dependencies Added
 
 Only one new dependency:
-- `pytest-playwright==0.6.2` (includes Playwright automation framework)
+- `playwright==1.48.0` (Playwright browser automation framework)
 
 No conflicts with existing dependencies. All existing tests remain unchanged and passing.
 

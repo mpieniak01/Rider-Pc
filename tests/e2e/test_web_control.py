@@ -28,8 +28,8 @@ def run_server_thread():
     # Get port from environment
     port = int(os.environ.get('TEST_SERVER_PORT', 18765))
     
-    # Add project root to path
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # Add project root to path (go up 3 levels from tests/e2e/test_web_control.py)
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     if project_root not in sys.path:
         sys.path.insert(0, project_root)
     
@@ -63,8 +63,8 @@ def test_server():
     thread = threading.Thread(target=run_server_thread, daemon=True)
     thread.start()
     
-    # Wait for server to be ready
-    time.sleep(4)
+    # Wait for server to be ready with shorter initial wait
+    time.sleep(1)
     
     # Verify server is up
     import urllib.request
@@ -103,9 +103,7 @@ def browser_context(test_server):
         page.on("pageerror", lambda error: page.errors.append(error))
         
         yield page, test_server
-        
-        context.close()
-        browser.close()
+        # Context manager handles cleanup automatically
 
 
 def test_control_page_loads(browser_context):
@@ -140,8 +138,8 @@ def test_critical_elements_render(browser_context):
     res_rows = page.locator("#resBody tr").count()
     assert res_rows > 0, "Resource table should have rows"
 
-    # Check services table exists
-    assert page.locator("#svcTable").is_visible() or page.locator("#svcTable").count() > 0
+    # Check services table is visible
+    assert page.locator("#svcTable").is_visible()
 
     # Check camera preview section exists
     assert page.locator("#camPrev").is_visible()
@@ -179,24 +177,17 @@ def test_motion_button_forward_sends_api_request(browser_context):
     page.goto(f"{base_url}/web/control.html")
     page.wait_for_load_state("load")
 
-    # Clear previous requests
-    page.requests.clear()
+    # Click forward button and wait for API request
+    with page.expect_request("**/api/control") as request_info:
+        page.locator("#btnFwd").click()
 
-    # Click forward button
-    page.locator("#btnFwd").click()
-
-    # Wait for request to be sent
-    time.sleep(0.5)
-
-    # Find POST requests to /api/control
-    control_requests = [
-        req for req in page.requests if "/api/control" in req.url and req.method == "POST"
-    ]
-
-    assert len(control_requests) > 0, "Should send at least one POST request to /api/control"
+    # Get the request object
+    req = request_info.value
+    assert req.method == "POST", "Should send a POST request to /api/control"
+    assert "/api/control" in req.url, "Request URL should contain /api/control"
 
     # Verify request payload
-    post_data = control_requests[0].post_data
+    post_data = req.post_data
     assert post_data is not None, "Request should have POST data"
 
     # Parse JSON payload
@@ -214,23 +205,16 @@ def test_stop_button_sends_stop_command(browser_context):
     page.goto(f"{base_url}/web/control.html")
     page.wait_for_load_state("load")
 
-    # Clear previous requests
-    page.requests.clear()
-
-    # Click stop button
-    page.locator("#btnStop").click()
-
-    # Wait for request
-    time.sleep(0.5)
+    # Click stop button and wait for API request
+    with page.expect_request("**/api/control") as request_info:
+        page.locator("#btnStop").click()
 
     # Verify request
-    control_requests = [
-        req for req in page.requests if "/api/control" in req.url and req.method == "POST"
-    ]
+    req = request_info.value
+    assert req.method == "POST", "Stop button should send POST request"
+    assert "/api/control" in req.url, "Request URL should contain /api/control"
 
-    assert len(control_requests) > 0, "Stop button should send API request"
-
-    payload = json.loads(control_requests[0].post_data)
+    payload = json.loads(req.post_data)
     assert payload.get("cmd") == "stop", "Command should be 'stop'"
 
 
@@ -247,7 +231,12 @@ def test_speed_slider_updates_label(browser_context):
 
     # Change slider value using evaluate (fill doesn't work well with range inputs)
     page.locator("#speedSpin").evaluate("el => { el.value = '0.50'; el.dispatchEvent(new Event('input')); }")
-    time.sleep(0.3)
+    
+    # Wait for label to update with a more reliable approach
+    page.wait_for_function(
+        f"document.querySelector('#speedSpinVal').textContent !== '{initial_val}'",
+        timeout=2000
+    )
 
     # Check label updated
     updated_val = speed_spin_val.text_content()
@@ -262,8 +251,8 @@ def test_service_table_loads(browser_context):
     page.goto(f"{base_url}/web/control.html")
     page.wait_for_load_state("load")
 
-    # Wait for services to load
-    time.sleep(2)
+    # Wait for services to load using selector
+    page.wait_for_selector("#svcBody tr", state="attached", timeout=5000)
 
     # Check services table body
     svc_body = page.locator("#svcBody")
