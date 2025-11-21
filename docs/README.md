@@ -199,11 +199,21 @@ Messages are automatically cached and available through the REST API.
 Install test dependencies:
 ```bash
 pip install pytest pytest-asyncio pytest-timeout
+# UI/E2E need Playwright chromium if not already installed:
+# python -m playwright install chromium --with-deps
 ```
 
-Run tests:
+Run all tests (unit + UI/E2E):
 ```bash
-pytest pc_client/tests/ -v
+pytest -v
+```
+
+Split by markers (auto-added in tests/conftest.py):
+```bash
+# Unit/API only
+pytest -m api
+# UI/E2E only
+pytest -m ui
 ```
 
 Run specific test:

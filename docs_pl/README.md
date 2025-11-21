@@ -202,11 +202,21 @@ Wiadomości są automatycznie cachowane i dostępne przez REST API.
 Zainstaluj zależności testowe:
 ```bash
 pip install pytest pytest-asyncio pytest-timeout
+# Testy UI/E2E wymagają też przeglądarki Playwright:
+# python -m playwright install chromium --with-deps
 ```
 
-Uruchom testy:
+Uruchom wszystkie testy (jednostkowe + UI):
 ```bash
-pytest pc_client/tests/ -v
+pytest -v
+```
+
+Podział markerami (dodawane automatycznie w tests/conftest.py):
+```bash
+# tylko testy API/jednostkowe
+pytest -m api
+# tylko testy UI/E2E (Playwright)
+pytest -m ui
 ```
 
 Uruchom konkretny test:

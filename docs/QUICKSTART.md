@@ -193,11 +193,11 @@ pc_client/
 ├── config/                 # Configuration
 │   ├── __init__.py
 │   └── settings.py         # Settings management
-└── tests/                  # Unit tests
+└── tests/                  # Tests
     ├── __init__.py
-    ├── test_cache.py
-    ├── test_rest_adapter.py
-    └── test_zmq_subscriber.py
+    ├── conftest.py         # auto-tagging of api/ui markers
+    ├── e2e/                # Playwright UI/E2E tests
+    └── ...                 # pc_client unit/integration tests
 ```
 
 ## Support

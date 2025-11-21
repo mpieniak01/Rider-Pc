@@ -130,15 +130,24 @@ Zmienne środowiskowe:
 
 ## Testowanie
 
-Uruchom testy jednostkowe:
+Uruchom pełen zestaw (jednostkowe + UI/E2E):
 ```bash
-pytest pc_client/tests/ -v
+pytest -v
+```
+
+Podział na kategorie (markery ustawiane automatycznie w tests/conftest.py):
+```bash
+# tylko testy API/jednostkowe
+pytest -m api
+# tylko testy UI/E2E (Playwright)
+pytest -m ui
 ```
 
 Pokrycie testów:
 - ✅ Operacje cache (set, get, expire, cleanup)
 - ✅ Adapter REST (wszystkie punkty końcowe)
 - ✅ Subskrybent ZMQ (dopasowywanie tematów, handlery)
+ - ✅ UI/E2E (Playwright) dla panelu web
 
 ## Rozwiązywanie Problemów
 
