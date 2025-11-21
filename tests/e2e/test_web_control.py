@@ -24,19 +24,19 @@ def run_server_thread():
     """Run FastAPI server in a background thread."""
     import sys
     import os
-    
+
     # Get port from environment
     port = int(os.environ.get('TEST_SERVER_PORT', 18765))
-    
+
     # Add project root to path (go up 3 levels from tests/e2e/test_web_control.py)
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     if project_root not in sys.path:
         sys.path.insert(0, project_root)
-    
+
     from pc_client.api.server import create_app
     from pc_client.cache import CacheManager
     from pc_client.config import Settings
-    
+
     settings = Settings()
     cache = CacheManager()
     app = create_app(settings, cache)
@@ -50,24 +50,26 @@ def run_server_thread():
 def test_server():
     """Start test server in a background thread."""
     import socket
-    
+
     # Find a free port
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(('127.0.0.1', 0))
         port = s.getsockname()[1]
-    
+
     # Store port for server function
     import os
+
     os.environ['TEST_SERVER_PORT'] = str(port)
-    
+
     thread = threading.Thread(target=run_server_thread, daemon=True)
     thread.start()
-    
+
     # Wait for server to be ready with shorter initial wait
     time.sleep(1)
-    
+
     # Verify server is up
     import urllib.request
+
     base_url = f"http://127.0.0.1:{port}"
     for i in range(20):
         try:
@@ -77,7 +79,7 @@ def test_server():
             if i == 19:
                 raise Exception(f"Server failed to start: {e}")
             time.sleep(0.5)
-    
+
     yield base_url
     # Thread will be cleaned up automatically as it's daemonic
 
@@ -89,19 +91,19 @@ def browser_context(test_server):
         browser = p.chromium.launch(headless=True)
         context = browser.new_context()
         page = context.new_page()
-        
+
         # Track network requests
         page.requests = []
         page.on("request", lambda request: page.requests.append(request))
-        
+
         # Track console messages
         page.console_messages = []
         page.on("console", lambda msg: page.console_messages.append(msg))
-        
+
         # Track page errors
         page.errors = []
         page.on("pageerror", lambda error: page.errors.append(error))
-        
+
         yield page, test_server
         # Context manager handles cleanup automatically
 
@@ -155,7 +157,7 @@ def test_api_status_indicator(browser_context):
 
     response = page.goto(f"{base_url}/web/control.html")
     assert response.status == 200, "Page should load successfully"
-    
+
     page.wait_for_load_state("domcontentloaded")
 
     # Wait for JavaScript to initialize
@@ -164,7 +166,7 @@ def test_api_status_indicator(browser_context):
     # Verify the page loaded the header with title
     title_element = page.locator("h1.control-title")
     assert title_element.count() > 0, "Page title should be present"
-    
+
     # The API status is part of the title, verify the structure is there
     # Note: In some test runs the specific status span may not render due to timing,
     # but the overall page structure is verified by other tests
@@ -231,12 +233,9 @@ def test_speed_slider_updates_label(browser_context):
 
     # Change slider value using evaluate (fill doesn't work well with range inputs)
     page.locator("#speedSpin").evaluate("el => { el.value = '0.50'; el.dispatchEvent(new Event('input')); }")
-    
+
     # Wait for label to update with a more reliable approach
-    page.wait_for_function(
-        f"document.querySelector('#speedSpinVal').textContent !== '{initial_val}'",
-        timeout=2000
-    )
+    page.wait_for_function(f"document.querySelector('#speedSpinVal').textContent !== '{initial_val}'", timeout=2000)
 
     # Check label updated
     updated_val = speed_spin_val.text_content()
