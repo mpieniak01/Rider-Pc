@@ -4,7 +4,6 @@ This adapter provides deterministic mock responses for all Rider-PI endpoints,
 allowing local testing without requiring a real Rider-PI device.
 """
 
-import asyncio
 import logging
 import time
 from typing import Any, Dict, Optional, Tuple
