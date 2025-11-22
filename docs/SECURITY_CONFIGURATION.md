@@ -2,11 +2,11 @@
 
 ## Overview
 
-Ten dokument opisuje konfigurację bezpiecznego kanału sieciowego między Rider-PI a Klientem PC (środowisko WSL).
+This document describes the configuration of secure network channels between Rider-PI and the PC Client (WSL environment).
 
-## Wybór Trybu
+## Mode Selection
 
-Klient PC używa zmiennej środowiskowej `SECURE_MODE` do określenia trybu połączenia:
+The PC Client uses the `SECURE_MODE` environment variable to determine the connection mode:
 
 ```bash
 # Tryb development (domyślnie)
@@ -166,7 +166,7 @@ SECURE_MODE=false  # VPN zapewnia szyfrowanie
 
 ## Opcja 3: Mutual TLS (mTLS)
 
-For environments requiring mutual authentication certyfikatów.
+For environments requiring mutual authentication certificates.
 
 ### 1. Wygeneruj Certyfikaty
 
@@ -189,7 +189,7 @@ openssl x509 -req -days 365 -in client.csr -CA ca-cert.pem -CAkey ca-key.pem -CA
 ### 2. Konfiguruj Rider-PI
 
 ```python
-# W API server używaj certyfikatów SSL
+# In API server usesj certificates SSL
 uvicorn.run(
     app,
     host="0.0.0.0",
@@ -227,7 +227,7 @@ sudo ufw enable
 
 ### Na PC (WSL)
 
-WSL2 używa Windows Firewall. Configure w Windows:
+WSL2 uses Windows Firewall. Configure in Windows:
 ```powershell
 # PowerShell jako Administrator
 New-NetFirewallRule -DisplayName "WireGuard" -Direction Inbound -Protocol UDP -LocalPort 51820 -Action Allow
@@ -280,8 +280,8 @@ ss -tulnp | grep 51820
 - Check routing: `ip route`
 
 **mTLS handshake fails:**
-- Weryfikuj ścieżki certyfikatów
-- Check daty ważności certyfikatów: `openssl x509 -in cert.pem -noout -dates`
+- Weryfikuj ścieżki certificates
+- Check daty ważności certificates: `openssl x509 -in cert.pem -noout -dates`
 - Check uprawnienia plików (600 for kluczy prywatnych)
 
 ---

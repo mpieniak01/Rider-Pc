@@ -2,7 +2,7 @@
 
 ## Overview
 
-Comprehensive guide konfiguracji monitoringu Prometheus i Grafana for systemu Rider-PC Client.
+Comprehensive guide for configuring Prometheus and Grafana monitoring for the Rider-PC Client system.
 
 ## Components
 
@@ -388,7 +388,7 @@ sudo journalctl -u prometheus -f
 # Test połączenia
 curl http://localhost:9090/-/healthy
 
-# Check konfigurację data source w Grafana UI
+# Check configuration data source w Grafana UI
 # Configuration → Data Sources → Prometheus → Test
 ```
 
