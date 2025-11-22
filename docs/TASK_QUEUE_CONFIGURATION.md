@@ -2,7 +2,7 @@
 
 ## Przegląd
 
-Przewodnik konfiguracji brokera kolejki zadań (Redis or RabbitMQ) for systemu Rider-PC Client.
+Task queue broker configuration guide (Redis or RabbitMQ) for the Rider-PC Client system.
 
 ## Wybór Brokera
 
