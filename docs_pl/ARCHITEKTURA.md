@@ -1,4 +1,4 @@
-# Rider-PI PC Client — Architektura rozwiązania
+# Rider-PC Client — Architektura Rozwiązania
 
 ## Projekt powiązany
 https://github.com/mpieniak01/Rider-Pi 
@@ -15,6 +15,28 @@ https://github.com/mpieniak01/Rider-Pi
 - **Offload przetwarzania**: Vision (YOLOv8), Voice (Whisper/Piper), Text (Ollama) działają lokalnie na PC
 
 Rider-PC **nie** pobiera plików HTML/JS z Rider-Pi w runtime. UI był skopiowany jednorazowo w fazie rozwoju, a aktualizacje wymagają zmiany repozytorium.
+
+## Integracja z Rider-Pi
+
+System Rider-PC współpracuje z robotem Rider-Pi w modelu **Provider Architecture**:
+
+### Dynamiczny Wybór Źródła Usług AI
+- Rider-Pi może dynamicznie przełączać źródło usług AI: **lokalne modele** na Pi vs. **providery PC**
+- Operator kontroluje kanały obsługi głosu, tekstu i obrazu w locie przez panel **Provider Control**
+- Zachowana kompatybilność wsteczna - negocjacja wersji kontraktów
+
+### Provider Control API
+Rider-Pi udostępnia endpointy zarządzania providerami:
+- `GET /api/providers/state` — lista domen (voice, text, vision) z aktywnym źródłem i stanem zdrowia
+- `PATCH /api/providers/{domain}` — przełączanie między trybem `local` i `pc`
+- `GET /api/providers/health` — raport łączności i latencji
+
+### Circuit Breaker i Fallback
+- Mechanizm circuit breaker automatycznie przełącza na tryb `local` po serii błędów
+- Watchdog monitoruje RTT z PC - przekroczenie progu wyzwala alarm i fallback
+- Heartbeat co ~5s weryfikuje dostępność PC (endpoint `/api/providers/pc-heartbeat`)
+
+Szczegóły protokołu komunikacji i kontraktów ZMQ: [INTEGRACJA_OFFLOAD_PC.md](INTEGRACJA_OFFLOAD_PC.md)
 
 ## 1. Warstwa systemowa (Windows 11 + WSL2 Debian)
 - Windows uruchamia maszynę WSL2 z dystrybucją Debian, w której utrzymywany jest kod kliencki w Pythonie 3.9.
