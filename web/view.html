@@ -443,6 +443,8 @@ async function busHeartbeatFallback(){
 
 /* ===== STATE ===== */
 let lastHealth=null, lastState=null;
+// PC panel nie trzyma flagi z backendu, więc domyślnie zakładamy, że adapter REST jest dostępny.
+let adapterConnected = true;
 
 function updateStateUI(s){
   setTxt('p_present',String(!!s.present)); setCls('p_present',s.present?'ok':'bad');
@@ -475,19 +477,24 @@ function textFromLCD(lcd){
   return parts.join(' · ');
 }
 function applyDevices({state,health}){
-  const cam = state?.camera ?? health?.devices?.camera ?? {};
-  const resArr = Array.isArray(cam.res) && cam.res.length===2 ? cam.res : null;
+  // Merge camera info from /state (preview metadata) with richer device snapshot from /healthz.
+  const camMerged = {
+    ...(health?.devices?.camera || {}),
+    ...(state?.devices?.camera || {}),
+    ...(state?.camera || {}),
+  };
+  const resArr = Array.isArray(camMerged.res) && camMerged.res.length===2 ? camMerged.res : null;
   const resTxt = resArr ? `${resArr[0]}×${resArr[1]}` : (lastCamState.res || '');
-  const fpsVal = cam.fps!=null ? cam.fps : lastCamState.fps;
+  const fpsVal = camMerged.fps!=null ? camMerged.fps : lastCamState.fps;
   const resourceInfo = cameraResourceSummary();
   const holdersTxt = resourceInfo?.holders || formatResourceHolders(lastCameraResource?.holders);
   const camParts=[];
-  let camStatus = typeof cam.on === 'boolean' ? cam.on : (resourceInfo ? resourceInfo.state==='busy' : null);
-  if(!adapterConnected){ camStatus = cam.on===false ? false : null; }
+  let camStatus = typeof camMerged.on === 'boolean' ? camMerged.on : (resourceInfo ? resourceInfo.state==='busy' : null);
+  if(!adapterConnected){ camStatus = camMerged.on===false ? false : null; }
   if(camStatus !== null){
     camParts.push(camStatus ? 'ON' : 'OFF');
   }
-  if(cam.mode) camParts.push(cam.mode);
+  if(camMerged.mode) camParts.push(camMerged.mode);
   if(resTxt) camParts.push(resTxt);
   if(fpsVal!=null) camParts.push(`${fmt(fpsVal,1)} fps`);
   if(resourceInfo){
@@ -507,11 +514,11 @@ function applyDevices({state,health}){
   }
   setCls('d_cam', camClass);
 
-  const lcd = state?.lcd ?? health?.devices?.lcd ?? null;
+  const lcd = state?.lcd ?? state?.devices?.lcd ?? health?.devices?.lcd ?? null;
   const lcdTxt=textFromLCD(lcd);
   setTxt('d_lcd',lcdTxt); setCls('d_lcd',(lcd && lcd.on)?'ok':'muted');
 
-  const xgo = state?.xgo ?? health?.devices?.xgo ?? {};
+  const xgo = state?.xgo ?? state?.devices?.xgo ?? health?.devices?.xgo ?? {};
   const imuTxt=(xgo.on?'ON':'OFF') + (xgo.imu_ok===true?' · OK':(xgo.on?' · ?':''));
   setTxt('d_xgo_imu',imuTxt); setCls('d_xgo_imu',(xgo.on && xgo.imu_ok)?'ok':'muted');
 

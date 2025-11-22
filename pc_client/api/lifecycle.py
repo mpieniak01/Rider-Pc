@@ -6,7 +6,7 @@ import logging
 import time
 from datetime import timezone
 from email.utils import parsedate_to_datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Callable, Awaitable, Tuple
 
 from fastapi import FastAPI
 from pc_client.adapters import RestAdapter
@@ -179,47 +179,91 @@ async def sync_data_periodically(app: FastAPI):
     Args:
         app: FastAPI application instance
     """
-    adapter: RestAdapter = app.state.rest_adapter
     cache: CacheManager = app.state.cache
 
     logger.info("Starting periodic data sync...")
 
+    def _error_from_payload(payload: Any) -> Optional[str]:
+        """Return error message string if payload indicates failure."""
+        if isinstance(payload, dict):
+            if payload.get("error"):
+                return str(payload.get("error"))
+            if payload.get("ok") is False and payload.get("error"):
+                return str(payload.get("error"))
+        return None
+
+    def _update_tracking(data: Dict[str, Any]) -> None:
+        """Persist latest tracking snapshot without clobbering on bad payloads."""
+        tracking_remote = data.get("tracking")
+        if isinstance(tracking_remote, dict):
+            app.state.control_state["tracking"] = tracking_remote
+
+    async def _fetch_and_cache(
+        cache_key: str,
+        coroutine_factory: Callable[[], Awaitable[Any]],
+        on_success: Optional[Callable[[Any], None]] = None,
+    ) -> Tuple[str, Optional[Any], Optional[str]]:
+        """
+        Fetch data using adapter, update cache on success, skip cache overwrite on error.
+
+        Returns a tuple of (cache_key, payload or None, error_message or None).
+        """
+        try:
+            payload = await coroutine_factory()
+        except Exception as exc:  # pragma: no cover - network/adapter failures
+            return cache_key, None, str(exc)
+
+        err = _error_from_payload(payload)
+        if err:
+            return cache_key, None, err
+
+        cache.set(cache_key, payload)
+        if on_success:
+            try:
+                on_success(payload)
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.debug("Post-cache hook failed for %s: %s", cache_key, exc)
+        return cache_key, payload, None
+
     while True:
         try:
-            # Fetch data from Rider-PI REST API
-            healthz_data = await adapter.get_healthz()
-            cache.set("healthz", healthz_data)
+            adapter: Optional[RestAdapter] = app.state.rest_adapter
+            if adapter is None:
+                logger.warning("REST adapter unavailable; skipping sync iteration")
+                await asyncio.sleep(2)
+                continue
 
-            state_data = await adapter.get_state()
-            cache.set("state", state_data)
-            tracking_remote = state_data.get("tracking")
-            if isinstance(tracking_remote, dict):
-                app.state.control_state["tracking"] = tracking_remote
+            fetch_plan = [
+                ("healthz", adapter.get_healthz, None),
+                ("state", adapter.get_state, _update_tracking),
+                ("sysinfo", adapter.get_sysinfo, None),
+                ("vision_snap_info", adapter.get_vision_snap_info, None),
+                ("vision_obstacle", adapter.get_vision_obstacle, None),
+                ("app_metrics", adapter.get_app_metrics, None),
+                ("camera_resource", adapter.get_camera_resource, None),
+                ("bus_health", adapter.get_bus_health, None),
+            ]
 
-            sysinfo_data = await adapter.get_sysinfo()
-            cache.set("sysinfo", sysinfo_data)
+            results = await asyncio.gather(
+                *[
+                    _fetch_and_cache(cache_key, coro_factory, on_success)
+                    for cache_key, coro_factory, on_success in fetch_plan
+                ],
+                return_exceptions=True,
+            )
 
-            snap_info_data = await adapter.get_vision_snap_info()
-            cache.set("vision_snap_info", snap_info_data)
-
-            obstacle_data = await adapter.get_vision_obstacle()
-            cache.set("vision_obstacle", obstacle_data)
-
-            metrics_data = await adapter.get_app_metrics()
-            cache.set("app_metrics", metrics_data)
-
-            camera_resource_data = await adapter.get_camera_resource()
-            cache.set("camera_resource", camera_resource_data)
-
-            bus_health_data = await adapter.get_bus_health()
-            cache.set("bus_health", bus_health_data)
-
-            logger.debug("Data sync completed")
+            for result in results:
+                if isinstance(result, Exception):  # pragma: no cover - defensive
+                    logger.debug("Background sync task raised: %s", result)
+                    continue
+                cache_key, payload, err = result
+                if err:
+                    logger.warning("Skipping cache update for %s: %s", cache_key, err)
 
             # Cleanup expired cache entries
             cache.cleanup_expired()
 
-        except Exception as e:
+        except Exception as e:  # pragma: no cover - defensive
             logger.error(f"Error in data sync: {e}")
 
         # Wait before next sync (2 seconds to match frontend refresh)

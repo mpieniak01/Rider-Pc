@@ -1136,12 +1136,9 @@
 
   // --- systemd list: /svc ---
   async function fetchServices() {
-    if (!remoteOnline) {
-      markOfflineUI();
-      return;
-    }
     try {
       const data = await fetchJson("/svc");
+      remoteOnline = true;
       const services = Array.isArray(data?.services) ? data.services : [];
       const tbody = qs("#svcBody");
       const table = qs("#svcTable");
@@ -1292,6 +1289,8 @@
       }
       applySvcFilter();
     } catch (e) {
+      remoteOnline = false;
+      markOfflineUI();
       appendLog(
         `/svc fetch failed :: ${e.message || e}`,
         "err",
@@ -1747,12 +1746,14 @@
   startSse();
 
   // initial loads
-  fetchServices().catch(() => {});
-  fetchResources().catch(() => {});
-  fetchAiModeStatus().catch(() => {});
-  fetchProviderState().catch(() => {});
-  fetchControlState().catch(() => {});
-  fetchMotionQueue().catch(() => {});
+  (async () => {
+    try { await fetchControlState(); } catch { /* offline handled inside */ }
+    fetchServices().catch(() => {});
+    fetchResources().catch(() => {});
+    fetchAiModeStatus().catch(() => {});
+    fetchProviderState().catch(() => {});
+    fetchMotionQueue().catch(() => {});
+  })();
 </script>
 </body>
 </html>
