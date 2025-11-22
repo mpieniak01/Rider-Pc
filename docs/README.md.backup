@@ -1,0 +1,498 @@
+# Rider-PC Client
+
+> **Autonomous Digital Twin System** for the Rider-Pi robot with AI processing and task offloading
+
+PC-side client infrastructure for the Rider-Pi robot, providing:
+- 🔌 REST API Adapter and ZMQ Subscriber for real-time data synchronization
+- 💾 Local SQLite cache for state buffering
+- 🌐 FastAPI web server serving the user interface
+- 🤖 **AI Provider Layer** with real ML models (Voice, Vision, Text)
+- 🚀 **Production-ready deployment** with Docker and CI/CD
+
+## 🎯 Project Goal
+
+Rider-PC is **not** just a simple data display for the robot. It's an autonomous AI processing system that:
+- Accepts computational tasks offloaded from Rider-Pi (Vision, Voice, Text)
+- Processes them locally using PC resources (CPU/GPU)
+- Returns enriched results back to the robot in real-time
+- Operates as a Digital Twin with its own interface and technology stack
+
+## 📊 Current Status
+
+### ✅ Phase 4 Complete - Real AI Models and Production Deployment
+
+- ✅ **Real AI Models**: Whisper ASR, Piper TTS, YOLOv8 Vision, Ollama LLM
+- ✅ **Docker Deployment**: Complete stack with Redis, Prometheus, Grafana
+- ✅ **CI/CD Pipeline**: Automated testing, security scanning, Docker builds
+- ✅ **Health Probes**: Kubernetes-ready liveness and readiness endpoints
+- ✅ **Automatic Fallback**: Mock mode when models unavailable
+- ✅ **Circuit Breaker**: Automatic switching on failures
+- ✅ **Telemetry**: Real-time Prometheus metrics
+
+See details in [archive/PR/IMPLEMENTATION_COMPLETE_PHASE4.md](archive/PR/IMPLEMENTATION_COMPLETE_PHASE4.md)
+
+## 🚀 Quick Start
+
+**Option 1: Docker (Recommended for production)**
+```bash
+echo "RIDER_PI_HOST=192.168.1.100" > .env
+docker-compose up -d
+# Interface: http://localhost:8000
+```
+
+**Option 2: Local environment (Development)**
+```bash
+pip install -r requirements.txt
+python -m pc_client.main
+```
+
+Full instructions: [QUICKSTART.md](QUICKSTART.md)
+
+## 📚 Documentation - Table of Contents
+
+### Basics
+- **[QUICKSTART.md](QUICKSTART.md)** - Installation and first run (Docker + Local)
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - System concepts, layers, data flows
+- **[PC_OFFLOAD_INTEGRATION.md](PC_OFFLOAD_INTEGRATION.md)** - Technical details of Rider-Pi communication protocol
+
+### Configuration
+- **[CONFIGURATION.md](CONFIGURATION.md)** - 📋 **Configuration Hub** - central guide for all configuration aspects
+  - [AI_MODEL_CONFIGURATION.md](AI_MODEL_CONFIGURATION.md) - Whisper, Piper, YOLOv8, Ollama
+  - [SECURITY_CONFIGURATION.md](SECURITY_CONFIGURATION.md) - WireGuard VPN, mTLS
+  - [TASK_QUEUE_CONFIGURATION.md](TASK_QUEUE_CONFIGURATION.md) - Redis, RabbitMQ
+  - [MONITORING_CONFIGURATION.md](MONITORING_CONFIGURATION.md) - Prometheus, Grafana
+
+### Management
+- **[SERVICE_AND_RESOURCE_MANAGEMENT.md](SERVICE_AND_RESOURCE_MANAGEMENT.md)** - Operations, monitoring, troubleshooting
+
+### API Specifications
+- **[api-specs/](api-specs/)** - Detailed REST endpoint specifications
+  - [api-specs/README.md](api-specs/README.md) - API overview
+  - [api-specs/CONTROL.md](api-specs/CONTROL.md) - Control API
+  - [api-specs/NAVIGATOR.md](api-specs/NAVIGATOR.md) - Navigator API
+
+### Notes and Plans
+- [REPLICATION_NOTES.md](REPLICATION_NOTES.md) - Technical notes on replication mechanisms
+- [FUTURE_WORK.md](FUTURE_WORK.md) - Planned improvements and development
+
+### Archive
+- **[archive/PR/](archive/PR/)** - Historical deployment reports (Phases 1-4)
+  - Deployment statuses for each phase
+  - Provider implementation guides
+  - Completed phase summaries
+
+## 🏗️ Architecture (Summary)
+
+```
+┌─────────────────────────────────────────┐
+│           Rider-Pi (Robot)              │
+│  REST API (8080) + ZMQ PUB (5555/5556)  │
+└─────────────────────────────────────────┘
+         │ Data Sync           │ Offload Tasks
+         ▼                     ▼
+┌─────────────────────────────────────────┐
+│         Rider-PC (PC Client)            │
+│  ┌───────────────────────────────────┐  │
+│  │  Adapter Layer                    │  │
+│  │  • REST Client • ZMQ Subscriber   │  │
+│  └───────────────────────────────────┘  │
+│           │ Cache (SQLite)  │            │
+│  ┌───────────────────────────────────┐  │
+│  │  FastAPI Server + Web UI          │  │
+│  │  http://localhost:8000            │  │
+│  └───────────────────────────────────┘  │
+│  ┌───────────────────────────────────┐  │
+│  │  AI Provider Layer                │  │
+│  │  • Vision (YOLOv8)                │  │
+│  │  • Voice (Whisper/Piper)          │  │
+│  │  • Text (Ollama)                  │  │
+│  └───────────────────────────────────┘  │
+│  ┌───────────────────────────────────┐  │
+│  │  Infrastructure                   │  │
+│  │  • Redis • Prometheus • Grafana   │  │
+│  └───────────────────────────────────┘  │
+└─────────────────────────────────────────┘
+         │ Results (ZMQ)
+         ▼
+┌─────────────────────────────────────────┐
+│  Rider-Pi receives enriched data        │
+│  (vision.obstacle.enhanced, etc.)       │
+└─────────────────────────────────────────┘
+```
+
+Full description: [ARCHITECTURE.md](ARCHITECTURE.md)
+
+- **Python**: develop on Python 3.11 (CI target) while keeping code compatible with Rider-PI’s Python 3.9.
+- **Tooling**: `pip install -r requirements-ci.txt` and `pre-commit install` to get `ruff` hooks.
+- **Make targets**: `make lint`, `make format`, `make test` mirror GitHub Actions.
+- **Rider-Pi integration**:
+  - Control panel (`web/control.html`) mirrors Rider-Pi, including the *AI Mode* card and *Provider Control* toggles.
+  - Backend proxy endpoints (`/api/system/ai-mode`, `/api/providers/*`) forward to Rider-Pi via the `RestAdapter` and cache responses for offline dev/tests.
+  - To operate the real robot, point `.env` at Rider-Pi and run `make start`, then browse `http://localhost:8000/web/control.html`.
+  - Vision offload is wired to Rider-Pi’s ZMQ broker. Enable it by setting `ENABLE_PROVIDERS=true`, `ENABLE_TASK_QUEUE=true`, `ENABLE_VISION_OFFLOAD=true`, and `TELEMETRY_ZMQ_HOST=<Rider-Pi IP>` so the PC consumes `vision.frame.offload` and publishes `vision.obstacle.enhanced`.
+  - Voice offload works the same way: add `ENABLE_VOICE_OFFLOAD=true` to stream `voice.asr.request`/`voice.tts.request` into the PC queue and emit `voice.asr.result`/`voice.tts.chunk` back to Rider-Pi.
+  - Text/LLM support is exposed via `/providers/text/generate` (handshake: `GET /providers/capabilities`), so Rider-Pi can negotiate before delegating chat/NLU workloads. Use `ENABLE_TEXT_OFFLOAD=true` once gotowy.
+
+## Architecture
+
+The PC client consists of three main layers:
+
+1. **Adapter Layer** - Consumes data from Rider-PI via REST API and ZMQ streams
+2. **Cache Layer** - Stores current states in SQLite for quick access
+3. **Web Server Layer** - FastAPI server that serves static files and provides API endpoints reading from cache
+
+## Prerequisites
+
+- Python 3.9 or higher
+- WSL2 with Debian (for Windows users)
+- Network access to Rider-PI device
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/mpieniak01/Rider-Pc.git
+cd Rider-Pc
+```
+
+2. Create a virtual environment:
+```bash
+python3.9 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+## Configuration
+
+Configure the PC client using environment variables:
+
+```bash
+# Rider-PI connection
+export RIDER_PI_HOST="192.168.1.100"  # IP address of your Rider-PI
+export RIDER_PI_PORT="8080"           # REST API port
+
+# ZMQ configuration
+export ZMQ_PUB_PORT="5555"            # ZMQ PUB port
+export ZMQ_SUB_PORT="5556"            # ZMQ SUB port
+
+# Local server
+export SERVER_HOST="0.0.0.0"          # Server host
+export SERVER_PORT="8000"             # Server port
+
+# Cache
+export CACHE_DB_PATH="data/cache.db"  # SQLite database path
+export CACHE_TTL_SECONDS="30"         # Cache TTL in seconds
+
+# Logging
+export LOG_LEVEL="INFO"               # Log level (DEBUG, INFO, WARNING, ERROR)
+
+# Providers / Vision offload
+export ENABLE_PROVIDERS="true"
+export ENABLE_TASK_QUEUE="true"
+export ENABLE_VISION_OFFLOAD="true"
+export ENABLE_VOICE_OFFLOAD="true"
+export ENABLE_TEXT_OFFLOAD="true"
+export TELEMETRY_ZMQ_HOST="$RIDER_PI_HOST"  # Publishes vision.obstacle.enhanced back to Rider-Pi
+```
+
+See [PC_OFFLOAD_INTEGRATION.md](PC_OFFLOAD_INTEGRATION.md) for the full workflow and troubleshooting tips.
+
+## Running
+
+Start the PC client server:
+
+```bash
+python -m pc_client.main
+```
+
+Or if installed as a package:
+
+```bash
+python pc_client/main.py
+```
+
+The server will start on `http://localhost:8000` by default.
+
+Access the UI at: `http://localhost:8000/`
+
+### Local Stack (no Docker)
+
+If Docker/WSL2 is unavailable you can launch every service directly from the repository using the helper scripts:
+
+```bash
+# One-time setup (Ubuntu)
+sudo apt install redis-server prometheus grafana
+
+cd ~/Rider-Pc
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env   # adjust Rider-PI host if needed
+
+# Start all services (Redis + Prometheus + Grafana + FastAPI)
+scripts/start_local_stack.sh
+
+# View logs under logs/, PIDs under .pids/
+
+# When finished
+scripts/stop_local_stack.sh
+```
+
+The helper scripts read the `PANEL_PORT` environment variable (default: `8080`) to decide where to expose the FastAPI panel. Example: `PANEL_PORT=8000 scripts/start_local_stack.sh`. Each run stores Python logs in `logs/panel-<port>.log`, so you can tail them without noisy console output.
+
+For convenience you can also run:
+
+```bash
+make start   # start all services
+make stop    # stop all services
+make reload  # stop + start
+```
+
+The script takes care of creating/updating the virtualenv, setting environment variables from `.env`, and launching background processes. Logs are stored in `logs/` so you can inspect them for troubleshooting.
+
+## API Endpoints
+
+The PC client replicates the following Rider-PI endpoints:
+
+- `GET /healthz` - Health check
+- `GET /state` - Current state
+- `GET /sysinfo` - System information
+- `GET /vision/snap-info` - Vision snapshot info
+- `GET /vision/obstacle` - Obstacle detection data
+- `GET /api/app-metrics` - Application metrics
+- `GET /api/resource/camera` - Camera resource status
+- `GET /api/bus/health` - Message bus health
+
+All endpoints return JSON data cached from the Rider-PI device.
+
+## ZMQ Topics
+
+The ZMQ subscriber listens to the following topic patterns:
+
+- `vision.*` - Vision system events
+- `motion.*` - Motion system events
+- `robot.*` - Robot state events
+- `navigator.*` - Navigator events
+
+Messages are automatically cached and available through the REST API.
+
+## Development
+
+### Running Tests
+
+Install test dependencies:
+```bash
+pip install pytest pytest-asyncio pytest-timeout
+# UI/E2E need Playwright chromium if not already installed:
+# python -m playwright install chromium --with-deps
+```
+
+Run all tests (unit + UI/E2E):
+```bash
+pytest -v
+```
+
+Split by markers (auto-added in tests/conftest.py):
+```bash
+# Unit/API only
+pytest -m api
+# UI/E2E only
+pytest -m ui
+```
+
+Run specific test:
+```bash
+pytest pc_client/tests/test_cache.py -v
+```
+
+### Project Structure
+
+```
+pc_client/
+├── __init__.py
+├── main.py              # Application entry point
+├── adapters/            # REST and ZMQ adapters
+│   ├── rest_adapter.py
+│   └── zmq_subscriber.py
+├── api/                 # FastAPI server
+│   └── server.py
+├── cache/              # SQLite cache manager
+│   └── cache_manager.py
+├── config/             # Configuration
+│   └── settings.py
+└── tests/              # Unit tests
+    ├── test_cache.py
+    ├── test_rest_adapter.py
+    └── test_zmq_subscriber.py
+```
+
+## Troubleshooting
+
+### Connection Issues
+
+If you cannot connect to Rider-PI:
+1. Verify the Rider-PI IP address with `ping <RIDER_PI_HOST>`
+2. Check that ports 8080, 5555, 5556 are accessible
+3. Ensure firewall rules allow connections
+4. Check the logs with `LOG_LEVEL=DEBUG`
+
+### Cache Issues
+
+If data is not updating:
+1. Check that the cache database is writable
+2. Verify cache TTL settings
+3. Review logs for adapter errors
+
+### UI Not Loading
+
+If the web interface doesn't load:
+1. Verify that the `web/` directory exists
+2. Check that `view.html` is present
+3. Ensure static files are being served at `/web/`
+
+## AI Provider Layer - Phase 4 ✅
+
+The PC client includes a production-ready AI provider layer for offloading computational tasks from Rider-PI:
+
+### Real AI Models (with automatic mock fallback)
+
+> **Note:** wcześniejsze pliki `config/vision_provider.toml`, `voice_provider.toml`, `text_provider.toml` zostały skonsolidowane w `config/providers.toml`, zachowując te same sekcje (`[vision]`, `[voice]`, `[text]`).
+
+- **Voice Provider**:
+  - **ASR**: OpenAI Whisper (base model, ~140MB)
+  - **TTS**: Piper TTS (en_US-lessac-medium)
+  - Konfiguracja sekcji `[voice]` w `config/providers.toml`
+  
+- **Vision Provider**:
+  - **Detection**: YOLOv8 nano (~6MB)
+  - Real-time object detection with bounding boxes
+  - Obstacle classification for navigation
+  - Konfiguracja sekcji `[vision]` w `config/providers.toml`
+  
+- **Text Provider**:
+  - **LLM**: Ollama (llama3.2:1b, ~1.3GB)
+  - Local inference, no cloud dependencies
+  - Response caching
+  - Konfiguracja sekcji `[text]` w `config/providers.toml`
+
+### Infrastructure Features
+
+- **Task Queue**: Priority-based asynchronous processing (Redis)
+- **Circuit Breaker**: Automatic fallback on failures
+- **Telemetry**: Real-time Prometheus metrics
+- **Health Probes**: `/health/live` and `/health/ready` endpoints
+- **Docker Deployment**: Complete stack with monitoring
+
+### Quick Start with Real AI Models
+
+**Option 1: Docker (All-in-one)**
+```bash
+docker-compose up -d
+# Models download automatically on first use
+```
+
+**Option 2: Local Setup**
+
+1. **Enable providers** in `.env`:
+```bash
+ENABLE_PROVIDERS=true
+ENABLE_TASK_QUEUE=true
+TASK_QUEUE_BACKEND=redis
+ENABLE_TELEMETRY=true
+```
+
+2. **Setup dependencies**:
+```bash
+# Redis (task queue)
+sudo apt install redis-server
+sudo systemctl start redis-server
+
+# Ollama (optional, for Text Provider)
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull llama3.2:1b
+```
+
+3. **Run application**:
+```bash
+python -m pc_client.main
+# Voice and Vision models download automatically
+```
+
+**Option 3: Mock Mode (No Models)**
+```bash
+# Set use_mock=true in config files or:
+python -m pc_client.main
+# Providers automatically fall back to mock if models unavailable
+```
+
+See [AI_MODEL_SETUP.md](AI_MODEL_SETUP.md) for detailed setup instructions.
+
+4. Access monitoring:
+```bash
+# View Prometheus metrics
+curl http://localhost:8000/metrics
+
+# View application health
+curl http://localhost:8000/healthz
+```
+
+### Telemetry and Monitoring
+
+The PC client includes comprehensive telemetry:
+
+- **Prometheus Metrics**: Task processing metrics, queue size, circuit breaker state
+- **ZMQ Telemetry Publisher**: Send results back to Rider-PI via ZMQ
+- **Logging**: Unified log prefixes ([voice], [vision], [provider], [bridge])
+- **Metrics Endpoint**: `/metrics` for Prometheus scraping
+
+Key metrics exposed:
+- `provider_tasks_processed_total` - Total tasks processed by provider
+- `provider_task_duration_seconds` - Task processing duration histogram  
+- `task_queue_size` - Current task queue size
+- `circuit_breaker_state` - Circuit breaker state per provider
+- `cache_hits_total` / `cache_misses_total` - Cache performance
+
+### Documentation
+
+- [Provider Implementation Guide](PR/PROVIDER_IMPLEMENTATION_GUIDE.md) - How to use and extend providers
+- [Network Security Setup](PR/NETWORK_SECURITY_SETUP.md) - VPN/mTLS configuration
+- [Task Queue Setup](PR/TASK_QUEUE_SETUP.md) - Redis/RabbitMQ configuration
+- [Monitoring Setup](PR/MONITORING_SETUP.md) - Prometheus/Grafana setup
+
+### Task Types
+
+- `voice.asr` - Speech-to-text (priority: 5)
+- `voice.tts` - Text-to-speech (priority: 5)
+- `vision.detection` - Object detection (priority: 8)
+- `vision.frame` - Frame processing for obstacle avoidance (priority: 1, critical)
+- `text.generate` - LLM text generation (priority: 3)
+- `text.nlu` - Natural language understanding (priority: 5)
+
+### Testing
+
+All provider functionality includes comprehensive tests:
+```bash
+# Run all tests (87 tests total)
+pytest pc_client/tests/ -v
+
+# Run only provider tests
+pytest pc_client/tests/test_providers.py -v
+
+# Run telemetry tests
+pytest pc_client/tests/test_telemetry.py -v
+
+# Run integration tests
+pytest pc_client/tests/test_integration.py -v
+```
+## License
+
+This project is part of the Rider-PI ecosystem.
+## See Also
+
+- [Rider-PI Repository](https://github.com/mpieniak01/Rider-Pi)
+- [API Documentation](api-specs/README.md)
+- [Architecture Overview](ARCHITECTURE.md)
+- [Provider Implementation Guide](PR/PROVIDER_IMPLEMENTATION_GUIDE.md)
