@@ -335,4 +335,4 @@ Całkowite miejsce dla zalecanych modeli: ~2-3GB
 4. Testuj providerów indywidualnie
 5. Wdróż z Docker Compose
 
-Zobacz [WDROZENIE_ZAKONCZONE_FAZA4.md](PR/WDROZENIE_ZAKONCZONE_FAZA4.md) dla pełnego przewodnika wdrożenia.
+Zobacz [WDROZENIE_ZAKONCZONE_FAZA4.md](archive/PR/WDROZENIE_ZAKONCZONE_FAZA4.md) dla pełnego przewodnika wdrożenia.

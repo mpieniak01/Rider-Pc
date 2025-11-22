@@ -191,5 +191,5 @@ docs_pl/api-specs/
 ## Dodatkowe Zasoby
 - [Architektura Rider-Pc](ARCHITEKTURA.md)
 - [Następne Kroki Rider-Pc](PRACE_PRZYSZLE.md)
-- [Architektura Urządzenia Rider-PI](ARCHITEKTURA_RIDER_PI.md)
+- [Architektura Systemu](ARCHITEKTURA.md)
 - [Projekt Rider-Pi](https://github.com/mpieniak01/Rider-Pi)

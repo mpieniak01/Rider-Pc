@@ -1,14 +1,16 @@
 # Przewodnik Integracji Offload Rider-PC
 
-Ten dokument wyjaśnia, jak stos Rider-PC odzwierciedla tryb AI i kontrolę providerów Rider-Pi oraz jak zweryfikować przepływy offload end-to-end.
+Ten dokument opisuje **szczegóły techniczne protokołu komunikacji** między Rider-Pi a Rider-PC dla offloadu zadań AI.
 
-## Przegląd
+> **Uwaga**: Ogólny przegląd architektury znajdziesz w [ARCHITEKTURA.md](ARCHITEKTURA.md). Ten dokument skupia się na szczegółach implementacji protokołu.
 
-Rider-Pi udostępnia rejestr providerów (`/api/system/ai-mode`, `/api/providers/*`) i deterministyczny kontrakt ZMQ (zobacz `Rider-Pi/docs/OFFLOAD_PROVIDER_PROTOCOL.md`). Rider-PC implementuje obowiązki po stronie PC:
+## Przegląd Protokołu
 
-- Serwuje identyczny panel kontrolny (`web/control.html`) z kartami **Tryb AI** i **Kontrola Providerów**.
-- Przekazuje wywołania REST do Rider-Pi przez `pc_client.adapters.rest_adapter.RestAdapter`.
-- Uruchamia obciążenia AI (głos, wizja, tekst) i publikuje ulepszone dane z powrotem do Rider-Pi przez ZMQ (`vision.obstacle.enhanced`, `voice.asr.result`, itp.).
+Rider-Pi udostępnia rejestr providerów (`/api/system/ai-mode`, `/api/providers/*`) i deterministyczny kontrakt ZMQ. Rider-PC implementuje obowiązki po stronie PC:
+
+- Przekazuje wywołania REST do Rider-Pi przez `pc_client.adapters.rest_adapter.RestAdapter`
+- Uruchamia obciążenia AI (głos, wizja, tekst) i publikuje wyniki przez ZMQ
+- Odbiera zadania przez tematy ZMQ i zwraca przetworzone dane
 
 ## Konfiguracja
 
@@ -174,4 +176,4 @@ Gdy Rider-Pi jest nieosiągalny, FastAPI wraca do cachowanych wartości domyśln
 - Kontrakt Rider-Pi: `Rider-Pi/docs/OFFLOAD_PROVIDER_PROTOCOL.md`
 - Specyfikacja web UI Rider-Pi: `Rider-Pi/docs/ui/control.md`
 - Szczegóły Trybu AI: `Rider-Pi/docs/AI_MODE_SWITCHER.md`
-- Architektura stosu providerów: `ARCHITEKTURA_RIDER_PI.md`, `ARCHITEKTURA.md`
+- Architektura stosu providerów: `ARCHITEKTURA.md`
