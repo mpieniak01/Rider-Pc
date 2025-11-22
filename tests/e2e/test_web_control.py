@@ -30,6 +30,9 @@ pytestmark = pytest.mark.timeout(60)
 # fetchControlState() and fetchServices() after page load
 JS_INIT_TIMEOUT_MS = 3000
 
+# Selector wait timeout: Time to wait for DOM elements to appear after JS initialization
+SELECTOR_WAIT_TIMEOUT_MS = 5000
+
 
 def _open_control_page(page, base_url):
     """Open control.html without blocking on long-lived requests."""
@@ -187,7 +190,7 @@ def test_service_table_loads(browser_context):
     # Wait for services table body to have rows (indicating data has loaded)
     # The table initially has hidden attribute which is removed by JavaScript after loading
     try:
-        page.wait_for_selector("#svcBody tr", state="attached", timeout=5000)
+        page.wait_for_selector("#svcBody tr", state="attached", timeout=SELECTOR_WAIT_TIMEOUT_MS)
     except TimeoutError:
         # Timeout is expected if backend is offline - we'll check for offline message below
         pass
