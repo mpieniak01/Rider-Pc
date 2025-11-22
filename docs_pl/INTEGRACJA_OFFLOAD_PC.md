@@ -176,4 +176,4 @@ Gdy Rider-Pi jest nieosiągalny, FastAPI wraca do cachowanych wartości domyśln
 - Kontrakt Rider-Pi: `Rider-Pi/docs/OFFLOAD_PROVIDER_PROTOCOL.md`
 - Specyfikacja web UI Rider-Pi: `Rider-Pi/docs/ui/control.md`
 - Szczegóły Trybu AI: `Rider-Pi/docs/AI_MODE_SWITCHER.md`
-- Architektura stosu providerów: `ARCHITEKTURA_RIDER_PI.md`, `ARCHITEKTURA.md`
+- Architektura stosu providerów: `ARCHITEKTURA.md`
