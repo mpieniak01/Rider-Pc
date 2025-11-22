@@ -128,52 +128,54 @@
     <div class="c-card feature-card">
       <h2 class="c-card__title" data-i18n="motion.features_title">Funkcje</h2>
       <div class="feature-list" id="featureList">
-        <div class="feature-row" data-feature="face">
+        <div class="feature-row" data-feature="zero">
           <div class="feature-info">
             <div class="feature-head">
               <div
                 class="feature-title"
-                data-i18n="motion.follow_face"
-              >Śledź Twarz (Follow Face)</div>
+                data-i18n="motion.zero_mode"
+              >Stan 0 – Sterowanie ręczne</div>
             </div>
             <div
               class="feature-desc"
-              data-i18n="motion.feature_face_desc"
-            >Uruchamia tracker i kontroler ruchu oraz śledzi twarz.</div>
+              data-i18n="motion.feature_zero_desc"
+            >Wyłącza rekonesans i śledzenie, zostawiając jedynie komunikację i sterowanie ręczne.</div>
           </div>
           <div class="feature-status">
-            <span class="c-pill feature-pill" data-feature-pill="face">n/a</span>
+            <span class="c-pill feature-pill" data-feature-pill="zero">n/a</span>
           </div>
           <div class="feature-actions">
             <button
               class="c-btn c-btn-sm"
               data-feature-action="start"
-              data-i18n="motion.feature_btn_start"
-            >Start</button>
-            <button
-              class="c-btn c-btn-sm"
-              data-feature-action="stop"
-              data-i18n="motion.feature_btn_stop"
-            >Stop</button>
-            <div class="feature-note" data-feature-note="face"></div>
+              data-i18n="motion.feature_zero_btn_reset"
+            >Reset</button>
+            <div class="feature-note" data-feature-note="zero"></div>
           </div>
         </div>
 
-        <div class="feature-row" data-feature="hand">
+        <div class="feature-row" data-feature="tracking">
           <div class="feature-info">
             <div class="feature-head">
               <div
                 class="feature-title"
-                data-i18n="motion.follow_hand"
-              >Śledź Dłoń (Follow Hand)</div>
+                data-i18n="motion.tracking_mode_title"
+              >Śledzenie (twarz / dłoń)</div>
             </div>
             <div
               class="feature-desc"
-              data-i18n="motion.feature_hand_desc"
-            >Te same usługi tracker+controller, ale z trybem dłoni.</div>
+              data-i18n="motion.feature_tracking_desc"
+            >Uruchamia tracker oraz kontroler ruchu – wybierz tryb śledzenia poniżej.</div>
+            <div class="feature-select">
+              <span data-i18n="motion.tracking_mode_label">Tryb śledzenia</span>:
+              <select id="trackingMode">
+                <option value="face" data-i18n="motion.tracking_mode_face">Twarz</option>
+                <option value="hand" data-i18n="motion.tracking_mode_hand">Dłoń</option>
+              </select>
+            </div>
           </div>
           <div class="feature-status">
-            <span class="c-pill feature-pill" data-feature-pill="hand">n/a</span>
+            <span class="c-pill feature-pill" data-feature-pill="tracking">n/a</span>
           </div>
           <div class="feature-actions">
             <button
@@ -186,7 +188,7 @@
               data-feature-action="stop"
               data-i18n="motion.feature_btn_stop"
             >Stop</button>
-            <div class="feature-note" data-feature-note="hand"></div>
+            <div class="feature-note" data-feature-note="tracking"></div>
           </div>
         </div>
 
@@ -459,16 +461,17 @@
       const trackingEnabled = !!tracking.enabled;
       const faceRunning = trackingEnabled && trackingMode === "face";
       const handRunning = trackingEnabled && trackingMode === "hand";
-      setFeatureStatus(
-        "face",
-        faceRunning ? "running" : "stopped",
-        faceRunning ? t("motion.feature_note_mode", { mode: "face" }) : "",
-      );
-      setFeatureStatus(
-        "hand",
-        handRunning ? "running" : "stopped",
-        handRunning ? t("motion.feature_note_mode", { mode: "hand" }) : "",
-      );
+    setFeatureStatus(
+      "tracking",
+      trackingEnabled && trackingMode !== "none" ? "running" : "stopped",
+      trackingEnabled && trackingMode !== "none"
+        ? t("motion.feature_note_mode", { mode: trackingMode })
+        : "",
+    );
+    if (trackingModeSelect) {
+      const next = trackingMode === "hand" ? "hand" : "face";
+      trackingModeSelect.value = next;
+    }
 
       const navigator = j.navigator || {};
       const reconRunning = !!navigator.active;
@@ -831,9 +834,6 @@
     }
   });
 
-  // legacy endpoint string kept for compatibility with tests/tools
-  const LEGACY_TRACKING_ENDPOINT = "/api/vision/tracking/mode";
-
   // ==== FEATURES (via /api/logic/feature) ====
   const featureBusy = new Set();
   const svcCache = new Map();
@@ -886,6 +886,10 @@
   function selectedTrackingMode() {
     if (trackingModeSelect && trackingModeSelect.value === "hand") return "hand";
     return "face";
+  }
+
+  function trackingFeatureNameForMode(mode) {
+    return mode === "hand" ? "hand_tracking" : "face_tracking";
   }
 
   function setFeatureStatus(featureId, stateKey, noteText = "") {
@@ -949,15 +953,23 @@
   }
 
   async function startFeature(featureId) {
-    if (featureId === "face") return featureApiToggle("face_tracking", true, { featureId });
-    if (featureId === "hand") return featureApiToggle("hand_tracking", true, { featureId });
+    if (featureId === "zero") return startZeroFeature();
+    if (featureId === "tracking") {
+      const mode = selectedTrackingMode();
+      const featureName = trackingFeatureNameForMode(mode);
+      return featureApiToggle(featureName, true, { featureId, mode });
+    }
     if (featureId === "recon") return startReconFeature();
     throw new Error(`unknown feature ${featureId}`);
   }
 
   async function stopFeature(featureId) {
-    if (featureId === "face") return featureApiToggle("face_tracking", false, { featureId });
-    if (featureId === "hand") return featureApiToggle("hand_tracking", false, { featureId });
+    if (featureId === "zero") return startZeroFeature();
+    if (featureId === "tracking") {
+      const activeMode = normalizeTrackingMode(getTrackingState().mode) || selectedTrackingMode();
+      const featureName = trackingFeatureNameForMode(activeMode);
+      return featureApiToggle(featureName, false, { featureId, mode: activeMode });
+    }
     if (featureId === "recon") return stopReconFeature();
     throw new Error(`unknown feature ${featureId}`);
   }
@@ -997,6 +1009,14 @@
     const sel = qs("#reconStrategy");
     if (!sel || !sel.value) return "STOP";
     return String(sel.value || "STOP").toUpperCase();
+  }
+
+  async function startZeroFeature() {
+    await featureApiToggle("face_tracking", false, { featureId: "tracking" });
+    await featureApiToggle("hand_tracking", false, { featureId: "tracking" });
+    await featureApiToggle("recon", false, { featureId: "recon" });
+    setFeatureStatus("zero", "running", t("motion.feature_note_waiting"));
+    appendLog("[feature zero] minimal stack ready", "ok");
   }
 
   async function startReconFeature() {
@@ -1043,9 +1063,7 @@
       opts.featureId ||
       (featureName === "recon"
         ? "recon"
-        : featureName === "hand_tracking"
-          ? "hand"
-          : "face");
+        : "tracking");
     setFeatureStatus(targetFeature, targetState, note);
     appendLog(
       `[feature ${featureName}] ${enabled ? "start" : "stop"} :: ${JSON.stringify(res)}`,

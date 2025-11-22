@@ -5,7 +5,7 @@ import json
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -230,6 +230,58 @@ async def update_tracking_mode(request: Request, payload: Dict[str, Any]) -> JSO
     mode, enabled = _normalize_tracking_request(body)
     result = _set_local_tracking_state(request, mode, enabled)
     return JSONResponse(result)
+
+
+def _normalize_feature_payload(name: str, payload: Dict[str, Any]) -> Tuple[str, bool]:
+    """Normalize feature toggle payload for local fallback."""
+    normalized = str(name or "").strip().lower()
+    enabled = bool(payload.get("enabled"))
+    return normalized, enabled
+
+
+@router.post("/api/logic/feature/{name}")
+async def feature_toggle(request: Request, name: str, payload: Dict[str, Any]) -> JSONResponse:
+    """
+    Toggle feature state via Rider-PI FeatureManager when available.
+    Falls back to local tracking/navigator state for dev/demo mode.
+    """
+    adapter: Optional[RestAdapter] = request.app.state.rest_adapter
+    body = payload or {}
+    if adapter:
+        try:
+            result = await adapter.post_feature_toggle(name, body)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.error("Failed to forward feature toggle %s: %s", name, exc)
+            return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+
+        status_code = 200 if result.get("ok", False) else 502
+        # best-effort local cache update
+        try:
+            feature = str(result.get("feature") or name).lower()
+            enabled = bool(body.get("enabled"))
+            if feature in {"face_tracking", "hand_tracking"}:
+                mode = "hand" if feature == "hand_tracking" else "face"
+                _set_local_tracking_state(request, mode, enabled)
+            elif feature == "recon":
+                navigator = request.app.state.control_state.get("navigator", {}) or {}
+                navigator.update({"active": enabled})
+                request.app.state.control_state["navigator"] = navigator
+        except Exception:
+            pass
+        return JSONResponse(result, status_code=status_code)
+
+    # local fallback without remote adapter
+    feature_name, enabled = _normalize_feature_payload(name, body)
+    if feature_name in {"face_tracking", "hand_tracking"}:
+        mode = "hand" if feature_name == "hand_tracking" else "face"
+        local = _set_local_tracking_state(request, mode, enabled)
+        return JSONResponse({"ok": True, "feature": feature_name, "enabled": enabled, "result": local})
+    if feature_name == "recon":
+        navigator = request.app.state.control_state.get("navigator", {}) or {}
+        navigator.update({"active": enabled})
+        request.app.state.control_state["navigator"] = navigator
+        return JSONResponse({"ok": True, "feature": feature_name, "enabled": enabled, "result": navigator})
+    return JSONResponse({"ok": False, "error": "unknown_feature", "feature": feature_name}, status_code=404)
 
 
 @router.post("/api/navigator/start")

@@ -407,6 +407,19 @@ class RestAdapter:
             logger.error(f"Error posting /api/providers/pc-heartbeat: {e}")
             return {"ok": False, "error": str(e)}
 
+    async def post_feature_toggle(self, name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Toggle feature state via Rider-PI FeatureManager."""
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/api/logic/feature/{quote(name, safe='')}",
+                json=payload or {},
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error posting /api/logic/feature/{name}: {e}")
+            return {"ok": False, "error": str(e)}
+
     async def post_tracking_mode(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Send tracking mode command to Rider-PI."""
         try:
