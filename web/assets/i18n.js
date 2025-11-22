@@ -259,6 +259,13 @@ export const I18N = {
   services: {
     title:     { pl: "Usługi (systemd)", en: "Services (systemd)" },
     refresh:   { pl: "⟳ odśwież",       en: "⟳ refresh" },
+    auto_refresh: { pl: "Auto (5s)",    en: "Auto (5s)" },
+    filter:       { pl: "Filtr",        en: "Filter" },
+    filter_all:   { pl: "Wszystkie",    en: "All" },
+    filter_ok:    { pl: "Aktywne",      en: "Active" },
+    filter_warn:  { pl: "Ostrzeżenia",  en: "Warnings" },
+    filter_err:   { pl: "Błędy",        en: "Errors" },
+    filter_unknown:{ pl: "Nieznane",    en: "Unknown" },
     unit:      { pl: "Unit",            en: "Unit" },
     desc:      { pl: "Opis",            en: "Description" },
     status:    { pl: "Status",          en: "Status" },
