@@ -443,9 +443,34 @@
     localStorage.setItem("lang", lang);
   }
 
+  let remoteOnline = false;
+
+  function markOfflineUI() {
+    setFeatureStatus("tracking", "error", "offline");
+    setFeatureStatus("recon", "error", "offline");
+    const camInfo = qs("#camInfo");
+    if (camInfo) camInfo.textContent = t("camera.last_frame_na");
+    const camPrevEl = qs("#camPrev");
+    if (camPrevEl) camPrevEl.removeAttribute("src");
+    const svcBody = qs("#svcBody");
+    if (svcBody) {
+      svcBody.innerHTML = `<tr><td colspan="5" class="muted">offline</td></tr>`;
+    }
+    const resBody = qs("#resBody");
+    if (resBody) {
+      resBody.querySelectorAll(".res-status").forEach((el) => (el.textContent = "offline"));
+      resBody.querySelectorAll(".res-holders").forEach((el) => (el.textContent = "-"));
+    }
+    const mqBody = qs("#motionQueueBody");
+    if (mqBody) {
+      mqBody.innerHTML = `<tr><td colspan="7" class="muted">offline</td></tr>`;
+    }
+  }
+
   async function fetchControlState() {
     try {
       const j = await fetchJson("/api/control/state");
+      remoteOnline = true;
       lastControlState = j || {};
       const balance = j.balance || {};
       if (balanceToggle && typeof balance.enabled === "boolean") {
@@ -484,6 +509,8 @@
         reconRunning ? reconNote : "",
       );
     } catch (e) {
+      remoteOnline = false;
+      markOfflineUI();
       appendLog(
         `/api/control/state :: ${e.message || e}`,
         "warn",
@@ -1043,6 +1070,11 @@
   }
 
   async function featureApiToggle(featureName, enabled, opts = {}) {
+    if (!remoteOnline) {
+      appendLog(`[feature ${featureName}] skipped – offline`, "warn");
+      setFeatureStatus(opts.featureId || "tracking", "error", "offline");
+      return { ok: false, error: "offline" };
+    }
     const payload = { enabled };
     const url = `/api/logic/feature/${encodeURIComponent(featureName)}`;
     const res = await httpPost(url, payload);
@@ -1104,6 +1136,10 @@
 
   // --- systemd list: /svc ---
   async function fetchServices() {
+    if (!remoteOnline) {
+      markOfflineUI();
+      return;
+    }
     try {
       const data = await fetchJson("/svc");
       const services = Array.isArray(data?.services) ? data.services : [];
@@ -1557,6 +1593,10 @@
   }
 
   async function fetchResources() {
+    if (!remoteOnline) {
+      markOfflineUI();
+      return;
+    }
     try {
       const rows = Array.from(document.querySelectorAll("tr[data-res]"));
       await Promise.all(rows.map((tr) => updateResourceRow(tr.getAttribute("data-res"))));
@@ -1589,6 +1629,10 @@
 
   // === MOTION QUEUE (tylko UI) ===
   async function fetchMotionQueue() {
+    if (!remoteOnline) {
+      markOfflineUI();
+      return;
+    }
     try {
       const j = await fetchJson("/api/motion/queue");
       const info = qs("#motionQueueInfo");
@@ -1671,7 +1715,7 @@
   });
 
   setInterval(() => {
-    if (camAuto) updateCamSrc();
+    if (camAuto && remoteOnline) updateCamSrc();
   }, 1000);
 
   setInterval(() => {
@@ -1679,21 +1723,28 @@
   }, 7000);
 
   // === SSE EVENTS ===
-  try {
-    const es = new EventSource("/events");
-    es.onmessage = (ev) => {
-      appendLog(ev.data || String(ev), "muted");
-    };
-    es.onerror = () => {
-      appendLog("SSE: error, reconnecting…", "warn");
-      es.close();
-      setTimeout(() => {
-        location.reload();
-      }, 10000);
-    };
-  } catch (e) {
-    appendLog(`SSE init failed :: ${e.message || e}`, "warn");
+  let es = null;
+  function startSse() {
+    if (es) return;
+    try {
+      es = new EventSource("/events");
+      es.onmessage = (ev) => {
+        if (!remoteOnline) return;
+        appendLog(ev.data || String(ev), "muted");
+      };
+      es.onerror = () => {
+        appendLog("SSE: error, reconnecting…", "warn");
+        es.close();
+        es = null;
+        setTimeout(() => {
+          if (remoteOnline) startSse();
+        }, 10000);
+      };
+    } catch (e) {
+      appendLog(`SSE init failed :: ${e.message || e}`, "warn");
+    }
   }
+  startSse();
 
   // initial loads
   fetchServices().catch(() => {});
