@@ -482,7 +482,8 @@ function applyDevices({state,health}){
   const resourceInfo = cameraResourceSummary();
   const holdersTxt = resourceInfo?.holders || formatResourceHolders(lastCameraResource?.holders);
   const camParts=[];
-  const camStatus = typeof cam.on === 'boolean' ? cam.on : (resourceInfo ? resourceInfo.state==='busy' : null);
+  let camStatus = typeof cam.on === 'boolean' ? cam.on : (resourceInfo ? resourceInfo.state==='busy' : null);
+  if(!adapterConnected){ camStatus = cam.on===false ? false : null; }
   if(camStatus !== null){
     camParts.push(camStatus ? 'ON' : 'OFF');
   }
