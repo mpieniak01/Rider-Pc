@@ -125,7 +125,7 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "Wysoki wskaźnik awarii tasks"
+          summary: "High task failure rate"
           description: "More than 1 failure/s for {{ $labels.provider }}"
 ```
 
