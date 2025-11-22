@@ -192,6 +192,45 @@ async def sync_data_periodically(app: FastAPI):
                 return str(payload.get("error"))
         return None
 
+    def _lcd_is_on(state_data: Optional[Dict[str, Any]], health_data: Optional[Dict[str, Any]]) -> bool:
+        """Check LCD power flag from state/health payloads."""
+        lcd_state = None
+        if isinstance(state_data, dict):
+            lcd_state = state_data.get("lcd") or state_data.get("devices", {}).get("lcd")
+        if lcd_state is None and isinstance(health_data, dict):
+            lcd_state = health_data.get("devices", {}).get("lcd")
+        return bool(lcd_state and lcd_state.get("on") is True)
+
+    async def _auto_poweroff_lcd(
+        adapter: RestAdapter,
+        lcd_resource: Optional[Dict[str, Any]],
+        state_data: Optional[Dict[str, Any]],
+        health_data: Optional[Dict[str, Any]],
+    ) -> None:
+        """
+        Turn off LCD when nikt go nie trzyma (free) a fizycznie jest ON, żeby nie marnować energii.
+        """
+        if not lcd_resource or lcd_resource.get("error"):
+            return
+        if not lcd_resource.get("free", False):
+            return
+        # Respect minimal interval to avoid spam.
+        now = time.time()
+        last_ts = getattr(app.state, "last_lcd_poweroff_ts", 0.0)
+        if now - last_ts < 10:
+            return
+        if not _lcd_is_on(state_data, health_data):
+            return
+        try:
+            resp = await adapter.post_resource_action("lcd", {"action": "stop"})
+            if isinstance(resp, dict) and resp.get("ok", True) is False and resp.get("error"):
+                logger.warning("Auto LCD poweroff rejected: %s", resp["error"])
+            else:
+                app.state.last_lcd_poweroff_ts = now
+                logger.info("Auto-powered off LCD (resource free, no holders)")
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.debug("Auto LCD poweroff failed: %s", exc)
+
     def _update_tracking(data: Dict[str, Any]) -> None:
         """Persist latest tracking snapshot without clobbering on bad payloads."""
         tracking_remote = data.get("tracking")
@@ -241,6 +280,7 @@ async def sync_data_periodically(app: FastAPI):
                 ("vision_obstacle", adapter.get_vision_obstacle, None),
                 ("app_metrics", adapter.get_app_metrics, None),
                 ("camera_resource", adapter.get_camera_resource, None),
+                ("lcd_resource", lambda: adapter.get_resource("lcd"), None),
                 ("bus_health", adapter.get_bus_health, None),
             ]
 
@@ -252,6 +292,7 @@ async def sync_data_periodically(app: FastAPI):
                 return_exceptions=True,
             )
 
+            cache_data: Dict[str, Any] = {}
             for result in results:
                 if isinstance(result, Exception):  # pragma: no cover - defensive
                     logger.debug("Background sync task raised: %s", result)
@@ -259,6 +300,15 @@ async def sync_data_periodically(app: FastAPI):
                 cache_key, payload, err = result
                 if err:
                     logger.warning("Skipping cache update for %s: %s", cache_key, err)
+                if payload is not None:
+                    cache_data[cache_key] = payload
+
+            # Auto power off LCD when nobody holds the resource but LCD stays ON.
+            lcd_resource = cache_data.get("lcd_resource")
+            if lcd_resource:
+                state_data = cache_data.get("state") or cache.get("state")
+                health_data = cache_data.get("healthz") or cache.get("healthz")
+                await _auto_poweroff_lcd(adapter, lcd_resource, state_data, health_data)
 
             # Cleanup expired cache entries
             cache.cleanup_expired()

@@ -278,6 +278,7 @@ let lastSnapAges={raw:null,proc:null,tracker:null};
 let lastCamState={vision_enabled:undefined,on:undefined,res:null,fps:null};
 let lastObstacle={present:null,confidence:null};
 let lastCameraResource=null;
+let lastLcdResource=null;
 let lastTrackingInfo={};
 
 function formatResourceHolders(list){
@@ -305,6 +306,18 @@ function cameraResourceSummary(){
     tooltip: holdersTxt,
     holders: holdersTxt,
   };
+}
+
+function lcdResourceSummary(){
+  if(!lastLcdResource) return null;
+  if(lastLcdResource.error){
+    return {state:'error', tooltip:lastLcdResource.error};
+  }
+  const holdersTxt = formatResourceHolders(lastLcdResource.holders);
+  if(lastLcdResource.free){
+    return {state:'free', tooltip:holdersTxt, holders:holdersTxt};
+  }
+  return {state:'busy', tooltip:holdersTxt, holders:holdersTxt};
 }
 
 function setCamBadgeAndMeta(cam){
@@ -405,6 +418,18 @@ async function refreshCameraResource(){
     lastCameraResource = {error: String(e.message || e)};
   }
   setCamBadgeAndMeta(lastState?.camera || {});
+  try{ applyDevices({state:lastState, health:lastHealth}); }catch{}
+}
+
+async function refreshLcdResource(){
+  try{
+    const r = await fetch('/api/resource/lcd',{cache:'no-store'});
+    const data = await r.json().catch(()=>null);
+    if(!r.ok) throw new Error((data && data.error) || `HTTP ${r.status}`);
+    lastLcdResource = data;
+  }catch(e){
+    lastLcdResource = {error: String(e.message || e)};
+  }
   try{ applyDevices({state:lastState, health:lastHealth}); }catch{}
 }
 
@@ -515,8 +540,15 @@ function applyDevices({state,health}){
   setCls('d_cam', camClass);
 
   const lcd = state?.lcd ?? state?.devices?.lcd ?? health?.devices?.lcd ?? null;
-  const lcdTxt=textFromLCD(lcd);
-  setTxt('d_lcd',lcdTxt); setCls('d_lcd',(lcd && lcd.on)?'ok':'muted');
+  const lcdTxtParts=[textFromLCD(lcd)];
+  const lcdRes=lcdResourceSummary();
+  if(lcdRes?.state){
+    if(lcdRes.state==='free') lcdTxtParts.push(t('dash.camera.resource_free_badge'));
+    else if(lcdRes.state==='busy') lcdTxtParts.push(t('dash.camera.resource_busy_badge'));
+  }
+  const lcdTxt=lcdTxtParts.filter(Boolean).join(' · ');
+  setTxt('d_lcd',lcdTxt||'—');
+  setCls('d_lcd',(lcd && lcd.on)?'ok':'muted');
 
   const xgo = state?.xgo ?? state?.devices?.xgo ?? health?.devices?.xgo ?? {};
   const imuTxt=(xgo.on?'ON':'OFF') + (xgo.imu_ok===true?' · OK':(xgo.on?' · ?':''));
@@ -668,6 +700,7 @@ async function tick(){
   try{ lastState  = await (await fetch('/state',{cache:'no-store'})).json(); updateStateUI(lastState);}catch{}
   try{ applyDevices({state:lastState, health:lastHealth}); }catch{}
   try{ await refreshCameraResource(); }catch{}
+  try{ await refreshLcdResource(); }catch{}
 
   try{ const si = await (await fetch('/sysinfo',{cache:'no-store'})).json(); applySysinfo(si);}catch{}
 
