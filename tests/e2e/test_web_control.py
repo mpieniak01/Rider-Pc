@@ -26,6 +26,10 @@ from playwright.sync_api import TimeoutError
 
 pytestmark = pytest.mark.timeout(60)
 
+# JavaScript initialization timeout: Time needed for control.html to call
+# fetchControlState() and fetchServices() after page load
+JS_INIT_TIMEOUT_MS = 3000
+
 
 def _open_control_page(page, base_url):
     """Open control.html without blocking on long-lived requests."""
@@ -178,8 +182,6 @@ def test_service_table_loads(browser_context):
     page.wait_for_load_state("load")
 
     # Wait for JavaScript to initialize and fetch data from backend
-    # The page needs time to call fetchControlState() and fetchServices()
-    JS_INIT_TIMEOUT_MS = 3000
     page.wait_for_timeout(JS_INIT_TIMEOUT_MS)
 
     # Wait for services table body to have rows (indicating data has loaded)
@@ -187,7 +189,7 @@ def test_service_table_loads(browser_context):
     try:
         page.wait_for_selector("#svcBody tr", state="attached", timeout=5000)
     except TimeoutError:
-        # If no rows appear, check if the table is showing "offline" message
+        # Timeout is expected if backend is offline - we'll check for offline message below
         pass
 
     # Check if services table has been populated
