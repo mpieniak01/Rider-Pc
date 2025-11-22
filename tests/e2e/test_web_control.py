@@ -81,7 +81,7 @@ def test_critical_elements_render(browser_context):
     assert res_rows > 0, "Resource table should have rows"
 
     # Check services table exists
-    # Note: The table has hidden attribute initially and is shown after services load
+    # Note: The table has hidden attribute initially and is shown after services load successfully
     # We just check that the element exists in the DOM
     svc_table = page.locator("#svcTable")
     assert svc_table.count() > 0, "Services table element should exist"
@@ -194,7 +194,7 @@ def test_service_table_loads(browser_context):
     page.wait_for_timeout(JS_INIT_TIMEOUT_MS)
 
     # Wait for services table body to have rows (indicating data has loaded)
-    # The table initially has hidden attribute which is removed by JavaScript after loading
+    # The table initially has hidden attribute which is removed by JavaScript after successful service loading
     try:
         page.wait_for_selector("#svcBody tr", state="attached", timeout=SELECTOR_WAIT_TIMEOUT_MS)
     except TimeoutError:  # playwright.sync_api.TimeoutError from import at top of file
