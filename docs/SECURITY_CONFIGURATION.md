@@ -18,7 +18,7 @@ SECURE_MODE=true
 
 ### Development Mode
 
-W trybie development (`SECURE_MODE=false`), Klient PC łączy się z Rider-PI bez szyfrowania. Odpowiedni dla:
+W trybie development (`SECURE_MODE=false`), Klient PC łączy się z Rider-PI bez szyfrowania. Odpowiedni for:
 - Rozwoju w sieci lokalnej
 - Testowania i debugowania
 - Scenariuszy gdzie Rider-PI jest w zaufanej sieci lokalnej
@@ -33,13 +33,13 @@ SECURE_MODE=false
 
 ### Tryb Production
 
-W trybie production (`SECURE_MODE=true`), Klient PC wymaga konfiguracji VPN lub mTLS.
+W trybie production (`SECURE_MODE=true`), Klient PC wymaga konfiguracji VPN or mTLS.
 
 **Konfiguracja:**
 ```bash
 # Plik .env
-RIDER_PI_HOST=10.0.0.1  # lub IP VPN
-RIDER_PI_PORT=8443      # Port HTTPS dla mTLS
+RIDER_PI_HOST=10.0.0.1  # or IP VPN
+RIDER_PI_PORT=8443      # Port HTTPS for mTLS
 SECURE_MODE=true
 MTLS_CERT_PATH=/path/to/client-cert.pem
 MTLS_KEY_PATH=/path/to/client-key.pem
@@ -50,8 +50,8 @@ MTLS_CA_PATH=/path/to/ca-cert.pem
 
 Dla rozwoju i testowania w sieci lokalnej:
 
-1. Upewnij się że Rider-PI jest dostępny w sieci lokalnej
-2. Skonfiguruj `.env`:
+1. Make sure że Rider-PI jest dostępny w sieci lokalnej
+2. Configure `.env`:
    ```bash
    RIDER_PI_HOST=192.168.1.100  # Twój IP Rider-PI
    RIDER_PI_PORT=8080
@@ -62,7 +62,7 @@ Dla rozwoju i testowania w sieci lokalnej:
    python -m pc_client.main
    ```
 
-## Opcja 2: Tryb Production - WireGuard VPN (Zalecane)
+## Opcja 2: Tryb Production - WireGuard VPN (Recommended)
 
 WireGuard to lekki, nowoczesny protokół VPN zapewniający bezpieczną komunikację z minimalnym narzutem.
 
@@ -99,7 +99,7 @@ sudo umask 077
 wg genkey | sudo tee privatekey | wg pubkey | sudo tee publickey
 ```
 
-#### 2. Skonfiguruj Rider-PI jako Serwer
+#### 2. Configure Rider-PI jako Serwer
 
 Utwórz `/etc/wireguard/wg0.conf` na Rider-PI:
 
@@ -115,7 +115,7 @@ PublicKey = <PC_PUBLIC_KEY>
 AllowedIPs = 10.0.0.2/32
 ```
 
-#### 3. Skonfiguruj PC jako Klienta
+#### 3. Configure PC jako Klienta
 
 Utwórz `/etc/wireguard/wg0.conf` na PC:
 
@@ -155,7 +155,7 @@ ping 10.0.0.1
 ping 10.0.0.2
 ```
 
-### Konfiguracja Klienta PC dla VPN
+### Konfiguracja Klienta PC for VPN
 
 Zaktualizuj `.env`:
 ```bash
@@ -227,7 +227,7 @@ sudo ufw enable
 
 ### Na PC (WSL)
 
-WSL2 używa Windows Firewall. Skonfiguruj w Windows:
+WSL2 używa Windows Firewall. Configure w Windows:
 ```powershell
 # PowerShell jako Administrator
 New-NetFirewallRule -DisplayName "WireGuard" -Direction Inbound -Protocol UDP -LocalPort 51820 -Action Allow
@@ -252,40 +252,40 @@ command = "systemctl start wg-quick@wg0"
 
 ## Monitorowanie i Rozwiązywanie Problemów
 
-### Sprawdź Status WireGuard
+### Check Status WireGuard
 
 ```bash
 sudo wg show
 ```
 
-### Testuj Łączność
+### Test Łączność
 
 ```bash
 # Ping przez VPN
 ping 10.0.0.1
 
-# Testuj REST API
+# Test REST API
 curl http://10.0.0.1:8080/healthz
 
-# Sprawdź porty
+# Check porty
 ss -tulnp | grep 51820
 ```
 
 ### Powszechne Problemy
 
 **WireGuard nie łączy się:**
-- Sprawdź klucze publiczne w konfiguracji
+- Check klucze publiczne w konfiguracji
 - Weryfikuj Endpoint IP i port
-- Sprawdź reguły firewall
-- Sprawdź routing: `ip route`
+- Check reguły firewall
+- Check routing: `ip route`
 
 **mTLS handshake fails:**
 - Weryfikuj ścieżki certyfikatów
-- Sprawdź daty ważności certyfikatów: `openssl x509 -in cert.pem -noout -dates`
-- Sprawdź uprawnienia plików (600 dla kluczy prywatnych)
+- Check daty ważności certyfikatów: `openssl x509 -in cert.pem -noout -dates`
+- Check uprawnienia plików (600 for kluczy prywatnych)
 
 ---
 
 **Status**: Gotowe do Produkcji ✅  
-**Zalecane**: WireGuard VPN dla produkcji  
+**Recommended**: WireGuard VPN for produkcji  
 **Data**: 2025-11-12

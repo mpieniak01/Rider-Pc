@@ -1,3 +1,9 @@
+# Rider-PI Device — Architecture Changes for PC Provider Integration
+
+> **Note**: This document is in Polish and describes Rider-PI (not Rider-PC) architecture changes. It has been archived as it doesn't have a direct equivalent in the current documentation structure.
+
+---
+
 # Rider-PI Device — Architektura zmian pod integrację z providerem PC
 
 ## Projekt Powiązany

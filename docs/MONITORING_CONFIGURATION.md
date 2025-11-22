@@ -2,7 +2,7 @@
 
 ## Overview
 
-Comprehensive guide konfiguracji monitoringu Prometheus i Grafana dla systemu Rider-PC Client.
+Comprehensive guide konfiguracji monitoringu Prometheus i Grafana for systemu Rider-PC Client.
 
 ## Components
 
@@ -126,7 +126,7 @@ groups:
           severity: critical
         annotations:
           summary: "Wysoki wskaźnik awarii tasks"
-          description: "More than 1 failure/s dla {{ $labels.provider }}"
+          description: "More than 1 failure/s for {{ $labels.provider }}"
 ```
 
 ### Systemd Service
@@ -246,7 +246,7 @@ sudo systemctl restart grafana-server
 Dashboard JSON dostępny w `config/grafana-dashboard.json`:
 
 1. Dashboards → Import
-2. Upload JSON file lub paste JSON
+2. Upload JSON file or paste JSON
 3. Wybierz Prometheus data source
 4. Import
 
@@ -372,13 +372,13 @@ receivers:
 ### Prometheus nie zbiera metryk
 
 ```bash
-# Sprawdź targets
+# Check targets
 curl http://localhost:9090/api/v1/targets
 
-# Sprawdź czy endpoint działa
+# Check czy endpoint działa
 curl http://localhost:8000/metrics
 
-# Sprawdź logi
+# Check logi
 sudo journalctl -u prometheus -f
 ```
 
@@ -388,7 +388,7 @@ sudo journalctl -u prometheus -f
 # Test połączenia
 curl http://localhost:9090/-/healthy
 
-# Sprawdź konfigurację data source w Grafana UI
+# Check konfigurację data source w Grafana UI
 # Configuration → Data Sources → Prometheus → Test
 ```
 
