@@ -1,6 +1,6 @@
-# AI Model Setup Guide for Rider-PC
+# AI Model Configuration Guide for Rider-PC
 
-This guide covers how to set up and use the AI models integrated in Phase 4.
+This guide describes how to configure and use AI models integrated in Phase 4.
 
 ## Overview
 
@@ -18,20 +18,20 @@ All providers support **automatic fallback to mock mode** if models are unavaila
 For development and testing without downloading models:
 
 ```bash
-# No setup required! Providers automatically use mock mode
+# No configuration required! Providers automatically use mock mode
 python -m pc_client.main
 ```
 
 ---
 
-## Voice Provider Setup
+## Voice Provider Configuration
 
 ### ASR (Automatic Speech Recognition) - Whisper
 
 **Option 1: Automatic (Recommended)**
 ```bash
 # Models download automatically on first use
-# No manual setup required
+# No manual configuration required
 ```
 
 **Option 2: Pre-download**
@@ -41,11 +41,11 @@ whisper.load_model("base")  # Downloads ~140MB
 ```
 
 **Available Models**:
-- `tiny`: 39M params, ~75MB - Fastest, lower accuracy
-- `base`: 74M params, ~140MB - **Recommended** balance
-- `small`: 244M params, ~460MB - Better accuracy
-- `medium`: 769M params, ~1.5GB - High accuracy
-- `large`: 1550M params, ~2.9GB - Best accuracy
+- `tiny`: 39M parameters, ~75MB - Fastest, lower accuracy
+- `base`: 74M parameters, ~140MB - **Recommended** balance
+- `small`: 244M parameters, ~460MB - Better accuracy
+- `medium`: 769M parameters, ~1.5GB - High accuracy
+- `large`: 1550M parameters, ~2.9GB - Best accuracy
 
 ### TTS (Text-to-Speech) - Piper
 
@@ -61,14 +61,14 @@ sudo apt install piper-tts
 
 ---
 
-## Vision Provider Setup
+## Vision Provider Configuration
 
 ### Object Detection - YOLOv8
 
 **Option 1: Automatic (Recommended)**
 ```bash
 # Models download automatically on first use
-# No manual setup required
+# No manual configuration required
 ```
 
 **Option 2: Pre-download**
@@ -78,15 +78,15 @@ model = YOLO("yolov8n.pt")  # Downloads ~6MB
 ```
 
 **Available Models**:
-- `yolov8n`: 3.2M params, ~6MB - **Recommended** fastest
-- `yolov8s`: 11.2M params, ~22MB - Small, balanced
-- `yolov8m`: 25.9M params, ~50MB - Medium accuracy
-- `yolov8l`: 43.7M params, ~84MB - Large, high accuracy
-- `yolov8x`: 68.2M params, ~131MB - Extra large, best accuracy
+- `yolov8n`: 3.2M parameters, ~6MB - **Recommended** fastest
+- `yolov8s`: 11.2M parameters, ~22MB - Small, balanced
+- `yolov8m`: 25.9M parameters, ~50MB - Medium accuracy
+- `yolov8l`: 43.7M parameters, ~84MB - Large, high accuracy
+- `yolov8x`: 68.2M parameters, ~131MB - Extra large, best accuracy
 
 ---
 
-## Text Provider Setup
+## Text Provider Configuration
 
 ### LLM - Ollama
 
@@ -100,7 +100,7 @@ model = YOLO("yolov8n.pt")  # Downloads ~6MB
    # Or download from: https://ollama.com/download
    ```
 
-2. **Pull a model**:
+2. **Pull model**:
    ```bash
    # Lightweight model (Recommended for PC)
    ollama pull llama3.2:1b  # ~1.3GB
@@ -114,7 +114,7 @@ model = YOLO("yolov8n.pt")  # Downloads ~6MB
 3. **Start Ollama server**:
    ```bash
    ollama serve
-   # Server runs on http://localhost:11434
+   # Server runs at http://localhost:11434
    ```
 
 4. **Verify**:
@@ -123,11 +123,11 @@ model = YOLO("yolov8n.pt")  # Downloads ~6MB
    ```
 
 **Available Models**:
-- `llama3.2:1b`: 1B params - **Recommended** fastest
-- `llama3.2:3b`: 3B params - Better quality
-- `phi3:mini`: 3.8B params - Microsoft, good reasoning
-- `mistral:7b`: 7B params - High quality
-- `llama3.1:8b`: 8B params - Very high quality
+- `llama3.2:1b`: 1B parameters - **Recommended** fastest
+- `llama3.2:3b`: 3B parameters - Better quality
+- `phi3:mini`: 3.8B parameters - Microsoft, good reasoning
+- `mistral:7b`: 7B parameters - High quality
+- `llama3.1:8b`: 8B parameters - Very high quality
 
 See all models: https://ollama.com/library
 
@@ -135,7 +135,7 @@ See all models: https://ollama.com/library
 
 ## Configuration (`config/providers.toml`)
 
-### Voice Provider Section
+### Voice Provider (section `[voice]`)
 ```toml
 [voice]
 asr_model = "base"              # Whisper model
@@ -144,7 +144,7 @@ sample_rate = 16000
 use_mock = false                # Set true to force mock mode
 ```
 
-### Vision Provider Section
+### Vision Provider (section `[vision]`)
 ```toml
 [vision]
 detection_model = "yolov8n"     # YOLO model
@@ -153,7 +153,7 @@ max_detections = 10
 use_mock = false                # Set true to force mock mode
 ```
 
-### Text Provider Section
+### Text Provider (section `[text]`)
 ```toml
 [text]
 model = "llama3.2:1b"           # Ollama model
@@ -166,11 +166,11 @@ enable_cache = true
 
 ---
 
-## Docker Setup
+## Docker Configuration
 
 ### Using Pre-downloaded Models
 
-Edit `Dockerfile` to uncomment model download:
+Edit `Dockerfile` to uncomment model downloads:
 ```dockerfile
 # Download AI models (uncomment for faster startup)
 RUN python -c "import whisper; whisper.load_model('base')"
@@ -259,7 +259,7 @@ print(result.result["text"])
 
 ### CPU Optimization
 - Use lightweight models (`yolov8n`, `whisper base`, `llama3.2:1b`)
-- Reduce concurrent tasks in config
+- Reduce concurrent tasks in configuration
 - Enable caching for repeated queries
 
 ### Memory Management
@@ -268,7 +268,7 @@ print(result.result["text"])
 - Use smaller models if memory limited
 
 ### Storage
-- Models cache in:
+- Models cached in:
   - Whisper: `~/.cache/whisper/`
   - YOLO: `~/.cache/ultralytics/`
   - Ollama: `~/.ollama/models/`
@@ -278,7 +278,7 @@ print(result.result["text"])
 
 ## Troubleshooting
 
-### Whisper fails to load
+### Whisper won't load
 ```bash
 # Reinstall with specific version
 pip install --upgrade openai-whisper
@@ -298,20 +298,20 @@ python -c "from ultralytics import YOLO; YOLO('yolov8n.pt')"
 
 ### Ollama connection error
 ```bash
-# Check Ollama is running
+# Check if Ollama is running
 curl http://localhost:11434/api/tags
 
 # Start Ollama
 ollama serve
 
-# Check model is pulled
+# Check if model is downloaded
 ollama list
 ```
 
 ### Out of memory
 - Use smaller models
 - Reduce `max_concurrent_tasks`
-- Enable swap (WSL: increase `.wslconfig` memory)
+- Enable swap (WSL: increase memory in `.wslconfig`)
 - Use mock mode for testing
 
 ---
@@ -323,16 +323,16 @@ ollama list
 - **Ollama**: `~/.ollama/models/`
 - **Piper**: System-dependent, check `/usr/share/piper/`
 
-Total storage for recommended models: ~2-3GB
+Total space for recommended models: ~2-3GB
 
 ---
 
 ## Next Steps
 
-1. Choose your deployment mode (mock or real models)
+1. Choose deployment mode (mock or real models)
 2. Install required dependencies
 3. Update configuration files
 4. Test providers individually
 5. Deploy with Docker Compose
 
-See [IMPLEMENTATION_COMPLETE_PHASE4.md](PR/IMPLEMENTATION_COMPLETE_PHASE4.md) for full deployment guide.
+See [IMPLEMENTATION_COMPLETE_PHASE4.md](archive/PR/IMPLEMENTATION_COMPLETE_PHASE4.md) for full deployment guide.

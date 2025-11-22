@@ -69,18 +69,24 @@ python -m pc_client.main
 ### Quick Links
 
 - **[Quick Start Guide](docs/QUICKSTART.md)** - Get started quickly
-- **[AI Model Setup](docs/AI_MODEL_SETUP.md)** - Setup real AI models
+- **[AI Model Configuration](docs/AI_MODEL_CONFIGURATION.md)** - Setup real AI models
 - **[Architecture](docs/ARCHITECTURE.md)** - System architecture overview
+- **[Configuration Hub](docs/CONFIGURATION.md)** - Central configuration guide
 - **[API Documentation](docs/api-specs/README.md)** - REST API reference
 - **[Replication Notes](docs/REPLICATION_NOTES.md)** - Notes for replicating the project
 
-### Implementation Guides
+### Configuration Guides
 
-- **[Provider Implementation Guide](docs/PR/PROVIDER_IMPLEMENTATION_GUIDE.md)** - How to use and extend AI providers
+- **[AI Model Configuration](docs/AI_MODEL_CONFIGURATION.md)** - Whisper, Piper, YOLOv8, Ollama setup
+- **[Security Configuration](docs/SECURITY_CONFIGURATION.md)** - WireGuard VPN, mTLS setup
+- **[Task Queue Configuration](docs/TASK_QUEUE_CONFIGURATION.md)** - Redis, RabbitMQ setup
+- **[Monitoring Configuration](docs/MONITORING_CONFIGURATION.md)** - Prometheus, Grafana setup
+
+### Operations
+
 - **[PC Offload Integration](docs/PC_OFFLOAD_INTEGRATION.md)** - Enabling AI mode / provider parity between Rider-Pi and Rider-PC
-- **[Task Queue Setup](docs/PR/TASK_QUEUE_SETUP.md)** - Redis/RabbitMQ configuration
-- **[Monitoring Setup](docs/PR/MONITORING_SETUP.md)** - Prometheus/Grafana setup
-- **[Network Security Setup](docs/PR/NETWORK_SECURITY_SETUP.md)** - VPN/mTLS configuration
+- **[Service Management](docs/SERVICE_AND_RESOURCE_MANAGEMENT.md)** - Operations, monitoring, troubleshooting
+- **[Future Work](docs/FUTURE_WORK.md)** - Planned improvements and development
 
 ## License
 
