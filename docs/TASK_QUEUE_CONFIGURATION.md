@@ -2,19 +2,19 @@
 
 ## Przegląd
 
-Przewodnik konfiguracji brokera kolejki zadań (Redis lub RabbitMQ) dla systemu Rider-PC Client.
+Przewodnik konfiguracji brokera kolejki zadań (Redis or RabbitMQ) for systemu Rider-PC Client.
 
 ## Wybór Brokera
 
-### Redis (Zalecane dla Rozwoju)
+### Redis (Recommended for Rozwoju)
 - **Zalety**: Prosty, szybki, lekki
 - **Wady**: Mniej funkcji niż RabbitMQ
-- **Najlepsze dla**: Development, małe wdrożenia
+- **Najlepsze for**: Development, małe wdrożenia
 
-### RabbitMQ (Zalecane dla Produkcji)
+### RabbitMQ (Recommended for Produkcji)
 - **Zalety**: Zaawansowane funkcje, niezawodny
 - **Wady**: Bardziej złożony setup
-- **Najlepsze dla**: Produkcja, duża skala
+- **Najlepsze for**: Produkcja, duża skala
 
 ## Opcja 1: Redis Setup
 
@@ -65,10 +65,10 @@ sudo systemctl start redis-server
 # Enable autostart
 sudo systemctl enable redis-server
 
-# Sprawdź status
+# Check status
 sudo systemctl status redis-server
 
-# Testuj połączenie
+# Test połączenie
 redis-cli ping
 # Oczekiwana odpowiedź: PONG
 ```
@@ -83,7 +83,7 @@ TASK_QUEUE_BACKEND=redis
 REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_DB=0
-REDIS_PASSWORD=  # Pozostaw puste jeśli brak hasła
+REDIS_PASSWORD=  # Pozostaw puste if brak hasła
 ```
 
 ### Monitoring Redis
@@ -92,13 +92,13 @@ REDIS_PASSWORD=  # Pozostaw puste jeśli brak hasła
 # Monitor komend w czasie rzeczywistym
 redis-cli monitor
 
-# Sprawdź statystyki
+# Check statystyki
 redis-cli info stats
 
-# Sprawdź rozmiar kolejki
+# Check rozmiar kolejki
 redis-cli LLEN task_queue:priority:5
 
-# Sprawdź wszystkie klucze
+# Check wszystkie klucze
 redis-cli KEYS "task_queue:*"
 ```
 
@@ -153,7 +153,7 @@ sudo systemctl enable rabbitmq-server
 # Włącz management plugin
 sudo rabbitmq-plugins enable rabbitmq_management
 
-# Sprawdź status
+# Check status
 sudo rabbitmqctl status
 
 # Lista vhosts
@@ -172,10 +172,10 @@ sudo rabbitmqctl add_vhost rider_pc
 # Utwórz użytkownika
 sudo rabbitmqctl add_user rider_user secure_password
 
-# Ustaw uprawnienia
+# Set uprawnienia
 sudo rabbitmqctl set_permissions -p rider_pc rider_user ".*" ".*" ".*"
 
-# Ustaw tagi użytkownika
+# Set tagi użytkownika
 sudo rabbitmqctl set_user_tags rider_user administrator
 ```
 
@@ -298,10 +298,10 @@ channel.basic_publish(
 # Zwiększ max połączeń
 maxclients 10000
 
-# Disable saves dla wyższej wydajności (brak persystencji)
+# Disable saves for wyższej wydajności (brak persystencji)
 save ""
 
-# Use pipeline dla batch operations
+# Use pipeline for batch operations
 tcp-keepalive 60
 timeout 300
 ```
@@ -355,19 +355,19 @@ sudo rabbitmqctl import_definitions /backup/definitions.json
 
 **Połączenie odmówione:**
 ```bash
-# Sprawdź czy działa
+# Check czy działa
 sudo systemctl status redis-server
 
-# Sprawdź port
+# Check port
 sudo netstat -tlnp | grep 6379
 
-# Testuj
+# Test
 redis-cli ping
 ```
 
 **Pełna pamięć:**
 ```bash
-# Sprawdź użycie pamięci
+# Check użycie pamięci
 redis-cli INFO memory
 
 # Wyczyść bazę danych (ostrożnie!)
@@ -380,19 +380,19 @@ redis-cli FLUSHDB
 
 **Nie można połączyć:**
 ```bash
-# Sprawdź czy działa
+# Check czy działa
 sudo systemctl status rabbitmq-server
 
-# Sprawdź logi
+# Check logi
 sudo tail -f /var/log/rabbitmq/rabbit@hostname.log
 
-# Sprawdź port
+# Check port
 sudo netstat -tlnp | grep 5672
 ```
 
 **Kolejka się zapchała:**
 ```bash
-# Sprawdź długość kolejki
+# Check długość kolejki
 sudo rabbitmqctl list_queues
 
 # Purge queue (ostrożnie!)
@@ -434,5 +434,5 @@ sudo rabbitmqctl set_permissions -p rider_pc rider_user "^task_.*" "^task_.*" "^
 ---
 
 **Status**: Gotowe do Produkcji ✅  
-**Zalecane**: Redis dla dev, RabbitMQ dla prod  
+**Recommended**: Redis for dev, RabbitMQ for prod  
 **Data**: 2025-11-12
