@@ -95,7 +95,6 @@ def test_critical_elements_render(browser_context):
     # We just verify the element exists and is visible
 
 
-
 def test_api_status_indicator(browser_context):
     """Test that API status indicator element exists in the page."""
     page, base_url = browser_context
