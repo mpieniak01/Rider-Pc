@@ -177,14 +177,16 @@ def test_service_table_loads(browser_context):
     page.goto(f"{base_url}/web/control.html")
     page.wait_for_load_state("load")
 
-    # Wait a bit for JavaScript to initialize and fetch data
-    page.wait_for_timeout(3000)
+    # Wait for JavaScript to initialize and fetch data from backend
+    # The page needs time to call fetchControlState() and fetchServices()
+    JS_INIT_TIMEOUT_MS = 3000
+    page.wait_for_timeout(JS_INIT_TIMEOUT_MS)
 
     # Wait for services table body to have rows (indicating data has loaded)
     # The table initially has hidden attribute which is removed by JavaScript after loading
     try:
         page.wait_for_selector("#svcBody tr", state="attached", timeout=5000)
-    except:
+    except TimeoutError:
         # If no rows appear, check if the table is showing "offline" message
         pass
 
