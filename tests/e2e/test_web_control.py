@@ -27,10 +27,16 @@ from playwright.sync_api import TimeoutError
 pytestmark = pytest.mark.timeout(60)
 
 # JavaScript initialization timeout: Time needed for control.html to call
-# fetchControlState() and fetchServices() after page load
+# fetchControlState() and fetchServices() after page load.
+# This value is set to 3 seconds to allow:
+# - Initial page load and script parsing
+# - Async fetch to /api/control/state (sets remoteOnline flag)
+# - Async fetch to /svc (loads services data)
+# - DOM manipulation to show/hide elements based on backend state
 JS_INIT_TIMEOUT_MS = 3000
 
-# Selector wait timeout: Time to wait for DOM elements to appear after JS initialization
+# Selector wait timeout: Time to wait for DOM elements to appear after JS initialization.
+# Set to 5 seconds to account for potential network delays and DOM rendering.
 SELECTOR_WAIT_TIMEOUT_MS = 5000
 
 
@@ -191,7 +197,7 @@ def test_service_table_loads(browser_context):
     # The table initially has hidden attribute which is removed by JavaScript after loading
     try:
         page.wait_for_selector("#svcBody tr", state="attached", timeout=SELECTOR_WAIT_TIMEOUT_MS)
-    except TimeoutError:
+    except TimeoutError:  # playwright.sync_api.TimeoutError from import at top of file
         # Timeout is expected if backend is offline - we'll check for offline message below
         pass
 
