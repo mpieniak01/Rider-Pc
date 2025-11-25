@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<title>Rider-Pi — Chat</title>
+<title>Rider-PC — Chat</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="/web/assets/dashboard-common.css">
 <link rel="stylesheet" href="/web/assets/chat.css">
@@ -73,7 +73,7 @@
   const btnReloadProviders = document.getElementById('btnReloadProviders');
 
   const FALLBACK_PROVIDERS = [
-    { id: 'local',  label: 'Piper (lokalny)',         backend: 'piper',  voice: 'pl_PL-gosia-medium.onnx', description: 'Offline TTS Rider-Pi.', service: 'voice-web' },
+    { id: 'local',  label: 'Piper (lokalny)',         backend: 'piper',  voice: 'pl_PL-gosia-medium.onnx', description: 'Offline TTS Rider-PC.', service: 'voice-web' },
     { id: 'openai', label: 'OpenAI gpt-4o-mini-tts', backend: 'openai', voice: 'alloy', model: 'gpt-4o-mini-tts', description: 'Chmurowy TTS OpenAI.', service: null },
     { id: 'google', label: 'Google Gemini Kore',     backend: 'google', voice: 'Kore',  model: 'gemini-2.5-flash-preview-tts', description: 'Chmurowy TTS Gemini.', service: null },
   ];

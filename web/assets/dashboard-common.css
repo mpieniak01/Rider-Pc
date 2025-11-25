@@ -42,6 +42,9 @@ body {
   font-family: system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
   min-height: 100vh;
 }
+.brand-accent {
+  color: var(--accent);
+}
 img { max-width: 100%; display: block; }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
