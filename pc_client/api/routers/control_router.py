@@ -12,6 +12,45 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from pc_client.adapters import RestAdapter
 from pc_client.providers import VisionProvider
+from pc_client.api.sse_manager import SseManager
+
+LOCAL_FEATURE_BLUEPRINTS = [
+    {
+        "name": "s0_manual",
+        "scenario": "S0",
+        "title": "Stan 0 – Sterowanie ręczne",
+        "description": "Podstawowe usługi komunikacji i sterowania ręcznego.",
+        "units": [
+            "rider-cam-preview.service",
+            "rider-edge-preview.service",
+        ],
+        "aliases": ["zero_mode"],
+        "state_key": "zero",
+    },
+    {
+        "name": "s3_follow_me_face",
+        "scenario": "S3",
+        "title": "Śledzenie (twarz)",
+        "description": "Tracker oraz kontroler ruchu związanego z trybem Follow Me.",
+        "units": [
+            "rider-tracker.service",
+            "rider-tracking-controller.service",
+        ],
+        "aliases": ["face_tracking"],
+        "state_key": "tracking",
+    },
+    {
+        "name": "s4_recon",
+        "scenario": "S4",
+        "title": "Rekonesans autonomiczny",
+        "description": "Navigator + odometria i procesy mapowania.",
+        "units": [
+            "rider-vision.service",
+        ],
+        "aliases": ["recon"],
+        "state_key": "recon",
+    },
+]
 
 logger = logging.getLogger(__name__)
 
@@ -86,18 +125,112 @@ def _set_local_tracking_state(request: Request, mode: str, enabled: bool) -> Dic
     return {"ok": True, **state}
 
 
+def _get_sse_manager(request: Request) -> SseManager:
+    manager: Optional[SseManager] = getattr(request.app.state, "sse_manager", None)
+    if manager is None:
+        manager = SseManager()
+        request.app.state.sse_manager = manager
+    return manager
+
+
 def _publish_event(request: Request, topic: str, data: Dict[str, Any]):
     """Publish server-sent events to all subscribers."""
     payload = {"topic": topic, "data": data, "ts": time.time()}
-    stale_subscribers: List[asyncio.Queue] = []
-    for queue in request.app.state.event_subscribers:
-        try:
-            queue.put_nowait(payload)
-        except asyncio.QueueFull:
-            stale_subscribers.append(queue)
-    for queue in stale_subscribers:
-        if queue in request.app.state.event_subscribers:
-            request.app.state.event_subscribers.remove(queue)
+    manager = _get_sse_manager(request)
+    manager.publish(payload)
+
+
+def _feature_state_flags(control_state: Dict[str, Any]) -> Tuple[bool, bool]:
+    tracking = control_state.get("tracking", {}) or {}
+    tracking_enabled = bool(tracking.get("enabled"))
+    recon = control_state.get("navigator", {}) or {}
+    recon_active = bool(recon.get("active"))
+    return tracking_enabled, recon_active
+
+
+def _is_feature_active(blueprint: Dict[str, Any], tracking_enabled: bool, recon_active: bool) -> bool:
+    key = blueprint.get("state_key")
+    if key == "tracking":
+        return tracking_enabled
+    if key == "recon":
+        return recon_active
+    if key == "zero":
+        return not tracking_enabled and not recon_active
+    return False
+
+
+def _service_entry(unit: str, services: List[Dict[str, Any]]) -> Dict[str, Any]:
+    data = next((svc for svc in services if svc.get("unit") == unit), None) or {"unit": unit}
+    active = str(data.get("active", "")).lower()
+    enabled = str(data.get("enabled", "")).lower()
+    return {
+        "unit": unit,
+        "desc": data.get("desc", ""),
+        "active": data.get("active"),
+        "sub": data.get("sub"),
+        "enabled": data.get("enabled"),
+        "is_active": active.startswith("active"),
+        "is_enabled": enabled.startswith("enabled"),
+    }
+
+
+def _local_feature_rows(request: Request) -> List[Dict[str, Any]]:
+    services = request.app.state.services or []
+    tracking_enabled, recon_active = _feature_state_flags(request.app.state.control_state)
+    rows: List[Dict[str, Any]] = []
+    for blueprint in LOCAL_FEATURE_BLUEPRINTS:
+        units = blueprint.get("units", [])
+        svc_entries = [_service_entry(unit, services) for unit in units]
+        row = {
+            "name": blueprint["name"],
+            "scenario": blueprint.get("scenario"),
+            "title": blueprint.get("title"),
+            "description": blueprint.get("description"),
+            "aliases": blueprint.get("aliases", []),
+            "services": svc_entries,
+            "active": _is_feature_active(blueprint, tracking_enabled, recon_active),
+        }
+        rows.append(row)
+    return rows
+
+
+def _local_logic_summary(request: Request) -> Dict[str, Any]:
+    features = _local_feature_rows(request)
+    summary_rows: List[Dict[str, Any]] = []
+    active_names: List[str] = []
+    partial_names: List[str] = []
+    for row in features:
+        services = row.get("services", [])
+        total = len(services)
+        active_count = sum(1 for svc in services if svc.get("is_active"))
+        if row.get("active"):
+            status = "active"
+            active_names.append(row["name"])
+        elif active_count:
+            status = "partial"
+            partial_names.append(row["name"])
+        else:
+            status = "inactive"
+        summary_rows.append(
+            {
+                "name": row["name"],
+                "scenario": row.get("scenario"),
+                "title": row.get("title"),
+                "description": row.get("description"),
+                "active": row.get("active", False),
+                "status": status,
+                "services_total": total,
+                "services_active": active_count,
+                "aliases": row.get("aliases", []),
+            }
+        )
+    payload = {
+        "features": summary_rows,
+        "active": active_names,
+        "partial": partial_names,
+        "counts": {"total": len(summary_rows), "active": len(active_names), "partial": len(partial_names)},
+    }
+    return {"ok": True, "summary": payload}
 
 
 @router.post("/api/control")
@@ -280,8 +413,36 @@ async def feature_toggle(request: Request, name: str, payload: Dict[str, Any]) -
         navigator = request.app.state.control_state.get("navigator", {}) or {}
         navigator.update({"active": enabled})
         request.app.state.control_state["navigator"] = navigator
-        return JSONResponse({"ok": True, "feature": feature_name, "enabled": enabled, "result": navigator})
+    return JSONResponse({"ok": True, "feature": feature_name, "enabled": enabled, "result": navigator})
     return JSONResponse({"ok": False, "error": "unknown_feature", "feature": feature_name}, status_code=404)
+
+
+@router.get("/api/logic/features")
+async def logic_features(request: Request) -> JSONResponse:
+    """Expose Rider-PI logic feature registry or local fallback."""
+    adapter: Optional[RestAdapter] = request.app.state.rest_adapter
+    if adapter:
+        try:
+            remote = await adapter.get_logic_features()
+            if isinstance(remote, dict) and not remote.get("error"):
+                return JSONResponse(remote)
+        except Exception as exc:  # pragma: no cover - defensive network handling
+            logger.error("Failed to fetch logic features: %s", exc)
+    return JSONResponse({"ok": True, "features": _local_feature_rows(request)})
+
+
+@router.get("/api/logic/summary")
+async def logic_summary(request: Request) -> JSONResponse:
+    """Expose Rider-PI summary endpoint or local fallback."""
+    adapter: Optional[RestAdapter] = request.app.state.rest_adapter
+    if adapter:
+        try:
+            remote = await adapter.get_logic_summary()
+            if isinstance(remote, dict) and not remote.get("error"):
+                return JSONResponse(remote)
+        except Exception as exc:  # pragma: no cover
+            logger.error("Failed to fetch logic summary: %s", exc)
+    return JSONResponse(_local_logic_summary(request))
 
 
 @router.post("/api/navigator/start")
@@ -484,8 +645,8 @@ async def camera_last_head(request: Request) -> Response:
 @router.get("/events")
 async def events(request: Request):
     """Server-sent events endpoint for UI panels."""
-    queue: asyncio.Queue = asyncio.Queue()
-    request.app.state.event_subscribers.append(queue)
+    manager = _get_sse_manager(request)
+    queue = manager.subscribe()
 
     async def event_generator():
         try:
@@ -498,7 +659,6 @@ async def events(request: Request):
                     payload = {"topic": "heartbeat", "data": {"status": "ok"}, "ts": time.time()}
                 yield f"data: {json.dumps(payload)}\n\n"
         finally:
-            if queue in request.app.state.event_subscribers:
-                request.app.state.event_subscribers.remove(queue)
+            manager.unsubscribe(queue)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

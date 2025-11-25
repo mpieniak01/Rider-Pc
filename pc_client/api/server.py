@@ -16,6 +16,7 @@ from pc_client.config import Settings
 from pc_client.cache import CacheManager
 from pc_client.api import lifecycle
 from pc_client.api.routers import status_router, provider_router, control_router, voice_router, chat_router
+from pc_client.api.sse_manager import SseManager
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +123,7 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
         "timestamp": time.time(),
         "media_type": "image/png",
     }
-    app.state.event_subscribers: List[asyncio.Queue] = []
+    app.state.sse_manager = SseManager()
     app.state.sync_task = None
     app.state.provider_heartbeat_task = None
     app.state.camera_sync_task = None
