@@ -48,7 +48,7 @@ export const I18N = {
       load:   { pl: "load (1/5/15)", en: "load (1/5/15)" },
       mem:    { pl: "pamięć", en: "mem" },
       disk:   { pl: "dysk",   en: "disk" },
-      os:     { pl: "os",     en: "os" },
+      os:     { pl: "system", en: "system" },
       fw:     { pl: "fw",     en: "fw" },
     },
 
@@ -68,6 +68,65 @@ export const I18N = {
       mem:   { pl: "mem%", en: "mem%" },
     },
     history_pc_title: { pl: "Historia (60 s) — PC CPU / MEM", en: "History (60 s) — PC CPU / MEM" },
+
+    obstacle: {
+      title:      { pl: "Przeszkoda", en: "Obstacle" },
+      present:    { pl: "obecność",  en: "present" },
+      confidence: { pl: "pewność",   en: "confidence" },
+      edge_pct:   { pl: "edge_pct",  en: "edge_pct" },
+    },
+
+    roi_edges: {
+      title: { pl: "Histogram ROI — krawędzie", en: "ROI histogram — edges" },
+    },
+
+    api_metrics: {
+      title:       { pl: "Metryki API", en: "API Metrics" },
+      control:     { pl: "Sterowanie",  en: "Control" },
+      navigator:   { pl: "Nawigator",   en: "Navigator" },
+      voice:       { pl: "Głos",        en: "Voice" },
+      google_home: { pl: "Google Home", en: "GoogleHome" },
+      chat:        { pl: "Czat",        en: "Chat" },
+      face:        { pl: "Twarz",       en: "Face" },
+      total:       { pl: "Łączne błędy", en: "Total Errors" },
+      hint:        { pl: "Interaktywne metryki wywołań API (OK / Error)", en: "Interactive API call metrics (OK / Error)" },
+    },
+
+    snap: {
+      title:       { pl: "Świeżość snapów", en: "Snap freshness" },
+      raw_age:     { pl: "raw.age",        en: "raw.age" },
+      proc_age:    { pl: "proc.age",       en: "proc.age" },
+      hint_prefix: { pl: "Źródło:",        en: "Source:" },
+    },
+
+    camera_obst: {
+      title: { pl: "Kamera — OBST (adnotacje)", en: "Camera — OBST (annot)" },
+    },
+
+    camera_tracker: {
+      title: { pl: "Kamera — TRACKER (śledzenie)", en: "Camera — TRACKER (Follow Me)" },
+    },
+
+    pc_system: {
+      title:   { pl: "System PC", en: "PC System" },
+      host:    { pl: "Host", en: "Host" },
+      cpu:     { pl: "CPU (%)", en: "CPU (%)" },
+      load:    { pl: "Load (1/5/15)", en: "Load (1/5/15)" },
+      mem:     { pl: "Pamięć", en: "Memory" },
+      disk:    { pl: "Dysk", en: "Disk" },
+      os:      { pl: "System", en: "System" },
+      distro:  { pl: "Dystrybucja", en: "Distribution" },
+      uptime:  { pl: "Uptime", en: "Uptime" },
+      hint:    { pl: "Dane z /status/system-pc lokalnego serwera Rider-PC.", en: "Data from /status/system-pc on the Rider-PC host." },
+    },
+
+    pc_services: {
+      title:   { pl: "Usługi PC", en: "PC Services" },
+      loading: { pl: "Trwa sprawdzanie...", en: "Checking..." },
+      hint:    { pl: "Status lokalnych endpointów Rider-PC.", en: "Status of local Rider-PC endpoints." },
+      empty:   { pl: "Brak danych", en: "No data" },
+      no_auto: { pl: "• brak automatycznej kontroli", en: "• no automatic check" },
+    },
 
     camera: {
       title:          { pl: "Kamera",                en: "Camera" },

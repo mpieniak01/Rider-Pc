@@ -134,7 +134,14 @@ async def system_pc_status(request: Request) -> JSONResponse:
     """Return metrics for the Rider-PC host."""
     cache: CacheManager = request.app.state.cache
     data = cache.get(PC_SYSINFO_CACHE_KEY)
-    if not data:
+
+    def needs_refresh(payload):
+        if not payload or not isinstance(payload, dict):
+            return True
+        essential_keys = ("platform", "cpu_pct", "distribution", "os_release")
+        return any(key not in payload for key in essential_keys)
+
+    if needs_refresh(data):
         data = collect_system_metrics()
         cache.set(PC_SYSINFO_CACHE_KEY, data, ttl=PC_SYSINFO_TTL)
     return JSONResponse(content=data or {})

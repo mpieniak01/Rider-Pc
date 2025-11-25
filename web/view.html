@@ -26,7 +26,7 @@
         <div data-i18n="dash.system.load">load (1/5/15)</div><div id="ci_load" class="muted">—</div>
         <div data-i18n="dash.system.mem">pamięć</div><div id="ci_mem" class="muted">—</div>
         <div data-i18n="dash.system.disk">dysk</div><div id="ci_disk" class="muted">—</div>
-        <div data-i18n="dash.system.os">os</div><div id="ci_os" class="muted">—</div>
+        <div data-i18n="dash.system.os">system</div><div id="ci_os" class="muted">—</div>
         <div data-i18n="dash.system.fw">fw</div><div id="ci_fw" class="muted">—</div>
       </div>
     </div>
@@ -79,16 +79,16 @@
     </div>
 
     <div class="c-card">
-      <h3>Obstacle</h3>
+      <h3 data-i18n="dash.obstacle.title">Obstacle</h3>
       <div class="c-kv">
-        <div>present</div><div id="obs_present" class="muted">—</div>
-        <div>confidence</div><div id="obs_conf" class="muted">—</div>
-        <div>edge_pct</div><div id="obs_edge" class="muted">—</div>
+        <div data-i18n="dash.obstacle.present">present</div><div id="obs_present" class="muted">—</div>
+        <div data-i18n="dash.obstacle.confidence">confidence</div><div id="obs_conf" class="muted">—</div>
+        <div data-i18n="dash.obstacle.edge_pct">edge_pct</div><div id="obs_edge" class="muted">—</div>
       </div>
     </div>
 
     <div class="c-card">
-      <h3>ROI histogram — edges</h3>
+      <h3 data-i18n="dash.roi_edges.title">ROI histogram — edges</h3>
       <canvas id="binsCanvas" width="300" height="140"></canvas>
       <div class="c-legend">
         <span><i class="c-legend__dot edge"></i><span id="binsLegendTxt">LOW/HIGH: — / — • edge_pct: —</span></span>
@@ -109,26 +109,26 @@
   <!-- RZĄD 3: API Metrics -->
   <div class="l-grid">
     <div class="c-card">
-      <h3>API Metrics</h3>
+      <h3 data-i18n="dash.api_metrics.title">API Metrics</h3>
       <div class="c-kv">
-        <div>Control</div><div id="metric_control">—</div>
-        <div>Navigator</div><div id="metric_navigator">—</div>
-        <div>Voice</div><div id="metric_voice">—</div>
-        <div>GoogleHome</div><div id="metric_google_home">—</div>
-        <div>Chat</div><div id="metric_chat">—</div>
-        <div>Face</div><div id="metric_face">—</div>
-        <div class="metric-highlight">Total Errors</div><div id="metric_total_errors" class="bad metric-highlight">—</div>
+        <div data-i18n="dash.api_metrics.control">Control</div><div id="metric_control">—</div>
+        <div data-i18n="dash.api_metrics.navigator">Navigator</div><div id="metric_navigator">—</div>
+        <div data-i18n="dash.api_metrics.voice">Voice</div><div id="metric_voice">—</div>
+        <div data-i18n="dash.api_metrics.google_home">GoogleHome</div><div id="metric_google_home">—</div>
+        <div data-i18n="dash.api_metrics.chat">Chat</div><div id="metric_chat">—</div>
+        <div data-i18n="dash.api_metrics.face">Face</div><div id="metric_face">—</div>
+        <div class="metric-highlight" data-i18n="dash.api_metrics.total">Total Errors</div><div id="metric_total_errors" class="bad metric-highlight">—</div>
       </div>
-      <div class="c-hint c-hint--sub">Interactive API call metrics (OK / Error)</div>
+      <div class="c-hint c-hint--sub" data-i18n="dash.api_metrics.hint">Interactive API call metrics (OK / Error)</div>
     </div>
 
     <div class="c-card">
-      <h3>Snap freshness</h3>
+      <h3 data-i18n="dash.snap.title">Snap freshness</h3>
       <div class="c-kv">
-        <div>raw.age</div><div id="age_raw" class="muted">—</div>
-        <div>proc.age</div><div id="age_proc" class="muted">—</div>
+        <div data-i18n="dash.snap.raw_age">raw.age</div><div id="age_raw" class="muted">—</div>
+        <div data-i18n="dash.snap.proc_age">proc.age</div><div id="age_proc" class="muted">—</div>
       </div>
-      <div class="c-hint c-hint--sub">Źródło: <code>/vision/snap-info</code></div>
+      <div class="c-hint c-hint--sub"><span data-i18n="dash.snap.hint_prefix">Źródło:</span> <code>/vision/snap-info</code></div>
     </div>
 
     <div class="c-card">
@@ -140,7 +140,7 @@
     </div>
 
     <div class="c-card">
-      <h3>Camera — OBST (annot)</h3>
+      <h3 data-i18n="dash.camera_obst.title">Camera — OBST (annot)</h3>
       <div class="c-thumb">
         <img id="img_obst" class="cam-img" src="/camera/placeholder" alt="obstacle annotated" decoding="async" loading="lazy">
       </div>
@@ -153,24 +153,26 @@
   <!-- RZĄD 4: System PC / Usługi / Historia / TRACKER -->
   <div class="l-grid">
     <div class="c-card">
-      <h3>System PC</h3>
+      <h3 data-i18n="dash.pc_system.title">System PC</h3>
       <div class="c-kv">
-        <div>Host</div><div id="pcHostInfo">—</div>
-        <div>CPU (%)</div><div id="pcCpu">—</div>
-        <div>Load (1/5/15)</div><div id="pcLoad">—</div>
-        <div>Pamięć</div><div id="pcMem">—</div>
-        <div>Dysk</div><div id="pcDisk">—</div>
-        <div>Uptime</div><div id="pcUptime">—</div>
+        <div data-i18n="dash.pc_system.host">Host</div><div id="pcHostInfo">—</div>
+        <div data-i18n="dash.pc_system.cpu">CPU (%)</div><div id="pcCpu">—</div>
+        <div data-i18n="dash.pc_system.load">Load (1/5/15)</div><div id="pcLoad">—</div>
+        <div data-i18n="dash.pc_system.mem">Pamięć</div><div id="pcMem">—</div>
+        <div data-i18n="dash.pc_system.disk">Dysk</div><div id="pcDisk">—</div>
+        <div data-i18n="dash.pc_system.os">System</div><div id="pcOs">—</div>
+        <div data-i18n="dash.pc_system.distro">Dystrybucja</div><div id="pcDistro">—</div>
+        <div data-i18n="dash.pc_system.uptime">Uptime</div><div id="pcUptime">—</div>
       </div>
-      <div class="c-hint c-hint--sub">Dane z /status/system-pc lokalnego serwera Rider-PC.</div>
+      <div class="c-hint c-hint--sub" data-i18n="dash.pc_system.hint">Dane z /status/system-pc lokalnego serwera Rider-PC.</div>
     </div>
 
     <div class="c-card">
-      <h3>Usługi PC</h3>
+      <h3 data-i18n="dash.pc_services.title">Usługi PC</h3>
       <div id="pcServiceList" class="pc-service-list">
-        <div class="muted">Trwa sprawdzanie...</div>
+        <div class="muted" data-i18n="dash.pc_services.loading">Trwa sprawdzanie...</div>
       </div>
-      <div class="c-hint c-hint--sub">Status lokalnych endpointów Rider-PC.</div>
+      <div class="c-hint c-hint--sub" data-i18n="dash.pc_services.hint">Status lokalnych endpointów Rider-PC.</div>
     </div>
 
     <div class="c-card">
@@ -183,7 +185,7 @@
     </div>
 
     <div class="c-card">
-      <h3>Camera — TRACKER (Follow Me)</h3>
+      <h3 data-i18n="dash.camera_tracker.title">Camera — TRACKER (Follow Me)</h3>
       <div class="c-thumb">
         <img id="img_tracker" class="cam-img" src="/camera/placeholder" alt="tracker with FPS and detection" decoding="async" loading="lazy">
       </div>
@@ -311,6 +313,14 @@ function defaultPort(proto){
 
 function applyPcSystemMetrics(data){
   if(!data) return;
+  const primaryOs = data.platform || data.os || data.kernel || data.version;
+  setTxt('pcOs', primaryOs || '—');
+  const distroPrimary = data.os_release || data.distribution || data.distribution_name;
+  const distroVersion = data.distribution_version;
+  const distroParts=[];
+  if(distroPrimary) distroParts.push(distroPrimary);
+  if(distroVersion && (!distroParts.length || distroVersion!==distroParts[distroParts.length-1])) distroParts.push(distroVersion);
+  setTxt('pcDistro', distroParts.join(' · ') || '—');
   const cpuPct = data.cpu_pct != null ? Number(data.cpu_pct) : null;
   if(cpuPct!=null) setTxt('pcCpu', `${fmt(cpuPct,1)}%`);
   else setTxt('pcCpu','—');
@@ -357,6 +367,8 @@ async function refreshPcSystemMetrics(){
     setTxt('pcMem','—');
     setTxt('pcDisk','—');
     setTxt('pcUptime','—');
+    setTxt('pcOs','—');
+    setTxt('pcDistro','—');
   }
 }
 
@@ -364,7 +376,7 @@ function renderPcServices(items){
   const list = el('pcServiceList');
   if(!list) return;
   if(!items.length){
-    list.innerHTML = '<div class="muted">Brak danych</div>';
+    list.innerHTML = `<div class="muted">${t('dash.pc_services.empty')}</div>`;
     return;
   }
   list.innerHTML = '';
@@ -385,7 +397,8 @@ function renderPcServices(items){
     name.textContent = svc.label;
     const meta = document.createElement('div');
     meta.className = 'pc-service-meta';
-    meta.textContent = svc.meta + (svc.ok === null ? ' • brak automatycznej kontroli' : '');
+    const suffix = svc.ok === null ? ` ${t('dash.pc_services.no_auto')}` : '';
+    meta.textContent = svc.meta + suffix;
     body.appendChild(name);
     body.appendChild(meta);
     row.appendChild(body);
