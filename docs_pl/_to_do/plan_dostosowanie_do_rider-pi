@@ -33,7 +33,7 @@
    - Nowe endpointy proxy: `GET /api/logic/summary`, `GET /api/logic/features`.
    - Rozszerzenie `/api/motion/queue` o fallback na dane z Rider-Pi i pola `reason`, `generated_at`.
 3. **Serwer zdarzeń / SSE**
-   - Zweryfikować, czy PC poprawnie strumieniuje `/events`; w razie potrzeby dopisać buforowanie w `control_router`.
+   - Zweryfikować, czy PC poprawnie strumieniuje `/events`; w razie potrzeby wydzielić dedykowany moduł (np. `sse_manager`) odpowiedzialny za buforowanie, retry/backoff i dystrybucję zdarzeń, tak aby `control_router` pozostał cienką warstwą routingu.
 4. **Telemetry / control state**
    - Dodanie tagu `source="pc-ui"` przy każdym forwardzie `/api/control`.
 
@@ -45,9 +45,9 @@
    - Rekonesans – brak lokalnych wywołań `/api/navigator/start/stop`, rely on FeatureManager (komponent zarządzający dostępnością funkcji; patrz dokumentacja w `docs/feature_manager.md`).
 3. Sekcje diagnostyczne:
    - Tabela usług w `<details>`, nowy layout.
-   - Kolejka ruchu – nowe kolumny (`reason`, `generated_at`) i brak zależności od `remoteOnline` (obecnie używane np. w `src/web/control/queue.js`, metoda `renderQueueTable`).
-   - Zasoby i kamera – usunąć agresywne czyszczenie UI przy błędach.
-4. SSE – uproszczony handler (ponowne nawiązanie połączenia SSE przy błędzie, brak `remoteOnline` guard).
+   - Kolejka ruchu – nowe kolumny (`reason`, `generated_at`) i brak globalnego `remoteOnline`, ale z zachowaniem łagodnej degradacji UI (banner/komunikat „offline”, zachowanie cache ostatniego stanu, brak spamowania retry).
+   - Zasoby i kamera – usunąć agresywne czyszczenie UI przy błędach, zastąpić je komunikatem o problemie i automatyczną próbą odświeżenia z backoffem.
+4. SSE – uproszczony handler korzystający z `sse_manager`: pojedyncze źródło prawdy o statusie połączenia, kontrolowany retry/backoff i sygnalizacja statusu (np. badge „SSE reconnecting”), bez ręcznych `remoteOnline` guardów w komponentach.
 
 #### Faza 4 – Pozostałe widoki
 1. `mode.html` – sprawdzić różnice (np. dynamiczny wybór providerów AI) i przenieść brakujące elementy.
