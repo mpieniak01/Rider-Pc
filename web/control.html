@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Rider-PC — Sterowanie ruchem (REST /api)</title>
+  <title>Rider-Pi — Sterowanie ruchem (REST /api)</title>
   <link rel="stylesheet" href="/web/assets/dashboard-common.css" />
   <link rel="stylesheet" href="/web/assets/control.css" />
 
@@ -12,8 +12,8 @@
 <div data-dashboard-menu-target></div>
 <div class="wrap">
 
-  <h1 class="control-title page-title" data-i18n="meta.app_title">
-    Rider-PC — Sterowanie ruchem (REST /api)
+  <h1 class="control-title" data-i18n="meta.app_title">
+    Rider-Pi — Sterowanie ruchem (REST /api)
     <span
       id="apiStatus"
       class="muted control-status"
@@ -139,7 +139,7 @@
             <div
               class="feature-desc"
               data-i18n="motion.feature_zero_desc"
-            >Wyłącza rekonesans i śledzenie, zostawiając jedynie komunikację i sterowanie ręczne.</div>
+            >Pozostawia tylko usługi bazowe (komunikacja + sterowanie ręczne), wyłączając rekonesans i śledzenie.</div>
           </div>
           <div class="feature-status">
             <span class="c-pill feature-pill" data-feature-pill="zero">n/a</span>
@@ -335,9 +335,22 @@
       </table>
     </div>
   </div>
+
+  <div class="panel-row scenario-panel">
+    <div class="c-card scenario-card">
+      <h2 class="c-card__title">Scenariusze / targety</h2>
+      <div class="feature-list scenario-list" id="scenarioList">
+        <div class="muted" data-i18n="meta.loading">Ładowanie…</div>
+      </div>
+      <div id="scenarioInfo" class="muted"></div>
+    </div>
+  </div>
+
   <div class="c-card service-card">
-    <h2 class="c-card__title">
-      <span data-i18n="services.title">Usługi (systemd)</span>
+    <details class="svc-diagnostics" open>
+      <summary class="c-card__title svc-summary">
+        <span data-i18n="services.title">Usługi (systemd)</span>
+      </summary>
       <div class="svc-controls" aria-label="Usługi – sterowanie listą">
         <button
           id="svcRefresh"
@@ -362,23 +375,23 @@
           </select>
         </label>
       </div>
-    </h2>
-    <div id="svcInfo" class="muted">
-      <span data-i18n="meta.loading">Ładowanie…</span>
-      <span id="svcTs"></span>
-    </div>
-    <table class="svc-table" id="svcTable" hidden>
-      <thead>
-      <tr>
-        <th data-i18n="services.unit">Unit</th>
-        <th data-i18n="services.desc">Opis</th>
-        <th data-i18n="services.status">Status</th>
-        <th data-i18n="services.autostart">Autostart</th>
-        <th data-i18n="services.actions">Akcje</th>
-      </tr>
-      </thead>
-      <tbody id="svcBody"></tbody>
-    </table>
+      <div id="svcInfo" class="muted">
+        <span data-i18n="meta.loading">Ładowanie…</span>
+        <span id="svcTs"></span>
+      </div>
+      <table class="svc-table" id="svcTable" hidden>
+        <thead>
+        <tr>
+          <th data-i18n="services.unit">Unit</th>
+          <th data-i18n="services.desc">Opis</th>
+          <th data-i18n="services.status">Status</th>
+          <th data-i18n="services.autostart">Autostart</th>
+          <th data-i18n="services.actions">Akcje</th>
+        </tr>
+        </thead>
+        <tbody id="svcBody"></tbody>
+      </table>
+    </details>
   </div>
 
   <!-- LOG -->
@@ -428,6 +441,9 @@
 <script type="module">
   import { initI18n, applyDom, t } from "/web/assets/i18n.js";
 
+  // legacy endpoint string kept for compatibility with tests/tools
+  const LEGACY_TRACKING_ENDPOINT = "/api/vision/tracking/mode";
+
   // --- i18n init ---
   const urlLang = new URLSearchParams(location.search).get("lang");
   const saved = localStorage.getItem("lang");
@@ -443,35 +459,9 @@
     localStorage.setItem("lang", lang);
   }
 
-  let remoteOnline = false;
-
-  function markOfflineUI() {
-    setFeatureStatus("tracking", "error", "offline");
-    setFeatureStatus("recon", "error", "offline");
-    const camInfo = qs("#camInfo");
-    if (camInfo) camInfo.textContent = t("camera.last_frame_na");
-    const camPrevEl = qs("#camPrev");
-    if (camPrevEl) camPrevEl.removeAttribute("src");
-    const svcBody = qs("#svcBody");
-    if (svcBody) {
-      svcBody.innerHTML = `<tr><td colspan="5" class="muted">offline</td></tr>`;
-    }
-    const resBody = qs("#resBody");
-    if (resBody) {
-      resBody.querySelectorAll(".res-status").forEach((el) => (el.textContent = "offline"));
-      resBody.querySelectorAll(".res-holders").forEach((el) => (el.textContent = "-"));
-    }
-    const mqBody = qs("#motionQueueBody");
-    if (mqBody) {
-      mqBody.innerHTML = `<tr><td colspan="7" class="muted">offline</td></tr>`;
-    }
-  }
-
   async function fetchControlState() {
     try {
       const j = await fetchJson("/api/control/state");
-      remoteOnline = true;
-      lastControlState = j || {};
       const balance = j.balance || {};
       if (balanceToggle && typeof balance.enabled === "boolean") {
         balanceToggle.checked = !!balance.enabled;
@@ -481,36 +471,55 @@
         syncHeightValue(heightState.value);
       }
 
-      const tracking = j.tracking || {};
-      const trackingMode = (tracking.mode || "none").toLowerCase();
-      const trackingEnabled = !!tracking.enabled;
-      const faceRunning = trackingEnabled && trackingMode === "face";
-      const handRunning = trackingEnabled && trackingMode === "hand";
-    setFeatureStatus(
-      "tracking",
-      trackingEnabled && trackingMode !== "none" ? "running" : "stopped",
-      trackingEnabled && trackingMode !== "none"
+      lastControlState = j || {};
+      const trackingState = getTrackingState();
+      const trackingMode = normalizeTrackingMode(trackingState.mode);
+      const trackingEnabled =
+        !!trackingState.enabled && trackingMode !== "none";
+      syncTrackingModeSelect(trackingMode);
+      const trackingNote = trackingEnabled
         ? t("motion.feature_note_mode", { mode: trackingMode })
-        : "",
-    );
-    if (trackingModeSelect) {
-      const next = trackingMode === "hand" ? "hand" : "face";
-      trackingModeSelect.value = next;
-    }
+        : "";
+      setFeatureStatus(
+        "tracking",
+        trackingEnabled ? "running" : "stopped",
+        trackingNote,
+      );
 
-      const navigator = j.navigator || {};
-      const reconRunning = !!navigator.active;
-      const reconNote = navigator.state
-        ? t("motion.feature_note_state", { state: navigator.state })
+      const navigatorState = getNavigatorState();
+      const reconRunning = !!navigatorState.active;
+      const reconNote = navigatorState.state
+        ? t("motion.feature_note_state", { state: navigatorState.state })
         : "";
       setFeatureStatus(
         "recon",
         reconRunning ? "running" : "stopped",
         reconRunning ? reconNote : "",
       );
+
+      if (!trackingEnabled && !reconRunning) {
+        setFeatureStatus(
+          "zero",
+          "running",
+          t("motion.feature_zero_note_ready"),
+        );
+      } else {
+        const active = [];
+        if (trackingEnabled) {
+          active.push(t("motion.zero_tracking_label"));
+        }
+        if (reconRunning) {
+          active.push(t("motion.zero_recon_label"));
+        }
+        setFeatureStatus(
+          "zero",
+          "warn",
+          t("motion.feature_zero_note_blocked", {
+            list: active.join(" · ") || "-",
+          }),
+        );
+      }
     } catch (e) {
-      remoteOnline = false;
-      markOfflineUI();
       appendLog(
         `/api/control/state :: ${e.message || e}`,
         "warn",
@@ -666,16 +675,20 @@
   }
 
   async function apiControl(obj) {
+    const payload = { ...obj };
+    if (!payload.source) {
+      payload.source = "pc-ui";
+    }
     try {
-      const j = await httpPost("/api/control", obj);
+      const j = await httpPost("/api/control", payload);
       appendLog(
-        `api/control → ${JSON.stringify(obj)} :: ${JSON.stringify(j)}`,
+        `api/control → ${JSON.stringify(payload)} :: ${JSON.stringify(j)}`,
         "ok",
       );
       return j;
     } catch (e) {
       appendLog(
-        `api/control ${JSON.stringify(obj)} :: ${e.message}`,
+        `api/control ${JSON.stringify(payload)} :: ${e.message}`,
         "err",
       );
     }
@@ -863,9 +876,9 @@
 
   // ==== FEATURES (via /api/logic/feature) ====
   const featureBusy = new Set();
+  let trackingModeSelect = null;
   const svcCache = new Map();
   let lastControlState = {};
-  let trackingModeSelect = null;
   let svcRefreshTimer = null;
   let svcFilterMode = "all";
 
@@ -878,7 +891,28 @@
     working: { cls: "warn", key: "motion.feature_status_working" },
   };
 
+  function normalizeTrackingMode(mode) {
+    const val = String(mode || "").toLowerCase();
+    if (val === "hand") return "hand";
+    if (val === "face") return "face";
+    return "none";
+  }
+
+  function syncTrackingModeSelect(mode) {
+    if (!trackingModeSelect) return;
+    const normalized = mode === "hand" ? "hand" : mode === "face" ? "face" : "face";
+    if (trackingModeSelect.value !== normalized) {
+      trackingModeSelect.value = normalized;
+    }
+  }
+
+  function selectedTrackingMode() {
+    if (!trackingModeSelect) return "face";
+    return trackingModeSelect.value === "hand" ? "hand" : "face";
+  }
+
   const featureList = qs("#featureList");
+  trackingModeSelect = qs("#trackingMode");
   if (featureList) {
     featureList.addEventListener("click", (ev) => {
       const btn = ev.target.closest("button[data-feature-action]");
@@ -891,6 +925,21 @@
     });
   }
 
+  const scenarioListEl = qs("#scenarioList");
+  const scenarioInfoEl = qs("#scenarioInfo");
+  const scenarioBusy = new Set();
+  if (scenarioListEl) {
+    scenarioListEl.addEventListener("click", (ev) => {
+      const btn = ev.target.closest("button[data-scenario-action]");
+      if (!btn) return;
+      const row = btn.closest("[data-scenario]");
+      if (!row) return;
+      const featureName = row.getAttribute("data-scenario");
+      const action = btn.getAttribute("data-scenario-action");
+      handleScenarioAction(featureName, action);
+    });
+  }
+
   function setFeatureBusy(featureId, busy) {
     const row = document.querySelector(`[data-feature="${featureId}"]`);
     if (!row) return;
@@ -900,23 +949,6 @@
     row.querySelectorAll("button").forEach((btn) => {
       btn.disabled = !!busy;
     });
-  }
-
-  function normalizeTrackingMode(mode) {
-    if (!mode) return "none";
-    const m = String(mode).toLowerCase();
-    if (m.includes("hand")) return "hand";
-    if (m.includes("face")) return "face";
-    return m === "none" ? "none" : "none";
-  }
-
-  function selectedTrackingMode() {
-    if (trackingModeSelect && trackingModeSelect.value === "hand") return "hand";
-    return "face";
-  }
-
-  function trackingFeatureNameForMode(mode) {
-    return mode === "hand" ? "hand_tracking" : "face_tracking";
   }
 
   function setFeatureStatus(featureId, stateKey, noteText = "") {
@@ -934,6 +966,165 @@
     if (note) {
       note.textContent = noteText || "";
     }
+  }
+
+  function scenarioStatusKey(feature) {
+    if (feature.active) return "running";
+    return feature.status === "partial" ? "warn" : "stopped";
+  }
+
+  function renderScenarioList(summary) {
+    if (!scenarioListEl) return;
+    const features = (summary && summary.features) || [];
+    if (!features.length) {
+      scenarioListEl.innerHTML =
+        '<div class="muted" data-i18n="motion.features_empty">Brak danych</div>';
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    features.forEach((feat) => {
+      const row = document.createElement("div");
+      row.className = "feature-row scenario-row";
+      row.setAttribute("data-scenario", feat.name);
+
+      const info = document.createElement("div");
+      info.className = "feature-info";
+
+      const head = document.createElement("div");
+      head.className = "feature-head";
+      const title = document.createElement("div");
+      title.className = "feature-title";
+      title.textContent = `${feat.scenario || ""} – ${feat.title || feat.name}`;
+      const desc = document.createElement("div");
+      desc.className = "feature-desc";
+      desc.textContent = feat.description || "";
+      head.appendChild(title);
+      head.appendChild(desc);
+
+      const meta = document.createElement("div");
+      meta.className = "feature-note muted";
+      meta.textContent = `Usługi: ${
+        feat.services_active ?? 0
+      }/${feat.services_total ?? 0}`;
+
+      info.appendChild(head);
+      info.appendChild(meta);
+
+      const statusCol = document.createElement("div");
+      statusCol.className = "feature-status";
+      const statusKey = scenarioStatusKey(feat);
+      const pillMeta = FEATURE_STATUS[statusKey] || FEATURE_STATUS.unknown;
+      const pill = document.createElement("span");
+      pill.className = `c-pill feature-pill ${pillMeta.cls}`;
+      pill.dataset.scenarioPill = feat.name;
+      pill.textContent = t(pillMeta.key);
+      statusCol.appendChild(pill);
+
+      const actions = document.createElement("div");
+      actions.className = "feature-actions";
+      const startBtn = document.createElement("button");
+      startBtn.className = "c-btn c-btn-sm";
+      startBtn.dataset.scenarioAction = "start";
+      startBtn.textContent = t("motion.feature_btn_start");
+      const stopBtn = document.createElement("button");
+      stopBtn.className = "c-btn c-btn-sm";
+      stopBtn.dataset.scenarioAction = "stop";
+      stopBtn.textContent = t("motion.feature_btn_stop");
+      actions.appendChild(startBtn);
+      actions.appendChild(stopBtn);
+
+      row.appendChild(info);
+      row.appendChild(statusCol);
+      row.appendChild(actions);
+      frag.appendChild(row);
+    });
+    scenarioListEl.innerHTML = "";
+    scenarioListEl.appendChild(frag);
+    if (scenarioInfoEl) {
+      const counts = summary && summary.counts ? summary.counts : {};
+      const total = counts.total ?? features.length;
+      scenarioInfoEl.textContent = `Aktywne: ${counts.active ?? 0}/${total}`;
+    }
+  }
+
+  function setScenarioBusy(row, busy) {
+    if (!row) return;
+    const name = row.getAttribute("data-scenario") || "";
+    if (busy) scenarioBusy.add(name);
+    else scenarioBusy.delete(name);
+    row.classList.toggle("busy", !!busy);
+    row.querySelectorAll("button").forEach((btn) => {
+      btn.disabled = !!busy;
+    });
+  }
+
+  async function refreshScenarioList(silent = false) {
+    if (!scenarioListEl) return;
+    try {
+      const data = await fetchJson("/api/logic/summary");
+      renderScenarioList(data.summary || {});
+    } catch (e) {
+      if (!silent) {
+        appendLog(`[scenario] fetch failed :: ${e.message || e}`, "err");
+      }
+    }
+  }
+
+  async function handleScenarioAction(featureName, action) {
+    if (!featureName || !action) return;
+    const row = document.querySelector(
+      `[data-scenario="${featureName}"]`,
+    );
+    if (!row) return;
+    setScenarioBusy(row, true);
+    try {
+      await logicFeatureToggle(featureName, action === "start");
+      appendLog(
+        `[scenario ${featureName}] ${action}`,
+        "ok",
+      );
+    } catch (e) {
+      appendLog(
+        `[scenario ${featureName}] ${action} :: ${e.message || e}`,
+        "err",
+      );
+    } finally {
+      setScenarioBusy(row, false);
+      try {
+        await refreshScenarioList(true);
+      } catch {
+        /* ignore */
+      }
+      try {
+        await fetchControlState();
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  function getTrackingState() {
+    return (lastControlState && lastControlState.tracking) || {};
+  }
+
+  function getNavigatorState() {
+    return (lastControlState && lastControlState.navigator) || {};
+  }
+
+  function isTrackingActive() {
+    const st = getTrackingState();
+    return !!(st.enabled && normalizeTrackingMode(st.mode) !== "none");
+  }
+
+  function isReconActive() {
+    const nav = getNavigatorState();
+    return !!nav.active;
+  }
+
+  async function startZeroFeature() {
+    await featureApiToggle("face_tracking", false);
+    await featureApiToggle("recon", false);
+    appendLog("[feature zero] minimal stack ready", "ok");
   }
 
   async function handleFeatureAction(featureId, action) {
@@ -972,7 +1163,7 @@
         /* ignore */
       }
       try {
-        await fetchServices();
+        await refreshScenarioList(true);
       } catch {
         /* ignore */
       }
@@ -981,23 +1172,15 @@
 
   async function startFeature(featureId) {
     if (featureId === "zero") return startZeroFeature();
-    if (featureId === "tracking") {
-      const mode = selectedTrackingMode();
-      const featureName = trackingFeatureNameForMode(mode);
-      return featureApiToggle(featureName, true, { featureId, mode });
-    }
-    if (featureId === "recon") return startReconFeature();
+    if (featureId === "tracking") return featureApiToggle("face_tracking", true);
+    if (featureId === "recon") return featureApiToggle("recon", true);
     throw new Error(`unknown feature ${featureId}`);
   }
 
   async function stopFeature(featureId) {
     if (featureId === "zero") return startZeroFeature();
-    if (featureId === "tracking") {
-      const activeMode = normalizeTrackingMode(getTrackingState().mode) || selectedTrackingMode();
-      const featureName = trackingFeatureNameForMode(activeMode);
-      return featureApiToggle(featureName, false, { featureId, mode: activeMode });
-    }
-    if (featureId === "recon") return stopReconFeature();
+    if (featureId === "tracking") return featureApiToggle("face_tracking", false);
+    if (featureId === "recon") return featureApiToggle("recon", false);
     throw new Error(`unknown feature ${featureId}`);
   }
 
@@ -1032,71 +1215,23 @@
     }
   }
 
-  function reconStrategyValue() {
-    const sel = qs("#reconStrategy");
-    if (!sel || !sel.value) return "STOP";
-    return String(sel.value || "STOP").toUpperCase();
+  async function logicFeatureToggle(featureName, enabled) {
+    return httpPost(`/api/logic/feature/${encodeURIComponent(featureName)}`, { enabled });
   }
 
-  async function startZeroFeature() {
-    await featureApiToggle("face_tracking", false, { featureId: "tracking" });
-    await featureApiToggle("hand_tracking", false, { featureId: "tracking" });
-    await featureApiToggle("recon", false, { featureId: "recon" });
-    setFeatureStatus("zero", "running", t("motion.feature_note_waiting"));
-    appendLog("[feature zero] minimal stack ready", "ok");
-  }
-
-  async function startReconFeature() {
-    const toggleRes = await featureApiToggle("recon", true, { featureId: "recon" });
-    if (!toggleRes || toggleRes.ok === false) return toggleRes;
-    try {
-      const strategy = reconStrategyValue();
-      await httpPost("/api/navigator/start", { strategy });
-      appendLog(`[feature recon] start strategy=${strategy}`, "ok");
-    } catch (e) {
-      appendLog(`[feature recon] navigator/start :: ${e.message || e}`, "warn");
-    }
-    return toggleRes;
-  }
-
-  async function stopReconFeature() {
-    try {
-      await httpPost("/api/navigator/stop", {});
-    } catch (e) {
-      appendLog(`[feature recon] navigator/stop :: ${e.message || e}`, "warn");
-    }
-    const res = await featureApiToggle("recon", false, { featureId: "recon" });
-    return res;
-  }
-
-  async function featureApiToggle(featureName, enabled, opts = {}) {
-    if (!remoteOnline) {
-      appendLog(`[feature ${featureName}] skipped – offline`, "warn");
-      setFeatureStatus(opts.featureId || "tracking", "error", "offline");
-      return { ok: false, error: "offline" };
-    }
-    const payload = { enabled };
-    const url = `/api/logic/feature/${encodeURIComponent(featureName)}`;
-    const res = await httpPost(url, payload);
-    const mode =
-      featureName === "hand_tracking"
-        ? "hand"
-        : featureName === "face_tracking"
-          ? "face"
-          : selectedTrackingMode();
-    const note =
-      featureName === "face_tracking" || featureName === "hand_tracking"
-        ? t("motion.feature_note_mode", { mode })
-        : enabled
-          ? ""
-          : t("motion.feature_status_stopped");
-    const targetState = res.ok ? (enabled ? "running" : "stopped") : "error";
-    const targetFeature =
-      opts.featureId ||
-      (featureName === "recon"
-        ? "recon"
-        : "tracking");
-    setFeatureStatus(targetFeature, targetState, note);
+  async function featureApiToggle(featureName, enabled) {
+    const res = await logicFeatureToggle(featureName, enabled);
+    const modeNote = featureName === "face_tracking" ? selectedTrackingMode() : "";
+    const note = enabled
+      ? featureName === "face_tracking"
+        ? t("motion.feature_note_mode", { mode: modeNote })
+        : ""
+      : t("motion.feature_status_stopped");
+    setFeatureStatus(
+      featureName === "recon" ? "recon" : "tracking",
+      res.ok ? "running" : "error",
+      note,
+    );
     appendLog(
       `[feature ${featureName}] ${enabled ? "start" : "stop"} :: ${JSON.stringify(res)}`,
       res.ok ? "ok" : "err",
@@ -1104,41 +1239,9 @@
     return res;
   }
 
-  // --- systemd actions via /svc ---
-  async function svcAction(unit, action) {
-    try {
-      const res = await httpPost(`/svc/${encodeURIComponent(unit)}`, { action });
-      appendLog(
-        `[svc] ${unit} ${action} :: ${JSON.stringify(res)}`,
-        res.ok ? "ok" : "err",
-      );
-      await fetchServices();
-      return res;
-    } catch (e) {
-      appendLog(
-        `[svc] ${unit} ${action} :: ${e.message || e}`,
-        "err",
-      );
-    }
-  }
-
-  function applySvcFilter() {
-    const rows = document.querySelectorAll("#svcBody tr");
-    rows.forEach((tr) => {
-      const state = tr.dataset.state || "unknown";
-      const visible =
-        svcFilterMode === "all" ||
-        state === svcFilterMode ||
-        (svcFilterMode === "warn" && state === "unknown");
-      tr.hidden = !visible;
-    });
-  }
-
-  // --- systemd list: /svc ---
   async function fetchServices() {
     try {
       const data = await fetchJson("/svc");
-      remoteOnline = true;
       const services = Array.isArray(data?.services) ? data.services : [];
       const tbody = qs("#svcBody");
       const table = qs("#svcTable");
@@ -1148,16 +1251,14 @@
 
       svcCache.clear();
       tbody.innerHTML = "";
+
       const normalizeSvcValue = (value) => String(value ?? "").trim().toLowerCase();
 
       function describeStatus(activeValue, subValue) {
         const activeNorm = normalizeSvcValue(activeValue);
         const subNorm = normalizeSvcValue(subValue);
         if (!activeNorm && !subNorm) {
-          return {
-            cls: "svc-state-unknown",
-            text: t("services.status_unknown"),
-          };
+          return { cls: "svc-state-unknown", text: t("services.status_unknown") };
         }
         if (
           activeNorm.includes("fail") ||
@@ -1209,18 +1310,12 @@
           return { cls: "svc-state-ok", text: t("services.autostart_enabled") };
         }
         if (normalized.startsWith("disabled")) {
-          return {
-            cls: "svc-state-warn",
-            text: t("services.autostart_disabled"),
-          };
+          return { cls: "svc-state-warn", text: t("services.autostart_disabled") };
         }
         if (normalized.startsWith("masked")) {
           return { cls: "svc-state-err", text: t("services.autostart_masked") };
         }
-        return {
-          cls: "svc-state-unknown",
-          text: rawValue || t("services.autostart_unknown"),
-        };
+        return { cls: "svc-state-unknown", text: rawValue || t("services.autostart_unknown") };
       }
 
       services.forEach((svc) => {
@@ -1289,11 +1384,54 @@
       }
       applySvcFilter();
     } catch (e) {
-      remoteOnline = false;
-      markOfflineUI();
       appendLog(
         `/svc fetch failed :: ${e.message || e}`,
         "err",
+      );
+    }
+  }
+
+  async function svcAction(unit, action) {
+    try {
+      const res = await httpPost(`/svc/${encodeURIComponent(unit)}`, { action });
+      appendLog(
+        `[svc] ${unit} ${action} :: ${JSON.stringify(res)}`,
+        res.ok ? "ok" : "err",
+      );
+      await fetchServices();
+      return res;
+    } catch (e) {
+      appendLog(
+        `[svc] ${unit} ${action} :: ${e.message || e}`,
+        "err",
+      );
+    }
+  }
+
+  function applySvcFilter() {
+    const rows = document.querySelectorAll("#svcBody tr");
+    rows.forEach((tr) => {
+      const state = tr.dataset.state || "unknown";
+      const visible =
+        svcFilterMode === "all" ||
+        state === svcFilterMode ||
+        (svcFilterMode === "warn" && state === "unknown");
+      tr.hidden = !visible;
+    });
+  }
+
+  async function flushMotionQueue(reason = "manual-ui") {
+    try {
+      await apiControl({ cmd: "stop", reason, clear: true });
+      await fetchMotionQueue();
+      appendLog(
+        `[motion queue] flushed (${reason})`,
+        "ok",
+      );
+    } catch (e) {
+      appendLog(
+        `[motion queue] flush failed :: ${e.message || e}`,
+        "warn",
       );
     }
   }
@@ -1545,22 +1683,6 @@
     });
   }
 
-  async function flushMotionQueue(reason = "manual-ui") {
-    try {
-      await apiControl({ cmd: "stop", reason, clear: true });
-      await fetchMotionQueue();
-      appendLog(
-        `[motion queue] flushed (${reason})`,
-        "ok",
-      );
-    } catch (e) {
-      appendLog(
-        `[motion queue] flush failed :: ${e.message || e}`,
-        "warn",
-      );
-    }
-  }
-
   // === RESOURCES DIAG ===
   async function updateResourceRow(resName) {
     const tr = document.querySelector(`tr[data-res="${resName}"]`);
@@ -1592,10 +1714,6 @@
   }
 
   async function fetchResources() {
-    if (!remoteOnline) {
-      markOfflineUI();
-      return;
-    }
     try {
       const rows = Array.from(document.querySelectorAll("tr[data-res]"));
       await Promise.all(rows.map((tr) => updateResourceRow(tr.getAttribute("data-res"))));
@@ -1628,17 +1746,14 @@
 
   // === MOTION QUEUE (tylko UI) ===
   async function fetchMotionQueue() {
-    if (!remoteOnline) {
-      markOfflineUI();
-      return;
-    }
     try {
       const j = await fetchJson("/api/motion/queue");
       const info = qs("#motionQueueInfo");
       const body = qs("#motionQueueBody");
       if (!info || !body) return;
       body.innerHTML = "";
-      if (!Array.isArray(j.items) || j.items.length === 0) {
+      const items = Array.isArray(j.items) ? j.items : [];
+      if (!items.length) {
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td colspan="7" class="muted" data-i18n="motion_queue.empty_placeholder">
@@ -1646,7 +1761,10 @@
           </td>`;
         body.appendChild(tr);
       } else {
-        j.items.forEach((item) => {
+        items.slice(0, 10).forEach((item) => {
+          const statusNote = item.reason
+            ? `<div class="muted">${item.reason}</div>`
+            : "";
           const tr = document.createElement("tr");
           tr.innerHTML = `
             <td>${item.source || "-"}</td>
@@ -1654,14 +1772,16 @@
             <td>${item.vy ?? "-"}</td>
             <td>${item.yaw ?? "-"}</td>
             <td>${item.time_s ?? "-"}</td>
-            <td>${item.status || "-"}</td>
+            <td>${item.status || "-"}${statusNote}</td>
             <td>${item.age_s ?? "-"}</td>
           `;
           body.appendChild(tr);
         });
       }
-      info.textContent = t("motion_queue.loaded_at", {
-        ts: new Date().toLocaleTimeString(),
+      info.textContent = t("motion_queue.last_update", {
+        time: j.generated_at
+          ? new Date(j.generated_at * 1000).toLocaleTimeString()
+          : new Date().toLocaleTimeString(),
       });
     } catch (e) {
       appendLog(
@@ -1714,46 +1834,41 @@
   });
 
   setInterval(() => {
-    if (camAuto && remoteOnline) updateCamSrc();
+    if (camAuto) updateCamSrc();
   }, 1000);
 
   setInterval(() => {
     fetchProviderState().catch(() => {});
   }, 7000);
+  setInterval(() => {
+    refreshScenarioList(true).catch(() => {});
+  }, 5000);
 
   // === SSE EVENTS ===
-  let es = null;
-  function startSse() {
-    if (es) return;
-    try {
-      es = new EventSource("/events");
-      es.onmessage = (ev) => {
-        if (!remoteOnline) return;
-        appendLog(ev.data || String(ev), "muted");
-      };
-      es.onerror = () => {
-        appendLog("SSE: error, reconnecting…", "warn");
-        es.close();
-        es = null;
-        setTimeout(() => {
-          if (remoteOnline) startSse();
-        }, 10000);
-      };
-    } catch (e) {
-      appendLog(`SSE init failed :: ${e.message || e}`, "warn");
-    }
+  try {
+    const es = new EventSource("/events");
+    es.onmessage = (ev) => {
+      appendLog(ev.data || String(ev), "muted");
+    };
+    es.onerror = () => {
+      appendLog("SSE: error, reconnecting…", "warn");
+      es.close();
+      setTimeout(() => {
+        location.reload();
+      }, 10000);
+    };
+  } catch (e) {
+    appendLog(`SSE init failed :: ${e.message || e}`, "warn");
   }
-  startSse();
 
   // initial loads
-  (async () => {
-    try { await fetchControlState(); } catch { /* offline handled inside */ }
-    fetchServices().catch(() => {});
-    fetchResources().catch(() => {});
-    fetchAiModeStatus().catch(() => {});
-    fetchProviderState().catch(() => {});
-    fetchMotionQueue().catch(() => {});
-  })();
+  fetchServices().catch(() => {});
+  fetchResources().catch(() => {});
+  fetchAiModeStatus().catch(() => {});
+  fetchProviderState().catch(() => {});
+  fetchControlState().catch(() => {});
+  fetchMotionQueue().catch(() => {});
+  refreshScenarioList().catch(() => {});
 </script>
 </body>
 </html>
