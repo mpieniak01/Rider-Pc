@@ -178,13 +178,11 @@
     </div>
 
     <div class="c-card">
-      <h3 data-i18n="dash.links.title">Linki</h3>
-      <div class="c-kv">
-        <div data-i18n="dash.links.events">zdarzenia (SSE)</div><div><a href="/events" target="_blank">/events</a></div>
-        <div data-i18n="dash.links.metrics">metryki</div><div><a href="/metrics" target="_blank">/metrics</a></div>
-        <div>system dashboard</div><div><a href="/system/" target="_blank">/system/</a></div>
-        <div data-i18n="dash.links.control">sterowanie</div><div><a href="/control">/control</a></div>
-        <div data-i18n="dash.links.home">google.home</div><div><a href="/home">/home</a></div>
+      <h3>Historia (60 s) — PC CPU / MEM</h3>
+      <canvas id="chartPc" width="300" height="140"></canvas>
+      <div class="c-legend">
+        <span><i class="c-legend__dot cpu"></i><span>cpu%</span></span>
+        <span><i class="c-legend__dot mem"></i><span>mem%</span></span>
       </div>
     </div>
 
@@ -264,8 +262,8 @@ window.addEventListener('dashboard:langchange',ev=>{
 });
 
 /* wykres CPU/MEM */
-function drawChart(cpuArr=[], memArr=[]){
-  const c=el('chart'); if(!c) return; const ctx=c.getContext('2d');
+function drawChart(cpuArr=[], memArr=[], canvasId='chart'){
+  const c=el(canvasId); if(!c) return; const ctx=c.getContext('2d');
   ctx.clearRect(0,0,c.width,c.height);
   const padL=30,padT=10,padR=10,padB=10; const W=c.width-padL-padR,H=c.height-padT-padB;
   ctx.strokeStyle='#1d3548'; ctx.strokeRect(padL,padT,W,H);
@@ -317,14 +315,18 @@ function defaultPort(proto){
 
 function applyPcSystemMetrics(data){
   if(!data) return;
-  setTxt('pcCpu', data.cpu_pct != null ? `${fmt(data.cpu_pct,1)}%` : '—');
+  const cpuPct = data.cpu_pct != null ? Number(data.cpu_pct) : null;
+  if(cpuPct!=null) setTxt('pcCpu', `${fmt(cpuPct,1)}%`);
+  else setTxt('pcCpu','—');
   if(data.load1 != null && data.load5 != null && data.load15 != null){
     setTxt('pcLoad', `${fmt(data.load1,2)}/${fmt(data.load5,2)}/${fmt(data.load15,2)}`);
   } else {
     setTxt('pcLoad','—');
   }
+  let memPct = null;
   if(data.mem_total_mb != null && data.mem_used_mb != null){
-    const pct = data.mem_pct != null ? ` (${fmt(data.mem_pct,1)}%)` : '';
+    memPct = data.mem_pct != null ? Number(data.mem_pct) : (data.mem_total_mb ? (data.mem_used_mb / data.mem_total_mb) * 100 : null);
+    const pct = memPct != null ? ` (${fmt(memPct,1)}%)` : '';
     setTxt('pcMem', `${fmt(data.mem_used_mb,1)} / ${fmt(data.mem_total_mb,1)} MB${pct}`);
   } else {
     setTxt('pcMem','—');
@@ -336,6 +338,15 @@ function applyPcSystemMetrics(data){
     setTxt('pcDisk','—');
   }
   setTxt('pcUptime', data.uptime_s != null ? formatDuration(data.uptime_s) : '—');
+  if(cpuPct!=null){
+    pcHistCpu.push(Math.max(0, Math.min(100, cpuPct)));
+    if(pcHistCpu.length>PC_HISTORY_LIMIT) pcHistCpu.shift();
+  }
+  if(memPct!=null){
+    pcHistMem.push(Math.max(0, Math.min(100, memPct)));
+    if(pcHistMem.length>PC_HISTORY_LIMIT) pcHistMem.shift();
+  }
+  drawChart(pcHistCpu, pcHistMem, 'chartPc');
 }
 
 async function refreshPcSystemMetrics(){
@@ -543,6 +554,9 @@ async function busHeartbeatFallback(){
 
 /* ===== STATE ===== */
 let lastHealth=null, lastState=null;
+const pcHistCpu = [];
+const pcHistMem = [];
+const PC_HISTORY_LIMIT = 60;
 
 function updateStateUI(s){
   setTxt('p_present',String(!!s.present)); setCls('p_present',s.present?'ok':'bad');
@@ -734,7 +748,7 @@ function applySysinfo(si){
     si.kernel ||
     (lastState?.fw ?? lastState?.firmware ?? lastState?.firmware_version ?? lastState?.fw_version);
   if (fw) setTxt('ci_fw', fw);
-  drawChart(si.hist_cpu || [], si.hist_mem || []);
+  drawChart(si.hist_cpu || [], si.hist_mem || [], 'chart');
 }
 
 /* ===== API Metrics ===== */
