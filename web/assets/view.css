@@ -198,3 +198,74 @@ body[data-page="view"] .metric-highlight {
   font-weight: 600;
   margin-top: 4px;
 }
+
+body[data-page="view"] .pc-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+body[data-page="view"] .pc-status::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #4e6074;
+}
+
+body[data-page="view"] .pc-status.ok::before {
+  background: #5fe39a;
+}
+
+body[data-page="view"] .pc-status.off::before {
+  background: #4e6074;
+}
+
+body[data-page="view"] .pc-service-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+body[data-page="view"] .pc-service {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+body[data-page="view"] .pc-service:last-child {
+  border-bottom: none;
+}
+
+body[data-page="view"] .pc-service-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #4e6074;
+  flex-shrink: 0;
+}
+
+body[data-page="view"] .pc-service-dot.ok {
+  background: #5fe39a;
+}
+
+body[data-page="view"] .pc-service-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+body[data-page="view"] .pc-service-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+body[data-page="view"] .pc-service-meta {
+  font-size: 12px;
+  color: var(--muted);
+}

@@ -155,12 +155,24 @@
 
   <!-- RZĄD 4: Info + Linki + TRACKER w jednym rzędzie -->
   <div class="l-grid">
-    <div class="c-card c-card--span2">
-      <h3>Info</h3>
-      <div class="c-hint c-hint--muted">
-        Tracker stream pokazuje wykrywaną twarz lub dłoń z zaznaczonym okręgiem oraz aktualnym FPS przetwarzania.
-        Minimalna akceptowalna wartość FPS to 10. Użyj endpointu /api/vision/tracking/mode aby włączyć tryb Follow Me (face/hand).
+    <div class="c-card">
+      <h3>System PC</h3>
+      <div class="c-kv">
+        <div>Host</div><div id="pcHostInfo">—</div>
+        <div>Adres panelu</div><div id="pcOriginInfo">—</div>
+        <div>Status (live)</div><div><span id="pcLiveStatus" class="pc-status">—</span></div>
+        <div>Status (ready)</div><div><span id="pcReadyStatus" class="pc-status">—</span></div>
+        <div>Ostatnia aktualizacja</div><div id="pcUpdatedTs">—</div>
       </div>
+      <div class="c-hint c-hint--sub">Dane z /health/live i /health/ready lokalnego serwera Rider-PC.</div>
+    </div>
+
+    <div class="c-card">
+      <h3>Usługi PC</h3>
+      <div id="pcServiceList" class="pc-service-list">
+        <div class="muted">Trwa sprawdzanie...</div>
+      </div>
+      <div class="c-hint c-hint--sub">Status lokalnych endpointów Rider-PC.</div>
     </div>
 
     <div class="c-card">
@@ -202,6 +214,15 @@ import { initI18n, applyDom, t } from '/web/assets/i18n.js?v=3';
 
 const REFRESH_MS = 2000;
 const SNAP_STALE_S = 5;
+const PC_SYSTEM_REFRESH_MS = 5000;
+const PC_SERVICE_REFRESH_MS = 7000;
+const PC_SERVICE_CHECKS = [
+  { label: 'Panel /health/live', url: '/health/live', noCors: false },
+  { label: 'Panel /metrics', url: '/metrics', noCors: false },
+  { label: 'Prometheus 9090', url: 'http://127.0.0.1:9090/-/ready', noCors: true },
+  { label: 'Grafana 3000', url: 'http://127.0.0.1:3000/api/health', noCors: true },
+  { label: 'Redis 6379', url: 'redis://127.0.0.1:6379', skip: true },
+];
 
 const el = id=>document.getElementById(id);
 const setTxt=(id,txt)=>{const e=el(id); if(e) e.textContent=txt}
@@ -275,6 +296,111 @@ function cameraResourceSummary(){
     tooltip: holdersTxt,
     holders: holdersTxt,
   };
+}
+
+/* ===== PC SELF STATUS ===== */
+function setPcStatus(id, state){
+  const node = el(id);
+  if(!node) return;
+  node.textContent = state?.label || '—';
+  node.className = 'pc-status ' + (state?.ok ? 'ok' : 'off');
+}
+
+function defaultPort(proto){
+  return proto === 'https:' ? '443' : '80';
+}
+
+async function refreshPcSystem(){
+  const info = {
+    host: window.location.host,
+    origin: window.location.origin,
+    updated: new Date().toLocaleTimeString(),
+  };
+
+  try{
+    const r = await fetch('/health/live', { cache: 'no-store' });
+    if (r.ok) {
+      const j = await r.json().catch(() => null);
+      info.live = { ok: true, label: j?.status || 'online' };
+    } else {
+      info.live = { ok: false, label: `HTTP ${r.status}` };
+    }
+  } catch {
+    info.live = { ok: false, label: 'offline' };
+  }
+
+  try{
+    const r = await fetch('/health/ready', { cache: 'no-store' });
+    const j = await r.json().catch(() => null);
+    const ok = r.ok && j?.status === 'ready';
+    info.ready = { ok, label: j?.status || (r.ok ? 'ready' : `HTTP ${r.status}`) };
+  } catch {
+    info.ready = { ok: false, label: 'offline' };
+  }
+
+  setTxt('pcHostInfo', info.host || '—');
+  setTxt('pcOriginInfo', info.origin || '—');
+  setPcStatus('pcLiveStatus', info.live);
+  setPcStatus('pcReadyStatus', info.ready);
+  setTxt('pcUpdatedTs', info.updated || '—');
+}
+
+function renderPcServices(items){
+  const list = el('pcServiceList');
+  if(!list) return;
+  if(!items.length){
+    list.innerHTML = '<div class="muted">Brak danych</div>';
+    return;
+  }
+  list.innerHTML = '';
+  items.forEach((svc) => {
+    const row = document.createElement('div');
+    row.className = 'pc-service';
+    const dot = document.createElement('span');
+    let stateCls = 'off';
+    if (svc.ok === true) stateCls = 'ok';
+    if (svc.ok === null) stateCls = '';
+    dot.className = 'pc-service-dot ' + stateCls;
+    row.appendChild(dot);
+
+    const body = document.createElement('div');
+    body.className = 'pc-service-body';
+    const name = document.createElement('div');
+    name.className = 'pc-service-name';
+    name.textContent = svc.label;
+    const meta = document.createElement('div');
+    meta.className = 'pc-service-meta';
+    meta.textContent = svc.meta + (svc.ok === null ? ' • brak automatycznej kontroli' : '');
+    body.appendChild(name);
+    body.appendChild(meta);
+    row.appendChild(body);
+    list.appendChild(row);
+  });
+}
+
+async function refreshPcServices(){
+  const statuses = [];
+  for (const svc of PC_SERVICE_CHECKS) {
+    const isSkip = svc.skip;
+    const target = svc.url.startsWith('http') ? new URL(svc.url) : new URL(svc.url, window.location.origin);
+    const meta = `${target.hostname}:${target.port || defaultPort(target.protocol)}${target.pathname}`;
+    let ok = null;
+    if (!isSkip) {
+      try{
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 2500);
+        const opts = { cache: 'no-store', signal: controller.signal };
+        if (svc.noCors) opts.mode = 'no-cors';
+        const resp = await fetch(target.toString(), opts);
+        clearTimeout(timeout);
+        ok = svc.noCors ? true : resp.ok;
+      }catch{
+        ok = false;
+      }
+    }
+    statuses.push({ label: svc.label, meta, ok });
+  }
+  renderPcServices(statuses);
 }
 
 function setCamBadgeAndMeta(cam){
@@ -643,6 +769,8 @@ function startSSE(){ try{ const es=new EventSource('/events'); es.onmessage=()=>
 setInterval(tick, REFRESH_MS); tick();
 setInterval(fetchObstacle, REFRESH_MS); fetchObstacle();
 setInterval(refreshApiMetrics, REFRESH_MS); refreshApiMetrics();
+setInterval(refreshPcSystem, PC_SYSTEM_REFRESH_MS); refreshPcSystem();
+setInterval(refreshPcServices, PC_SERVICE_REFRESH_MS); refreshPcServices();
 startSSE();
 </script>
 <script type="module" src="/web/assets/menu.js"></script>
