@@ -1,16 +1,16 @@
 ## Plan dostosowania Rider-PC do architektury Rider-Pi (/mp)
 
 ### Cel nadrzędny
-- Zapewnienie pełnej kompatybilności API i UI pomiędzy Rider-Pc a Rider-Pi, z naciskiem na ekran `control`, ale także na pozostałe widoki i warstwę backendową.
+- Zapewnienie pełnej kompatybilności API i UI pomiędzy Rider-PC a Rider-Pi, z naciskiem na ekran `control`, ale także na pozostałe widoki i warstwę backendową.
 - Repozytorium powiązanego projektu: https://github.com/mpieniak01/Rider-Pi 
 
 ### Zakres zmian
 1. **Warstwa API/adapterów**
-   - Dodanie brakujących endpointów proxy (`/api/logic/summary`, `/api/logic/features`, rozszerzone `/svc`, ewentualne `/events`).
+   - Dodanie brakujących endpointów proxy (`/api/logic/summary`, `/api/logic/features`, rozszerzone `/svc`, opcjonalnie `/events` – jeśli zajdzie taka potrzeba).
    - Ujednolicenie kontraktów danych (np. `source` w `/api/control`, `reason` w `/api/motion/queue`).
 2. **Ekran `control`**
    - Przeniesienie scenariuszy/targetów (panel + logika JS) z Rider-Pi.
-   - Uaktualnienie kart funkcji (Zero/Tracking/Rekon) oraz sekcji diagnostycznych (usługi, zasoby, kolejka ruchu, log SSE).
+   - Uaktualnienie kart funkcji (Zero/Tracking/Rekonesans) oraz sekcji diagnostycznych (usługi, zasoby, kolejka ruchu, log SSE).
 3. **Pozostałe widoki web**
    - Wyrównanie zmian w `mode`, `navigation`, `providers`, `system` zgodnie z Rider-Pi (nowe komponenty i interakcje).
 4. **Styling / I18n**
@@ -42,12 +42,12 @@
 2. Ujednolicić obsługę kart funkcji:
    - Tryb Zero – dezaktywuje tylko tracking + recon.
    - Tracking – jeden endpoint `face_tracking`, synchronizacja selektora.
-   - Rekonesans – brak lokalnych wywołań `/api/navigator/start/stop`, rely on FeatureManager.
+   - Rekonesans – brak lokalnych wywołań `/api/navigator/start/stop`, rely on FeatureManager (komponent zarządzający dostępnością funkcji; patrz dokumentacja w `docs/feature_manager.md`).
 3. Sekcje diagnostyczne:
    - Tabela usług w `<details>`, nowy layout.
-   - Kolejka ruchu – nowe kolumny (`reason`, `generated_at`) i brak zależności od `remoteOnline`.
+   - Kolejka ruchu – nowe kolumny (`reason`, `generated_at`) i brak zależności od `remoteOnline` (obecnie używane np. w `src/web/control/queue.js`, metoda `renderQueueTable`).
    - Zasoby i kamera – usunąć agresywne czyszczenie UI przy błędach.
-4. SSE – uproszczony handler (reload przy błędzie, brak `remoteOnline` guard).
+4. SSE – uproszczony handler (ponowne nawiązanie połączenia SSE przy błędzie, brak `remoteOnline` guard).
 
 #### Faza 4 – Pozostałe widoki
 1. `mode.html` – sprawdzić różnice (np. dynamiczny wybór providerów AI) i przenieść brakujące elementy.
@@ -60,7 +60,7 @@
    - **Frontend:** Testy jednostkowe logiki (np. moduły JS) oraz UI (snapshoty DOM/Playwright) dla scenariuszy, kart funkcji, kolejki ruchu.
    - **Regresja:** Dostosować istniejące testy (np. `tests/test_features_api.py`, `tests/test_suite.sh`) do nowego kontraktu.
 2. Uaktualnić `docs_pl/NOTATKI_REPLIKACJI.md` + `docs/ui/control.md` o nowy stan Rider-PC.
-3. Dopisać checklistę wydania (np. `docs_pl/_to_do/checklist_control.md`).
+3. Dopisać checklistę wydania (np. `docs_pl/_to_do/checklist_control.md`), uwzględniając kluczowe punkty: zgodność API, testy UI/backend, aktualizację dokumentacji, review zmian. Alternatywnie, można bazować na szablonie `docs_pl/_to_do/checklist_template.md` dla zachowania spójności.
 
 ### Zależności i ryzyka
 - Zależność od aktualnej wersji Rider-Pi – konieczne monitorowanie upstream (release notes).
