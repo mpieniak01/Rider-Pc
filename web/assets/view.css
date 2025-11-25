@@ -227,14 +227,14 @@ body[data-page="view"] .pc-status.off::before {
 body[data-page="view"] .pc-service-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 
 body[data-page="view"] .pc-service {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 0;
+  padding: 4px 0;
   border-bottom: 1px solid rgba(255,255,255,0.04);
 }
 
