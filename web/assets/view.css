@@ -48,6 +48,11 @@ body[data-page="view"] .c-kv div {
   opacity: 0.9;
 }
 
+body[data-page="view"] .c-kv div:nth-child(odd) {
+  font-weight: 400;
+  text-transform: capitalize;
+}
+
 body[data-page="view"] .ok {
   color: #5fe39a;
 }
