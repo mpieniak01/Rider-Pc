@@ -31,6 +31,7 @@
         <div data-i18n="dash.system.disk">dysk</div><div id="ci_disk" class="muted">—</div>
         <div data-i18n="dash.system.os">os</div><div id="ci_os" class="muted">—</div>
         <div data-i18n="dash.system.fw">fw</div><div id="ci_fw" class="muted">—</div>
+        <div>host</div><div id="ci_host" class="muted">—</div>
       </div>
     </div>
 
@@ -725,6 +726,7 @@ function applySysinfo(si){
   setTxt('d_temp', (si.temp_c!=null ? fmt(si.temp_c,1)+' °C' : '—'));
   const fw = si.fw || si.fw_version || si.firmware || si.version;
   if (fw) setTxt('ci_fw', fw);
+  setTxt('ci_host', si.host || si.hostname || '—');
   drawChart(si.hist_cpu || [], si.hist_mem || []);
 }
 
