@@ -166,7 +166,6 @@
         <div>Load (1/5/15)</div><div id="pcLoad">—</div>
         <div>Pamięć</div><div id="pcMem">—</div>
         <div>Dysk</div><div id="pcDisk">—</div>
-        <div>Temperatura</div><div id="pcTemp">—</div>
         <div>Uptime</div><div id="pcUptime">—</div>
         <div>Ost. aktualizacja</div><div id="pcUpdatedTs">—</div>
       </div>
@@ -377,7 +376,6 @@ function applyPcSystemMetrics(data){
   } else {
     setTxt('pcDisk','—');
   }
-  setTxt('pcTemp', data.temp_c != null ? `${fmt(data.temp_c,1)} °C` : '—');
   setTxt('pcUptime', data.uptime_s != null ? formatDuration(data.uptime_s) : '—');
   setTxt('pcUpdatedTs', new Date().toLocaleTimeString());
 }
@@ -393,7 +391,6 @@ async function refreshPcSystemMetrics(){
     setTxt('pcLoad','—');
     setTxt('pcMem','—');
     setTxt('pcDisk','—');
-    setTxt('pcTemp','—');
     setTxt('pcUptime','—');
     setTxt('pcUpdatedTs','błąd');
   }

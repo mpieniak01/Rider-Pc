@@ -17,3 +17,9 @@
    - Dopisać wzmiankę w `docs_pl/NOTATKI_REPLIKACJI.md` oraz `docs_pl/_to_do/etap5_testy_i_docs.md` o nowym API i UI.
 5. Dependencies:
    - Jeśli korzystamy z `psutil`, dopisać do `requirements.txt` i wspomnieć w README (instalacja).
+
+### Realizacja
+- ✅ `requirements(.ci).txt` rozszerzone o `psutil==6.1.0`.
+- ✅ Nowy moduł `pc_client/utils/system_info.py` + endpoint `GET /status/system-pc` (cache 5 s) oraz test `tests/test_status_system_pc.py` (mock metryk).
+- ✅ `web/view.html`/`view.css` – sekcja „System PC” pokazuje CPU/load/pamięć/dysk/temperaturę/uptime + statusy `/health/*`; lista „Usługi PC” monitoruje panel, Prometheus, Grafanę, Redis.
+- ✅ `docs_pl/NOTATKI_REPLIKACJI.md` zaktualizowane o wzmiankę nt. nowego API.
