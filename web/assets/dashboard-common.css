@@ -51,9 +51,6 @@ main, .wrap {
   margin: 0 auto;
   padding: var(--page-padding);
 }
-.page-title {
-  color: var(--accent);
-}
 .page, .wrap {
   width: 100%;
 }

@@ -1,0 +1,74 @@
+## Plan dostosowania Rider-PC do architektury Rider-Pi (/mp)
+
+### Cel nadrzędny
+- Zapewnienie pełnej kompatybilności API i UI pomiędzy Rider-PC a Rider-Pi, z naciskiem na ekran `control`, ale także na pozostałe widoki i warstwę backendową.
+- Repozytorium powiązanego projektu: https://github.com/mpieniak01/Rider-Pi 
+
+### Zakres zmian
+1. **Warstwa API/adapterów**
+   - Dodanie brakujących endpointów proxy (`/api/logic/summary`, `/api/logic/features`, rozszerzone `/svc`, opcjonalnie `/events` – jeśli zajdzie taka potrzeba).
+   - Ujednolicenie kontraktów danych (np. `source` w `/api/control`, `reason` w `/api/motion/queue`).
+2. **Ekran `control`**
+   - Przeniesienie scenariuszy/targetów (panel + logika JS) z Rider-Pi.
+   - Uaktualnienie kart funkcji (Zero/Tracking/Rekonesans) oraz sekcji diagnostycznych (usługi, zasoby, kolejka ruchu, log SSE).
+3. **Pozostałe widoki web**
+   - Wyrównanie zmian w `mode`, `navigation`, `providers`, `system` zgodnie z Rider-Pi (nowe komponenty i interakcje).
+4. **Styling / I18n**
+   - Synchronizacja arkuszy CSS i plików tłumaczeń po stronie PC.
+5. **Testy i dokumentacja**
+   - Dodanie testów jednostkowych i e2e dla nowych endpointów oraz logiki UI.
+   - Dostosowanie istniejących testów UI (np. Playwright/pytest) do zmian layoutu.
+   - Aktualizacja dokumentacji w `docs_pl` i `docs`.
+
+### Plan realizacji
+
+#### Faza 1 – Audyt i przygotowanie
+1. Porównać repo Rider-Pi i Rider-Pc (web, adapters, routers) – lista różnic (już częściowo wykonane).
+2. Uzgodnić priorytety z właścicielami produktu (np. czy preferują szybkie porty, czy refaktor).
+
+#### Faza 2 – Backend / API
+1. **Adapter REST**
+   - Dodać metody `get_logic_summary`, `get_logic_features`, `get_svc_diagnostics`.
+2. **Router FastAPI**
+   - Nowe endpointy proxy: `GET /api/logic/summary`, `GET /api/logic/features`.
+   - Rozszerzenie `/api/motion/queue` o fallback na dane z Rider-Pi i pola `reason`, `generated_at`.
+3. **Serwer zdarzeń / SSE**
+   - Zweryfikować, czy PC poprawnie strumieniuje `/events`; w razie potrzeby wydzielić dedykowany moduł (np. `sse_manager`) odpowiedzialny za buforowanie, retry/backoff i dystrybucję zdarzeń, tak aby `control_router` pozostał cienką warstwą routingu.
+4. **Telemetry / control state**
+   - Dodanie tagu `source="pc-ui"` przy każdym forwardzie `/api/control`.
+
+#### Faza 3 – Frontend (web/control)
+1. Skopiować panel scenariuszy + logikę JS (rendering, auto-refresh, obsługa start/stop).
+2. Ujednolicić obsługę kart funkcji:
+   - Tryb Zero – dezaktywuje tylko tracking + recon.
+   - Tracking – jeden endpoint `face_tracking`, synchronizacja selektora.
+   - Rekonesans – brak lokalnych wywołań `/api/navigator/start/stop`, rely on FeatureManager (komponent zarządzający dostępnością funkcji; patrz dokumentacja w `docs/feature_manager.md`).
+3. Sekcje diagnostyczne:
+   - Tabela usług w `<details>`, nowy layout.
+   - Kolejka ruchu – nowe kolumny (`reason`, `generated_at`) i brak globalnego `remoteOnline`, ale z zachowaniem łagodnej degradacji UI (banner/komunikat „offline”, zachowanie cache ostatniego stanu, brak spamowania retry).
+   - Zasoby i kamera – usunąć agresywne czyszczenie UI przy błędach, zastąpić je komunikatem o problemie i automatyczną próbą odświeżenia z backoffem.
+4. SSE – uproszczony handler korzystający z `sse_manager`: pojedyncze źródło prawdy o statusie połączenia, kontrolowany retry/backoff i sygnalizacja statusu (np. badge „SSE reconnecting”), bez ręcznych `remoteOnline` guardów w komponentach.
+
+#### Faza 4 – Pozostałe widoki
+1. `mode.html` – sprawdzić różnice (np. dynamiczny wybór providerów AI) i przenieść brakujące elementy.
+2. `navigation.html` i `view.html` – wyrównać nowe komponenty (np. status przeszkód).
+3. `providers.html` – przenieść panel domain switching + badge Rider-PC.
+
+#### Faza 5 – Testy i dokumentacja
+1. Rozszerzyć pakiet testów:
+   - **Backend:** FastAPI unit/integration (nowe endpointy proxy, fallbacki, walidacja danych).
+   - **Frontend:** Testy jednostkowe logiki (np. moduły JS) oraz UI (snapshoty DOM/Playwright) dla scenariuszy, kart funkcji, kolejki ruchu.
+   - **Regresja:** Dostosować istniejące testy (np. `tests/test_features_api.py`, `tests/test_suite.sh`) do nowego kontraktu.
+2. Uaktualnić `docs_pl/NOTATKI_REPLIKACJI.md` + `docs/ui/control.md` o nowy stan Rider-PC.
+3. Dopisać checklistę wydania (np. `docs_pl/_to_do/checklist_control.md`), uwzględniając kluczowe punkty: zgodność API, testy UI/backend, aktualizację dokumentacji, review zmian. Alternatywnie, można bazować na szablonie `docs_pl/_to_do/checklist_template.md` dla zachowania spójności.
+
+### Zależności i ryzyka
+- Zależność od aktualnej wersji Rider-Pi – konieczne monitorowanie upstream (release notes).
+- Ryzyko konfliktów z lokalnymi modyfikacjami PC (np. niestandardowe style, feature flagi).
+- Potencjalna konieczność skalowania backendu PC (większa liczba requestów / SSE).
+
+### Definicja ukończenia
+- Ekran `control` Rider-PC jest wizualnie i funkcjonalnie zgodny z Rider-Pi, w tym scenariusze, diagnostyka i SSE.
+- API Rider-PC obsługuje wszystkie endpointy, które wykorzystuje UI (bez 404).
+- Testy backendowe oraz smoke test UI przechodzą w CI.
+- Dokumentacja `docs_pl` opisuje przeniesione zmiany i kroki konfiguracji.

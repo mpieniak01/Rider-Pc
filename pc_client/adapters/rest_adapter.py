@@ -433,6 +433,26 @@ class RestAdapter:
             logger.error(f"Error posting /api/vision/tracking/mode: {e}")
             return {"ok": False, "error": str(e)}
 
+    async def get_logic_features(self) -> Dict[str, Any]:
+        """Fetch logic feature registry from Rider-PI."""
+        try:
+            response = await self.client.get(f"{self.base_url}/api/logic/features")
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error fetching /api/logic/features: {e}")
+            return {"error": str(e)}
+
+    async def get_logic_summary(self) -> Dict[str, Any]:
+        """Fetch logic summary from Rider-PI."""
+        try:
+            response = await self.client.get(f"{self.base_url}/api/logic/summary")
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error fetching /api/logic/summary: {e}")
+            return {"error": str(e)}
+
     async def get_services(self) -> Dict[str, Any]:
         """Fetch systemd service list from Rider-PI."""
         try:
@@ -442,6 +462,10 @@ class RestAdapter:
         except Exception as e:
             logger.error(f"Error fetching /svc: {e}")
             return {"error": str(e)}
+
+    async def get_svc_diagnostics(self) -> Dict[str, Any]:
+        """Alias for get_services; kept for compatibility with Rider-Pi nomenclature."""
+        return await self.get_services()
 
     async def service_action(self, unit: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Forward service control action to Rider-PI."""

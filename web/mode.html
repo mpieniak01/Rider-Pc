@@ -1,125 +1,30 @@
 <!doctype html>
 <html lang="pl">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Rider-PC — Tryb AI</title>
-  <link rel="stylesheet" href="/web/assets/dashboard-common.css" />
-  <link rel="stylesheet" href="/web/assets/control.css" />
-  <link rel="stylesheet" href="/web/assets/mode.css" />
-</head>
-<body data-page="mode">
-<div data-dashboard-menu-target></div>
-<div class="wrap">
-  <h1 class="control-title page-title">
-    <span data-i18n="mode.page_title">Tryb i Provider Control</span>
-    <span id="apiStatus" class="muted control-status" data-i18n="header.api_status_checking">(checking…)</span>
-  </h1>
-
-  <div class="c-card ai-mode-card">
-    <h2 class="c-card__title">
-      <span data-i18n="ai_mode.title">Tryb AI</span>
-    </h2>
-    <p class="c-note ai-mode-description" data-i18n="ai_mode.description">
-      Wybierz tryb przetwarzania AI: lokalny (wszystko na Pi) lub offload (ciężkie obliczenia na PC).
-    </p>
-    <div class="ai-mode-list">
-      <div class="ai-mode-item">
-        <div class="ai-mode-label" data-i18n="ai_mode.current_label">Aktualny tryb</div>
-        <div class="ai-mode-value">
-          <span id="aiModeCurrentBadge" class="c-pill warn ai-mode-badge" data-i18n="ai_mode.loading">ładowanie…</span>
-        </div>
-      </div>
-      <div class="ai-mode-item">
-        <div class="ai-mode-label" data-i18n="ai_mode.op_status_label">Stan operacji</div>
-        <div class="ai-mode-value">
-          <span id="aiModeStatus" class="muted" data-i18n="ai_mode.status_checking">sprawdzanie…</span>
-        </div>
-      </div>
-      <div class="ai-mode-item">
-        <div class="ai-mode-label" data-i18n="ai_mode.last_changed">Ostatnia zmiana:</div>
-        <div class="ai-mode-value">
-          <span id="aiModeChangedTime">n/a</span>
-        </div>
-      </div>
-      <div class="ai-mode-item ai-mode-switch-col">
-        <div class="ai-mode-label" data-i18n="ai_mode.switch_label">Przełącz tryb</div>
-        <div class="ai-mode-value ai-mode-actions">
-          <button id="btnAiModeLocal" class="c-btn c-btn-sm" data-i18n="ai_mode.btn_local">🏠 Local (Pi)</button>
-          <button id="btnAiModeOffload" class="c-btn c-btn-sm" data-i18n="ai_mode.btn_offload">💻 PC Offload</button>
-        </div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Rider-PC — Tryb i Provider Control</title>
+    <link rel="stylesheet" href="/web/assets/dashboard-common.css" />
+    <link rel="stylesheet" href="/web/assets/control.css" />
+    <meta http-equiv="refresh" content="0;url=/control" />
+  </head>
+  <body data-page="mode">
+    <div data-dashboard-menu-target></div>
+    <div class="wrap">
+      <div class="c-card">
+        <h1 class="c-card__title">Panel przeniesiono</h1>
+        <p class="c-note">
+          Panel wyboru trybów AI i Provider Control został scalony z ekranem „Sterowanie”.
+          Zostaniesz przekierowany automatycznie, ale możesz też
+          <a href="/control">przejść bezpośrednio do /control</a>.
+        </p>
       </div>
     </div>
-  </div>
-
-  <div class="c-card provider-card">
-    <h2 class="c-card__title">
-      <span data-i18n="provider.title">Provider Control</span>
-      <span id="providerPcStatus" class="c-pill warn" data-i18n="provider.pc_status_unknown">PC status: unknown</span>
-    </h2>
-    <p class="c-note" data-i18n="provider.description">
-      Zarządzaj źródłami przetwarzania AI (lokalnie lub na PC). Przełączniki wysyłają żądania do rejestru providerów.
-    </p>
-    <div class="provider-table">
-      <div class="provider-row" data-provider="vision">
-        <div class="provider-col provider-info">
-          <div class="provider-title" data-i18n="provider.domain_vision">Vision</div>
-          <div class="muted" data-i18n="provider.domain_vision_desc">Detekcja przeszkód, przetwarzanie obrazu.</div>
-        </div>
-        <div class="provider-col provider-status-info">
-          <span class="c-pill provider-pill" data-provider-pill>Local</span>
-          <div class="muted provider-status-text" data-provider-status>-</div>
-        </div>
-        <div class="provider-col provider-changed">
-          <span class="muted" data-i18n="provider.changed_label">Ostatnia zmiana:</span>
-          <span data-provider-changed>n/a</span>
-        </div>
-        <div class="provider-col provider-actions">
-          <button class="c-btn c-btn-sm" data-provider-domain="vision" data-provider-action="local" data-i18n="provider.btn_local">🏠 Local (Pi)</button>
-          <button class="c-btn c-btn-sm" data-provider-domain="vision" data-provider-action="pc" data-i18n="provider.btn_pc">💻 PC Offload</button>
-        </div>
-      </div>
-      <div class="provider-row" data-provider="voice">
-        <div class="provider-col provider-info">
-          <div class="provider-title" data-i18n="provider.domain_voice">Voice</div>
-          <div class="muted" data-i18n="provider.domain_voice_desc">ASR / TTS, komendy głosowe, chatbot.</div>
-        </div>
-        <div class="provider-col provider-status-info">
-          <span class="c-pill provider-pill" data-provider-pill>Local</span>
-          <div class="muted provider-status-text" data-provider-status>-</div>
-        </div>
-        <div class="provider-col provider-changed">
-          <span class="muted" data-i18n="provider.changed_label">Ostatnia zmiana:</span>
-          <span data-provider-changed>n/a</span>
-        </div>
-        <div class="provider-col provider-actions">
-          <button class="c-btn c-btn-sm" data-provider-domain="voice" data-provider-action="local" data-i18n="provider.btn_local">🏠 Local (Pi)</button>
-          <button class="c-btn c-btn-sm" data-provider-domain="voice" data-provider-action="pc" data-i18n="provider.btn_pc">💻 PC Offload</button>
-        </div>
-      </div>
-      <div class="provider-row" data-provider="text">
-        <div class="provider-col provider-info">
-          <div class="provider-title" data-i18n="provider.domain_text">Text / LLM</div>
-          <div class="muted" data-i18n="provider.domain_text_desc">LLM, odpowiedzi tekstowe, generowanie komend.</div>
-        </div>
-        <div class="provider-col provider-status-info">
-          <span class="c-pill provider-pill" data-provider-pill>Local</span>
-          <div class="muted provider-status-text" data-provider-status>-</div>
-        </div>
-        <div class="provider-col provider-changed">
-          <span class="muted" data-i18n="provider.changed_label">Ostatnia zmiana:</span>
-          <span data-provider-changed>n/a</span>
-        </div>
-        <div class="provider-col provider-actions">
-          <button class="c-btn c-btn-sm" data-provider-domain="text" data-provider-action="local" data-i18n="provider.btn_local">🏠 Local (Pi)</button>
-          <button class="c-btn c-btn-sm" data-provider-domain="text" data-provider-action="pc" data-i18n="provider.btn_pc">💻 PC Offload</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script type="module" src="/web/assets/menu.js"></script>
-<script type="module" src="/web/assets/mode.js"></script>
-</body>
+    <script type="module" src="/web/assets/menu.js"></script>
+    <script>
+      setTimeout(() => {
+        window.location.assign("/control");
+      }, 2000);
+    </script>
+  </body>
 </html>
