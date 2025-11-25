@@ -160,15 +160,13 @@
       <div class="c-kv">
         <div>Host</div><div id="pcHostInfo">—</div>
         <div>Adres panelu</div><div id="pcOriginInfo">—</div>
-        <div>Status (live)</div><div><span id="pcLiveStatus" class="pc-status">—</span></div>
-        <div>Status (ready)</div><div><span id="pcReadyStatus" class="pc-status">—</span></div>
         <div>CPU (%)</div><div id="pcCpu">—</div>
         <div>Load (1/5/15)</div><div id="pcLoad">—</div>
         <div>Pamięć</div><div id="pcMem">—</div>
         <div>Dysk</div><div id="pcDisk">—</div>
         <div>Uptime</div><div id="pcUptime">—</div>
       </div>
-      <div class="c-hint c-hint--sub">Dane z /health/* i /status/system-pc lokalnego serwera Rider-PC.</div>
+      <div class="c-hint c-hint--sub">Dane z /status/system-pc lokalnego serwera Rider-PC.</div>
     </div>
 
     <div class="c-card">
@@ -313,46 +311,8 @@ function cameraResourceSummary(){
 }
 
 /* ===== PC SELF STATUS ===== */
-function setPcStatus(id, state){
-  const node = el(id);
-  if(!node) return;
-  node.textContent = state?.label || '—';
-  node.className = 'pc-status ' + (state?.ok ? 'ok' : 'off');
-}
-
 function defaultPort(proto){
   return proto === 'https:' ? '443' : '80';
-}
-
-async function refreshPcHealth(){
-  const info = {
-    live: { ok: false, label: 'offline' },
-    ready: { ok: false, label: 'offline' },
-  };
-
-  try{
-    const r = await fetch('/health/live', { cache: 'no-store' });
-    if (r.ok) {
-      const j = await r.json().catch(() => null);
-      info.live = { ok: true, label: j?.status || 'online' };
-    } else {
-      info.live = { ok: false, label: `HTTP ${r.status}` };
-    }
-  } catch {
-    info.live = { ok: false, label: 'offline' };
-  }
-
-  try{
-    const r = await fetch('/health/ready', { cache: 'no-store' });
-    const j = await r.json().catch(() => null);
-    const ok = r.ok && j?.status === 'ready';
-    info.ready = { ok, label: j?.status || (r.ok ? 'ready' : `HTTP ${r.status}`) };
-  } catch {
-    info.ready = { ok: false, label: 'offline' };
-  }
-
-  setPcStatus('pcLiveStatus', info.live);
-  setPcStatus('pcReadyStatus', info.ready);
 }
 
 function applyPcSystemMetrics(data){
@@ -813,7 +773,6 @@ function startSSE(){ try{ const es=new EventSource('/events'); es.onmessage=()=>
 setInterval(tick, REFRESH_MS); tick();
 setInterval(fetchObstacle, REFRESH_MS); fetchObstacle();
 setInterval(refreshApiMetrics, REFRESH_MS); refreshApiMetrics();
-setInterval(refreshPcHealth, PC_SYSTEM_REFRESH_MS); refreshPcHealth();
 setInterval(refreshPcSystemMetrics, PC_SYSTEM_REFRESH_MS); refreshPcSystemMetrics();
 setInterval(refreshPcServices, PC_SERVICE_REFRESH_MS); refreshPcServices();
 startSSE();
