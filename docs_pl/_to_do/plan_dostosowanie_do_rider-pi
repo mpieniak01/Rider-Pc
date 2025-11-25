@@ -2,7 +2,7 @@
 
 ### Cel nadrzędny
 - Zapewnienie pełnej kompatybilności API i UI pomiędzy Rider-Pc a Rider-Pi, z naciskiem na ekran `control`, ale także na pozostałe widoki i warstwę backendową.
-- Rpozosytorum powiazanego projektu: https://github.com/mpieniak01/Rider-Pi 
+- Repozytorium powiązanego projektu: https://github.com/mpieniak01/Rider-Pi 
 
 ### Zakres zmian
 1. **Warstwa API/adapterów**
