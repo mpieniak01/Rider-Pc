@@ -159,7 +159,6 @@
       <h3>System PC</h3>
       <div class="c-kv">
         <div>Host</div><div id="pcHostInfo">—</div>
-        <div>Adres panelu</div><div id="pcOriginInfo">—</div>
         <div>CPU (%)</div><div id="pcCpu">—</div>
         <div>Load (1/5/15)</div><div id="pcLoad">—</div>
         <div>Pamięć</div><div id="pcMem">—</div>
@@ -256,8 +255,9 @@ function syncLangMeta(code){
   document.title=t('dash.page_title');
 }
 syncLangMeta(lang);
-setTxt('pcHostInfo', window.location.host || '—');
-setTxt('pcOriginInfo', window.location.origin || '—');
+const hostWithPort = window.location.host || '—';
+const coreHost = hostWithPort.split(':')[0];
+setTxt('pcHostInfo', coreHost);
 window.addEventListener('dashboard:langchange',ev=>{
   const next=ev?.detail?.lang;
   if(next) syncLangMeta(next);
