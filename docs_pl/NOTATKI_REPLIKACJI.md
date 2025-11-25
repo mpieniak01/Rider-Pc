@@ -5,14 +5,17 @@ Ten dokument opisuje pliki zreplikowane z [Rider-Pi](https://github.com/mpieniak
 
 ## Zreplikowane Katalogi
 
-### 1. `web/` - Komponenty Interfejsu Frontend (14 plików)
-Cel: Zapewnia interfejs webowy dla replikacji UI 1:1 na kliencie PC.
+### 1. `web/` - Komponenty Interfejsu Frontend (20+ plików)
+Cel: Zapewnia interfejs webowy dla replikacji UI 1:1 na kliencie PC (kontroler, nawigacja, statusy, integracje).
 
 **Struktura:**
 ```
 web/
 ├── assets/
+│   ├── README.md                  # Opis konwencji assetów
 │   ├── dashboard-common.css       # Wspólne style dashboardu
+│   ├── navigation.css             # Wizualizator rekonesansu (canvas)
+│   ├── view.css / system.css / home.css / chat.css / google-home.css
 │   ├── i18n.js                    # Wsparcie internacjonalizacji (PL/EN)
 │   ├── menu.js                    # Dynamiczny loader menu
 │   ├── icons/
@@ -26,7 +29,9 @@ web/
 ├── home.html                      # Główna strona lądowania
 ├── navigation.html                # Interfejs nawigacji autonomicznej (Rekonesans)
 ├── system.html                    # Status systemu i diagnostyka
-└── view.html                      # Mini dashboard z metrykami i kamerą
+├── view.html                      # Mini dashboard z metrykami i kamerą
+├── mode.html                      # Informacja o scaleniu panelu AI z /control
+└── providers.html                 # Informacja o scaleniu panelu providerów z /control
 ```
 
 **Kluczowe Funkcje:**
@@ -38,10 +43,10 @@ web/
 - Śledzenie metryk API
 
 **Notatki Integracyjne:**
-- Te pliki powinny być połączone z **lokalnym Buforem/Cache** (Redis/SQLite) zamiast bezpośrednio z backendem Rider-PI
-- Interfejs oczekuje danych z punktów końcowych takich jak `/healthz`, `/state`, `/sysinfo`, `/vision/snap-info`
-- Pliki statyczne są serwowane ze ścieżki `/web/`
-- Mechanizmy auto-odświeżania (≈2s) dla danych na żywo
+- Wersja Rider-PC zachowuje strukturę /web tak jak Rider-Pi (w tym Tailwindowy wizualizator nawigacji i nowe CSS-y).
+- Panel `mode/providers` został scalony z `/control`; pliki HTML pełnią rolę przekierowania.
+- Interfejs oczekuje danych z `/api/logic/*`, `/svc`, `/api/providers/*`, `/api/motion/queue`, `/events`, `/ws/navigation`.
+- Pliki statyczne serwujemy spod `/web/`, auto-odświeżanie odbywa się co 1-5 sekund w zależności od sekcji.
 
 ### 2. `config/` - Pliki Konfiguracji Providerów (30 plików)
 Cel: Definiuje konfiguracje providerów i parametry dla negocjacji kontraktu między PC a Rider-PI.
