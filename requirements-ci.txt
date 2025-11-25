@@ -18,6 +18,7 @@ celery==5.3.4
 # Monitoring & Metrics
 prometheus-client==0.21.0
 prometheus-fastapi-instrumentator==7.0.0
+psutil==6.1.0
 
 # TOML parsing (Python 3.9 compatibility)
 tomli==2.0.1

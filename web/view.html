@@ -162,9 +162,15 @@
         <div>Adres panelu</div><div id="pcOriginInfo">—</div>
         <div>Status (live)</div><div><span id="pcLiveStatus" class="pc-status">—</span></div>
         <div>Status (ready)</div><div><span id="pcReadyStatus" class="pc-status">—</span></div>
-        <div>Ostatnia aktualizacja</div><div id="pcUpdatedTs">—</div>
+        <div>CPU (%)</div><div id="pcCpu">—</div>
+        <div>Load (1/5/15)</div><div id="pcLoad">—</div>
+        <div>Pamięć</div><div id="pcMem">—</div>
+        <div>Dysk</div><div id="pcDisk">—</div>
+        <div>Temperatura</div><div id="pcTemp">—</div>
+        <div>Uptime</div><div id="pcUptime">—</div>
+        <div>Ost. aktualizacja</div><div id="pcUpdatedTs">—</div>
       </div>
-      <div class="c-hint c-hint--sub">Dane z /health/live i /health/ready lokalnego serwera Rider-PC.</div>
+      <div class="c-hint c-hint--sub">Dane z /health/* i /status/system-pc lokalnego serwera Rider-PC.</div>
     </div>
 
     <div class="c-card">
@@ -228,6 +234,14 @@ const el = id=>document.getElementById(id);
 const setTxt=(id,txt)=>{const e=el(id); if(e) e.textContent=txt}
 const setCls=(id,cls)=>{const e=el(id); if(e) e.className=cls}
 const fmt=(n,d=1)=> (n==null? '—' : (typeof n==='number'? Number(n).toFixed(d): n));
+const formatDuration=(seconds)=>{
+  if(seconds==null) return '—';
+  const s=Math.max(0,Math.floor(seconds));
+  const HH=Math.floor(s/3600);
+  const MM=String(Math.floor((s%3600)/60)).padStart(2,'0');
+  const SS=String(s%60).padStart(2,'0');
+  return `${HH}:${MM}:${SS}`;
+};
 
 /* --- black preview helper --- */
 const BLACK_SVG='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"><rect width="100%" height="100%" fill="black"/></svg>';
@@ -246,6 +260,8 @@ function syncLangMeta(code){
   document.title=t('dash.page_title');
 }
 syncLangMeta(lang);
+setTxt('pcHostInfo', window.location.host || '—');
+setTxt('pcOriginInfo', window.location.origin || '—');
 window.addEventListener('dashboard:langchange',ev=>{
   const next=ev?.detail?.lang;
   if(next) syncLangMeta(next);
@@ -310,11 +326,10 @@ function defaultPort(proto){
   return proto === 'https:' ? '443' : '80';
 }
 
-async function refreshPcSystem(){
+async function refreshPcHealth(){
   const info = {
-    host: window.location.host,
-    origin: window.location.origin,
-    updated: new Date().toLocaleTimeString(),
+    live: { ok: false, label: 'offline' },
+    ready: { ok: false, label: 'offline' },
   };
 
   try{
@@ -338,11 +353,50 @@ async function refreshPcSystem(){
     info.ready = { ok: false, label: 'offline' };
   }
 
-  setTxt('pcHostInfo', info.host || '—');
-  setTxt('pcOriginInfo', info.origin || '—');
   setPcStatus('pcLiveStatus', info.live);
   setPcStatus('pcReadyStatus', info.ready);
-  setTxt('pcUpdatedTs', info.updated || '—');
+}
+
+function applyPcSystemMetrics(data){
+  if(!data) return;
+  setTxt('pcCpu', data.cpu_pct != null ? `${fmt(data.cpu_pct,1)}%` : '—');
+  if(data.load1 != null && data.load5 != null && data.load15 != null){
+    setTxt('pcLoad', `${fmt(data.load1,2)}/${fmt(data.load5,2)}/${fmt(data.load15,2)}`);
+  } else {
+    setTxt('pcLoad','—');
+  }
+  if(data.mem_total_mb != null && data.mem_used_mb != null){
+    const pct = data.mem_pct != null ? ` (${fmt(data.mem_pct,1)}%)` : '';
+    setTxt('pcMem', `${fmt(data.mem_used_mb,1)} / ${fmt(data.mem_total_mb,1)} MB${pct}`);
+  } else {
+    setTxt('pcMem','—');
+  }
+  if(data.disk_total_gb != null && data.disk_used_gb != null){
+    const pct = data.disk_pct != null ? ` (${fmt(data.disk_pct,1)}%)` : '';
+    setTxt('pcDisk', `${fmt(data.disk_used_gb,2)} / ${fmt(data.disk_total_gb,2)} GB${pct}`);
+  } else {
+    setTxt('pcDisk','—');
+  }
+  setTxt('pcTemp', data.temp_c != null ? `${fmt(data.temp_c,1)} °C` : '—');
+  setTxt('pcUptime', data.uptime_s != null ? formatDuration(data.uptime_s) : '—');
+  setTxt('pcUpdatedTs', new Date().toLocaleTimeString());
+}
+
+async function refreshPcSystemMetrics(){
+  try{
+    const r = await fetch('/status/system-pc', { cache: 'no-store' });
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    const j = await r.json().catch(() => null);
+    if(j) applyPcSystemMetrics(j);
+  } catch {
+    setTxt('pcCpu','—');
+    setTxt('pcLoad','—');
+    setTxt('pcMem','—');
+    setTxt('pcDisk','—');
+    setTxt('pcTemp','—');
+    setTxt('pcUptime','—');
+    setTxt('pcUpdatedTs','błąd');
+  }
 }
 
 function renderPcServices(items){
@@ -509,11 +563,7 @@ function updateHealth(h){
   const ok=!!(h && (h.ok===true || h.status==='ok' || h.state==='ok'));
   setTxt('h_status', ok? t('meta.ok'):'degraded'); setCls('h_status', ok?'ok':'bad');
 
-  if(h && h.uptime_s!=null){
-    const s=Math.max(0,Math.floor(h.uptime_s));
-    const HH=Math.floor(s/3600), MM=String(Math.floor((s%3600)/60)).padStart(2,'0'), SS=String(s%60).padStart(2,'0');
-    setTxt('h_uptime',`${HH}:${MM}:${SS}`);
-  } else setTxt('h_uptime','—');
+  setTxt('h_uptime', formatDuration(h?.uptime_s));
 
   const msg=h?.bus?.last_msg_age_s ?? h?.bus?.last_msg_age;
   if(msg!=null) setTxt('h_msg',`${Number(msg).toFixed(1)} s`);
@@ -769,7 +819,8 @@ function startSSE(){ try{ const es=new EventSource('/events'); es.onmessage=()=>
 setInterval(tick, REFRESH_MS); tick();
 setInterval(fetchObstacle, REFRESH_MS); fetchObstacle();
 setInterval(refreshApiMetrics, REFRESH_MS); refreshApiMetrics();
-setInterval(refreshPcSystem, PC_SYSTEM_REFRESH_MS); refreshPcSystem();
+setInterval(refreshPcHealth, PC_SYSTEM_REFRESH_MS); refreshPcHealth();
+setInterval(refreshPcSystemMetrics, PC_SYSTEM_REFRESH_MS); refreshPcSystemMetrics();
 setInterval(refreshPcServices, PC_SERVICE_REFRESH_MS); refreshPcServices();
 startSSE();
 </script>

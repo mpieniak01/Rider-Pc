@@ -46,6 +46,7 @@ web/
 - Wersja Rider-PC zachowuje strukturę /web tak jak Rider-Pi (w tym Tailwindowy wizualizator nawigacji i nowe CSS-y).
 - Panel `mode/providers` został scalony z `/control`; pliki HTML pełnią rolę przekierowania.
 - Interfejs oczekuje danych z `/api/logic/*`, `/svc`, `/api/providers/*`, `/api/motion/queue`, `/events`, `/ws/navigation`.
+- Dodano lokalny endpoint `/status/system-pc`, z którego mini dashboard (`view.html`) pobiera metryki hosta Rider-PC.
 - Pliki statyczne serwujemy spod `/web/`, auto-odświeżanie odbywa się co 1-5 sekund w zależności od sekcji.
 
 ### 2. `config/` - Pliki Konfiguracji Providerów (30 plików)

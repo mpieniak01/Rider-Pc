@@ -8,10 +8,13 @@ from fastapi.responses import JSONResponse
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 from pc_client.cache import CacheManager
+from pc_client.utils.system_info import collect_system_metrics
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+PC_SYSINFO_CACHE_KEY = "pc_sysinfo"
+PC_SYSINFO_TTL = 5
 
 
 @router.get("/healthz")
@@ -116,6 +119,17 @@ async def app_metrics(request: Request) -> JSONResponse:
     cache: CacheManager = request.app.state.cache
     data = cache.get("app_metrics", {"ok": True, "metrics": {}, "total_errors": 0})
     return JSONResponse(content=data)
+
+
+@router.get("/status/system-pc")
+async def system_pc_status(request: Request) -> JSONResponse:
+    """Return metrics for the Rider-PC host."""
+    cache: CacheManager = request.app.state.cache
+    data = cache.get(PC_SYSINFO_CACHE_KEY)
+    if not data:
+        data = collect_system_metrics()
+        cache.set(PC_SYSINFO_CACHE_KEY, data, ttl=PC_SYSINFO_TTL)
+    return JSONResponse(content=data or {})
 
 
 @router.get("/api/resource/camera")
