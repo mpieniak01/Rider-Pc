@@ -93,6 +93,14 @@ async def sysinfo(request: Request) -> JSONResponse:
     """System info endpoint."""
     cache: CacheManager = request.app.state.cache
     data = cache.get("sysinfo", {})
+    settings = getattr(request.app.state, "settings", None)
+    host_hint = getattr(settings, "rider_pi_host", None)
+    if host_hint and isinstance(data, dict) and not data.get("host"):
+        data = dict(data)
+        data["host"] = host_hint
+    port_hint = getattr(settings, "rider_pi_port", None)
+    if port_hint and isinstance(data, dict) and not data.get("port"):
+        data["port"] = port_hint
     return JSONResponse(content=data)
 
 
