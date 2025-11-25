@@ -1,7 +1,7 @@
 // web/i18n.js
 export const I18N = {
   meta: {
-    app_title: { pl: "Rider-PC — Sterowanie ruchem (REST /api)", en: "Rider-PC — Motion Control (REST /api)" },
+    app_title: { pl: "Rider-Pi — Sterowanie ruchem (REST /api)", en: "Rider-Pi — Motion Control (REST /api)" },
     loading:   { pl: "Ładowanie…", en: "Loading…" },
     ok:        { pl: "OK", en: "OK" },
     warn:      { pl: "Ostrzeżenie", en: "Warning" },
@@ -21,11 +21,10 @@ export const I18N = {
   },
 
   nav: {
-    brand_title:   { pl: "Rider-PC", en: "Rider-PC" },
+    brand_title:   { pl: "Rider-Pi", en: "Rider-Pi" },
     brand_sub:     { pl: "Panel operatora", en: "Operator console" },
     view:          { pl: "Przegląd", en: "Overview" },
     control:       { pl: "Sterowanie", en: "Control" },
-    mode:          { pl: "Tryb", en: "Mode" },
     navigation:    { pl: "Nawigacja", en: "Navigation" },
     system:        { pl: "System", en: "System" },
     home:          { pl: "Statusy", en: "Status" },
@@ -35,13 +34,9 @@ export const I18N = {
     lang_en_title: { pl: "Przełącz na angielski", en: "Switch to English" },
   },
 
-  mode: {
-    page_title: { pl: "Tryby i Provider Control", en: "Modes & Provider Control" },
-  },
-
   // ===== MINI DASHBOARD =====
   dash: {
-    page_title:     { pl: "Rider-PC — mini dashboard", en: "Rider-PC — mini dashboard" },
+    page_title:     { pl: "Rider-Pi — mini dashboard", en: "Rider-Pi — mini dashboard" },
     hint_prefix:    { pl: "Auto-refresh co ≈ 2 s.",   en: "Auto-refresh every ≈ 2 s." },
     hint_endpoints: { pl: "Endpointy:",                en: "Endpoints:" },
 
@@ -172,17 +167,21 @@ export const I18N = {
     shortcuts_hint:  { pl: "Skróty",            en: "Shortcuts" },
     shortcuts_tail:  { pl: "lub strzałki; Spacja = stop.", en: "or arrow keys; Space = stop." },
     balance:         { pl: "Stabilizacja", en: "Balance" },
-    balance_toggle_label: { pl: "Balans (stabilizacja)", en: "Balance (stabilization)" },
-    balance_height_label: { pl: "Wysokość", en: "Height" },
+    balance_toggle_label: { pl: "Stabilizacja", en: "Balance" },
     height:          { pl: "Wysokość", en: "Height" },
-    follow_face:     { pl: "Śledź Twarz (Follow Face)", en: "Follow Face" },
-    follow_hand:     { pl: "Śledź Dłoń (Follow Hand)", en: "Follow Hand" },
+    balance_height_label: { pl: "Wysokość", en: "Height" },
+    zero_mode:       { pl: "Stan 0 – Sterowanie ręczne", en: "State 0 – Manual control" },
+    tracking_mode_title: { pl: "Śledzenie (twarz / dłoń)", en: "Tracking (face / hand)" },
     recon_mode:      { pl: "Tryb rekonesansu (autonomiczny)", en: "Recon mode (autonomous)" },
     recon_strategy:  { pl: "Strategia", en: "Strategy" },
     return_home:     { pl: "🏠 Powrót do bazy", en: "🏠 Return Home" },
     features_title:  { pl: "Funkcje", en: "Features" },
-    feature_face_desc:{ pl: "Uruchamia tracker oraz kontroler ruchu w trybie twarzy.", en: "Starts tracker + motion controller in face mode." },
-    feature_hand_desc:{ pl: "Używa tych samych usług, ustawiając tryb dłoni.", en: "Uses the same services but switches to hand mode." },
+    feature_zero_desc:{ pl: "Wyłącza rekonesans i śledzenie, zostawiając jedynie komunikację i sterowanie ręczne.", en: "Turns off recon and tracking, keeping only communication and manual control." },
+    feature_tracking_desc:{ pl: "Uruchamia tracker oraz kontroler ruchu — wybierz tryb śledzenia poniżej.", en: "Starts the tracker and motion controller — pick the tracking mode below." },
+    feature_zero_btn_reset:{ pl: "Reset", en: "Reset" },
+    tracking_mode_label:{ pl: "Tryb śledzenia", en: "Tracking mode" },
+    tracking_mode_face:{ pl: "Twarz", en: "Face" },
+    tracking_mode_hand:{ pl: "Dłoń", en: "Hand" },
     feature_recon_desc:{ pl: "Włącza usługi rekonesansu i wydaje polecenia navigatorowi.", en: "Turns on reconnaissance services and commands the navigator." },
     feature_btn_start:{ pl: "Start", en: "Start" },
     feature_btn_stop: { pl: "Stop", en: "Stop" },
@@ -197,21 +196,24 @@ export const I18N = {
     feature_note_missing_services: { pl: "brak usług: {count}", en: "missing services: {count}" },
     feature_note_missing_support:  { pl: "brak usług pomocniczych: {count}", en: "support services missing: {count}" },
     feature_note_waiting:   { pl: "czekam na wykonanie…", en: "waiting for sequence…" },
-    feature_note_need_preview: { pl: "Wymagany podgląd CAM (rider-cam-preview).", en: "CAM preview service (rider-cam-preview) must be running." },
+    feature_note_need_preview: { pl: "Wymagany podgląd CAM (camera-capture@raw).", en: "CAM preview service (camera-capture@raw) must be running." },
     feature_note_preview_forced: { pl: "CAM zastąpił: {name}", en: "CAM preview forced (replaced {name})." },
-    feature_error_camera_feed: { pl: "Brak świeżego podglądu CAM (sprawdź rider-cam-preview).", en: "Camera feed is stale (check rider-cam-preview)." },
+    feature_zero_note_ready: { pl: "Aktywny tylko tryb ręczny", en: "Manual-only stack active" },
+    feature_zero_note_blocked: { pl: "Aktywne: {list}", en: "Active: {list}" },
+    zero_tracking_label: { pl: "Śledzenie", en: "Tracking" },
+    zero_recon_label: { pl: "Rekonesans", en: "Recon" },
+    active_scenarios_label: { pl: "Aktywne scenariusze", en: "Active scenarios" },
+    active_scenarios_none: { pl: "brak (S0)", en: "none (S0)" },
+    feature_error_camera_feed: { pl: "Brak świeżego podglądu CAM (sprawdź camera-capture@raw).", en: "Camera feed is stale (check camera-capture@raw)." },
     feature_error_tracker_feed: { pl: "Brak świeżego podglądu TRACKER (sprawdź rider-tracker).", en: "Tracker feed is stale (check rider-tracker)." },
-    zero_mode:            { pl: "Stan 0 – Sterowanie ręczne", en: "State 0 – Manual control" },
-    feature_zero_desc:    { pl: "Wyłącza rekonesans i śledzenie, zostawiając jedynie komunikację i sterowanie ręczne.", en: "Disables recon and tracking, leaving only comms and manual control." },
-    feature_zero_btn_reset:{ pl: "Reset", en: "Reset" },
-    tracking_mode_title:  { pl: "Śledzenie (twarz / dłoń)", en: "Tracking (face / hand)" },
-    feature_tracking_desc:{ pl: "Uruchamia tracker oraz kontroler ruchu – wybierz tryb śledzenia poniżej.", en: "Starts tracker and motion controller – choose tracking mode below." },
-    tracking_mode_label:  { pl: "Tryb śledzenia", en: "Tracking mode" },
-    tracking_mode_face:   { pl: "Twarz", en: "Face" },
-    tracking_mode_hand:   { pl: "Dłoń", en: "Hand" },
     preview_cam:  { pl: "CAM", en: "CAM" },
     preview_edge: { pl: "EDGE", en: "EDGE" },
     preview_ssd:  { pl: "PROC/SSD", en: "PROC/SSD" },
+  },
+
+  balance: {
+    toggle_label: { pl: "Stabilizacja", en: "Balance" },
+    height_label: { pl: "Wysokość", en: "Height" },
   },
 
   resources: {
@@ -269,13 +271,8 @@ export const I18N = {
   services: {
     title:     { pl: "Usługi (systemd)", en: "Services (systemd)" },
     refresh:   { pl: "⟳ odśwież",       en: "⟳ refresh" },
-    auto_refresh: { pl: "Auto (5s)",    en: "Auto (5s)" },
-    filter:       { pl: "Filtr",        en: "Filter" },
-    filter_all:   { pl: "Wszystkie",    en: "All" },
-    filter_ok:    { pl: "Aktywne",      en: "Active" },
-    filter_warn:  { pl: "Ostrzeżenia",  en: "Warnings" },
-    filter_err:   { pl: "Błędy",        en: "Errors" },
-    filter_unknown:{ pl: "Nieznane",    en: "Unknown" },
+    auto_refresh: { pl: "Auto (5s)", en: "Auto (5s)" },
+    loaded_at: { pl: "Załadowano o: {ts}", en: "Loaded at: {ts}" },
     unit:      { pl: "Unit",            en: "Unit" },
     desc:      { pl: "Opis",            en: "Description" },
     status:    { pl: "Status",          en: "Status" },
@@ -319,7 +316,7 @@ export const I18N = {
 
   // ===== GOOGLE HOME =====
   home: {
-    page_title:         { pl: "Rider-PC — Sterowanie Google Home", en: "Rider-PC — Google Home Control" },
+    page_title:         { pl: "Rider-Pi — Sterowanie Google Home", en: "Rider-Pi — Google Home Control" },
     auth_checking:      { pl: "Sprawdzanie…", en: "Checking…" },
     auth_ok:            { pl: "Zalogowano", en: "Authenticated" },
     auth_required:      { pl: "Wymagane logowanie", en: "Auth Required" },
@@ -363,9 +360,6 @@ export const I18N = {
     title:              { pl: "Tryb AI", en: "AI Mode" },
     description:        { pl: "Wybierz tryb przetwarzania AI: lokalny (wszystko na Pi) lub offload (ciężkie obliczenia na PC).", en: "Choose AI processing mode: local (all on Pi) or offload (heavy processing on PC)." },
     loading:            { pl: "ładowanie…", en: "loading…" },
-    current_label:      { pl: "Aktualny tryb", en: "Current mode" },
-    switch_label:       { pl: "Przełącz tryb", en: "Switch mode" },
-    op_status_label:    { pl: "Stan operacji", en: "Operation status" },
     mode_local:         { pl: "🏠 Local (Pi)", en: "🏠 Local (Pi)" },
     mode_offload:       { pl: "💻 PC Offload", en: "💻 PC Offload" },
     btn_local:          { pl: "🏠 Local (Pi)", en: "🏠 Local (Pi)" },
