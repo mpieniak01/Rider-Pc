@@ -167,7 +167,6 @@
         <div>Pamięć</div><div id="pcMem">—</div>
         <div>Dysk</div><div id="pcDisk">—</div>
         <div>Uptime</div><div id="pcUptime">—</div>
-        <div>Ost. aktualizacja</div><div id="pcUpdatedTs">—</div>
       </div>
       <div class="c-hint c-hint--sub">Dane z /health/* i /status/system-pc lokalnego serwera Rider-PC.</div>
     </div>
@@ -377,7 +376,6 @@ function applyPcSystemMetrics(data){
     setTxt('pcDisk','—');
   }
   setTxt('pcUptime', data.uptime_s != null ? formatDuration(data.uptime_s) : '—');
-  setTxt('pcUpdatedTs', new Date().toLocaleTimeString());
 }
 
 async function refreshPcSystemMetrics(){
@@ -392,7 +390,6 @@ async function refreshPcSystemMetrics(){
     setTxt('pcMem','—');
     setTxt('pcDisk','—');
     setTxt('pcUptime','—');
-    setTxt('pcUpdatedTs','błąd');
   }
 }
 
