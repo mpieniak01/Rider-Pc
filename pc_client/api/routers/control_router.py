@@ -590,11 +590,14 @@ async def control_service(request: Request, unit: str, payload: Dict[str, Any]) 
         result = await service_manager.control_service(unit, action)
         if result.get("ok"):
             _publish_event(request, "service.action", {"unit": unit, "action": action})
+            _publish_event(request, "system.log", {"level": "INFO", "message": f"Sukces: {action} dla {unit}"})
             return JSONResponse(result)
         # Check for specific error types
-        if "not found" in str(result.get("error", "")).lower():
+        error_msg = result.get("error", "Unknown error")
+        _publish_event(request, "system.log", {"level": "ERROR", "message": f"Błąd: {action} dla {unit} - {error_msg}"})
+        if "not found" in str(error_msg).lower():
             return JSONResponse(result, status_code=404)
-        if "unsupported" in str(result.get("error", "")).lower():
+        if "unsupported" in str(error_msg).lower():
             return JSONResponse(result, status_code=400)
         return JSONResponse(result, status_code=502)
 
@@ -605,10 +608,15 @@ async def control_service(request: Request, unit: str, payload: Dict[str, Any]) 
         status_code = 200
         if not result.get("ok", True) or result.get("error"):
             status_code = 502
+            error_msg = result.get("error", "Unknown error")
+            _publish_event(request, "system.log", {"level": "ERROR", "message": f"Błąd: {action} dla {unit} - {error_msg}"})
+        else:
+            _publish_event(request, "system.log", {"level": "INFO", "message": f"Sukces: {action} dla {unit}"})
         return JSONResponse(result, status_code=status_code)
 
     service = next((s for s in request.app.state.services if s["unit"] == unit), None)
     if not service:
+        _publish_event(request, "system.log", {"level": "ERROR", "message": f"Błąd: {action} dla {unit} - Service not found"})
         return JSONResponse({"error": f"Service {unit} not found"}, status_code=404)
     if action == "start":
         service["active"] = "active"
@@ -624,8 +632,10 @@ async def control_service(request: Request, unit: str, payload: Dict[str, Any]) 
     elif action == "disable":
         service["enabled"] = "disabled"
     else:
+        _publish_event(request, "system.log", {"level": "ERROR", "message": f"Błąd: {action} dla {unit} - Unsupported action"})
         return JSONResponse({"error": f"Unsupported action {action}"}, status_code=400)
     _publish_event(request, "service.action", {"unit": unit, "action": action})
+    _publish_event(request, "system.log", {"level": "INFO", "message": f"Sukces: {action} dla {unit}"})
     return JSONResponse({"ok": True, "unit": unit, "action": action})
 
 
