@@ -1,8 +1,6 @@
 """Tests for configuration parsing, specifically MONITORED_SERVICES."""
 
-import os
-
-import pytest
+import logging
 
 from pc_client.config.settings import _parse_monitored_services
 
@@ -93,3 +91,13 @@ class TestParseMonitoredServices:
 
         result = _parse_monitored_services()
         assert result == ["rider-pc.service", "rider-minimal.target"]
+
+    def test_invalid_unit_names_logged(self, monkeypatch, caplog):
+        """Parser handles invalid unit names and logs warnings."""
+        monkeypatch.setenv("MONITORED_SERVICES", "rider-pc,rider-voice.service")
+
+        with caplog.at_level(logging.WARNING):
+            result = _parse_monitored_services()
+
+        assert result == ["rider-pc", "rider-voice.service"]
+        assert "Invalid systemd unit name: rider-pc" in caplog.text

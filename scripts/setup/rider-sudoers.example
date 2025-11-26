@@ -8,11 +8,13 @@
 #
 # SECURITY NOTE: This configuration uses wildcards (rider-*) for convenience.
 # For stricter security, enumerate specific services explicitly, e.g.:
-#   rider ALL=(ALL) NOPASSWD: /usr/bin/systemctl start rider-pc.service, \
-#                             /usr/bin/systemctl stop rider-pc.service, \
-#                             /usr/bin/systemctl restart rider-pc.service
+#   rider ALL=(root) NOPASSWD: /usr/bin/systemctl start rider-pc.service, \
+#                              /usr/bin/systemctl stop rider-pc.service, \
+#                              /usr/bin/systemctl restart rider-pc.service
 
 # Allow rider user to manage Rider services without password
-rider ALL=(ALL) NOPASSWD: /usr/bin/systemctl start rider-*, \
-                          /usr/bin/systemctl stop rider-*, \
-                          /usr/bin/systemctl restart rider-*
+rider ALL=(root) NOPASSWD: /usr/bin/systemctl start rider-*, \
+                           /usr/bin/systemctl stop rider-*, \
+                           /usr/bin/systemctl restart rider-*, \
+                           /usr/bin/systemctl enable rider-*, \
+                           /usr/bin/systemctl disable rider-*

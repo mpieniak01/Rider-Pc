@@ -141,9 +141,11 @@ sudo visudo -f /etc/sudoers.d/rider-pc
 2. Dodaj reguły (zamień `rider` na użytkownika uruchamiającego aplikację):
 ```sudoers
 # Pozwól użytkownikowi rider zarządzać usługami Rider bez hasła
-rider ALL=(ALL) NOPASSWD: /usr/bin/systemctl start rider-*, \
-                          /usr/bin/systemctl stop rider-*, \
-                          /usr/bin/systemctl restart rider-*
+rider ALL=(root) NOPASSWD: /usr/bin/systemctl start rider-*, \
+                           /usr/bin/systemctl stop rider-*, \
+                           /usr/bin/systemctl restart rider-*, \
+                           /usr/bin/systemctl enable rider-*, \
+                           /usr/bin/systemctl disable rider-*
 ```
 
 3. Ustaw uprawnienia pliku:

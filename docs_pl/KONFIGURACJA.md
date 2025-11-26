@@ -265,13 +265,15 @@ sudo visudo -f /etc/sudoers.d/rider-pc
 
 2. Dodaj następujące reguły (zamień `rider` na nazwę użytkownika uruchamiającego Rider-PC):
 
-> **Uwaga**: Te reguły używają `/usr/bin/systemctl`. Na twoim systemie sprawdź lokalizację systemctl poleceniem `which systemctl` i odpowiednio dostosuj ścieżki.
+> **Uwaga**: Te reguły zakładają, że `systemctl` znajduje się w `/usr/bin/systemctl`. Jeśli na Twoim systemie jest inaczej, sprawdź lokalizację poleceniem `which systemctl` i odpowiednio dostosuj ścieżki.
 
 ```sudoers
 # Pozwól użytkownikowi rider zarządzać usługami Rider bez hasła
-rider ALL=(ALL) NOPASSWD: /usr/bin/systemctl start rider-*, \
-                          /usr/bin/systemctl stop rider-*, \
-                          /usr/bin/systemctl restart rider-*
+rider ALL=(root) NOPASSWD: /usr/bin/systemctl start rider-*, \
+                           /usr/bin/systemctl stop rider-*, \
+                           /usr/bin/systemctl restart rider-*, \
+                           /usr/bin/systemctl enable rider-*, \
+                           /usr/bin/systemctl disable rider-*
 ```
 
 3. Ustaw prawidłowe uprawnienia:
@@ -297,7 +299,7 @@ W trybie symulowanym dashboard pokazuje domyślne usługi z symulowanymi stanami
 ### Względy Bezpieczeństwa
 
 - Nadawaj dostęp sudoers tylko dla konkretnych usług, które chcesz kontrolować
-- Nigdy nie używaj wildcardów w regułach sudoers dla systemctl (oprócz prefiksu `rider-*`)
+- Unikaj używania wildcardów w regułach sudoers dla systemctl; prefiks `rider-*` jest dopuszczalny dla wygody, ale dla większego bezpieczeństwa zaleca się jawne wyliczenie usług
 - Regularnie audytuj które usługi są kontrolowalne
 - Rozważ uruchamianie Rider-PC na dedykowanym koncie użytkownika
 
