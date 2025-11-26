@@ -19,6 +19,16 @@
   </header>
   <p id="status-line">Ładowanie danych usług…</p>
   <section id="system-graph"></section>
+  
+  <section class="log-panel">
+    <header class="log-header">
+      <h2>Log Systemowy</h2>
+      <button id="log-clear-btn" class="btn btn-sm" title="Wyczyść log">Wyczyść</button>
+    </header>
+    <div id="log-terminal" class="log-terminal" role="log" aria-live="polite" aria-label="Log systemowy">
+      <div class="log-entry log-info"><span class="log-timestamp">[--:--:--]</span> <span class="log-level">INFO</span> Oczekiwanie na zdarzenia...</div>
+    </div>
+  </section>
 </div>
 <div id="toast-container"></div>
 
@@ -220,6 +230,101 @@
 
     loadGraph();
     setInterval(loadGraph, 5000);
+
+    // Log Panel functionality
+    const logTerminal = document.getElementById('log-terminal');
+    const logClearBtn = document.getElementById('log-clear-btn');
+    const MAX_LOG_ENTRIES = 100;
+    const SSE_RECONNECT_DELAY_MS = 3000;
+
+    function formatTimestamp(ts) {
+      const date = ts ? new Date(ts * 1000) : new Date();
+      return date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    function getLevelClass(level) {
+      switch ((level || '').toUpperCase()) {
+        case 'INFO':
+          return 'log-info';
+        case 'WARN':
+        case 'WARNING':
+          return 'log-warn';
+        case 'ERROR':
+          return 'log-error';
+        default:
+          return 'log-info';
+      }
+    }
+
+    function addLogEntry(level, message, ts) {
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${getLevelClass(level)}`;
+      entry.innerHTML = `<span class="log-timestamp">[${formatTimestamp(ts)}]</span> <span class="log-level">${(level || 'INFO').toUpperCase()}</span> ${escapeHtml(message)}`;
+      logTerminal.appendChild(entry);
+
+      // Remove old entries if exceeding max
+      while (logTerminal.children.length > MAX_LOG_ENTRIES) {
+        logTerminal.removeChild(logTerminal.firstChild);
+      }
+
+      // Auto-scroll to bottom
+      logTerminal.scrollTop = logTerminal.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function clearLog() {
+      logTerminal.innerHTML = '';
+      addLogEntry('INFO', 'Log wyczyszczony. Oczekiwanie na zdarzenia...', Date.now() / 1000);
+    }
+
+    logClearBtn.addEventListener('click', clearLog);
+
+    // SSE connection for live log updates
+    let eventSource = null;
+
+    function connectSSE() {
+      if (eventSource) {
+        eventSource.close();
+      }
+
+      eventSource = new EventSource('/events');
+
+      eventSource.onopen = function() {
+        console.log('SSE connected');
+      };
+
+      eventSource.onmessage = function(event) {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload.topic === 'system.log') {
+            const data = payload.data || {};
+            addLogEntry(data.level, data.message, payload.ts);
+          }
+        } catch (err) {
+          console.error('Error parsing SSE event:', err);
+        }
+      };
+
+      eventSource.onerror = function(err) {
+        console.error('SSE error:', err);
+        // Reconnect after delay
+        setTimeout(connectSSE, SSE_RECONNECT_DELAY_MS);
+      };
+    }
+
+    connectSSE();
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', function() {
+      if (eventSource) {
+        eventSource.close();
+      }
+    });
   </script>
   <script type="module" src="/web/assets/menu.js"></script>
 </body>
