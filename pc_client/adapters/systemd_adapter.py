@@ -122,7 +122,7 @@ class SystemdAdapter:
         if returncode == 3:
             return "inactive"
 
-        return status if status else "unknown"
+        return status or "unknown"
 
     async def get_unit_details(self, unit: str) -> Dict[str, Any]:
         """
@@ -194,6 +194,15 @@ class SystemdAdapter:
                 "error": "Systemd not available on this system",
             }
 
+        # Validate unit name to prevent command injection
+        if not unit or any(c in unit for c in [';', '&', '|', '`', '$', '\n', '\r']):
+            return {
+                "ok": False,
+                "unit": unit,
+                "action": action,
+                "error": "Invalid unit name",
+            }
+
         valid_actions = {"start", "stop", "restart", "enable", "disable"}
         if action not in valid_actions:
             return {
@@ -209,9 +218,13 @@ class SystemdAdapter:
         returncode, stdout, stderr = await self._run_command(*cmd)
 
         if returncode != 0:
-            error_msg = stderr or stdout or f"Command failed with return code {returncode}"
+            error_msg = (
+                stderr
+                or stdout
+                or f"systemctl {action} {unit} failed with return code {returncode}"
+            )
             # Check for common permission errors
-            if "password" in error_msg.lower() or "permission" in error_msg.lower():
+            if "permission denied" in error_msg.lower() or "authentication required" in error_msg.lower():
                 error_msg = (
                     f"Permission denied. Ensure the user has passwordless sudo access "
                     f"for 'systemctl {action} {unit}'. See documentation for sudoers configuration."
@@ -239,14 +252,14 @@ class MockSystemdAdapter:
     Simulates systemd behavior without executing real commands.
     """
 
-    def __init__(self, initial_services: Optional[Dict[str, Dict[str, Any]]] = None):
+    def __init__(self, services: Optional[Dict[str, Dict[str, Any]]] = None):
         """
         Initialize the mock adapter.
 
         Args:
-            initial_services: Optional dictionary mapping unit names to their state.
+            services: Optional dictionary mapping unit names to their state.
         """
-        self._services: Dict[str, Dict[str, Any]] = initial_services or {}
+        self._services: Dict[str, Dict[str, Any]] = services or {}
         self._available = True  # Mock is always "available" for testing
 
     @property

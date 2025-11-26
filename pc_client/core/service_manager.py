@@ -1,5 +1,6 @@
 """Hybrid Service Manager for managing local and remote services."""
 
+import asyncio
 import logging
 import time
 from typing import Any, Dict, List, Optional, Union
@@ -150,7 +151,7 @@ class ServiceManager:
             self._use_real_systemd = isinstance(systemd_adapter, SystemdAdapter) and systemd_adapter.available
         elif is_systemd_available():
             self._systemd_adapter = SystemdAdapter(use_sudo=use_sudo)
-            self._use_real_systemd = True
+            self._use_real_systemd = self._systemd_adapter.available
             logger.info("ServiceManager: Using real systemd adapter (Linux detected)")
         else:
             self._systemd_adapter = None
@@ -202,11 +203,18 @@ class ServiceManager:
         """
         now = time.time()
 
-        # If using real systemd, fetch status for monitored services
+        # If using real systemd, fetch status for monitored services concurrently
         if self._use_real_systemd and self._systemd_adapter and self._monitored_services:
+            # Fetch all service details concurrently
+            tasks = [self._systemd_adapter.get_unit_details(unit) for unit in self._monitored_services]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
             services = []
-            for unit in self._monitored_services:
-                details = await self._systemd_adapter.get_unit_details(unit)
+            for unit, details in zip(self._monitored_services, results):
+                if isinstance(details, Exception):
+                    logger.error("Failed to get details for %s: %s", unit, details)
+                    details = {"active": "unknown", "sub": "unknown", "enabled": "unknown", "desc": ""}
+
                 # Build service data structure
                 service_data = {
                     "unit": unit,
@@ -215,7 +223,7 @@ class ServiceManager:
                     "sub": details.get("sub", "unknown"),
                     "enabled": details.get("enabled", "unknown"),
                     "group": "systemd",  # Default group for monitored services
-                    "label": unit.replace(".service", "").replace("-", " ").title(),
+                    "label": details.get("desc") or unit.replace(".service", "").replace("-", " ").title(),
                     "is_local": True,
                     "ts": now,
                 }

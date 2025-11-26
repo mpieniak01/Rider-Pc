@@ -272,25 +272,28 @@ sudo visudo -f /etc/sudoers.d/rider-pc
 
 2. Add the following rules (replace `rider` with the username running Rider-PC):
 
+> **Note**: These rules use `/usr/bin/systemctl`. On your system, verify the systemctl location with `which systemctl` and adjust the paths accordingly.
+
 ```sudoers
 # Allow rider user to manage specific services without password
-rider ALL=(root) NOPASSWD: /usr/bin/systemctl start rider-pc.service
-rider ALL=(root) NOPASSWD: /usr/bin/systemctl stop rider-pc.service
-rider ALL=(root) NOPASSWD: /usr/bin/systemctl restart rider-pc.service
-rider ALL=(root) NOPASSWD: /usr/bin/systemctl enable rider-pc.service
-rider ALL=(root) NOPASSWD: /usr/bin/systemctl disable rider-pc.service
+Cmnd_Alias RIDER_SERVICES = \
+    /usr/bin/systemctl start rider-pc.service, \
+    /usr/bin/systemctl stop rider-pc.service, \
+    /usr/bin/systemctl restart rider-pc.service, \
+    /usr/bin/systemctl enable rider-pc.service, \
+    /usr/bin/systemctl disable rider-pc.service, \
+    /usr/bin/systemctl start rider-voice.service, \
+    /usr/bin/systemctl stop rider-voice.service, \
+    /usr/bin/systemctl restart rider-voice.service, \
+    /usr/bin/systemctl enable rider-voice.service, \
+    /usr/bin/systemctl disable rider-voice.service, \
+    /usr/bin/systemctl start rider-task-queue.service, \
+    /usr/bin/systemctl stop rider-task-queue.service, \
+    /usr/bin/systemctl restart rider-task-queue.service, \
+    /usr/bin/systemctl enable rider-task-queue.service, \
+    /usr/bin/systemctl disable rider-task-queue.service
 
-rider ALL=(root) NOPASSWD: /usr/bin/systemctl start rider-voice.service
-rider ALL=(root) NOPASSWD: /usr/bin/systemctl stop rider-voice.service
-rider ALL=(root) NOPASSWD: /usr/bin/systemctl restart rider-voice.service
-rider ALL=(root) NOPASSWD: /usr/bin/systemctl enable rider-voice.service
-rider ALL=(root) NOPASSWD: /usr/bin/systemctl disable rider-voice.service
-
-rider ALL=(root) NOPASSWD: /usr/bin/systemctl start rider-task-queue.service
-rider ALL=(root) NOPASSWD: /usr/bin/systemctl stop rider-task-queue.service
-rider ALL=(root) NOPASSWD: /usr/bin/systemctl restart rider-task-queue.service
-rider ALL=(root) NOPASSWD: /usr/bin/systemctl enable rider-task-queue.service
-rider ALL=(root) NOPASSWD: /usr/bin/systemctl disable rider-task-queue.service
+rider ALL=(root) NOPASSWD: RIDER_SERVICES
 ```
 
 3. Set correct permissions:

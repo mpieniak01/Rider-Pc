@@ -16,10 +16,18 @@ def _parse_monitored_services() -> List[str]:
         empty, or contains only whitespace. Whitespace around individual service
         names is trimmed.
     """
+    import logging
+
+    logger = logging.getLogger(__name__)
     services_str = os.getenv("MONITORED_SERVICES", "")
     if not services_str:
         return []
-    return [s.strip() for s in services_str.split(",") if s.strip()]
+    services = [s.strip() for s in services_str.split(",") if s.strip()]
+    # Validate service names
+    for service in services:
+        if not service.endswith(".service") and not service.endswith(".target"):
+            logger.warning("Invalid systemd unit name: %s (should end with .service or .target)", service)
+    return services
 
 
 @dataclass
