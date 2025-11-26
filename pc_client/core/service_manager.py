@@ -144,8 +144,9 @@ class ServiceManager:
         self._last_remote_sync: float = 0.0
 
         # Auto-detect systemd availability if adapter not provided
+        self._systemd_adapter: Union[SystemdAdapter, MockSystemdAdapter, None]
         if systemd_adapter is not None:
-            self._systemd_adapter: Union[SystemdAdapter, MockSystemdAdapter, None] = systemd_adapter
+            self._systemd_adapter = systemd_adapter
             self._use_real_systemd = isinstance(systemd_adapter, SystemdAdapter) and systemd_adapter.available
         elif is_systemd_available():
             self._systemd_adapter = SystemdAdapter(use_sudo=use_sudo)

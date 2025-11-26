@@ -1,13 +1,21 @@
 """Tests for the SystemdAdapter and MockSystemdAdapter."""
 
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch
 
 from pc_client.adapters.systemd_adapter import (
     SystemdAdapter,
     MockSystemdAdapter,
     is_systemd_available,
 )
+
+
+def _make_mock_process(returncode: int, stdout: bytes, stderr: bytes = b"") -> AsyncMock:
+    """Helper to create a mock subprocess process."""
+    mock_process = AsyncMock()
+    mock_process.returncode = returncode
+    mock_process.communicate = AsyncMock(return_value=(stdout, stderr))
+    return mock_process
 
 
 class TestIsSystemdAvailable:
@@ -211,10 +219,7 @@ class TestSystemdAdapter:
     async def test_get_unit_status_parses_active(self, mock_subprocess, mock_available):
         """Should correctly parse 'active' status."""
         mock_available.return_value = True
-        mock_process = AsyncMock()
-        mock_process.returncode = 0
-        mock_process.communicate = AsyncMock(return_value=(b"active", b""))
-        mock_subprocess.return_value = mock_process
+        mock_subprocess.return_value = _make_mock_process(0, b"active")
 
         adapter = SystemdAdapter()
         status = await adapter.get_unit_status("test.service")
@@ -226,10 +231,7 @@ class TestSystemdAdapter:
     async def test_get_unit_status_parses_inactive(self, mock_subprocess, mock_available):
         """Should correctly parse 'inactive' status."""
         mock_available.return_value = True
-        mock_process = AsyncMock()
-        mock_process.returncode = 3
-        mock_process.communicate = AsyncMock(return_value=(b"inactive", b""))
-        mock_subprocess.return_value = mock_process
+        mock_subprocess.return_value = _make_mock_process(3, b"inactive")
 
         adapter = SystemdAdapter()
         status = await adapter.get_unit_status("test.service")
@@ -241,10 +243,7 @@ class TestSystemdAdapter:
     async def test_get_unit_status_parses_failed(self, mock_subprocess, mock_available):
         """Should correctly parse 'failed' status."""
         mock_available.return_value = True
-        mock_process = AsyncMock()
-        mock_process.returncode = 3
-        mock_process.communicate = AsyncMock(return_value=(b"failed", b""))
-        mock_subprocess.return_value = mock_process
+        mock_subprocess.return_value = _make_mock_process(3, b"failed")
 
         adapter = SystemdAdapter()
         status = await adapter.get_unit_status("test.service")
@@ -256,11 +255,8 @@ class TestSystemdAdapter:
     async def test_get_unit_details_parses_properties(self, mock_subprocess, mock_available):
         """Should correctly parse systemctl show output."""
         mock_available.return_value = True
-        mock_process = AsyncMock()
-        mock_process.returncode = 0
         output = b"ActiveState=active\nSubState=running\nDescription=Test Service\nUnitFileState=enabled"
-        mock_process.communicate = AsyncMock(return_value=(output, b""))
-        mock_subprocess.return_value = mock_process
+        mock_subprocess.return_value = _make_mock_process(0, output)
 
         adapter = SystemdAdapter()
         details = await adapter.get_unit_details("test.service")
@@ -275,10 +271,7 @@ class TestSystemdAdapter:
     async def test_manage_service_success(self, mock_subprocess, mock_available):
         """Should return success when systemctl command succeeds."""
         mock_available.return_value = True
-        mock_process = AsyncMock()
-        mock_process.returncode = 0
-        mock_process.communicate = AsyncMock(return_value=(b"", b""))
-        mock_subprocess.return_value = mock_process
+        mock_subprocess.return_value = _make_mock_process(0, b"")
 
         adapter = SystemdAdapter()
         result = await adapter.manage_service("test.service", "start")
@@ -291,10 +284,7 @@ class TestSystemdAdapter:
     async def test_manage_service_permission_denied(self, mock_subprocess, mock_available):
         """Should return permission error message."""
         mock_available.return_value = True
-        mock_process = AsyncMock()
-        mock_process.returncode = 1
-        mock_process.communicate = AsyncMock(return_value=(b"", b"permission denied"))
-        mock_subprocess.return_value = mock_process
+        mock_subprocess.return_value = _make_mock_process(1, b"", b"permission denied")
 
         adapter = SystemdAdapter()
         result = await adapter.manage_service("test.service", "start")
@@ -317,10 +307,7 @@ class TestSystemdAdapter:
     async def test_manage_service_uses_sudo_by_default(self, mock_subprocess, mock_available):
         """Should use sudo by default for manage_service."""
         mock_available.return_value = True
-        mock_process = AsyncMock()
-        mock_process.returncode = 0
-        mock_process.communicate = AsyncMock(return_value=(b"", b""))
-        mock_subprocess.return_value = mock_process
+        mock_subprocess.return_value = _make_mock_process(0, b"")
 
         adapter = SystemdAdapter(use_sudo=True)
         await adapter.manage_service("test.service", "start")
@@ -335,10 +322,7 @@ class TestSystemdAdapter:
     async def test_manage_service_without_sudo(self, mock_subprocess, mock_available):
         """Should not use sudo when use_sudo=False."""
         mock_available.return_value = True
-        mock_process = AsyncMock()
-        mock_process.returncode = 0
-        mock_process.communicate = AsyncMock(return_value=(b"", b""))
-        mock_subprocess.return_value = mock_process
+        mock_subprocess.return_value = _make_mock_process(0, b"")
 
         adapter = SystemdAdapter(use_sudo=False)
         await adapter.manage_service("test.service", "start")

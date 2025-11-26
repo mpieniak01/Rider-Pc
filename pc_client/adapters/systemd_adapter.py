@@ -8,7 +8,7 @@ import asyncio
 import logging
 import platform
 import shutil
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ class SystemdAdapter:
         """Return whether systemd is available on this system."""
         return self._available
 
-    async def _run_command(self, *args: str, check: bool = False) -> tuple[int, str, str]:
+    async def _run_command(self, *args: str, check: bool = False) -> Tuple[int, str, str]:
         """
         Run an async subprocess command.
 
@@ -106,18 +106,21 @@ class SystemdAdapter:
         # systemctl is-active doesn't require sudo
         returncode, stdout, _ = await self._run_command("systemctl", "is-active", unit)
 
-        # Normalize output
+        # Normalize output - prioritize stdout content when valid
         status = stdout.lower().strip()
 
-        # is-active returns: active, inactive, failed, activating, deactivating, etc.
-        if status in ("active", "inactive", "failed", "activating", "deactivating"):
+        # Check for valid status strings first
+        valid_statuses = ("active", "inactive", "failed", "activating", "deactivating")
+        if status in valid_statuses:
             return status
-        # Return code 3 means unit is not active (inactive or not found)
-        if returncode == 3:
-            return "inactive"
+
+        # If stdout didn't give a valid status, interpret return codes
         # Return code 4 means no such unit
         if returncode == 4:
             return "unknown"
+        # Return code 3 typically means inactive/dead when stdout is empty
+        if returncode == 3:
+            return "inactive"
 
         return status if status else "unknown"
 

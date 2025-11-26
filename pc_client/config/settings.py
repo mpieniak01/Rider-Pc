@@ -8,8 +8,13 @@ from dataclasses import dataclass, field
 def _parse_monitored_services() -> List[str]:
     """Parse MONITORED_SERVICES from environment variable.
 
-    Expects comma-separated list of systemd unit names.
+    Expects a comma-separated list of systemd unit names.
     Example: "rider-pc.service,rider-voice.service,rider-task-queue.service"
+
+    Returns:
+        List of service unit names. Empty list if environment variable is not set,
+        empty, or contains only whitespace. Whitespace around individual service
+        names is trimmed.
     """
     services_str = os.getenv("MONITORED_SERVICES", "")
     if not services_str:
