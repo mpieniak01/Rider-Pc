@@ -53,6 +53,23 @@
       }
     }
 
+    // Internationalization helper
+    function getTooltipText(status) {
+      const lang = document.documentElement.lang || 'pl';
+      const texts = {
+        pl: {
+          stop: 'Kliknij, aby zatrzymać usługę',
+          start: 'Kliknij, aby uruchomić usługę'
+        },
+        en: {
+          stop: 'Click to stop service',
+          start: 'Click to start service'
+        }
+      };
+      const langTexts = texts[lang] || texts['en'];
+      return status === 'active' ? langTexts.stop : langTexts.start;
+    }
+
     function formatSince(value) {
       if (!value) return 'n/a';
       return value;
@@ -75,6 +92,7 @@
       
       if (card) {
         card.classList.add('is-busy');
+        card.setAttribute('aria-busy', 'true');
       }
 
       try {
@@ -99,6 +117,7 @@
       } finally {
         if (card) {
           card.classList.remove('is-busy');
+          card.setAttribute('aria-busy', 'false');
         }
       }
     }
@@ -125,7 +144,9 @@
           card.className = `service-node ${stateClass}`;
           card.setAttribute('data-unit', node.unit);
           card.setAttribute('data-status', node.status || 'unknown');
-          card.setAttribute('title', `Kliknij, aby ${node.status === 'active' ? 'zatrzymać' : 'uruchomić'} usługę`);
+          card.setAttribute('title', getTooltipText(node.status));
+          card.setAttribute('role', 'button');
+          card.setAttribute('aria-label', `${node.label}: ${getTooltipText(node.status)}`);
           
           // Add click handler for toggling service
           card.addEventListener('click', () => {
