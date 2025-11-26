@@ -29,9 +29,52 @@
       justify-content: space-between;
       margin-bottom: 18px;
     }
+    .header-main {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
     header h1 {
       font-size: 1.4rem;
       margin: 0;
+    }
+    /* Version info styles */
+    .version-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.75rem;
+    }
+    .version-loading,
+    .version-unavailable {
+      color: var(--muted);
+      font-style: italic;
+    }
+    .version-branch {
+      background: rgba(59, 130, 246, 0.2);
+      color: #93c5fd;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+    .version-commit {
+      background: rgba(148, 163, 184, 0.15);
+      color: var(--muted);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: "Fira Code", "Consolas", monospace;
+      transition: background 0.15s ease;
+    }
+    .version-commit:hover {
+      background: rgba(148, 163, 184, 0.25);
+      color: var(--fg);
+    }
+    .version-dirty {
+      background: rgba(245, 158, 11, 0.2);
+      color: #fbbf24;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 500;
     }
     .system-links a {
       color: #93c5fd;
@@ -206,6 +249,9 @@
       }
       .toast {
         max-width: 100%;
+      }
+      .version-info {
+        flex-wrap: wrap;
       }
     }
 

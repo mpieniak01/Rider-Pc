@@ -11,7 +11,12 @@
 <div data-dashboard-menu-target></div>
 <div class="system-shell">
   <header>
-    <h1>System Dashboard – usługi <span class="brand-accent">Rider-PC</span></h1>
+    <div class="header-main">
+      <h1>System Dashboard – usługi <span class="brand-accent">Rider-PC</span></h1>
+      <div id="version-info" class="version-info" title="Informacje o wersji">
+        <span class="version-loading">Wczytywanie wersji...</span>
+      </div>
+    </div>
     <nav class="system-links">
       <a href="/web/view.html">Podgląd</a>
       <a href="/web/control.html">Sterowanie</a>
@@ -325,6 +330,69 @@
         eventSource.close();
       }
     });
+
+    // Version info functionality
+    const versionInfoEl = document.getElementById('version-info');
+
+    function renderVersionInfo(data) {
+      if (!data || !data.available) {
+        versionInfoEl.innerHTML = '<span class="version-unavailable">v. Unknown</span>';
+        versionInfoEl.title = 'Informacje o wersji niedostępne';
+        return;
+      }
+
+      const branchBadge = document.createElement('span');
+      branchBadge.className = 'version-branch';
+      branchBadge.textContent = data.branch || 'unknown';
+
+      const commitHash = document.createElement('span');
+      commitHash.className = 'version-commit';
+      commitHash.textContent = '#' + (data.commit || 'unknown');
+      commitHash.title = 'Kliknij, aby skopiować hash';
+      commitHash.style.cursor = 'pointer';
+      commitHash.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const hash = data.commit || '';
+        if (hash && navigator.clipboard) {
+          navigator.clipboard.writeText(hash).then(function() {
+            showToast('Skopiowano hash: ' + hash, 'success');
+          }).catch(function() {
+            showToast('Nie udało się skopiować', 'error');
+          });
+        }
+      });
+
+      versionInfoEl.innerHTML = '';
+      versionInfoEl.appendChild(branchBadge);
+      versionInfoEl.appendChild(commitHash);
+
+      if (data.dirty) {
+        const dirtyBadge = document.createElement('span');
+        dirtyBadge.className = 'version-dirty';
+        dirtyBadge.textContent = 'Zmodyfikowany';
+        dirtyBadge.title = 'Kod zmodyfikowany lokalnie (niezatwierdzone zmiany)';
+        versionInfoEl.appendChild(dirtyBadge);
+      }
+
+      versionInfoEl.title = data.message ? ('Ostatni commit: ' + data.message) : 'Informacje o wersji';
+    }
+
+    async function loadVersionInfo() {
+      try {
+        const resp = await fetch('/api/status/version', { cache: 'no-store' });
+        if (!resp.ok) {
+          throw new Error('HTTP ' + resp.status);
+        }
+        const data = await resp.json();
+        renderVersionInfo(data);
+      } catch (err) {
+        console.error('Failed to load version info:', err);
+        versionInfoEl.innerHTML = '<span class="version-unavailable">v. Unknown</span>';
+      }
+    }
+
+    // Load version info on page load (no need to refresh frequently as it's cached server-side)
+    loadVersionInfo();
   </script>
   <script type="module" src="/web/assets/menu.js"></script>
 </body>
