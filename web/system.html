@@ -235,6 +235,7 @@
     const logTerminal = document.getElementById('log-terminal');
     const logClearBtn = document.getElementById('log-clear-btn');
     const MAX_LOG_ENTRIES = 100;
+    const SSE_RECONNECT_DELAY_MS = 3000;
 
     function formatTimestamp(ts) {
       const date = ts ? new Date(ts * 1000) : new Date();
@@ -311,8 +312,8 @@
 
       eventSource.onerror = function(err) {
         console.error('SSE error:', err);
-        // Reconnect after 3 seconds
-        setTimeout(connectSSE, 3000);
+        // Reconnect after delay
+        setTimeout(connectSSE, SSE_RECONNECT_DELAY_MS);
       };
     }
 
