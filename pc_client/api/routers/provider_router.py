@@ -3,7 +3,7 @@
 import logging
 import time
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, TYPE_CHECKING
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -14,6 +14,9 @@ from pc_client.config import Settings
 from pc_client.providers import TextProvider
 from pc_client.providers.base import TaskEnvelope, TaskType, TaskStatus
 from pc_client.api.config_utils import get_provider_capabilities
+
+if TYPE_CHECKING:
+    from pc_client.core import ServiceManager
 
 logger = logging.getLogger(__name__)
 
@@ -245,88 +248,21 @@ async def providers_health(request: Request) -> JSONResponse:
 async def services_graph(request: Request) -> JSONResponse:
     """
     Get system services graph for system dashboard.
-    Mock implementation for Phase 3.
+    Delegates to ServiceManager for unified data.
     """
-    cache: CacheManager = request.app.state.cache
+    service_manager: Optional["ServiceManager"] = getattr(request.app.state, "service_manager", None)
+    if service_manager is not None:
+        service_manager.set_adapter(request.app.state.rest_adapter)
+        graph_data = await service_manager.get_service_graph()
+        return JSONResponse(content=graph_data)
 
+    # Fallback to cache if ServiceManager not available
+    cache: CacheManager = request.app.state.cache
     graph_data = cache.get(
         "services_graph",
         {
             "generated_at": time.time(),
-            "nodes": [
-                {
-                    "label": "FastAPI Server",
-                    "unit": "pc_client.service",
-                    "status": "active",
-                    "group": "api",
-                    "since": "2025-11-12 14:00:00",
-                    "description": "Main REST API server",
-                    "edges_out": ["cache", "zmq"],
-                },
-                {
-                    "label": "Cache Manager",
-                    "unit": "cache.service",
-                    "status": "active",
-                    "group": "data",
-                    "since": "2025-11-12 14:00:00",
-                    "description": "SQLite cache for data buffering",
-                    "edges_out": [],
-                },
-                {
-                    "label": "ZMQ Subscriber",
-                    "unit": "zmq.service",
-                    "status": "active",
-                    "group": "messaging",
-                    "since": "2025-11-12 14:00:00",
-                    "description": "Real-time data stream subscriber",
-                    "edges_out": ["cache"],
-                },
-                {
-                    "label": "Voice Provider",
-                    "unit": "voice.provider",
-                    "status": "active",
-                    "group": "providers",
-                    "since": "2025-11-12 14:00:00",
-                    "description": "ASR/TTS processing",
-                    "edges_out": ["task_queue"],
-                },
-                {
-                    "label": "Vision Provider",
-                    "unit": "vision.provider",
-                    "status": "active",
-                    "group": "providers",
-                    "since": "2025-11-12 14:00:00",
-                    "description": "Object detection and frame processing",
-                    "edges_out": ["task_queue"],
-                },
-                {
-                    "label": "Text Provider",
-                    "unit": "text.provider",
-                    "status": "active",
-                    "group": "providers",
-                    "since": "2025-11-12 14:00:00",
-                    "description": "LLM text generation and NLU",
-                    "edges_out": ["task_queue", "cache"],
-                },
-                {
-                    "label": "Task Queue",
-                    "unit": "task_queue.service",
-                    "status": "active",
-                    "group": "queue",
-                    "since": "2025-11-12 14:00:00",
-                    "description": "Redis-based task queue",
-                    "edges_out": [],
-                },
-                {
-                    "label": "Telemetry Publisher",
-                    "unit": "telemetry.service",
-                    "status": "active",
-                    "group": "monitoring",
-                    "since": "2025-11-12 14:00:00",
-                    "description": "ZMQ telemetry and Prometheus metrics",
-                    "edges_out": [],
-                },
-            ],
+            "nodes": [],
             "edges": [],
         },
     )

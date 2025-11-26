@@ -5,7 +5,7 @@ import json
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -13,6 +13,9 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pc_client.adapters import RestAdapter
 from pc_client.providers import VisionProvider
 from pc_client.api.sse_manager import SseManager
+
+if TYPE_CHECKING:
+    from pc_client.core import ServiceManager
 
 LOCAL_FEATURE_BLUEPRINTS = [
     {
@@ -538,7 +541,15 @@ async def update_resource(request: Request, resource_name: str, payload: Dict[st
 
 @router.get("/svc")
 async def list_services(request: Request) -> JSONResponse:
-    """Return systemd service states (proxy Rider-PI when possible)."""
+    """Return systemd service states via ServiceManager."""
+    service_manager: Optional["ServiceManager"] = getattr(request.app.state, "service_manager", None)
+    if service_manager is not None:
+        # Update adapter reference in service manager
+        service_manager.set_adapter(request.app.state.rest_adapter)
+        result = await service_manager.get_all_services()
+        return JSONResponse(result)
+
+    # Fallback to old behavior if ServiceManager not available
     adapter: Optional[RestAdapter] = request.app.state.rest_adapter
     if adapter:
         remote = await adapter.get_services()
@@ -568,7 +579,26 @@ def _extract_service_unit(payload: Dict[str, Any]) -> Optional[str]:
 
 @router.post("/svc/{unit}")
 async def control_service(request: Request, unit: str, payload: Dict[str, Any]) -> JSONResponse:
-    """Handle service control actions (proxy Rider-PI when possible)."""
+    """Handle service control actions via ServiceManager."""
+    action = (payload or {}).get("action")
+    if not action:
+        return JSONResponse({"error": "Missing action parameter"}, status_code=400)
+
+    service_manager: Optional["ServiceManager"] = getattr(request.app.state, "service_manager", None)
+    if service_manager is not None:
+        service_manager.set_adapter(request.app.state.rest_adapter)
+        result = await service_manager.control_service(unit, action)
+        if result.get("ok"):
+            _publish_event(request, "service.action", {"unit": unit, "action": action})
+            return JSONResponse(result)
+        # Check for specific error types
+        if "not found" in str(result.get("error", "")).lower():
+            return JSONResponse(result, status_code=404)
+        if "unsupported" in str(result.get("error", "")).lower():
+            return JSONResponse(result, status_code=400)
+        return JSONResponse(result, status_code=502)
+
+    # Fallback to old behavior if ServiceManager not available
     adapter: Optional[RestAdapter] = request.app.state.rest_adapter
     if adapter:
         result = await adapter.service_action(unit, payload or {})
@@ -580,7 +610,6 @@ async def control_service(request: Request, unit: str, payload: Dict[str, Any]) 
     service = next((s for s in request.app.state.services if s["unit"] == unit), None)
     if not service:
         return JSONResponse({"error": f"Service {unit} not found"}, status_code=404)
-    action = (payload or {}).get("action")
     if action == "start":
         service["active"] = "active"
         service["sub"] = "running"

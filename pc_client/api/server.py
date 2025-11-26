@@ -14,6 +14,7 @@ from starlette.datastructures import MutableHeaders
 
 from pc_client.config import Settings
 from pc_client.cache import CacheManager
+from pc_client.core import ServiceManager
 from pc_client.api import lifecycle
 from pc_client.api.routers import status_router, provider_router, control_router, voice_router, chat_router
 from pc_client.api.sse_manager import SseManager
@@ -124,6 +125,7 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
         "media_type": "image/png",
     }
     app.state.sse_manager = SseManager()
+    app.state.service_manager = ServiceManager()  # Initialize ServiceManager
     app.state.sync_task = None
     app.state.provider_heartbeat_task = None
     app.state.camera_sync_task = None

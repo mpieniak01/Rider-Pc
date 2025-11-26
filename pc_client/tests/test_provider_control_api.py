@@ -239,38 +239,23 @@ def test_services_graph_endpoint(test_client):
     assert "Voice Provider" in labels
 
 
-def test_services_graph_from_cache(test_client):
-    """Test that services graph can be read from cache."""
+def test_services_graph_from_service_manager(test_client):
+    """Test that services graph is generated from ServiceManager."""
     client, cache = test_client
-
-    # Set custom graph data in cache
-    import time
-
-    custom_graph = {
-        "generated_at": time.time(),
-        "nodes": [
-            {
-                "label": "Test Service",
-                "unit": "test.service",
-                "status": "active",
-                "group": "test",
-                "since": "2025-11-12 15:00:00",
-                "description": "Test service description",
-                "edges_out": [],
-            }
-        ],
-        "edges": [],
-    }
-    cache.set("services_graph", custom_graph)
 
     response = client.get("/api/services/graph")
 
     assert response.status_code == 200
     data = response.json()
 
-    assert len(data["nodes"]) == 1
-    assert data["nodes"][0]["label"] == "Test Service"
-    assert data["nodes"][0]["unit"] == "test.service"
+    # ServiceManager provides default local services
+    assert len(data["nodes"]) > 0
+    # Verify node structure
+    node = data["nodes"][0]
+    assert "label" in node
+    assert "unit" in node
+    assert "status" in node
+    assert "is_local" in node
 
 
 def test_all_provider_domains(test_client):
