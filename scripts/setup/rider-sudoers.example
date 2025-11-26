@@ -5,6 +5,12 @@
 #
 # Replace 'rider' with the username running Rider-PC application.
 # Adjust service names to match your MONITORED_SERVICES configuration.
+#
+# SECURITY NOTE: This configuration uses wildcards (rider-*) for convenience.
+# For stricter security, enumerate specific services explicitly, e.g.:
+#   rider ALL=(ALL) NOPASSWD: /usr/bin/systemctl start rider-pc.service, \
+#                             /usr/bin/systemctl stop rider-pc.service, \
+#                             /usr/bin/systemctl restart rider-pc.service
 
 # Allow rider user to manage Rider services without password
 rider ALL=(ALL) NOPASSWD: /usr/bin/systemctl start rider-*, \
