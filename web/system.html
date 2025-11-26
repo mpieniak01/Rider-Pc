@@ -19,13 +19,13 @@
   </header>
   <p id="status-line">Ładowanie danych usług…</p>
   <section id="system-graph"></section>
-  <section id="system-table"></section>
 </div>
+<div id="toast-container"></div>
 
   <script>
     const graphEl = document.getElementById('system-graph');
-    const tableEl = document.getElementById('system-table');
     const statusEl = document.getElementById('status-line');
+    const toastContainer = document.getElementById('toast-container');
 
     function statusClass(status) {
       switch ((status || '').toLowerCase()) {
@@ -40,9 +40,67 @@
       }
     }
 
+    function nodeStateClass(status) {
+      switch ((status || '').toLowerCase()) {
+        case 'active':
+          return 'is-active';
+        case 'failed':
+          return 'is-failed';
+        case 'inactive':
+          return 'is-inactive';
+        default:
+          return '';
+      }
+    }
+
     function formatSince(value) {
       if (!value) return 'n/a';
       return value;
+    }
+
+    function showToast(message, type = 'success') {
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      toastContainer.appendChild(toast);
+      setTimeout(() => {
+        toast.remove();
+      }, 3000);
+    }
+
+    async function toggleService(unit, currentStatus) {
+      // Determine action based on current status
+      const action = currentStatus === 'active' ? 'stop' : 'start';
+      const card = document.querySelector(`[data-unit="${unit}"]`);
+      
+      if (card) {
+        card.classList.add('is-busy');
+      }
+
+      try {
+        const resp = await fetch(`/svc/${encodeURIComponent(unit)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action }),
+        });
+
+        const result = await resp.json();
+
+        if (resp.ok && result.ok) {
+          showToast(`Usługa ${unit}: ${action === 'start' ? 'uruchomiona' : 'zatrzymana'}`, 'success');
+          // Refresh graph to show updated state
+          await loadGraph();
+        } else {
+          showToast(`Błąd: ${result.error || 'Nie udało się zmienić stanu usługi'}`, 'error');
+        }
+      } catch (err) {
+        console.error('Toggle service error:', err);
+        showToast(`Błąd połączenia: ${err.message}`, 'error');
+      } finally {
+        if (card) {
+          card.classList.remove('is-busy');
+        }
+      }
     }
 
     function renderGraph(nodes, edges) {
@@ -63,7 +121,17 @@
         items.sort((a, b) => a.label.localeCompare(b.label));
         items.forEach((node) => {
           const card = document.createElement('article');
-          card.className = 'service-node';
+          const stateClass = nodeStateClass(node.status);
+          card.className = `service-node ${stateClass}`;
+          card.setAttribute('data-unit', node.unit);
+          card.setAttribute('data-status', node.status || 'unknown');
+          card.setAttribute('title', `Kliknij, aby ${node.status === 'active' ? 'zatrzymać' : 'uruchomić'} usługę`);
+          
+          // Add click handler for toggling service
+          card.addEventListener('click', () => {
+            toggleService(node.unit, node.status);
+          });
+
           const header = document.createElement('div');
           const title = document.createElement('h2');
           title.textContent = node.label;
@@ -112,43 +180,6 @@
       groupFragments.forEach((fragment) => graphEl.appendChild(fragment));
     }
 
-    function renderTable(nodes) {
-      if (!nodes.length) {
-        tableEl.innerHTML = '';
-        return;
-      }
-      const rows = nodes
-        .slice()
-        .sort((a, b) => a.label.localeCompare(b.label))
-        .map((node) => `
-          <tr>
-            <td>${node.unit}</td>
-            <td>
-              <div>${node.label}</div>
-              <div class="desc">${node.description || ''}</div>
-            </td>
-            <td><span class="status-pill ${statusClass(node.status)}">${node.status || 'unknown'}</span></td>
-            <td>${node.group}</td>
-            <td>${formatSince(node.since)}</td>
-          </tr>
-        `)
-        .join('');
-      tableEl.innerHTML = `
-        <table>
-          <thead>
-            <tr>
-              <th>Unit</th>
-              <th>Opis</th>
-              <th>Status</th>
-              <th>Grupa</th>
-              <th>Aktywny od</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      `;
-    }
-
     async function loadGraph() {
       try {
         statusEl.textContent = 'Aktualizuję status usług…';
@@ -158,7 +189,6 @@
         }
         const payload = await resp.json();
         renderGraph(payload.nodes || [], payload.edges || []);
-        renderTable(payload.nodes || []);
         const ts = payload.generated_at ? new Date(payload.generated_at * 1000) : new Date();
         statusEl.textContent = `Ostatnia aktualizacja: ${ts.toLocaleTimeString()}`;
       } catch (err) {
