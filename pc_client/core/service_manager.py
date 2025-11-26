@@ -1,8 +1,15 @@
 """Hybrid Service Manager for managing local and remote services."""
 
+import asyncio
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
+
+from pc_client.adapters.systemd_adapter import (
+    SystemdAdapter,
+    MockSystemdAdapter,
+    is_systemd_available,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -107,24 +114,57 @@ class ServiceManager:
     Hybrid Service Manager for managing local and remote services.
 
     This manager acts as a central point for:
-    - Managing local PC services (simulated state)
+    - Managing local PC services (via systemd on Linux or simulated state)
     - Proxying requests to Rider-Pi for remote services
     - Aggregating service data for the UI graph
+
+    On Linux systems with systemd available, the manager uses the SystemdAdapter
+    to execute real systemctl commands. On other platforms (Windows, macOS) or
+    when systemd is not available, it falls back to mock/simulated behavior.
     """
 
-    def __init__(self, rest_adapter: Optional[Any] = None):
+    def __init__(
+        self,
+        rest_adapter: Optional[Any] = None,
+        systemd_adapter: Optional[Union[SystemdAdapter, MockSystemdAdapter]] = None,
+        monitored_services: Optional[List[str]] = None,
+        use_sudo: bool = True,
+    ):
         """
         Initialize the Service Manager.
 
         Args:
             rest_adapter: Optional RestAdapter for communicating with Rider-Pi
+            systemd_adapter: Optional SystemdAdapter for managing local services.
+                           If None, auto-detects based on platform.
+            monitored_services: Optional list of systemd unit names to monitor.
+                              If provided, these are used instead of DEFAULT_LOCAL_SERVICES.
+            use_sudo: Whether to use sudo for systemctl commands (default: True).
         """
         self._rest_adapter = rest_adapter
-        # Initialize local services state from defaults
+        self._last_remote_sync: float = 0.0
+
+        # Auto-detect systemd availability if adapter not provided
+        self._systemd_adapter: Union[SystemdAdapter, MockSystemdAdapter, None]
+        if systemd_adapter is not None:
+            self._systemd_adapter = systemd_adapter
+            self._use_real_systemd = isinstance(systemd_adapter, SystemdAdapter) and systemd_adapter.available
+        elif is_systemd_available():
+            self._systemd_adapter = SystemdAdapter(use_sudo=use_sudo)
+            self._use_real_systemd = self._systemd_adapter.available
+            logger.info("ServiceManager: Using real systemd adapter (Linux detected)")
+        else:
+            self._systemd_adapter = None
+            self._use_real_systemd = False
+            logger.info("ServiceManager: Using mock/simulated mode (systemd not available)")
+
+        # Initialize local services state from defaults (for mock mode)
         self._local_services: Dict[str, Dict[str, Any]] = {
             svc["unit"]: dict(svc) for svc in DEFAULT_LOCAL_SERVICES
         }
-        self._last_remote_sync: float = 0.0
+
+        # Store monitored services list for real systemd mode
+        self._monitored_services = monitored_services or []
 
     def set_adapter(self, adapter: Optional[Any]) -> None:
         """Update the REST adapter reference."""
@@ -132,10 +172,19 @@ class ServiceManager:
 
     def _is_local_service(self, unit: str) -> bool:
         """Check if a service is managed locally."""
+        # In real systemd mode, check monitored services list
+        if self._use_real_systemd and self._monitored_services:
+            return unit in self._monitored_services
+        # In mock mode, check local services dict
         return unit in self._local_services
 
     def get_local_services(self) -> List[Dict[str, Any]]:
-        """Get list of all local services with current state."""
+        """
+        Get list of all local services with current state.
+
+        Note: This is the synchronous version that returns mock/cached data.
+        For real systemd status, use get_local_services_async().
+        """
         now = time.time()
         services = []
         for svc in self._local_services.values():
@@ -144,6 +193,45 @@ class ServiceManager:
             service_data["is_local"] = True
             services.append(service_data)
         return services
+
+    async def get_local_services_async(self) -> List[Dict[str, Any]]:
+        """
+        Get list of all local services with current state (async version).
+
+        On Linux with systemd, fetches real service status.
+        On other platforms, returns mock/simulated data.
+        """
+        now = time.time()
+
+        # If using real systemd, fetch status for monitored services concurrently
+        if self._use_real_systemd and self._systemd_adapter and self._monitored_services:
+            # Fetch all service details concurrently
+            tasks = [self._systemd_adapter.get_unit_details(unit) for unit in self._monitored_services]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            services = []
+            for unit, details in zip(self._monitored_services, results):
+                if isinstance(details, Exception):
+                    logger.error("Failed to get details for %s: %s", unit, details)
+                    details = {"active": "unknown", "sub": "unknown", "enabled": "unknown", "desc": ""}
+
+                # Build service data structure
+                service_data = {
+                    "unit": unit,
+                    "desc": details.get("desc", ""),
+                    "active": details.get("active", "unknown"),
+                    "sub": details.get("sub", "unknown"),
+                    "enabled": details.get("enabled", "unknown"),
+                    "group": "systemd",  # Default group for monitored services
+                    "label": details.get("desc") or unit.replace(".service", "").replace("-", " ").title(),
+                    "is_local": True,
+                    "ts": now,
+                }
+                services.append(service_data)
+            return services
+
+        # Fall back to mock/simulated data
+        return self.get_local_services()
 
     async def get_remote_services(self) -> List[Dict[str, Any]]:
         """Fetch remote services from Rider-Pi if adapter is available."""
@@ -171,7 +259,8 @@ class ServiceManager:
         Returns:
             Dictionary with 'services' list and 'timestamp'
         """
-        local_services = self.get_local_services()
+        # Use async version to get real systemd status when available
+        local_services = await self.get_local_services_async()
         remote_services = await self.get_remote_services()
 
         # Merge services - remote services with same unit override local
@@ -252,7 +341,7 @@ class ServiceManager:
 
         # Check if this is a local service
         if self._is_local_service(unit):
-            return self._control_local_service(unit, action)
+            return await self._control_local_service(unit, action)
 
         # Remote service - proxy to Rider-Pi
         if self._rest_adapter is not None:
@@ -265,9 +354,12 @@ class ServiceManager:
 
         return {"ok": False, "error": f"Service {unit} not found"}
 
-    def _control_local_service(self, unit: str, action: str) -> Dict[str, Any]:
+    async def _control_local_service(self, unit: str, action: str) -> Dict[str, Any]:
         """
-        Control a local service (simulated state change).
+        Control a local service.
+
+        On Linux with systemd and for monitored services, executes real systemctl commands.
+        For mock services (DEFAULT_LOCAL_SERVICES), simulates state change in memory.
 
         Args:
             unit: Service unit name
@@ -276,6 +368,12 @@ class ServiceManager:
         Returns:
             Result dictionary
         """
+        # Use real systemd adapter only for monitored services
+        if self._use_real_systemd and self._systemd_adapter and unit in self._monitored_services:
+            result = await self._systemd_adapter.manage_service(unit, action)
+            return result
+
+        # Fall back to mock/simulated behavior for DEFAULT_LOCAL_SERVICES
         service = self._local_services.get(unit)
         if not service:
             return {"ok": False, "error": f"Service {unit} not found"}

@@ -2,6 +2,7 @@
 
 import pytest
 from pc_client.core.service_manager import ServiceManager, DEFAULT_LOCAL_SERVICES
+from pc_client.adapters.systemd_adapter import MockSystemdAdapter
 
 
 class MockRestAdapter:
@@ -233,3 +234,88 @@ async def test_service_to_node_status_mapping():
     graph = await manager.get_service_graph()
     test_node = next(n for n in graph["nodes"] if n["unit"] == "test.service")
     assert test_node["status"] == "inactive"
+
+
+@pytest.mark.asyncio
+async def test_service_manager_with_monitored_services():
+    """Test ServiceManager with monitored_services parameter."""
+    mock_adapter = MockSystemdAdapter()
+    mock_adapter.add_service("test.service", active="active", sub="running", desc="Test Service")
+    mock_adapter.add_service("other.service", active="inactive", sub="dead", desc="Other Service")
+
+    manager = ServiceManager(
+        systemd_adapter=mock_adapter,
+        monitored_services=["test.service", "other.service"]
+    )
+
+    # Verify monitored services are stored
+    assert manager._monitored_services == ["test.service", "other.service"]
+
+
+@pytest.mark.asyncio
+async def test_service_manager_with_mock_systemd_adapter():
+    """Test ServiceManager with custom MockSystemdAdapter."""
+    mock_adapter = MockSystemdAdapter()
+    mock_adapter.add_service("rider-voice.service", active="active", sub="running", desc="Voice Service")
+
+    manager = ServiceManager(
+        systemd_adapter=mock_adapter,
+        monitored_services=["rider-voice.service"]
+    )
+
+    # MockSystemdAdapter is always "available" so _use_real_systemd should be True
+    # But since MockSystemdAdapter is not an instance of SystemdAdapter, it should be False
+    assert manager._use_real_systemd is False
+
+
+@pytest.mark.asyncio
+async def test_get_local_services_async_with_mock_adapter():
+    """Test get_local_services_async returns mock data when not using real systemd."""
+    manager = ServiceManager()
+
+    services = await manager.get_local_services_async()
+
+    # Should return the default local services
+    assert len(services) == len(DEFAULT_LOCAL_SERVICES)
+    for svc in services:
+        assert "unit" in svc
+        assert "is_local" in svc
+        assert svc["is_local"] is True
+
+
+@pytest.mark.asyncio
+async def test_is_local_service_with_monitored_services():
+    """Test _is_local_service behavior with monitored_services."""
+    mock_adapter = MockSystemdAdapter()
+    mock_adapter.add_service("test.service")
+
+    # When _use_real_systemd is False, should check local_services dict
+    manager = ServiceManager(
+        systemd_adapter=mock_adapter,
+        monitored_services=["test.service"]
+    )
+
+    # Since MockSystemdAdapter makes _use_real_systemd=False, should check local_services
+    assert manager._is_local_service("pc_client.service") is True  # In DEFAULT_LOCAL_SERVICES
+    assert manager._is_local_service("nonexistent.service") is False
+
+
+@pytest.mark.asyncio
+async def test_control_local_service_with_mock_adapter():
+    """Test controlling service with mock adapter falls back to mock behavior."""
+    mock_adapter = MockSystemdAdapter()
+    mock_adapter.add_service("voice.provider")
+
+    manager = ServiceManager(
+        systemd_adapter=mock_adapter,
+        monitored_services=["voice.provider"]
+    )
+
+    # Since _use_real_systemd is False, should use mock behavior
+    result = await manager.control_service("voice.provider", "stop")
+    assert result["ok"] is True
+
+    # Verify service state changed in _local_services (mock mode)
+    services = manager.get_local_services()
+    voice = next(s for s in services if s["unit"] == "voice.provider")
+    assert voice["active"] == "inactive"
