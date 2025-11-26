@@ -1,0 +1,12 @@
+# Example sudoers configuration for Rider-PC systemd service management
+# Copy to /etc/sudoers.d/rider-pc with correct permissions:
+#   sudo cp rider-sudoers.example /etc/sudoers.d/rider-pc
+#   sudo chmod 440 /etc/sudoers.d/rider-pc
+#
+# Replace 'rider' with the username running Rider-PC application.
+# Adjust service names to match your MONITORED_SERVICES configuration.
+
+# Allow rider user to manage Rider services without password
+rider ALL=(ALL) NOPASSWD: /usr/bin/systemctl start rider-*, \
+                          /usr/bin/systemctl stop rider-*, \
+                          /usr/bin/systemctl restart rider-*
