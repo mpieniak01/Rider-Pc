@@ -109,3 +109,48 @@ StartLimitBurst=5
 4. Rozważ stworzenie targetów `rider-autonomy.target` i `rider-diagnostics.target` dla prostych procedur start/stop.
 5. W UI przed startem usługi sprawdzaj zasoby; jeśli zajęte, proponuj „Zwolnij zasób → Start”.
 6. Dodaj endpoint `/health` w `rider-api` z listą unitów i locków zasobów do widoku diagnostycznego.
+
+---
+
+## Zarządzanie Usługami z Poziomu Rider-PC
+
+Rider-PC może sterować lokalnymi usługami systemd na maszynie, na której jest uruchomiony. Dashboard umożliwia uruchamianie, zatrzymywanie i restartowanie usług bez konieczności logowania się do terminala.
+
+### Konfiguracja Zmiennych Środowiskowych
+
+W pliku `.env` (lub zmiennych środowiskowych) ustaw:
+
+```bash
+# Lista jednostek systemd do monitorowania (oddzielona przecinkami)
+# Przykład:
+MONITORED_SERVICES=rider-pc.service,rider-voice.service,rider-task-queue.service
+
+# Czy używać sudo dla poleceń systemctl (domyślnie: true)
+SYSTEMD_USE_SUDO=true
+```
+
+### Przygotowanie Systemu Linux (sudoers)
+
+Aby Rider-PC mógł wykonywać polecenia `systemctl` bez hasła, dodaj odpowiednie reguły do sudoers:
+
+1. Otwórz edytor sudoers:
+```bash
+sudo visudo -f /etc/sudoers.d/rider-pc
+```
+
+2. Dodaj reguły (zamień `rider` na użytkownika uruchamiającego aplikację):
+```sudoers
+# Pozwól użytkownikowi rider zarządzać usługami Rider bez hasła
+rider ALL=(root) NOPASSWD: /usr/bin/systemctl start rider-*, \
+                           /usr/bin/systemctl stop rider-*, \
+                           /usr/bin/systemctl restart rider-*, \
+                           /usr/bin/systemctl enable rider-*, \
+                           /usr/bin/systemctl disable rider-*
+```
+
+3. Ustaw uprawnienia pliku:
+```bash
+sudo chmod 440 /etc/sudoers.d/rider-pc
+```
+
+> **Uwaga bezpieczeństwa**: Przykładowy plik konfiguracyjny znajduje się w `scripts/setup/rider-sudoers.example`. Dostosuj nazwy usług do swojego środowiska.

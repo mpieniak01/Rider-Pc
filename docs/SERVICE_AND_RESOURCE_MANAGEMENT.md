@@ -109,3 +109,48 @@ StartLimitBurst=5
 4. Consider creating targets `rider-autonomy.target` and `rider-diagnostics.target` for simple start/stop procedures.
 5. In UI before starting service check resources; if busy, propose "Free resource → Start".
 6. Add `/health` endpoint in `rider-api` with list of units and resource locks for diagnostic view.
+
+---
+
+## Rider-PC Local Service Management
+
+Rider-PC can control local systemd services on the machine where it runs. The dashboard enables starting, stopping, and restarting services without needing to log into the terminal.
+
+### Environment Variables Configuration
+
+In the `.env` file (or environment variables) set:
+
+```bash
+# Comma-separated list of systemd units to monitor
+# Example:
+MONITORED_SERVICES=rider-pc.service,rider-voice.service,rider-task-queue.service
+
+# Whether to use sudo for systemctl commands (default: true)
+SYSTEMD_USE_SUDO=true
+```
+
+### Linux System Preparation (sudoers)
+
+For Rider-PC to execute `systemctl` commands without a password, add appropriate rules to sudoers:
+
+1. Open the sudoers editor:
+```bash
+sudo visudo -f /etc/sudoers.d/rider-pc
+```
+
+2. Add rules (replace `rider` with the user running the application):
+```sudoers
+# Allow rider user to manage Rider services without password
+rider ALL=(root) NOPASSWD: /usr/bin/systemctl start rider-*, \
+                           /usr/bin/systemctl stop rider-*, \
+                           /usr/bin/systemctl restart rider-*, \
+                           /usr/bin/systemctl enable rider-*, \
+                           /usr/bin/systemctl disable rider-*
+```
+
+3. Set file permissions:
+```bash
+sudo chmod 440 /etc/sudoers.d/rider-pc
+```
+
+> **Security Note**: An example sudoers configuration file is available at `scripts/setup/rider-sudoers.example`. Adjust service names to match your environment.

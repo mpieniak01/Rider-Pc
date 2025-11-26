@@ -234,6 +234,75 @@ LOG_LEVEL=WARNING
 3. Zobacz zadania w kolejce: `redis-cli KEYS "task_queue:*"`
 4. Sprawdź workery: `grep "\[worker\]" logs/panel-*.log`
 
+## Zarządzanie Lokalnymi Usługami Systemowymi
+
+### Przegląd
+
+Rider-PC może zarządzać lokalnymi usługami systemd na systemach Linux. Umożliwia to dashboardowi uruchamianie, zatrzymywanie i restartowanie usług systemowych jak `rider-task-queue.service` czy `rider-voice.service`.
+
+### Konfiguracja
+
+Aby włączyć rzeczywiste zarządzanie usługami systemd, ustaw następujące zmienne środowiskowe:
+
+```bash
+# Lista jednostek systemd do monitorowania i kontrolowania (oddzielona przecinkami)
+MONITORED_SERVICES=rider-pc.service,rider-voice.service,rider-task-queue.service
+
+# Czy używać sudo dla poleceń systemctl (domyślnie: true)
+# Ustaw na false jeśli Rider-PC działa jako root
+SYSTEMD_USE_SUDO=true
+```
+
+### Konfiguracja Sudoers
+
+Ponieważ operacje systemd wymagają podwyższonych uprawnień, musisz skonfigurować dostęp sudo bez hasła dla użytkownika uruchamiającego Rider-PC. Pozwala to aplikacji wykonywać polecenia `systemctl` bez pytania o hasło.
+
+1. Utwórz plik sudoers dla Rider-PC:
+
+```bash
+sudo visudo -f /etc/sudoers.d/rider-pc
+```
+
+2. Dodaj następujące reguły (zamień `rider` na nazwę użytkownika uruchamiającego Rider-PC):
+
+> **Uwaga**: Te reguły zakładają, że `systemctl` znajduje się w `/usr/bin/systemctl`. Jeśli na Twoim systemie jest inaczej, sprawdź lokalizację poleceniem `which systemctl` i odpowiednio dostosuj ścieżki.
+
+```sudoers
+# Pozwól użytkownikowi rider zarządzać usługami Rider bez hasła
+rider ALL=(root) NOPASSWD: /usr/bin/systemctl start rider-*, \
+                           /usr/bin/systemctl stop rider-*, \
+                           /usr/bin/systemctl restart rider-*, \
+                           /usr/bin/systemctl enable rider-*, \
+                           /usr/bin/systemctl disable rider-*
+```
+
+3. Ustaw prawidłowe uprawnienia:
+
+```bash
+sudo chmod 440 /etc/sudoers.d/rider-pc
+```
+
+Przykładowy plik konfiguracyjny sudoers jest dostępny w repozytorium: `scripts/setup/rider-sudoers.example`
+
+### Zachowanie na Różnych Platformach
+
+| Platforma | Zachowanie |
+|-----------|------------|
+| **Linux + systemd** | Rzeczywista kontrola usług przez `systemctl` |
+| **Linux bez systemd** | Tryb symulowany/mock |
+| **Windows** | Tylko tryb symulowany/mock |
+| **macOS** | Tylko tryb symulowany/mock |
+| **Docker** | Zależy od konfiguracji kontenera; zazwyczaj tryb mock |
+
+W trybie symulowanym dashboard pokazuje domyślne usługi z symulowanymi stanami. Akcje kontroli usług aktualizują stan w pamięci bez wpływu na rzeczywisty system.
+
+### Względy Bezpieczeństwa
+
+- Nadawaj dostęp sudoers tylko dla konkretnych usług, które chcesz kontrolować
+- Unikaj używania wildcardów w regułach sudoers dla systemctl; prefiks `rider-*` jest dopuszczalny dla wygody, ale dla większego bezpieczeństwa zaleca się jawne wyliczenie usług
+- Regularnie audytuj które usługi są kontrolowalne
+- Rozważ uruchamianie Rider-PC na dedykowanym koncie użytkownika
+
 ## Dalsze Informacje
 
 - **Szybki Start**: [SZYBKI_START.md](SZYBKI_START.md)
@@ -248,5 +317,6 @@ LOG_LEVEL=WARNING
 - ✅ Konfiguracja Kolejki Zadań
 - ✅ Konfiguracja Monitoringu
 - ✅ Hub Konfiguracyjny (ten dokument)
+- ✅ Zarządzanie Lokalnymi Usługami Systemowymi
 
-**Ostatnia aktualizacja**: 2025-11-22
+**Ostatnia aktualizacja**: 2025-11-26
