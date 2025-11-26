@@ -241,6 +241,83 @@ LOG_LEVEL=WARNING
 - **Offload Integration**: [PC_OFFLOAD_INTEGRATION.md](PC_OFFLOAD_INTEGRATION.md)
 - **Service Management**: [SERVICE_AND_RESOURCE_MANAGEMENT.md](SERVICE_AND_RESOURCE_MANAGEMENT.md)
 
+## Local System Service Management
+
+### Overview
+
+Rider-PC can manage local systemd services on Linux systems. This enables the dashboard to start, stop, and restart system services like `rider-task-queue.service` or `rider-voice.service`.
+
+### Configuration
+
+To enable real systemd service management, set the following environment variables:
+
+```bash
+# Comma-separated list of systemd units to monitor and control
+MONITORED_SERVICES=rider-pc.service,rider-voice.service,rider-task-queue.service
+
+# Whether to use sudo for systemctl commands (default: true)
+# Set to false if Rider-PC runs as root
+SYSTEMD_USE_SUDO=true
+```
+
+### Sudoers Configuration
+
+Since systemd operations require elevated privileges, you need to configure passwordless sudo access for the user running Rider-PC. This allows the application to execute `systemctl` commands without prompting for a password.
+
+1. Create a sudoers file for Rider-PC:
+
+```bash
+sudo visudo -f /etc/sudoers.d/rider-pc
+```
+
+2. Add the following rules (replace `rider` with the username running Rider-PC):
+
+```sudoers
+# Allow rider user to manage specific services without password
+rider ALL=(root) NOPASSWD: /usr/bin/systemctl start rider-pc.service
+rider ALL=(root) NOPASSWD: /usr/bin/systemctl stop rider-pc.service
+rider ALL=(root) NOPASSWD: /usr/bin/systemctl restart rider-pc.service
+rider ALL=(root) NOPASSWD: /usr/bin/systemctl enable rider-pc.service
+rider ALL=(root) NOPASSWD: /usr/bin/systemctl disable rider-pc.service
+
+rider ALL=(root) NOPASSWD: /usr/bin/systemctl start rider-voice.service
+rider ALL=(root) NOPASSWD: /usr/bin/systemctl stop rider-voice.service
+rider ALL=(root) NOPASSWD: /usr/bin/systemctl restart rider-voice.service
+rider ALL=(root) NOPASSWD: /usr/bin/systemctl enable rider-voice.service
+rider ALL=(root) NOPASSWD: /usr/bin/systemctl disable rider-voice.service
+
+rider ALL=(root) NOPASSWD: /usr/bin/systemctl start rider-task-queue.service
+rider ALL=(root) NOPASSWD: /usr/bin/systemctl stop rider-task-queue.service
+rider ALL=(root) NOPASSWD: /usr/bin/systemctl restart rider-task-queue.service
+rider ALL=(root) NOPASSWD: /usr/bin/systemctl enable rider-task-queue.service
+rider ALL=(root) NOPASSWD: /usr/bin/systemctl disable rider-task-queue.service
+```
+
+3. Set correct permissions:
+
+```bash
+sudo chmod 440 /etc/sudoers.d/rider-pc
+```
+
+### Platform Behavior
+
+| Platform | Behavior |
+|----------|----------|
+| **Linux + systemd** | Real service control via `systemctl` |
+| **Linux without systemd** | Falls back to mock/simulated mode |
+| **Windows** | Mock/simulated mode only |
+| **macOS** | Mock/simulated mode only |
+| **Docker** | Depends on container setup; typically mock mode |
+
+In mock/simulated mode, the dashboard shows default services with simulated states. Service control actions update the state in memory without affecting the actual system.
+
+### Security Considerations
+
+- Only grant sudoers access for specific services you want to control
+- Never use wildcards in sudoers rules for systemctl
+- Regularly audit which services are controllable
+- Consider running Rider-PC in a dedicated user account
+
 ## Documentation Status
 
 - ✅ AI Model Configuration
@@ -248,5 +325,6 @@ LOG_LEVEL=WARNING
 - ✅ Task Queue Configuration
 - ✅ Monitoring Configuration
 - ✅ Configuration Hub (this document)
+- ✅ Local System Service Management
 
-**Last update**: 2025-11-22
+**Last update**: 2025-11-26

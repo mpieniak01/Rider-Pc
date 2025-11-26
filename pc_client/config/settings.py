@@ -1,8 +1,20 @@
 """Settings and configuration for the PC client."""
 
 import os
-from typing import Optional
+from typing import List, Optional
 from dataclasses import dataclass, field
+
+
+def _parse_monitored_services() -> List[str]:
+    """Parse MONITORED_SERVICES from environment variable.
+
+    Expects comma-separated list of systemd unit names.
+    Example: "rider-pc.service,rider-voice.service,rider-task-queue.service"
+    """
+    services_str = os.getenv("MONITORED_SERVICES", "")
+    if not services_str:
+        return []
+    return [s.strip() for s in services_str.split(",") if s.strip()]
 
 
 @dataclass
@@ -78,6 +90,12 @@ class Settings:
 
     # Test mode - use mock adapters instead of real connections
     test_mode: bool = field(default_factory=lambda: os.getenv("TEST_MODE", "false").lower() == "true")
+
+    # Systemd service management configuration
+    # Comma-separated list of systemd units to monitor (e.g., "rider-pc.service,rider-voice.service")
+    monitored_services: List[str] = field(default_factory=_parse_monitored_services)
+    # Whether to use sudo for systemctl commands (set to false if running as root)
+    systemd_use_sudo: bool = field(default_factory=lambda: os.getenv("SYSTEMD_USE_SUDO", "true").lower() == "true")
 
     @property
     def rider_pi_base_url(self) -> str:
