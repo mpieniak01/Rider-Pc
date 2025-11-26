@@ -82,12 +82,8 @@ class GitAdapter:
             Tuple of (return_code, stdout, stderr).
         """
         try:
-            cmd = list(args)
-            if self._repo_path:
-                cmd = ["git", "-C", self._repo_path] + list(args[1:]) if args[0] == "git" else cmd
-
             process = await asyncio.create_subprocess_exec(
-                *cmd,
+                *args,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -203,7 +199,7 @@ class GitAdapter:
             logger.warning("Failed to get last commit message: %s", stderr or stdout)
             return ""
 
-        # Return first line only (trim multi-line messages)
+        # Return first line only (extract subject from multi-line commit messages)
         return stdout.split('\n')[0].strip() if stdout else ""
 
     async def get_version_info(self) -> Dict[str, Any]:

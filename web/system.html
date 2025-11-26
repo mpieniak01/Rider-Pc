@@ -391,7 +391,7 @@
       }
     }
 
-    // Load version info on page load (no need to refresh frequently as it's cached server-side)
+    // Load version info on page load (server caches for 60s, refresh on page reload)
     loadVersionInfo();
   </script>
   <script type="module" src="/web/assets/menu.js"></script>
