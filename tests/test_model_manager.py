@@ -1,6 +1,5 @@
 """Tests for model_manager.py"""
 
-import pytest
 from pathlib import Path
 from pc_client.core.model_manager import ModelManager, ModelInfo, ActiveModels
 

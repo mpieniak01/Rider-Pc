@@ -1,12 +1,29 @@
 """Model management API endpoints."""
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field, field_validator
 
 from pc_client.core.model_manager import ModelManager
+
+
+class BindModelRequest(BaseModel):
+    """Request body for model binding."""
+
+    slot: str = Field(..., description="Target slot (vision, voice_asr, voice_tts, text)")
+    provider: str = Field(..., description="Provider name (yolo, whisper, piper, ollama, openai)")
+    model: str = Field(..., description="Model name or identifier")
+
+    @field_validator("slot", "provider", "model")
+    @classmethod
+    def validate_not_empty(cls, v: str) -> str:
+        """Validate that fields are not empty or whitespace-only."""
+        if not v or not v.strip():
+            raise ValueError("Field cannot be empty or whitespace-only")
+        return v.strip()
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +100,7 @@ async def get_active_models(request: Request) -> JSONResponse:
 
 
 @router.post("/bind")
-async def bind_model(request: Request, payload: Dict[str, Any]) -> JSONResponse:
+async def bind_model(request: Request, payload: BindModelRequest) -> JSONResponse:
     """
     Bind a model to a specific slot.
 
@@ -95,9 +112,9 @@ async def bind_model(request: Request, payload: Dict[str, Any]) -> JSONResponse:
     Note: This updates the in-memory configuration. For persistence,
     changes should be written to providers.toml.
     """
-    slot = payload.get("slot")
-    provider = payload.get("provider")
-    model = payload.get("model")
+    slot = payload.slot
+    provider = payload.provider
+    model = payload.model
 
     valid_slots = {"vision", "voice_asr", "voice_tts", "text"}
     if slot not in valid_slots:
@@ -106,21 +123,15 @@ async def bind_model(request: Request, payload: Dict[str, Any]) -> JSONResponse:
             content={"error": f"Invalid slot. Must be one of: {sorted(valid_slots)}"},
         )
 
-    if not provider or not model:
-        return JSONResponse(
-            status_code=400,
-            content={"error": "Missing 'provider' or 'model' in request"},
-        )
-
     manager = get_model_manager(request)
 
     # Update in-memory configuration
     active = manager.get_active_models()
     slot_config = getattr(active, slot, {})
-    if isinstance(slot_config, dict):
-        slot_config["provider"] = provider
-        slot_config["model"] = model
-        setattr(active, slot, slot_config)
+    if not isinstance(slot_config, dict):
+        slot_config = {}
+    slot_config = {**slot_config, "provider": provider, "model": model}
+    setattr(active, slot, slot_config)
 
     logger.info("Model binding updated: slot=%s, provider=%s, model=%s", slot, provider, model)
 

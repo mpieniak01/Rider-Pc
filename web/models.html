@@ -97,6 +97,13 @@ const voiceTtsModels = document.getElementById('voice-tts-models');
 const textModels = document.getElementById('text-models');
 const installedTbody = document.getElementById('installed-models-tbody');
 
+// HTML escape function to prevent XSS
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = String(text ?? '');
+  return div.innerHTML;
+}
+
 const categoryIcons = {
   vision: '👁️',
   voice_asr: '🎤',
@@ -139,20 +146,24 @@ function createActiveModelCard(category, config) {
     statusText = 'Aktywny';
   }
   
+  const safeCategory = escapeHtml(categoryNames[category] || category);
+  const safeModel = escapeHtml(config.model || 'N/A');
+  const safeProvider = escapeHtml(providerNames[config.provider] || config.provider || 'N/A');
+  
   card.innerHTML = `
     <div class="active-model-header">
       <span class="active-model-icon">${categoryIcons[category] || '🤖'}</span>
-      <span class="active-model-category">${categoryNames[category] || category}</span>
-      <span class="active-model-status ${statusClass}">${statusText}</span>
+      <span class="active-model-category">${safeCategory}</span>
+      <span class="active-model-status ${statusClass}">${escapeHtml(statusText)}</span>
     </div>
     <div class="active-model-info">
       <div class="info-row">
         <span class="info-label">Model:</span>
-        <span class="info-value model-name">${config.model || 'N/A'}</span>
+        <span class="info-value model-name">${safeModel}</span>
       </div>
       <div class="info-row">
         <span class="info-label">Provider:</span>
-        <span class="info-value">${providerNames[config.provider] || config.provider || 'N/A'}</span>
+        <span class="info-value">${safeProvider}</span>
       </div>
     </div>
   `;
@@ -168,19 +179,23 @@ function createOllamaModelCard(model) {
   const size = model.size ? formatSize(model.size) : 'N/A';
   const modified = model.modified_at ? new Date(model.modified_at).toLocaleDateString() : '';
   
+  const safeName = escapeHtml(name);
+  const safeSize = escapeHtml(size);
+  const safeModified = escapeHtml(modified);
+  
   card.innerHTML = `
     <div class="model-card-header">
-      <span class="model-name">${name}</span>
+      <span class="model-name">${safeName}</span>
       <span class="model-provider ollama">Ollama</span>
     </div>
     <div class="model-card-body">
       <div class="model-meta">
-        <span class="meta-item">📦 ${size}</span>
-        ${modified ? `<span class="meta-item">📅 ${modified}</span>` : ''}
+        <span class="meta-item">📦 ${safeSize}</span>
+        ${safeModified ? `<span class="meta-item">📅 ${safeModified}</span>` : ''}
       </div>
     </div>
     <div class="model-card-actions">
-      <button class="btn-activate" data-model="${name}" data-provider="ollama" data-slot="text">
+      <button class="btn-activate" data-model="${safeName}" data-provider="ollama" data-slot="text">
         Aktywuj
       </button>
     </div>
@@ -193,19 +208,26 @@ function createLocalModelCard(model) {
   const card = document.createElement('div');
   card.className = 'model-card local-model';
   
+  const safeName = escapeHtml(model.name);
+  const safeFormat = escapeHtml(model.format);
+  const safePath = escapeHtml(model.path);
+  const safeType = escapeHtml(model.type);
+  const safeCategory = escapeHtml(model.category);
+  const safeSize = escapeHtml(model.size_mb.toFixed(1));
+  
   card.innerHTML = `
     <div class="model-card-header">
-      <span class="model-name">${model.name}</span>
-      <span class="model-format">.${model.format}</span>
+      <span class="model-name">${safeName}</span>
+      <span class="model-format">.${safeFormat}</span>
     </div>
     <div class="model-card-body">
       <div class="model-meta">
-        <span class="meta-item">📦 ${model.size_mb.toFixed(1)} MB</span>
-        <span class="meta-item">📁 ${model.path}</span>
+        <span class="meta-item">📦 ${safeSize} MB</span>
+        <span class="meta-item">📁 ${safePath}</span>
       </div>
     </div>
     <div class="model-card-actions">
-      <button class="btn-activate" data-model="${model.name}" data-provider="${model.type}" data-slot="${model.category}">
+      <button class="btn-activate" data-model="${safeName}" data-provider="${safeType}" data-slot="${safeCategory}">
         Aktywuj
       </button>
     </div>
@@ -217,8 +239,8 @@ function createLocalModelCard(model) {
 function formatSize(bytes) {
   if (bytes === 0) return '0 B';
   const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
@@ -251,15 +273,22 @@ function renderInstalledModels(local, ollama) {
   
   // Add local models
   local.forEach(model => {
+    const safeName = escapeHtml(model.name);
+    const safeCategory = escapeHtml(categoryNames[model.category] || model.category);
+    const safeCategoryClass = escapeHtml(model.category);
+    const safeType = escapeHtml(model.type);
+    const safeFormat = escapeHtml(model.format);
+    const safeSize = escapeHtml(model.size_mb.toFixed(1));
+    
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><span class="model-name-cell">${model.name}</span></td>
-      <td><span class="category-badge ${model.category}">${categoryNames[model.category] || model.category}</span></td>
-      <td>${model.type}</td>
-      <td><code>.${model.format}</code></td>
-      <td>${model.size_mb.toFixed(1)} MB</td>
+      <td><span class="model-name-cell">${safeName}</span></td>
+      <td><span class="category-badge ${safeCategoryClass}">${safeCategory}</span></td>
+      <td>${safeType}</td>
+      <td><code>.${safeFormat}</code></td>
+      <td>${safeSize} MB</td>
       <td>
-        <button class="btn-sm btn-activate" data-model="${model.name}" data-slot="${model.category}">
+        <button class="btn-sm btn-activate" data-model="${safeName}" data-slot="${safeCategoryClass}">
           Aktywuj
         </button>
       </td>
@@ -272,16 +301,19 @@ function renderInstalledModels(local, ollama) {
     const name = model.name || model.model || 'Unknown';
     const size = model.size ? formatSize(model.size) : 'N/A';
     
+    const safeName = escapeHtml(name);
+    const safeSize = escapeHtml(size);
+    
     const tr = document.createElement('tr');
     tr.classList.add('ollama-row');
     tr.innerHTML = `
-      <td><span class="model-name-cell">${name}</span></td>
+      <td><span class="model-name-cell">${safeName}</span></td>
       <td><span class="category-badge text">LLM</span></td>
       <td>ollama</td>
       <td><code>gguf</code></td>
-      <td>${size}</td>
+      <td>${safeSize}</td>
       <td>
-        <button class="btn-sm btn-activate" data-model="${name}" data-provider="ollama" data-slot="text">
+        <button class="btn-sm btn-activate" data-model="${safeName}" data-provider="ollama" data-slot="text">
           Aktywuj
         </button>
       </td>

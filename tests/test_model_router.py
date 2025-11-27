@@ -1,11 +1,11 @@
 """Tests for model_router.py API endpoints."""
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from pc_client.api.routers.model_router import router, get_model_manager
+from pc_client.api.routers.model_router import router
 from pc_client.core.model_manager import ModelManager, ActiveModels
 
 
@@ -115,9 +115,10 @@ class TestBindModel:
             json={"slot": "text", "model": "test"},
         )
         
-        assert response.status_code == 400
+        # Pydantic validation returns 422 for missing required fields
+        assert response.status_code == 422
         data = response.json()
-        assert "error" in data
+        assert "detail" in data
 
     def test_bind_model_missing_model(self, client):
         """Test binding without model returns error."""
@@ -126,9 +127,10 @@ class TestBindModel:
             json={"slot": "text", "provider": "ollama"},
         )
         
-        assert response.status_code == 400
+        # Pydantic validation returns 422 for missing required fields
+        assert response.status_code == 422
         data = response.json()
-        assert "error" in data
+        assert "detail" in data
 
 
 class TestGetModelsSummary:

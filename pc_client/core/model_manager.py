@@ -140,7 +140,7 @@ class ModelManager:
             format=ext,
         )
 
-    def _detect_category_and_type(self, name: str) -> tuple:
+    def _detect_category_and_type(self, name: str) -> tuple[str, str]:
         """Detect model category and type from filename."""
         for category, patterns in self.CATEGORY_PATTERNS.items():
             for pattern in patterns:
