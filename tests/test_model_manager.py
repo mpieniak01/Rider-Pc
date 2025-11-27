@@ -1,6 +1,9 @@
 """Tests for model_manager.py"""
 
+import os
+import sys
 from pathlib import Path
+from unittest.mock import patch, MagicMock
 from pc_client.core.model_manager import ModelManager, ModelInfo, ActiveModels
 
 
@@ -210,3 +213,211 @@ ollama_host = "http://localhost:11434"
         assert isinstance(result["installed"], list)
         assert isinstance(result["ollama"], list)
         assert isinstance(result["active"], dict)
+
+
+class TestPersistActiveModel:
+    """Tests for persist_active_model method."""
+
+    def test_persist_vision_model(self, tmp_path):
+        """Test persisting vision model to TOML file."""
+        config_path = tmp_path / "providers.toml"
+        config_path.write_text("[vision]\ndetection_model = 'yolov8n'\n")
+
+        manager = ModelManager(providers_config_path=str(config_path))
+        manager.get_active_models()
+        manager.persist_active_model("vision", "yolov8s")
+
+        # Read back and verify
+        import tomllib
+        with open(config_path, "rb") as f:
+            data = tomllib.load(f)
+        assert data["vision"]["detection_model"] == "yolov8s"
+
+    def test_persist_text_model(self, tmp_path):
+        """Test persisting text model to TOML file."""
+        config_path = tmp_path / "providers.toml"
+        config_path.write_text("[text]\nmodel = 'llama2'\n")
+
+        manager = ModelManager(providers_config_path=str(config_path))
+        manager.get_active_models()
+        manager.persist_active_model("text", "llama3.2:1b")
+
+        import tomllib
+        with open(config_path, "rb") as f:
+            data = tomllib.load(f)
+        assert data["text"]["model"] == "llama3.2:1b"
+
+    def test_persist_voice_asr_model(self, tmp_path):
+        """Test persisting voice ASR model to TOML file."""
+        config_path = tmp_path / "providers.toml"
+        config_path.write_text("[voice]\nasr_model = 'base'\n")
+
+        manager = ModelManager(providers_config_path=str(config_path))
+        manager.get_active_models()
+        manager.persist_active_model("voice_asr", "large-v3")
+
+        import tomllib
+        with open(config_path, "rb") as f:
+            data = tomllib.load(f)
+        assert data["voice"]["asr_model"] == "large-v3"
+
+    def test_persist_voice_tts_model(self, tmp_path):
+        """Test persisting voice TTS model to TOML file."""
+        config_path = tmp_path / "providers.toml"
+        config_path.write_text("[voice]\ntts_model = 'en_US-lessac-medium'\n")
+
+        manager = ModelManager(providers_config_path=str(config_path))
+        manager.get_active_models()
+        manager.persist_active_model("voice_tts", "pl_PL-darkman-medium")
+
+        import tomllib
+        with open(config_path, "rb") as f:
+            data = tomllib.load(f)
+        assert data["voice"]["tts_model"] == "pl_PL-darkman-medium"
+
+    def test_persist_unknown_slot_skipped(self, tmp_path):
+        """Test that unknown slots are skipped without error."""
+        config_path = tmp_path / "providers.toml"
+        config_path.write_text("[vision]\ndetection_model = 'yolov8n'\n")
+
+        manager = ModelManager(providers_config_path=str(config_path))
+        manager.get_active_models()
+        manager.persist_active_model("invalid_slot", "some-model")
+
+        # File should remain unchanged
+        import tomllib
+        with open(config_path, "rb") as f:
+            data = tomllib.load(f)
+        assert data["vision"]["detection_model"] == "yolov8n"
+        assert "invalid_slot" not in data
+
+    def test_persist_empty_slot_skipped(self, tmp_path):
+        """Test that empty slot is skipped without error."""
+        config_path = tmp_path / "providers.toml"
+        config_path.write_text("[vision]\ndetection_model = 'yolov8n'\n")
+
+        manager = ModelManager(providers_config_path=str(config_path))
+        manager.get_active_models()
+        manager.persist_active_model("", "some-model")
+
+        # File should remain unchanged
+        import tomllib
+        with open(config_path, "rb") as f:
+            data = tomllib.load(f)
+        assert data["vision"]["detection_model"] == "yolov8n"
+
+    def test_persist_none_slot_skipped(self, tmp_path):
+        """Test that None slot is handled gracefully."""
+        config_path = tmp_path / "providers.toml"
+        config_path.write_text("[vision]\ndetection_model = 'yolov8n'\n")
+
+        manager = ModelManager(providers_config_path=str(config_path))
+        manager.get_active_models()
+        manager.persist_active_model(None, "some-model")
+
+        # File should remain unchanged
+        import tomllib
+        with open(config_path, "rb") as f:
+            data = tomllib.load(f)
+        assert data["vision"]["detection_model"] == "yolov8n"
+
+    def test_persist_creates_parent_directories(self, tmp_path):
+        """Test that persist creates parent directories if needed."""
+        config_path = tmp_path / "subdir" / "nested" / "providers.toml"
+        manager = ModelManager(providers_config_path=str(config_path))
+        manager._providers_config = {"vision": {"detection_model": "yolov8n"}}
+
+        manager.persist_active_model("vision", "yolov8s")
+
+        assert config_path.exists()
+        import tomllib
+        with open(config_path, "rb") as f:
+            data = tomllib.load(f)
+        assert data["vision"]["detection_model"] == "yolov8s"
+
+    def test_persist_reloads_config_if_empty(self, tmp_path):
+        """Test that persist reloads config if _providers_config is empty."""
+        config_path = tmp_path / "providers.toml"
+        config_path.write_text(
+            "[vision]\ndetection_model = 'yolov8n'\nenabled = true\n"
+        )
+
+        manager = ModelManager(providers_config_path=str(config_path))
+        # Don't call get_active_models() first - _providers_config is empty
+        assert manager._providers_config == {}
+
+        manager.persist_active_model("vision", "yolov8s")
+
+        import tomllib
+        with open(config_path, "rb") as f:
+            data = tomllib.load(f)
+        # Check that both original and new values are present
+        assert data["vision"]["detection_model"] == "yolov8s"
+        assert data["vision"]["enabled"] is True
+
+    def test_persist_preserves_existing_config(self, tmp_path):
+        """Test that persist preserves other config sections."""
+        config_path = tmp_path / "providers.toml"
+        config_path.write_text("""
+[vision]
+detection_model = "yolov8n"
+enabled = true
+
+[text]
+model = "llama2"
+ollama_host = "http://localhost:11434"
+""")
+
+        manager = ModelManager(providers_config_path=str(config_path))
+        manager.get_active_models()
+        manager.persist_active_model("vision", "yolov8s")
+
+        import tomllib
+        with open(config_path, "rb") as f:
+            data = tomllib.load(f)
+        # Vision model updated
+        assert data["vision"]["detection_model"] == "yolov8s"
+        assert data["vision"]["enabled"] is True
+        # Text config preserved
+        assert data["text"]["model"] == "llama2"
+        assert data["text"]["ollama_host"] == "http://localhost:11434"
+
+    def test_persist_without_tomli_w_logs_error(self, tmp_path, caplog):
+        """Test behavior when tomli-w is not installed."""
+        config_path = tmp_path / "providers.toml"
+        config_path.write_text("[vision]\ndetection_model = 'yolov8n'\n")
+
+        manager = ModelManager(providers_config_path=str(config_path))
+        manager.get_active_models()
+
+        # Mock import failure for tomli_w
+        with patch.dict(sys.modules, {"tomli_w": None}):
+            with patch("builtins.__import__", side_effect=ImportError("No module named 'tomli_w'")):
+                manager.persist_active_model("vision", "yolov8s")
+
+        # File should remain unchanged
+        import tomllib
+        with open(config_path, "rb") as f:
+            data = tomllib.load(f)
+        assert data["vision"]["detection_model"] == "yolov8n"
+
+    def test_persist_handles_write_failure(self, tmp_path, caplog):
+        """Test that IOError during write is logged."""
+        config_path = tmp_path / "providers.toml"
+        config_path.write_text("[vision]\ndetection_model = 'yolov8n'\n")
+
+        manager = ModelManager(providers_config_path=str(config_path))
+        manager.get_active_models()
+
+        # Make directory read-only to cause write failure
+        tmp_path.chmod(0o444)
+
+        try:
+            import logging
+            with caplog.at_level(logging.ERROR):
+                manager.persist_active_model("vision", "yolov8s")
+            # Should log an error about write failure
+            assert any("Failed to write" in r.message or "Unexpected error" in r.message for r in caplog.records)
+        finally:
+            # Restore permissions for cleanup
+            tmp_path.chmod(0o755)
