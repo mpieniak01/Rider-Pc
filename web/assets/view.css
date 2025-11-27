@@ -12,6 +12,8 @@ body[data-page="view"] {
   --grid-gap: 18px;
   --grid-min: 240px;
   --stack-gap: 18px;
+  --label-color: #ffffff;
+  --value-color: #d7e2ee;
 }
 
 body[data-page="view"] h1 {
@@ -51,6 +53,11 @@ body[data-page="view"] .c-kv div {
 body[data-page="view"] .c-kv div:nth-child(odd) {
   font-weight: 400;
   text-transform: capitalize;
+  color: var(--label-color);
+}
+
+body[data-page="view"] .c-kv div:nth-child(even) {
+  color: var(--value-color);
 }
 
 body[data-page="view"] .ok {
@@ -268,9 +275,10 @@ body[data-page="view"] .pc-service-body {
 body[data-page="view"] .pc-service-name {
   font-weight: 600;
   font-size: 13px;
+  color: var(--value-color);
 }
 
 body[data-page="view"] .pc-service-meta {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--value-color);
 }
