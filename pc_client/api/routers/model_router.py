@@ -53,12 +53,8 @@ async def _fetch_remote_models(request: Request) -> List[Dict[str, Any]]:
     if not isinstance(remote_payload, dict):
         return []
 
-    models = remote_payload.get("models")
-    if isinstance(models, list):
-        return models
-
-    # Backwards compatibility if payload contains "local" field
-    models = remote_payload.get("local")
+    # Try "models" key first, fall back to "local" for backward compatibility
+    models = remote_payload.get("models", remote_payload.get("local"))
     return models if isinstance(models, list) else []
 
 
