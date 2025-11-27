@@ -66,6 +66,14 @@
   const refreshBtn = document.getElementById('refresh-btn');
   const toastContainer = document.getElementById('toast-container');
 
+  // i18n helper - get translation from DOM or use fallback
+  function getI18nText(key, fallback) {
+    if (window.i18n && window.i18n.t) {
+      return window.i18n.t(key) || fallback;
+    }
+    return fallback;
+  }
+
   function showToast(message, type = 'success') {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
@@ -151,7 +159,8 @@
       
       const taskCount = document.createElement('span');
       taskCount.className = 'task-count';
-      taskCount.textContent = `${issue.tasks_done}/${issue.tasks_total} zadań`;
+      const tasksLabel = getI18nText('project.tasks', 'zadań');
+      taskCount.textContent = `${issue.tasks_done}/${issue.tasks_total} ${tasksLabel}`;
       progressInfo.appendChild(taskCount);
       
       const progressPct = document.createElement('span');
@@ -165,7 +174,8 @@
       // No tasks indicator
       const noTasks = document.createElement('div');
       noTasks.className = 'no-tasks muted';
-      noTasks.textContent = 'Brak checklisty';
+      noTasks.setAttribute('data-i18n', 'project.no_checklist');
+      noTasks.textContent = getI18nText('project.no_checklist', 'Brak checklisty');
       card.appendChild(noTasks);
     }
 
@@ -181,13 +191,15 @@
     } else {
       const unassigned = document.createElement('span');
       unassigned.className = 'issue-unassigned muted';
-      unassigned.textContent = 'Nieprzypisane';
+      unassigned.setAttribute('data-i18n', 'project.unassigned');
+      unassigned.textContent = getI18nText('project.unassigned', 'Nieprzypisane');
       footer.appendChild(unassigned);
     }
     
     const openLink = document.createElement('span');
     openLink.className = 'open-link';
-    openLink.textContent = '→ GitHub';
+    openLink.setAttribute('data-i18n', 'project.open_github');
+    openLink.textContent = getI18nText('project.open_github', '→ GitHub');
     footer.appendChild(openLink);
     
     card.appendChild(footer);
@@ -221,7 +233,7 @@
   async function loadIssues(forceRefresh = false) {
     refreshBtn.disabled = true;
     refreshBtn.classList.add('is-loading');
-    statusLine.textContent = 'Ładowanie zgłoszeń...';
+    statusLine.textContent = getI18nText('project.loading', 'Ładowanie zgłoszeń...');
     
     try {
       const url = forceRefresh 
@@ -238,35 +250,36 @@
       
       // Handle configuration error
       if (!data.configured) {
-        showError(data.error || 'Konfiguracja GitHub niekompletna');
+        showError(data.error || getI18nText('project.config_error', 'Konfiguracja GitHub niekompletna'));
         issuesContainer.style.display = 'none';
         emptyState.style.display = 'none';
-        statusLine.textContent = 'GitHub nie skonfigurowany';
+        statusLine.textContent = getI18nText('project.not_configured', 'GitHub nie skonfigurowany');
         return;
       }
       
       // Handle API error
       if (data.error) {
         showError(data.error);
-        statusLine.textContent = 'Błąd podczas pobierania danych';
+        statusLine.textContent = getI18nText('project.connection_error', 'Błąd podczas pobierania danych');
         return;
       }
       
       hideError();
       renderIssues(data.issues);
       
-      const cacheInfo = data.cached ? ' (z cache)' : '';
+      const cacheInfo = data.cached ? ` (${getI18nText('project.from_cache', 'z cache')})` : '';
       const issueCount = data.issues?.length || 0;
-      statusLine.textContent = `${issueCount} otwartych zgłoszeń • ${data.repo}${cacheInfo} • ${formatTimestamp(data.timestamp)}`;
+      const openIssuesLabel = getI18nText('project.open_issues', 'otwartych zgłoszeń');
+      statusLine.textContent = `${issueCount} ${openIssuesLabel} • ${data.repo}${cacheInfo} • ${formatTimestamp(data.timestamp)}`;
       
       if (forceRefresh) {
-        showToast('Dane odświeżone', 'success');
+        showToast(getI18nText('project.data_refreshed', 'Dane odświeżone'), 'success');
       }
       
     } catch (err) {
       console.error('Failed to load issues:', err);
-      showError(`Błąd połączenia: ${err.message}`);
-      statusLine.textContent = 'Błąd podczas pobierania danych';
+      showError(`${getI18nText('project.connection_error', 'Błąd połączenia')}: ${err.message}`);
+      statusLine.textContent = getI18nText('project.connection_error', 'Błąd podczas pobierania danych');
     } finally {
       refreshBtn.disabled = false;
       refreshBtn.classList.remove('is-loading');

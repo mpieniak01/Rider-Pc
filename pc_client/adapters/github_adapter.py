@@ -95,7 +95,7 @@ class GitHubAdapter:
             "User-Agent": "Rider-PC-Client",
         }
         if self._token:
-            headers["Authorization"] = f"Bearer {self._token}"
+            headers["Authorization"] = f"token {self._token}"
         return headers
 
     async def _get_client(self) -> httpx.AsyncClient:
@@ -161,11 +161,12 @@ class GitHubAdapter:
             }
 
         # Return cached data if valid and not forcing refresh
-        if not force_refresh and self._is_cache_valid() and self._cache:
-            logger.debug("Returning cached GitHub issues")
-            result = dict(self._cache)
-            result["cached"] = True
-            return result
+        async with self._lock:
+            if not force_refresh and self._is_cache_valid() and self._cache:
+                logger.debug("Returning cached GitHub issues")
+                result = dict(self._cache)
+                result["cached"] = True
+                return result
 
         try:
             client = await self._get_client()
@@ -218,7 +219,8 @@ class GitHubAdapter:
                 "timestamp": int(time.time()),
             }
 
-            self._update_cache(result)
+            async with self._lock:
+                self._update_cache(result)
             logger.info("Fetched %d issues from GitHub", len(issues))
             return result
 

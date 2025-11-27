@@ -79,3 +79,11 @@ async def refresh_project_issues(request: Request) -> JSONResponse:
     github.invalidate_cache()
     data = await github.get_open_issues(limit=10, force_refresh=True)
     return JSONResponse(content=data)
+
+
+async def cleanup_github_adapter() -> None:
+    """Cleanup the GitHub adapter on shutdown."""
+    global _github_adapter
+    if _github_adapter:
+        await _github_adapter.close()
+        _github_adapter = None
