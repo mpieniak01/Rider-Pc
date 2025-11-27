@@ -102,7 +102,7 @@
       </div>
       <div class="installed-column">
         <h3 class="subsection-title">🤖 Rider-Pi</h3>
-        <p class="section-desc">Lista plików zgłaszanych przez API <code>/api/models/installed</code> na Rider-Pi. Przycisk „Ustaw lokalnie” przełącza domenę na tryb LOCAL.</p>
+        <p class="section-desc">Lista plików zgłaszanych przez API <code>/api/models/installed</code> na Rider-Pi. Przycisk „Ustaw lokalnie” przełącza domenę na tryb lokalny.</p>
         <div class="installed-models-table-wrapper">
           <table class="installed-models-table" id="remote-models-table">
             <thead>
@@ -171,6 +171,13 @@ const providerNames = {
   gemini: 'Gemini'
 };
 
+const slotDomainMap = {
+  vision: 'vision',
+  voice_asr: 'voice',
+  voice_tts: 'voice',
+  text: 'text'
+};
+
 function slotToDomain(slot) {
   return slotDomainMap[slot] || slot || 'unknown';
 }
@@ -214,7 +221,7 @@ function createProviderCard(domain, state) {
         <div class="provider-domain">${escapeHtml(domainLabels[domain] || domain)}</div>
         <div class="provider-status-pill">${escapeHtml(status)}</div>
       </div>
-      <span class="provider-mode ${modeClass}">${modeLabel}</span>
+      <span class="provider-mode">${modeLabel}</span>
     </div>
     <div class="provider-card-body">
       <div class="provider-meta">
@@ -223,6 +230,7 @@ function createProviderCard(domain, state) {
       </div>
     </div>
   `;
+  card.querySelector('.provider-mode').classList.add(modeClass);
   return card;
 }
 
@@ -243,13 +251,6 @@ function renderProviderState(payload) {
   const latency = typeof health.latency_ms === 'number' ? `${health.latency_ms.toFixed(0)} ms` : '---';
   providerNote.textContent = `PC według Rider-Pi: ${reachable} (status ${health.status || 'unknown'}, RTT ${latency})`;
 }
-
-const slotDomainMap = {
-  vision: 'vision',
-  voice_asr: 'voice',
-  voice_tts: 'voice',
-  text: 'text'
-};
 
 function createActiveModelCard(category, config) {
   const card = document.createElement('div');
