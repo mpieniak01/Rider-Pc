@@ -86,6 +86,40 @@ async def test_get_service_graph():
     assert "status" in node
     assert "group" in node
     assert "is_local" in node
+    assert "location" in node
+
+
+@pytest.mark.asyncio
+async def test_service_graph_location_field():
+    """Test that location field is present in graph nodes for local services."""
+    manager = ServiceManager()
+    graph = await manager.get_service_graph()
+
+    # All local services should have location "pc"
+    for node in graph["nodes"]:
+        assert "location" in node, f"Node {node['unit']} missing location field"
+        assert node["location"] == "pc", f"Local service {node['unit']} should have location 'pc'"
+
+
+@pytest.mark.asyncio
+async def test_remote_services_have_location_pi():
+    """Test that remote services get location 'pi' set automatically."""
+    remote_services = [
+        {"unit": "rider-api.service", "desc": "Rider API", "active": "active"},
+        {"unit": "rider-broker.service", "desc": "Rider Broker", "active": "active"},
+    ]
+    adapter = MockRestAdapter(services_response={"services": remote_services})
+    manager = ServiceManager(rest_adapter=adapter)
+
+    graph = await manager.get_service_graph()
+
+    # Find remote service nodes
+    remote_nodes = [n for n in graph["nodes"] if n["unit"] in ["rider-api.service", "rider-broker.service"]]
+    assert len(remote_nodes) == 2
+
+    for node in remote_nodes:
+        assert "location" in node
+        assert node["location"] == "pi", f"Remote service {node['unit']} should have location 'pi'"
 
 
 @pytest.mark.asyncio

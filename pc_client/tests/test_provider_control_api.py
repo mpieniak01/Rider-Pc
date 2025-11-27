@@ -322,11 +322,26 @@ def test_service_graph_node_structure(test_client):
     assert response.status_code == 200
 
     data = response.json()
-    required_fields = ["label", "unit", "status", "group", "description"]
+    required_fields = ["label", "unit", "status", "group", "description", "location"]
 
     for node in data["nodes"]:
         for field in required_fields:
             assert field in node, f"Node missing required field: {field}"
+
+
+def test_service_graph_node_location_values(test_client):
+    """Test that service graph nodes have valid location values."""
+    client, cache = test_client
+
+    response = client.get("/api/services/graph")
+    assert response.status_code == 200
+
+    data = response.json()
+    valid_locations = ["pc", "pi"]
+
+    for node in data["nodes"]:
+        assert "location" in node, f"Node {node['unit']} missing location field"
+        assert node["location"] in valid_locations, f"Node {node['unit']} has invalid location: {node['location']}"
 
 
 def test_provider_capabilities_endpoint(test_client):

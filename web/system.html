@@ -23,7 +23,16 @@
     </nav>
   </header>
   <p id="status-line">Ładowanie danych usług…</p>
-  <section id="system-graph"></section>
+  
+  <section class="location-block" id="pc-services-block">
+    <h2 class="location-title">Usługi lokalne (PC)</h2>
+    <div id="pc-services-graph" class="services-grid"></div>
+  </section>
+  
+  <section class="location-block" id="pi-services-block">
+    <h2 class="location-title">Usługi na Rider-Pi</h2>
+    <div id="pi-services-graph" class="services-grid"></div>
+  </section>
   
   <section class="log-panel">
     <header class="log-header">
@@ -38,7 +47,10 @@
 <div id="toast-container"></div>
 
   <script>
-    const graphEl = document.getElementById('system-graph');
+    const pcGraphEl = document.getElementById('pc-services-graph');
+    const piGraphEl = document.getElementById('pi-services-graph');
+    const pcBlockEl = document.getElementById('pc-services-block');
+    const piBlockEl = document.getElementById('pi-services-block');
     const statusEl = document.getElementById('status-line');
     const toastContainer = document.getElementById('toast-container');
 
@@ -137,83 +149,120 @@
       }
     }
 
+    function createServiceCard(node, group) {
+      const card = document.createElement('article');
+      const stateClass = nodeStateClass(node.status);
+      card.className = `service-node ${stateClass}`;
+      card.setAttribute('data-unit', node.unit);
+      card.setAttribute('data-status', node.status || 'unknown');
+      card.setAttribute('data-location', node.location || 'pc');
+      card.setAttribute('title', getTooltipText(node.status));
+      card.setAttribute('role', 'button');
+      card.setAttribute('aria-label', `${node.label}: ${getTooltipText(node.status)}`);
+      
+      // Add click handler for toggling service
+      card.addEventListener('click', () => {
+        toggleService(node.unit, node.status);
+      });
+
+      const header = document.createElement('div');
+      const title = document.createElement('h2');
+      title.textContent = node.label;
+      header.appendChild(title);
+      const pill = document.createElement('span');
+      pill.className = `status-pill ${statusClass(node.status)}`;
+      pill.textContent = node.status || 'unknown';
+      header.appendChild(pill);
+      card.appendChild(header);
+
+      const unit = document.createElement('div');
+      unit.textContent = `Unit: ${node.unit}`;
+      unit.className = 'desc';
+      card.appendChild(unit);
+
+      const info = document.createElement('div');
+      info.textContent = `Grupa: ${group}`;
+      info.className = 'desc';
+      card.appendChild(info);
+
+      if (node.since) {
+        const since = document.createElement('div');
+        since.textContent = `Aktywny od: ${formatSince(node.since)}`;
+        since.className = 'desc';
+        card.appendChild(since);
+      }
+
+      if (node.edges_out && node.edges_out.length) {
+        const label = document.createElement('div');
+        label.textContent = 'Połączenia →';
+        label.className = 'desc';
+        card.appendChild(label);
+        const list = document.createElement('div');
+        list.className = 'edge-list';
+        node.edges_out.forEach((target) => {
+          const chip = document.createElement('span');
+          chip.textContent = target;
+          list.appendChild(chip);
+        });
+        card.appendChild(list);
+      }
+
+      return card;
+    }
+
     function renderGraph(nodes, edges) {
-      graphEl.innerHTML = '';
+      pcGraphEl.innerHTML = '';
+      piGraphEl.innerHTML = '';
+      
       if (!nodes.length) {
-        graphEl.innerHTML = '<p>Brak danych usług.</p>';
+        pcGraphEl.innerHTML = '<p class="no-services">Brak danych usług.</p>';
+        piBlockEl.style.display = 'none';
         return;
       }
-      const groups = new Map();
-      nodes.forEach((node) => {
-        const bucket = groups.get(node.group) || [];
-        bucket.push(node);
-        groups.set(node.group, bucket);
-      });
-      const sortedGroups = Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-      const groupFragments = [];
-      sortedGroups.forEach(([group, items]) => {
-        items.sort((a, b) => a.label.localeCompare(b.label));
-        items.forEach((node) => {
-          const card = document.createElement('article');
-          const stateClass = nodeStateClass(node.status);
-          card.className = `service-node ${stateClass}`;
-          card.setAttribute('data-unit', node.unit);
-          card.setAttribute('data-status', node.status || 'unknown');
-          card.setAttribute('title', getTooltipText(node.status));
-          card.setAttribute('role', 'button');
-          card.setAttribute('aria-label', `${node.label}: ${getTooltipText(node.status)}`);
-          
-          // Add click handler for toggling service
-          card.addEventListener('click', () => {
-            toggleService(node.unit, node.status);
-          });
-
-          const header = document.createElement('div');
-          const title = document.createElement('h2');
-          title.textContent = node.label;
-          header.appendChild(title);
-          const pill = document.createElement('span');
-          pill.className = `status-pill ${statusClass(node.status)}`;
-          pill.textContent = node.status || 'unknown';
-          header.appendChild(pill);
-          card.appendChild(header);
-
-          const unit = document.createElement('div');
-          unit.textContent = `Unit: ${node.unit}`;
-          unit.className = 'desc';
-          card.appendChild(unit);
-
-          const info = document.createElement('div');
-          info.textContent = `Grupa: ${group}`;
-          info.className = 'desc';
-          card.appendChild(info);
-
-          if (node.since) {
-            const since = document.createElement('div');
-            since.textContent = `Aktywny od: ${formatSince(node.since)}`;
-            since.className = 'desc';
-            card.appendChild(since);
-          }
-
-          if (node.edges_out && node.edges_out.length) {
-            const label = document.createElement('div');
-            label.textContent = 'Połączenia →';
-            label.className = 'desc';
-            card.appendChild(label);
-            const list = document.createElement('div');
-            list.className = 'edge-list';
-            node.edges_out.forEach((target) => {
-              const chip = document.createElement('span');
-              chip.textContent = target;
-              list.appendChild(chip);
-            });
-            card.appendChild(list);
-          }
-
-          groupFragments.push(card);
+      
+      // Split nodes by location
+      const pcNodes = nodes.filter(n => n.location === 'pc');
+      const piNodes = nodes.filter(n => n.location === 'pi');
+      
+      // Group by service group within each location
+      function groupByServiceGroup(nodeList) {
+        const groups = new Map();
+        nodeList.forEach((node) => {
+          const bucket = groups.get(node.group) || [];
+          bucket.push(node);
+          groups.set(node.group, bucket);
         });
-      });
-      groupFragments.forEach((fragment) => graphEl.appendChild(fragment));
+        return Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+      }
+      
+      // Render PC services
+      if (pcNodes.length > 0) {
+        pcBlockEl.style.display = 'block';
+        const pcGroups = groupByServiceGroup(pcNodes);
+        pcGroups.forEach(([group, items]) => {
+          items.sort((a, b) => a.label.localeCompare(b.label));
+          items.forEach((node) => {
+            pcGraphEl.appendChild(createServiceCard(node, group));
+          });
+        });
+      } else {
+        pcBlockEl.style.display = 'block';
+        pcGraphEl.innerHTML = '<p class="no-services">Brak usług lokalnych.</p>';
+      }
+      
+      // Render Pi services
+      if (piNodes.length > 0) {
+        piBlockEl.style.display = 'block';
+        const piGroups = groupByServiceGroup(piNodes);
+        piGroups.forEach(([group, items]) => {
+          items.sort((a, b) => a.label.localeCompare(b.label));
+          items.forEach((node) => {
+            piGraphEl.appendChild(createServiceCard(node, group));
+          });
+        });
+      } else {
+        piBlockEl.style.display = 'none';
+      }
     }
 
     async function loadGraph() {
