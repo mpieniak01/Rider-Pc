@@ -229,6 +229,7 @@ class TestPersistActiveModel:
 
         # Read back and verify
         import tomllib
+
         with open(config_path, "rb") as f:
             data = tomllib.load(f)
         assert data["vision"]["detection_model"] == "yolov8s"
@@ -243,6 +244,7 @@ class TestPersistActiveModel:
         manager.persist_active_model("text", "llama3.2:1b")
 
         import tomllib
+
         with open(config_path, "rb") as f:
             data = tomllib.load(f)
         assert data["text"]["model"] == "llama3.2:1b"
@@ -257,6 +259,7 @@ class TestPersistActiveModel:
         manager.persist_active_model("voice_asr", "large-v3")
 
         import tomllib
+
         with open(config_path, "rb") as f:
             data = tomllib.load(f)
         assert data["voice"]["asr_model"] == "large-v3"
@@ -271,6 +274,7 @@ class TestPersistActiveModel:
         manager.persist_active_model("voice_tts", "pl_PL-darkman-medium")
 
         import tomllib
+
         with open(config_path, "rb") as f:
             data = tomllib.load(f)
         assert data["voice"]["tts_model"] == "pl_PL-darkman-medium"
@@ -286,6 +290,7 @@ class TestPersistActiveModel:
 
         # File should remain unchanged
         import tomllib
+
         with open(config_path, "rb") as f:
             data = tomllib.load(f)
         assert data["vision"]["detection_model"] == "yolov8n"
@@ -302,6 +307,7 @@ class TestPersistActiveModel:
 
         # File should remain unchanged
         import tomllib
+
         with open(config_path, "rb") as f:
             data = tomllib.load(f)
         assert data["vision"]["detection_model"] == "yolov8n"
@@ -317,6 +323,7 @@ class TestPersistActiveModel:
 
         # File should remain unchanged
         import tomllib
+
         with open(config_path, "rb") as f:
             data = tomllib.load(f)
         assert data["vision"]["detection_model"] == "yolov8n"
@@ -331,6 +338,7 @@ class TestPersistActiveModel:
 
         assert config_path.exists()
         import tomllib
+
         with open(config_path, "rb") as f:
             data = tomllib.load(f)
         assert data["vision"]["detection_model"] == "yolov8s"
@@ -338,9 +346,7 @@ class TestPersistActiveModel:
     def test_persist_reloads_config_if_empty(self, tmp_path):
         """Test that persist reloads config if _providers_config is empty."""
         config_path = tmp_path / "providers.toml"
-        config_path.write_text(
-            "[vision]\ndetection_model = 'yolov8n'\nenabled = true\n"
-        )
+        config_path.write_text("[vision]\ndetection_model = 'yolov8n'\nenabled = true\n")
 
         manager = ModelManager(providers_config_path=str(config_path))
         # Don't call get_active_models() first - _providers_config is empty
@@ -349,6 +355,7 @@ class TestPersistActiveModel:
         manager.persist_active_model("vision", "yolov8s")
 
         import tomllib
+
         with open(config_path, "rb") as f:
             data = tomllib.load(f)
         # Check that both original and new values are present
@@ -373,6 +380,7 @@ ollama_host = "http://localhost:11434"
         manager.persist_active_model("vision", "yolov8s")
 
         import tomllib
+
         with open(config_path, "rb") as f:
             data = tomllib.load(f)
         # Vision model updated
@@ -397,6 +405,7 @@ ollama_host = "http://localhost:11434"
 
         # File should remain unchanged
         import tomllib
+
         with open(config_path, "rb") as f:
             data = tomllib.load(f)
         assert data["vision"]["detection_model"] == "yolov8n"
@@ -414,6 +423,7 @@ ollama_host = "http://localhost:11434"
 
         try:
             import logging
+
             with caplog.at_level(logging.ERROR):
                 manager.persist_active_model("vision", "yolov8s")
             # Should log an error about write failure

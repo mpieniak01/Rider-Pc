@@ -214,9 +214,7 @@ class TestFetchRemoteModels:
     async def test_returns_models_from_models_key(self):
         """Test returns models from 'models' key in response."""
         mock_adapter = MagicMock()
-        mock_adapter.get_remote_models = AsyncMock(
-            return_value={"models": [{"name": "yolov8n", "category": "vision"}]}
-        )
+        mock_adapter.get_remote_models = AsyncMock(return_value={"models": [{"name": "yolov8n", "category": "vision"}]})
         mock_request = MagicMock()
         mock_request.app.state.rest_adapter = mock_adapter
 
@@ -262,9 +260,7 @@ class TestFetchRemoteModels:
     async def test_returns_empty_on_network_error(self):
         """Test returns empty list when network error occurs."""
         mock_adapter = MagicMock()
-        mock_adapter.get_remote_models = AsyncMock(
-            side_effect=ConnectionError("Network unreachable")
-        )
+        mock_adapter.get_remote_models = AsyncMock(side_effect=ConnectionError("Network unreachable"))
         mock_request = MagicMock()
         mock_request.app.state.rest_adapter = mock_adapter
 
@@ -300,9 +296,7 @@ class TestFetchRemoteModels:
     async def test_returns_empty_when_models_not_list(self):
         """Test returns empty list when models value is not a list."""
         mock_adapter = MagicMock()
-        mock_adapter.get_remote_models = AsyncMock(
-            return_value={"models": "not-a-list"}
-        )
+        mock_adapter.get_remote_models = AsyncMock(return_value={"models": "not-a-list"})
         mock_request = MagicMock()
         mock_request.app.state.rest_adapter = mock_adapter
 
@@ -356,9 +350,7 @@ class TestSwitchProviderMode:
 
         result = await _switch_provider_mode(mock_request, "vision", "pc")
 
-        mock_adapter.patch_provider.assert_called_once_with(
-            "vision", {"target": "pc", "reason": "models_ui"}
-        )
+        mock_adapter.patch_provider.assert_called_once_with("vision", {"target": "pc", "reason": "models_ui"})
         assert result == {"success": True}
 
     @pytest.mark.asyncio
@@ -371,9 +363,7 @@ class TestSwitchProviderMode:
 
         result = await _switch_provider_mode(mock_request, "voice_asr", "local")
 
-        mock_adapter.patch_provider.assert_called_once_with(
-            "voice", {"target": "local", "reason": "models_ui"}
-        )
+        mock_adapter.patch_provider.assert_called_once_with("voice", {"target": "local", "reason": "models_ui"})
 
     @pytest.mark.asyncio
     async def test_maps_voice_tts_slot_to_voice_domain(self):
@@ -385,9 +375,7 @@ class TestSwitchProviderMode:
 
         result = await _switch_provider_mode(mock_request, "voice_tts", "pc")
 
-        mock_adapter.patch_provider.assert_called_once_with(
-            "voice", {"target": "pc", "reason": "models_ui"}
-        )
+        mock_adapter.patch_provider.assert_called_once_with("voice", {"target": "pc", "reason": "models_ui"})
 
     @pytest.mark.asyncio
     async def test_maps_text_slot_to_text_domain(self):
@@ -399,17 +387,13 @@ class TestSwitchProviderMode:
 
         result = await _switch_provider_mode(mock_request, "text", "pc")
 
-        mock_adapter.patch_provider.assert_called_once_with(
-            "text", {"target": "pc", "reason": "models_ui"}
-        )
+        mock_adapter.patch_provider.assert_called_once_with("text", {"target": "pc", "reason": "models_ui"})
 
     @pytest.mark.asyncio
     async def test_returns_error_on_network_failure(self):
         """Test returns error dict when network failure occurs."""
         mock_adapter = MagicMock()
-        mock_adapter.patch_provider = AsyncMock(
-            side_effect=ConnectionError("Rider-PI offline")
-        )
+        mock_adapter.patch_provider = AsyncMock(side_effect=ConnectionError("Rider-PI offline"))
         mock_request = MagicMock()
         mock_request.app.state.rest_adapter = mock_adapter
 
