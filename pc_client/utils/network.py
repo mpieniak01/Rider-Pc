@@ -64,6 +64,11 @@ def _parse_ping_latency(output: str) -> Optional[float]:
     Returns:
         Latency in milliseconds, or None if parsing fails.
     """
+    # Handle Windows edge case: "time<ms" (no digit, means sub-millisecond)
+    # Return 1.0 as a conservative estimate
+    if re.search(r"time<\s*ms", output, re.IGNORECASE):
+        return 1.0
+
     # Try common patterns for extracting time from ping output
     # Linux/macOS: "time=X.XXX ms" or "time=X ms"
     # Windows: "time=Xms" or "time<1ms"
@@ -113,7 +118,7 @@ async def check_connectivity(host: str, port: int = 80) -> Dict[str, Any]:
         try:
             stdout, stderr = await asyncio.wait_for(
                 process.communicate(),
-                timeout=2.0  # 2 second overall timeout
+                timeout=2.0,  # 2 second overall timeout
             )
         except asyncio.TimeoutError:
             # Kill the process if it times out
@@ -121,6 +126,7 @@ async def check_connectivity(host: str, port: int = 80) -> Dict[str, Any]:
                 process.kill()
                 await process.wait()
             except ProcessLookupError:
+                # Process already exited; nothing to do.
                 pass
             logger.debug("Ping to %s timed out", host)
             return {"status": "offline"}

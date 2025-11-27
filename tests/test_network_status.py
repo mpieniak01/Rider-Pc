@@ -79,10 +79,14 @@ class TestParsePingLatency:
         assert latency == 12.0
 
     def test_parse_windows_less_than_1ms(self):
-        """Should parse latency from Windows ping when time<1ms."""
+        """Should parse latency from Windows ping when time<1ms or time<ms."""
         output = "Reply from 192.168.1.1: bytes=32 time<1ms TTL=64"
         latency = _parse_ping_latency(output)
         assert latency == 1.0
+        # Also test the actual Windows edge case: time<ms (no digit)
+        output_edge = "Reply from 192.168.1.1: bytes=32 time<ms TTL=64"
+        latency_edge = _parse_ping_latency(output_edge)
+        assert latency_edge == 1.0
 
     def test_parse_no_latency(self):
         """Should return None when no latency found."""
@@ -111,10 +115,9 @@ class TestCheckConnectivity:
         """Should return online with latency for successful ping."""
         mock_process = AsyncMock()
         mock_process.returncode = 0
-        mock_process.communicate = AsyncMock(return_value=(
-            b"64 bytes from 8.8.8.8: icmp_seq=1 ttl=118 time=10.5 ms",
-            b""
-        ))
+        mock_process.communicate = AsyncMock(
+            return_value=(b"64 bytes from 8.8.8.8: icmp_seq=1 ttl=118 time=10.5 ms", b"")
+        )
 
         with patch('asyncio.create_subprocess_exec', return_value=mock_process):
             result = await check_connectivity("8.8.8.8")
@@ -127,10 +130,7 @@ class TestCheckConnectivity:
         """Should return offline for failed ping."""
         mock_process = AsyncMock()
         mock_process.returncode = 1
-        mock_process.communicate = AsyncMock(return_value=(
-            b"Request timed out.",
-            b""
-        ))
+        mock_process.communicate = AsyncMock(return_value=(b"Request timed out.", b""))
 
         with patch('asyncio.create_subprocess_exec', return_value=mock_process):
             result = await check_connectivity("192.168.1.254")
@@ -141,6 +141,7 @@ class TestCheckConnectivity:
     @pytest.mark.asyncio
     async def test_timeout_handling(self):
         """Should return offline on timeout."""
+
         async def slow_communicate():
             await asyncio.sleep(10)  # Will be cancelled by timeout
             return b"", b""
@@ -175,9 +176,10 @@ class TestNetworkStatusEndpoint:
         client = TestClient(app)
 
         # Mock the network functions to avoid actual network calls
-        with patch('pc_client.api.routers.status_router.get_local_ip') as mock_ip, \
-             patch('pc_client.api.routers.status_router.check_connectivity') as mock_check:
-
+        with (
+            patch('pc_client.api.routers.status_router.get_local_ip') as mock_ip,
+            patch('pc_client.api.routers.status_router.check_connectivity') as mock_check,
+        ):
             mock_ip.return_value = "192.168.0.15"
             mock_check.return_value = {"status": "online", "latency_ms": 10}
 
@@ -208,9 +210,10 @@ class TestNetworkStatusEndpoint:
         async def mock_check(host, port=80):
             return {"status": "online", "latency_ms": 15.5}
 
-        with patch('pc_client.api.routers.status_router.get_local_ip', return_value="192.168.0.15"), \
-             patch('pc_client.api.routers.status_router.check_connectivity', mock_check):
-
+        with (
+            patch('pc_client.api.routers.status_router.get_local_ip', return_value="192.168.0.15"),
+            patch('pc_client.api.routers.status_router.check_connectivity', mock_check),
+        ):
             resp = client.get("/api/status/network")
 
         assert resp.status_code == 200
@@ -229,9 +232,10 @@ class TestNetworkStatusEndpoint:
         async def mock_check(host, port=80):
             return {"status": "offline"}
 
-        with patch('pc_client.api.routers.status_router.get_local_ip', return_value="127.0.0.1"), \
-             patch('pc_client.api.routers.status_router.check_connectivity', mock_check):
-
+        with (
+            patch('pc_client.api.routers.status_router.get_local_ip', return_value="127.0.0.1"),
+            patch('pc_client.api.routers.status_router.check_connectivity', mock_check),
+        ):
             resp = client.get("/api/status/network")
 
         assert resp.status_code == 200
