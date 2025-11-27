@@ -1,8 +1,29 @@
 """Settings and configuration for the PC client."""
 
+import logging
 import os
 from typing import List, Optional
 from dataclasses import dataclass, field
+
+_settings_logger = logging.getLogger(__name__)
+
+
+def _safe_int(env_var: str, default: str) -> int:
+    """Safely parse an integer from an environment variable.
+
+    Args:
+        env_var: Name of the environment variable.
+        default: Default value as a string.
+
+    Returns:
+        Parsed integer value, or default if parsing fails.
+    """
+    value = os.getenv(env_var, default)
+    try:
+        return int(value)
+    except ValueError:
+        _settings_logger.warning("Invalid value '%s' for %s, using default %s", value, env_var, default)
+        return int(default)
 
 
 def _parse_monitored_services() -> List[str]:
@@ -16,9 +37,6 @@ def _parse_monitored_services() -> List[str]:
         empty, or contains only whitespace. Whitespace around individual service
         names is trimmed.
     """
-    import logging
-
-    logger = logging.getLogger(__name__)
     services_str = os.getenv("MONITORED_SERVICES", "")
     if not services_str:
         return []
@@ -26,7 +44,7 @@ def _parse_monitored_services() -> List[str]:
     # Validate service names
     for service in services:
         if not service.endswith(".service") and not service.endswith(".target"):
-            logger.warning("Invalid systemd unit name: %s (should end with .service or .target)", service)
+            _settings_logger.warning("Invalid systemd unit name: %s (should end with .service or .target)", service)
     return services
 
 
@@ -109,6 +127,11 @@ class Settings:
     monitored_services: List[str] = field(default_factory=_parse_monitored_services)
     # Whether to use sudo for systemctl commands (set to false if running as root)
     systemd_use_sudo: bool = field(default_factory=lambda: os.getenv("SYSTEMD_USE_SUDO", "true").lower() == "true")
+
+    # Self-healing watchdog configuration
+    auto_heal_enabled: bool = field(default_factory=lambda: os.getenv("AUTO_HEAL_ENABLED", "true").lower() == "true")
+    max_retry_count: int = field(default_factory=lambda: _safe_int("MAX_RETRY_COUNT", "1"))
+    retry_window_seconds: int = field(default_factory=lambda: _safe_int("RETRY_WINDOW_SECONDS", "300"))
 
     @property
     def rider_pi_base_url(self) -> str:
