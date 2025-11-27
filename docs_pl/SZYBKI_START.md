@@ -170,6 +170,83 @@ Jeśli view.html się nie renderuje:
 2. Sprawdź, czy pliki statyczne są serwowane pod `/web/`
 3. Sprawdź konsolę przeglądarki pod kątem błędów
 
+## Workflow Deweloperski: Rozpoczynanie Nowego Zadania
+
+Rider-PC oferuje zintegrowany kreator zadań, który automatyzuje tworzenie nowych branchy i plików dokumentacji. Dzięki temu można szybko rozpocząć pracę nad nowym zadaniem bezpośrednio z interfejsu webowego.
+
+### Wymagania Wstępne
+
+1. Skonfigurowana integracja z GitHub (zobacz [KONFIGURACJA.md](KONFIGURACJA.md#integracja-z-github))
+2. Uruchomiony serwer Rider-PC
+
+### Krok po Kroku: Tworzenie Nowego Zadania
+
+1. **Otwórz zakładkę "Projekt"**
+   - W interfejsie Rider-PC (`http://localhost:8000`) przejdź do sekcji "Projekt" 
+   - Zobaczysz listę otwartych zgłoszeń (Issues) z GitHub
+
+2. **Kliknij "+ Nowe Zadanie"**
+   - W prawym górnym rogu kliknij przycisk "+ Nowe Zadanie"
+   - Otworzy się formularz kreatora zadań
+
+3. **Wypełnij dane zadania**
+   - **Tytuł** (wymagane): Krótki, opisowy tytuł zadania
+   - **Opis**: Szczegółowy opis (obsługuje Markdown)
+   - **Tagi**: Wybierz odpowiednie etykiety (labels)
+   - **Przypisz do**: Opcjonalnie przypisz do współpracownika
+
+4. **Wybierz kontekst GIT**
+
+   Masz trzy opcje:
+   
+   - **Zostań na obecnym branchu**: Zadanie zostanie utworzone, ale nie zmieni się aktualny branch
+   
+   - **Utwórz nowy branch z main** (zalecane dla nowych funkcji):
+     - Automatycznie utworzy branch o nazwie `feat/<numer-issue>-<slug-tytulu>`
+     - Zaznacz opcję **"Zainicjuj automatycznie"** aby dodatkowo:
+       - Utworzyć plik dokumentacji w `docs_pl/_to_do/<numer-issue>-<slug>.md`
+       - Wykonać pierwszy commit z tym plikiem
+   
+   - **Przełącz na istniejący branch**: Wybierz branch z listy rozwijanej
+
+5. **Kliknij "Utwórz Zadanie"**
+   - System utworzy Issue na GitHub
+   - Jeśli wybrano "Utwórz nowy branch" + "Zainicjuj automatycznie":
+     - Zostanie utworzony nowy branch
+     - Pojawi się plik dokumentacji w `docs_pl/_to_do/`
+     - Zostanie wykonany pierwszy commit
+
+### Co Się Dzieje Automatycznie?
+
+Gdy wybierzesz opcję "Utwórz nowy branch" + "Zainicjuj automatycznie":
+
+1. **Tworzenie Issue** - Na GitHub powstaje nowe zgłoszenie z podanym tytułem i opisem
+
+2. **Tworzenie Brancha** - Z brancha `main` powstaje nowy branch:
+   ```
+   feat/<numer-issue>-<slug-tytulu>
+   ```
+   Przykład: `feat/42-dodaj-nowy-endpoint`
+
+3. **Tworzenie Pliku Dokumentacji** - W katalogu `docs_pl/_to_do/` powstaje plik:
+   ```
+   <numer-issue>-<slug>.md
+   ```
+   Przykład: `docs_pl/_to_do/42-dodaj-nowy-endpoint.md`
+   
+   Plik zawiera szablon dokumentacji zadania z linkiem do Issue.
+
+4. **Pierwszy Commit** - Automatyczny commit z wiadomością:
+   ```
+   docs: init task #<numer> - <tytuł>
+   ```
+
+### Rozwiązywanie Problemów
+
+- **"GitHub nie skonfigurowany"**: Sprawdź zmienne środowiskowe `GITHUB_TOKEN`, `GITHUB_REPO_OWNER`, `GITHUB_REPO_NAME`
+- **Błąd przy tworzeniu brancha**: Upewnij się, że token ma uprawnienia `repo` lub `Contents: Read and write`
+- **Konflikt przy przełączaniu brancha**: Zapisz lokalne zmiany przed utworzeniem nowego zadania
+
 ## Następne Kroki
 
 Przyszłe usprawnienia planowane:
