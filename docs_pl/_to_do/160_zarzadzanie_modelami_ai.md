@@ -1,6 +1,6 @@
 # Zadanie #160: Zarządzanie Modelami AI (Model Registry Dashboard)
 
-**Status:** :construction: W realizacji  
+**Status:** ✅ Zakończone  
 **Autor:** Copilot
 
 ---
@@ -63,8 +63,8 @@ Widok podzielony na kategorie:
 ## Kryteria akceptacji
 
 - [x] Dokumentacja analizy AS-IS w `docs_pl/_to_do/`
-- [ ] W menu głównym widoczna pozycja "Modele"
-- [ ] Panel wyświetla aktualnie używane modele
-- [ ] Panel listuje pliki modeli z `data/models/`
-- [ ] API endpoint `/api/models/installed` działa poprawnie
-- [ ] API endpoint `/api/models/active` działa poprawnie
+- [x] W menu głównym widoczna pozycja "Modele"
+- [x] Panel wyświetla aktualnie używane modele
+- [x] Panel listuje pliki modeli z `data/models/`
+- [x] API endpoint `/api/models/installed` działa poprawnie
+- [x] API endpoint `/api/models/active` działa poprawnie

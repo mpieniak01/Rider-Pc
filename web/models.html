@@ -419,8 +419,8 @@ async function loadModelsData() {
 // Initial load
 loadModelsData();
 
-// Auto-refresh every 30 seconds
-setInterval(loadModelsData, 30000);
+// Auto-refresh every 60 seconds (model data doesn't change frequently)
+setInterval(loadModelsData, 60000);
 </script>
 
 <script type="module" src="/web/assets/menu.js"></script>
