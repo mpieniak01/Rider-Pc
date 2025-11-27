@@ -218,11 +218,7 @@ class SystemdAdapter:
         returncode, stdout, stderr = await self._run_command(*cmd)
 
         if returncode != 0:
-            error_msg = (
-                stderr
-                or stdout
-                or f"systemctl {action} {unit} failed with return code {returncode}"
-            )
+            error_msg = stderr or stdout or f"systemctl {action} {unit} failed with return code {returncode}"
             # Check for common permission errors
             if "permission denied" in error_msg.lower() or "authentication required" in error_msg.lower():
                 error_msg = (
@@ -267,7 +263,9 @@ class MockSystemdAdapter:
         """Return True as mock is always available."""
         return self._available
 
-    def add_service(self, unit: str, active: str = "active", sub: str = "running", enabled: str = "enabled", desc: str = "") -> None:
+    def add_service(
+        self, unit: str, active: str = "active", sub: str = "running", enabled: str = "enabled", desc: str = ""
+    ) -> None:
         """Add a mock service to the adapter."""
         self._services[unit] = {
             "active": active,
