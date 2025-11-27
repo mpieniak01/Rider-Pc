@@ -9,6 +9,7 @@
       --accent-green: #22c55e;
       --accent-red: #ef4444;
       --accent-gray: #6b7280;
+      --accent-blue: #3b82f6;
     }
     body {
       margin: 0;
@@ -90,11 +91,36 @@
       color: var(--muted);
       margin-bottom: 12px;
     }
-    #system-graph {
+    /* Location block styles */
+    .location-block {
+      margin-bottom: 24px;
+    }
+    .location-title {
+      font-size: 1.1rem;
+      margin: 0 0 12px 0;
+      padding: 8px 12px;
+      background: rgba(59, 130, 246, 0.12);
+      border-left: 3px solid var(--accent-blue);
+      border-radius: 0 6px 6px 0;
+      color: var(--fg);
+    }
+    #pi-services-block .location-title {
+      background: rgba(34, 197, 94, 0.12);
+      border-left-color: var(--accent-green);
+    }
+    .services-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 12px;
-      margin-bottom: 24px;
+    }
+    .no-services {
+      color: var(--muted);
+      font-size: 0.9rem;
+      padding: 16px;
+      text-align: center;
+      background: var(--card);
+      border-radius: 8px;
+      border: 1px dashed var(--border);
     }
     .service-node {
       background: var(--card);

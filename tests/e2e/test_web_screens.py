@@ -50,19 +50,23 @@ def test_system_page_loads(browser_context):
 
 
 def test_system_graph_element_visible(browser_context):
-    """Test that #system-graph element is present and visible."""
+    """Test that PC services block element is present and visible."""
     page, base_url = browser_context
 
     page.goto(f"{base_url}/web/system.html")
     page.wait_for_load_state("load")
 
-    # Wait for system-graph element to be visible
-    page.wait_for_selector("#system-graph", state="visible", timeout=5000)
+    # Wait for PC services block to be visible (replaces old #system-graph)
+    page.wait_for_selector("#pc-services-block", state="visible", timeout=5000)
 
-    # Check that system-graph element exists and is visible
-    system_graph = page.locator("#system-graph")
-    assert system_graph.count() > 0, "System graph element should exist"
-    assert system_graph.is_visible(), "System graph should be visible"
+    # Check that PC services block exists and is visible
+    pc_services_block = page.locator("#pc-services-block")
+    assert pc_services_block.count() > 0, "PC services block element should exist"
+    assert pc_services_block.is_visible(), "PC services block should be visible"
+
+    # Check that PC services grid exists within the block
+    pc_services_graph = page.locator("#pc-services-graph")
+    assert pc_services_graph.count() > 0, "PC services graph element should exist"
 
 
 def test_navigation_page_loads(browser_context):

@@ -25,6 +25,7 @@ DEFAULT_LOCAL_SERVICES: List[Dict[str, Any]] = [
         "group": "api",
         "label": "FastAPI Server",
         "is_local": True,
+        "location": "pc",
     },
     {
         "unit": "cache.service",
@@ -35,6 +36,7 @@ DEFAULT_LOCAL_SERVICES: List[Dict[str, Any]] = [
         "group": "data",
         "label": "Cache Manager",
         "is_local": True,
+        "location": "pc",
     },
     {
         "unit": "zmq.service",
@@ -45,6 +47,7 @@ DEFAULT_LOCAL_SERVICES: List[Dict[str, Any]] = [
         "group": "messaging",
         "label": "ZMQ Subscriber",
         "is_local": True,
+        "location": "pc",
     },
     {
         "unit": "voice.provider",
@@ -55,6 +58,7 @@ DEFAULT_LOCAL_SERVICES: List[Dict[str, Any]] = [
         "group": "providers",
         "label": "Voice Provider",
         "is_local": True,
+        "location": "pc",
     },
     {
         "unit": "vision.provider",
@@ -65,6 +69,7 @@ DEFAULT_LOCAL_SERVICES: List[Dict[str, Any]] = [
         "group": "providers",
         "label": "Vision Provider",
         "is_local": True,
+        "location": "pc",
     },
     {
         "unit": "text.provider",
@@ -75,6 +80,7 @@ DEFAULT_LOCAL_SERVICES: List[Dict[str, Any]] = [
         "group": "providers",
         "label": "Text Provider",
         "is_local": True,
+        "location": "pc",
     },
     {
         "unit": "task_queue.service",
@@ -85,6 +91,7 @@ DEFAULT_LOCAL_SERVICES: List[Dict[str, Any]] = [
         "group": "queue",
         "label": "Task Queue",
         "is_local": True,
+        "location": "pc",
     },
     {
         "unit": "telemetry.service",
@@ -95,6 +102,7 @@ DEFAULT_LOCAL_SERVICES: List[Dict[str, Any]] = [
         "group": "monitoring",
         "label": "Telemetry Publisher",
         "is_local": True,
+        "location": "pc",
     },
 ]
 
@@ -189,6 +197,7 @@ class ServiceManager:
             service_data = dict(svc)
             service_data["ts"] = now
             service_data["is_local"] = True
+            service_data["location"] = svc.get("location", "pc")
             services.append(service_data)
         return services
 
@@ -223,6 +232,7 @@ class ServiceManager:
                     "group": "systemd",  # Default group for monitored services
                     "label": details.get("desc") or unit.replace(".service", "").replace("-", " ").title(),
                     "is_local": True,
+                    "location": "pc",
                     "ts": now,
                 }
                 services.append(service_data)
@@ -242,6 +252,7 @@ class ServiceManager:
                 services = response.get("services", [])
                 for svc in services:
                     svc["is_local"] = False
+                    svc["location"] = svc.get("location", "pi")
                 self._last_remote_sync = time.time()
                 return services
             logger.warning("Failed to fetch remote services: %s", response.get("error"))
@@ -289,6 +300,11 @@ class ServiceManager:
         # Get edges for this service
         edges_out = SERVICE_EDGES.get(unit, [])
 
+        # Determine location: local services are "pc", remote are "pi"
+        location = service.get("location")
+        if location is None:
+            location = "pc" if service.get("is_local", True) else "pi"
+
         return {
             "label": service.get("label", unit.replace(".service", "").replace(".", " ").title()),
             "unit": unit,
@@ -298,6 +314,7 @@ class ServiceManager:
             "description": service.get("desc", ""),
             "edges_out": edges_out,
             "is_local": service.get("is_local", True),
+            "location": location,
         }
 
     async def get_service_graph(self) -> Dict[str, Any]:
