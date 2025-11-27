@@ -48,7 +48,7 @@ class ServiceWatchdog:
         self._sse_publish_fn = sse_publish_fn
 
         # Track retry attempts and last failure timestamps per service
-        # Format: {unit: {"count": int, "last_failure_ts": float, "last_stable_ts": float}}
+        # Format: {unit: {"count": int, "last_failure_ts": float}}
         self._retry_state: Dict[str, Dict[str, Any]] = {}
 
         self._running = False
@@ -121,8 +121,8 @@ class ServiceWatchdog:
             unit = service.get("unit", "")
             active_state = str(service.get("active", "")).lower()
 
-            # Reset counter if service has been stable
-            if active_state in ("active", "running"):
+            # Reset counter if service is active (includes running sub-state)
+            if active_state == "active":
                 self._maybe_reset_retry_counter(unit, current_time)
                 continue
 
