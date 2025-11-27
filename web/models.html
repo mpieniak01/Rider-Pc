@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Modele AI – Rider-PC</title>
+  <link rel="stylesheet" href="/web/assets/dashboard-common.css">
+  <link rel="stylesheet" href="/web/assets/models.css">
+</head>
+<body data-page="models">
+<div data-dashboard-menu-target></div>
+<div class="models-shell">
+  <header>
+    <h1 class="page-title">🤖 Modele AI</h1>
+    <p class="page-subtitle">Zarządzanie modelami sztucznej inteligencji</p>
+  </header>
+
+  <p id="status-line" class="status-line">Ładowanie danych modeli...</p>
+
+  <!-- Active Models Section -->
+  <section class="models-section">
+    <h2 class="section-title">📊 Aktywne Modele</h2>
+    <div class="models-grid" id="active-models-grid">
+      <!-- Active model cards will be dynamically inserted -->
+    </div>
+  </section>
+
+  <!-- Vision Models -->
+  <section class="models-section">
+    <h2 class="section-title">👁️ Wizja (Vision)</h2>
+    <p class="section-desc">Modele detekcji obiektów i analizy obrazu</p>
+    <div class="model-category" id="vision-models">
+      <div class="loading-placeholder">Skanowanie modeli wizji...</div>
+    </div>
+  </section>
+
+  <!-- Voice Models -->
+  <section class="models-section">
+    <h2 class="section-title">🗣️ Mowa (Audio)</h2>
+    <div class="voice-subsections">
+      <div class="voice-subsection">
+        <h3 class="subsection-title">🎤 ASR (Rozpoznawanie mowy)</h3>
+        <div class="model-category" id="voice-asr-models">
+          <div class="loading-placeholder">Skanowanie modeli ASR...</div>
+        </div>
+      </div>
+      <div class="voice-subsection">
+        <h3 class="subsection-title">🔊 TTS (Synteza mowy)</h3>
+        <div class="model-category" id="voice-tts-models">
+          <div class="loading-placeholder">Skanowanie modeli TTS...</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Text/LLM Models -->
+  <section class="models-section">
+    <h2 class="section-title">💬 Tekst (LLM)</h2>
+    <p class="section-desc">Modele językowe do generowania tekstu i NLU</p>
+    <div class="model-category" id="text-models">
+      <div class="loading-placeholder">Skanowanie modeli LLM...</div>
+    </div>
+  </section>
+
+  <!-- Installed Files -->
+  <section class="models-section">
+    <h2 class="section-title">📁 Zainstalowane Pliki Modeli</h2>
+    <p class="section-desc">Pliki modeli wykryte w katalogu <code>data/models/</code></p>
+    <div class="installed-models-table-wrapper">
+      <table class="installed-models-table" id="installed-models-table">
+        <thead>
+          <tr>
+            <th>Nazwa</th>
+            <th>Kategoria</th>
+            <th>Typ</th>
+            <th>Format</th>
+            <th>Rozmiar</th>
+            <th>Akcje</th>
+          </tr>
+        </thead>
+        <tbody id="installed-models-tbody">
+          <tr>
+            <td colspan="6" class="empty-message">Skanowanie plików...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script>
+const statusLine = document.getElementById('status-line');
+const activeModelsGrid = document.getElementById('active-models-grid');
+const visionModels = document.getElementById('vision-models');
+const voiceAsrModels = document.getElementById('voice-asr-models');
+const voiceTtsModels = document.getElementById('voice-tts-models');
+const textModels = document.getElementById('text-models');
+const installedTbody = document.getElementById('installed-models-tbody');
+
+const categoryIcons = {
+  vision: '👁️',
+  voice_asr: '🎤',
+  voice_tts: '🔊',
+  text: '💬',
+  unknown: '❓'
+};
+
+const categoryNames = {
+  vision: 'Wizja',
+  voice_asr: 'ASR',
+  voice_tts: 'TTS',
+  text: 'LLM',
+  unknown: 'Nieznany'
+};
+
+const providerNames = {
+  yolo: 'YOLO',
+  whisper: 'Whisper',
+  piper: 'Piper',
+  ollama: 'Ollama',
+  openai: 'OpenAI',
+  gemini: 'Gemini'
+};
+
+function createActiveModelCard(category, config) {
+  const card = document.createElement('div');
+  card.className = 'active-model-card';
+  
+  const enabled = config.enabled !== false;
+  const useMock = config.use_mock === true;
+  
+  let statusClass = 'status-inactive';
+  let statusText = 'Wyłączony';
+  if (useMock) {
+    statusClass = 'status-mock';
+    statusText = 'Mock';
+  } else if (enabled) {
+    statusClass = 'status-active';
+    statusText = 'Aktywny';
+  }
+  
+  card.innerHTML = `
+    <div class="active-model-header">
+      <span class="active-model-icon">${categoryIcons[category] || '🤖'}</span>
+      <span class="active-model-category">${categoryNames[category] || category}</span>
+      <span class="active-model-status ${statusClass}">${statusText}</span>
+    </div>
+    <div class="active-model-info">
+      <div class="info-row">
+        <span class="info-label">Model:</span>
+        <span class="info-value model-name">${config.model || 'N/A'}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Provider:</span>
+        <span class="info-value">${providerNames[config.provider] || config.provider || 'N/A'}</span>
+      </div>
+    </div>
+  `;
+  
+  return card;
+}
+
+function createOllamaModelCard(model) {
+  const card = document.createElement('div');
+  card.className = 'model-card ollama-model';
+  
+  const name = model.name || model.model || 'Unknown';
+  const size = model.size ? formatSize(model.size) : 'N/A';
+  const modified = model.modified_at ? new Date(model.modified_at).toLocaleDateString() : '';
+  
+  card.innerHTML = `
+    <div class="model-card-header">
+      <span class="model-name">${name}</span>
+      <span class="model-provider ollama">Ollama</span>
+    </div>
+    <div class="model-card-body">
+      <div class="model-meta">
+        <span class="meta-item">📦 ${size}</span>
+        ${modified ? `<span class="meta-item">📅 ${modified}</span>` : ''}
+      </div>
+    </div>
+    <div class="model-card-actions">
+      <button class="btn-activate" data-model="${name}" data-provider="ollama" data-slot="text">
+        Aktywuj
+      </button>
+    </div>
+  `;
+  
+  return card;
+}
+
+function createLocalModelCard(model) {
+  const card = document.createElement('div');
+  card.className = 'model-card local-model';
+  
+  card.innerHTML = `
+    <div class="model-card-header">
+      <span class="model-name">${model.name}</span>
+      <span class="model-format">.${model.format}</span>
+    </div>
+    <div class="model-card-body">
+      <div class="model-meta">
+        <span class="meta-item">📦 ${model.size_mb.toFixed(1)} MB</span>
+        <span class="meta-item">📁 ${model.path}</span>
+      </div>
+    </div>
+    <div class="model-card-actions">
+      <button class="btn-activate" data-model="${model.name}" data-provider="${model.type}" data-slot="${model.category}">
+        Aktywuj
+      </button>
+    </div>
+  `;
+  
+  return card;
+}
+
+function formatSize(bytes) {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function renderActiveModels(active) {
+  activeModelsGrid.innerHTML = '';
+  
+  const categories = ['vision', 'voice_asr', 'voice_tts', 'text'];
+  categories.forEach(cat => {
+    const config = active[cat];
+    if (config) {
+      const card = createActiveModelCard(cat, config);
+      activeModelsGrid.appendChild(card);
+    }
+  });
+}
+
+function renderInstalledModels(local, ollama) {
+  installedTbody.innerHTML = '';
+  
+  if (!local.length && !ollama.length) {
+    installedTbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="empty-message">
+          Brak wykrytych plików modeli w katalogu <code>data/models/</code>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+  
+  // Add local models
+  local.forEach(model => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="model-name-cell">${model.name}</span></td>
+      <td><span class="category-badge ${model.category}">${categoryNames[model.category] || model.category}</span></td>
+      <td>${model.type}</td>
+      <td><code>.${model.format}</code></td>
+      <td>${model.size_mb.toFixed(1)} MB</td>
+      <td>
+        <button class="btn-sm btn-activate" data-model="${model.name}" data-slot="${model.category}">
+          Aktywuj
+        </button>
+      </td>
+    `;
+    installedTbody.appendChild(tr);
+  });
+  
+  // Add Ollama models
+  ollama.forEach(model => {
+    const name = model.name || model.model || 'Unknown';
+    const size = model.size ? formatSize(model.size) : 'N/A';
+    
+    const tr = document.createElement('tr');
+    tr.classList.add('ollama-row');
+    tr.innerHTML = `
+      <td><span class="model-name-cell">${name}</span></td>
+      <td><span class="category-badge text">LLM</span></td>
+      <td>ollama</td>
+      <td><code>gguf</code></td>
+      <td>${size}</td>
+      <td>
+        <button class="btn-sm btn-activate" data-model="${name}" data-provider="ollama" data-slot="text">
+          Aktywuj
+        </button>
+      </td>
+    `;
+    installedTbody.appendChild(tr);
+  });
+}
+
+function renderCategoryModels(local, ollama) {
+  // Vision models
+  const visionLocal = local.filter(m => m.category === 'vision');
+  if (visionLocal.length > 0) {
+    visionModels.innerHTML = '';
+    visionLocal.forEach(m => {
+      visionModels.appendChild(createLocalModelCard(m));
+    });
+  } else {
+    visionModels.innerHTML = '<div class="no-models">Brak lokalnych modeli wizji. Konfiguracja z providers.toml.</div>';
+  }
+  
+  // Voice ASR models
+  const asrLocal = local.filter(m => m.category === 'voice_asr');
+  if (asrLocal.length > 0) {
+    voiceAsrModels.innerHTML = '';
+    asrLocal.forEach(m => {
+      voiceAsrModels.appendChild(createLocalModelCard(m));
+    });
+  } else {
+    voiceAsrModels.innerHTML = '<div class="no-models">Brak lokalnych modeli ASR. Konfiguracja z providers.toml.</div>';
+  }
+  
+  // Voice TTS models
+  const ttsLocal = local.filter(m => m.category === 'voice_tts');
+  if (ttsLocal.length > 0) {
+    voiceTtsModels.innerHTML = '';
+    ttsLocal.forEach(m => {
+      voiceTtsModels.appendChild(createLocalModelCard(m));
+    });
+  } else {
+    voiceTtsModels.innerHTML = '<div class="no-models">Brak lokalnych modeli TTS. Konfiguracja z providers.toml.</div>';
+  }
+  
+  // Text/LLM models (Ollama)
+  if (ollama.length > 0) {
+    textModels.innerHTML = '';
+    ollama.forEach(m => {
+      textModels.appendChild(createOllamaModelCard(m));
+    });
+  } else {
+    const textLocal = local.filter(m => m.category === 'text');
+    if (textLocal.length > 0) {
+      textModels.innerHTML = '';
+      textLocal.forEach(m => {
+        textModels.appendChild(createLocalModelCard(m));
+      });
+    } else {
+      textModels.innerHTML = '<div class="no-models">Brak modeli LLM. Ollama niedostępna lub brak modeli lokalnych.</div>';
+    }
+  }
+}
+
+async function activateModel(slot, provider, model) {
+  try {
+    statusLine.textContent = `Aktywuję model ${model}...`;
+    statusLine.className = 'status-line working';
+    
+    const response = await fetch('/api/models/bind', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slot, provider, model })
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok && result.success) {
+      statusLine.textContent = `✅ Model ${model} aktywowany dla ${slot}`;
+      statusLine.className = 'status-line success';
+      // Refresh data
+      setTimeout(loadModelsData, 1000);
+    } else {
+      statusLine.textContent = `❌ Błąd: ${result.error || 'Nie udało się aktywować modelu'}`;
+      statusLine.className = 'status-line error';
+    }
+  } catch (error) {
+    console.error('Activation error:', error);
+    statusLine.textContent = `❌ Błąd połączenia: ${error.message}`;
+    statusLine.className = 'status-line error';
+  }
+}
+
+// Event delegation for activate buttons
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.btn-activate');
+  if (btn) {
+    const model = btn.dataset.model;
+    const provider = btn.dataset.provider || 'local';
+    const slot = btn.dataset.slot;
+    if (model && slot) {
+      activateModel(slot, provider, model);
+    }
+  }
+});
+
+async function loadModelsData() {
+  try {
+    statusLine.textContent = 'Aktualizuję dane modeli...';
+    statusLine.className = 'status-line';
+    
+    // Fetch installed models
+    const installedResp = await fetch('/api/models/installed', { cache: 'no-store' });
+    const installedData = installedResp.ok ? await installedResp.json() : { local: [], ollama: [] };
+    
+    // Fetch active models
+    const activeResp = await fetch('/api/models/active', { cache: 'no-store' });
+    const activeData = activeResp.ok ? await activeResp.json() : {};
+    
+    // Render UI
+    renderActiveModels(activeData);
+    renderCategoryModels(installedData.local || [], installedData.ollama || []);
+    renderInstalledModels(installedData.local || [], installedData.ollama || []);
+    
+    const timestamp = new Date().toLocaleTimeString();
+    const localCount = (installedData.local || []).length;
+    const ollamaCount = (installedData.ollama || []).length;
+    statusLine.textContent = `Ostatnia aktualizacja: ${timestamp} | Lokalne: ${localCount} | Ollama: ${ollamaCount}`;
+    statusLine.className = 'status-line';
+    
+  } catch (error) {
+    console.error('Error loading models data:', error);
+    statusLine.textContent = `❌ Błąd podczas pobierania danych: ${error.message}`;
+    statusLine.className = 'status-line error';
+  }
+}
+
+// Initial load
+loadModelsData();
+
+// Auto-refresh every 30 seconds
+setInterval(loadModelsData, 30000);
+</script>
+
+<script type="module" src="/web/assets/menu.js"></script>
+</body>
+</html>
