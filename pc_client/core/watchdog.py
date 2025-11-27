@@ -82,12 +82,18 @@ class ServiceWatchdog:
         return [s for s in services if s.get("unit") in monitored_set]
 
     def _should_auto_heal(self, unit: str) -> bool:
-        """Check if a service should be auto-healed based on retry count."""
+        """Check if a service should be auto-healed based on retry count.
+
+        Note: Must be called with _state_lock held.
+        """
         state = self._retry_state.get(unit, {"count": 0})
         return state.get("count", 0) < self._max_retry_count
 
     def _maybe_reset_retry_counter(self, unit: str, current_time: float) -> None:
-        """Reset retry counter if service has been stable for retry_window_seconds."""
+        """Reset retry counter if service has been stable for retry_window_seconds.
+
+        Note: Must be called with _state_lock held.
+        """
         state = self._retry_state.get(unit)
         if not state:
             return
@@ -107,7 +113,10 @@ class ServiceWatchdog:
                 self._exhausted_services.discard(unit)
 
     def _record_failure(self, unit: str, current_time: float) -> None:
-        """Record a failure and increment retry counter."""
+        """Record a failure and increment retry counter.
+
+        Note: Must be called with _state_lock held.
+        """
         if unit not in self._retry_state:
             self._retry_state[unit] = {"count": 0, "last_failure_ts": 0}
 
