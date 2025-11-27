@@ -159,9 +159,7 @@ class ServiceManager:
             logger.info("ServiceManager: Using mock/simulated mode (systemd not available)")
 
         # Initialize local services state from defaults (for mock mode)
-        self._local_services: Dict[str, Dict[str, Any]] = {
-            svc["unit"]: dict(svc) for svc in DEFAULT_LOCAL_SERVICES
-        }
+        self._local_services: Dict[str, Dict[str, Any]] = {svc["unit"]: dict(svc) for svc in DEFAULT_LOCAL_SERVICES}
 
         # Store monitored services list for real systemd mode
         self._monitored_services = monitored_services or []
