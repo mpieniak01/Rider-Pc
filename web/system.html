@@ -24,6 +24,40 @@
   </header>
   <p id="status-line">Ładowanie danych usług…</p>
   
+  <section class="location-block" id="network-status-block">
+    <h2 class="location-title network-title">Status Sieci</h2>
+    <div class="network-status-grid">
+      <div class="network-card" id="local-ip-card">
+        <div class="network-card-header">
+          <span class="network-label">IP Hosta</span>
+        </div>
+        <div class="network-value" id="local-ip-value">---.---.---.---</div>
+      </div>
+      <div class="network-card" id="rider-pi-card">
+        <div class="network-card-header">
+          <span class="network-label">Rider-Pi</span>
+          <span class="network-status-indicator" id="rider-pi-indicator"></span>
+        </div>
+        <div class="network-value">
+          <span id="rider-pi-status">Sprawdzanie...</span>
+          <span class="network-latency" id="rider-pi-latency"></span>
+        </div>
+        <div class="network-host" id="rider-pi-host"></div>
+      </div>
+      <div class="network-card" id="internet-card">
+        <div class="network-card-header">
+          <span class="network-label">Internet</span>
+          <span class="network-status-indicator" id="internet-indicator"></span>
+        </div>
+        <div class="network-value">
+          <span id="internet-status">Sprawdzanie...</span>
+          <span class="network-latency" id="internet-latency"></span>
+        </div>
+        <div class="network-host" id="internet-host">8.8.8.8</div>
+      </div>
+    </div>
+  </section>
+  
   <section class="location-block" id="pc-services-block">
     <h2 class="location-title">Usługi lokalne (PC)</h2>
     <div id="pc-services-graph" class="services-grid"></div>
@@ -442,6 +476,101 @@
 
     // Load version info on page load (server caches for 60s, refresh on page reload)
     loadVersionInfo();
+
+    // Network Status functionality
+    const NETWORK_POLL_INTERVAL_MS = 10000; // 10 seconds as per requirements
+    let lastRiderPiOnline = null;
+
+    function updateNetworkUI(data) {
+      // Update Local IP
+      const localIpEl = document.getElementById('local-ip-value');
+      if (localIpEl) {
+        localIpEl.textContent = data.local_ip || '---.---.---.---';
+      }
+
+      // Update Rider-Pi status
+      const riderPiStatusEl = document.getElementById('rider-pi-status');
+      const riderPiLatencyEl = document.getElementById('rider-pi-latency');
+      const riderPiIndicator = document.getElementById('rider-pi-indicator');
+      const riderPiHostEl = document.getElementById('rider-pi-host');
+      const riderPiCard = document.getElementById('rider-pi-card');
+
+      if (data.rider_pi) {
+        const isOnline = data.rider_pi.status === 'online';
+        
+        if (riderPiStatusEl) {
+          riderPiStatusEl.textContent = isOnline ? 'Online' : 'Offline';
+        }
+        if (riderPiLatencyEl) {
+          riderPiLatencyEl.textContent = isOnline && data.rider_pi.latency !== undefined 
+            ? data.rider_pi.latency + 'ms' 
+            : '';
+        }
+        if (riderPiIndicator) {
+          riderPiIndicator.className = 'network-status-indicator ' + (isOnline ? 'is-online' : 'is-offline');
+        }
+        if (riderPiHostEl) {
+          riderPiHostEl.textContent = data.rider_pi.host || '';
+        }
+        if (riderPiCard) {
+          riderPiCard.className = 'network-card ' + (isOnline ? 'is-online' : 'is-offline');
+        }
+
+        // Show warning toast if Rider-Pi goes offline
+        if (lastRiderPiOnline !== null && lastRiderPiOnline && !isOnline) {
+          showToast('Robot Offline - Rider-Pi niedostępny', 'error');
+        }
+        lastRiderPiOnline = isOnline;
+      }
+
+      // Update Internet status
+      const internetStatusEl = document.getElementById('internet-status');
+      const internetLatencyEl = document.getElementById('internet-latency');
+      const internetIndicator = document.getElementById('internet-indicator');
+      const internetCard = document.getElementById('internet-card');
+
+      if (data.internet) {
+        const isOnline = data.internet.status === 'online';
+        
+        if (internetStatusEl) {
+          internetStatusEl.textContent = isOnline ? 'Online' : 'Offline';
+        }
+        if (internetLatencyEl) {
+          internetLatencyEl.textContent = isOnline && data.internet.latency !== undefined 
+            ? data.internet.latency + 'ms' 
+            : '';
+        }
+        if (internetIndicator) {
+          internetIndicator.className = 'network-status-indicator ' + (isOnline ? 'is-online' : 'is-offline');
+        }
+        if (internetCard) {
+          internetCard.className = 'network-card ' + (isOnline ? 'is-online' : 'is-offline');
+        }
+      }
+    }
+
+    async function loadNetworkStatus() {
+      try {
+        const resp = await fetch('/api/status/network', { cache: 'no-store' });
+        if (!resp.ok) {
+          throw new Error('HTTP ' + resp.status);
+        }
+        const data = await resp.json();
+        updateNetworkUI(data);
+      } catch (err) {
+        console.error('Failed to load network status:', err);
+        // Set all indicators to offline on error
+        updateNetworkUI({
+          local_ip: '---.---.---.---',
+          rider_pi: { status: 'offline', host: '' },
+          internet: { status: 'offline', host: '8.8.8.8' }
+        });
+      }
+    }
+
+    // Load network status on page load and poll every 10 seconds
+    loadNetworkStatus();
+    setInterval(loadNetworkStatus, NETWORK_POLL_INTERVAL_MS);
   </script>
   <script type="module" src="/web/assets/menu.js"></script>
 </body>

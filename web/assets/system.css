@@ -375,3 +375,83 @@
         padding: 10px 12px;
       }
     }
+
+    /* Network Status Styles */
+    .network-title {
+      background: rgba(147, 51, 234, 0.12);
+      border-left-color: #a855f7;
+    }
+    .network-status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+    .network-card {
+      background: var(--card);
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .network-card.is-online {
+      border-color: var(--accent-green);
+    }
+    .network-card.is-offline {
+      border-color: var(--accent-red);
+    }
+    .network-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .network-label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .network-status-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--accent-gray);
+    }
+    .network-status-indicator.is-online {
+      background: var(--accent-green);
+      box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+    }
+    .network-status-indicator.is-offline {
+      background: var(--accent-red);
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+    }
+    .network-value {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--fg);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .network-latency {
+      font-size: 0.85rem;
+      font-weight: 400;
+      color: var(--muted);
+    }
+    .network-host {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 4px;
+      font-family: "Fira Code", "Consolas", monospace;
+    }
+    #local-ip-card .network-value {
+      font-family: "Fira Code", "Consolas", monospace;
+    }
+    @media (max-width: 640px) {
+      .network-status-grid {
+        grid-template-columns: 1fr;
+      }
+      .network-value {
+        font-size: 1rem;
+      }
+    }

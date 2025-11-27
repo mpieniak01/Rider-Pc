@@ -1,5 +1,6 @@
 """Status, health, metrics, and information endpoints."""
 
+import asyncio
 import logging
 import time
 from typing import Optional
@@ -10,6 +11,7 @@ from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 from pc_client.cache import CacheManager
 from pc_client.utils.system_info import collect_system_metrics
+from pc_client.utils.network import get_local_ip, check_connectivity
 from pc_client.adapters.git_adapter import GitAdapter
 
 logger = logging.getLogger(__name__)
@@ -212,3 +214,51 @@ async def version_info() -> JSONResponse:
     git_adapter = get_git_adapter()
     data = await git_adapter.get_version_info()
     return JSONResponse(content=data)
+
+
+@router.get("/api/status/network")
+async def network_status(request: Request) -> JSONResponse:
+    """
+    Get network connectivity status for Rider-PC.
+
+    Checks connectivity to:
+    - Rider-Pi (robot controller)
+    - Internet (via 8.8.8.8)
+
+    Returns JSON containing:
+    - local_ip: Local IP address of the PC
+    - rider_pi: Connection status to Rider-Pi with latency
+    - internet: Connection status to internet with latency
+    - timestamp: Unix timestamp when the check was performed
+    """
+    settings = getattr(request.app.state, "settings", None)
+    rider_pi_host = getattr(settings, "rider_pi_host", "localhost") if settings else "localhost"
+
+    # Run connectivity checks in parallel for faster response
+    local_ip = get_local_ip()
+    rider_pi_check, internet_check = await asyncio.gather(
+        check_connectivity(rider_pi_host),
+        check_connectivity("8.8.8.8"),
+    )
+
+    # Build response structure matching the issue specification
+    response = {
+        "local_ip": local_ip,
+        "rider_pi": {
+            "host": rider_pi_host,
+            "status": rider_pi_check.get("status", "offline"),
+        },
+        "internet": {
+            "host": "8.8.8.8",
+            "status": internet_check.get("status", "offline"),
+        },
+        "timestamp": int(time.time()),
+    }
+
+    # Add latency if available
+    if "latency_ms" in rider_pi_check:
+        response["rider_pi"]["latency"] = int(rider_pi_check["latency_ms"])
+    if "latency_ms" in internet_check:
+        response["internet"]["latency"] = int(internet_check["latency_ms"])
+
+    return JSONResponse(content=response)
