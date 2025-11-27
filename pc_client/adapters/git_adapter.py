@@ -7,11 +7,31 @@ It's designed to work within the FastAPI async environment.
 
 import asyncio
 import logging
+import re
 import shutil
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+# Regex pattern for validating safe branch names
+# Only allows alphanumeric, hyphens, underscores, slashes, and dots
+SAFE_BRANCH_NAME_PATTERN = re.compile(r'^[a-zA-Z0-9/_.-]+$')
+
+
+def is_safe_branch_name(name: str) -> bool:
+    """
+    Validate that a branch name only contains safe characters.
+
+    Args:
+        name: Branch name to validate.
+
+    Returns:
+        True if branch name is safe, False otherwise.
+    """
+    if not name or not name.strip():
+        return False
+    return bool(SAFE_BRANCH_NAME_PATTERN.match(name.strip()))
 
 
 def is_git_available() -> bool:
@@ -285,6 +305,9 @@ class GitAdapter:
         if not name or not name.strip():
             return False, "Nazwa brancha nie może być pusta"
 
+        if not is_safe_branch_name(name):
+            return False, "Nazwa brancha zawiera niedozwolone znaki"
+
         cmd = ["git", "checkout", name.strip()]
         if self._repo_path:
             cmd = ["git", "-C", self._repo_path, "checkout", name.strip()]
@@ -315,6 +338,12 @@ class GitAdapter:
 
         if not name or not name.strip():
             return False, "Nazwa brancha nie może być pusta"
+
+        if not is_safe_branch_name(name):
+            return False, "Nazwa brancha zawiera niedozwolone znaki"
+
+        if not is_safe_branch_name(base):
+            return False, "Nazwa bazowego brancha zawiera niedozwolone znaki"
 
         cmd = ["git", "checkout", "-b", name.strip(), base.strip()]
         if self._repo_path:

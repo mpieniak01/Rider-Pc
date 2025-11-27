@@ -1,9 +1,10 @@
 """Project management endpoints for GitHub integration."""
 
+import asyncio
 import logging
 import re
 import unicodedata
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Request, Query
 from fastapi.responses import JSONResponse
@@ -19,6 +20,9 @@ router = APIRouter()
 # Adapter singletons
 _github_adapter: Optional[GitHubAdapter] = None
 _git_adapter: Optional[GitAdapter] = None
+
+# Valid git strategies
+GitStrategy = Literal["current", "main", "existing", "new_branch"]
 
 
 def slugify(text: str, max_length: int = 50) -> str:
@@ -84,7 +88,7 @@ class CreateTaskRequest(BaseModel):
     body: str = Field(default="", description="Issue body/description (markdown)")
     assignee: Optional[str] = Field(default=None, description="Username to assign")
     labels: List[str] = Field(default_factory=list, description="List of label names")
-    git_strategy: str = Field(
+    git_strategy: GitStrategy = Field(
         default="current",
         description="Git strategy: 'current', 'main', 'existing', 'new_branch'"
     )
@@ -157,14 +161,26 @@ async def get_project_meta(request: Request) -> JSONResponse:
     github = get_github_adapter(request)
     git = get_git_adapter(request)
 
-    # Fetch all metadata concurrently
-    import asyncio
-    collaborators, labels, branches, current_branch = await asyncio.gather(
+    # Fetch all metadata concurrently with exception handling
+    results = await asyncio.gather(
         github.get_collaborators(),
         github.get_labels(),
         git.get_local_branches(),
         git.get_current_branch(),
+        return_exceptions=True
     )
+
+    # Handle exceptions and substitute defaults
+    def handle_result(result: Any, default: Any, name: str) -> Any:
+        if isinstance(result, Exception):
+            logger.error("Error fetching %s: %s", name, result)
+            return default
+        return result
+
+    collaborators = handle_result(results[0], [], "collaborators")
+    labels = handle_result(results[1], [], "labels")
+    branches = handle_result(results[2], [], "branches")
+    current_branch = handle_result(results[3], "", "current_branch")
 
     return JSONResponse(content={
         "collaborators": collaborators,
@@ -254,7 +270,8 @@ async def create_task(request: Request, payload: CreateTaskRequest) -> JSONRespo
             else:
                 result["branch"] = payload.existing_branch
         else:
-            branch_error = "Nie wybrano istniejącego brancha"
+            result["error"] = "Nie wybrano istniejącego brancha"
+            return JSONResponse(content=result, status_code=400)
 
     else:  # current
         current = await git.get_current_branch()
