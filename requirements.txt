@@ -33,6 +33,10 @@ piper-tts==1.2.0
 ollama==0.4.4
 mediapipe==0.10.18
 
+# RAG (Knowledge Base)
+chromadb==0.5.23
+sentence-transformers==3.3.1
+
 # Testing (optional - for development)
 ruff==0.6.9
 pytest==8.4.2
