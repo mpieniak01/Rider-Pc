@@ -545,9 +545,10 @@ async def startup_event(app: FastAPI):
         )
         await watchdog.start()
         app.state.service_watchdog = watchdog
+        monitored_count = len(settings.monitored_services) if settings.monitored_services else "all local"
         logger.info(
-            "ServiceWatchdog started (monitored=%d services, max_retry=%d, window=%ds)",
-            len(settings.monitored_services) if settings.monitored_services else 0,
+            "ServiceWatchdog started (monitored=%s services, max_retry=%d, window=%ds)",
+            monitored_count,
             settings.max_retry_count,
             settings.retry_window_seconds,
         )

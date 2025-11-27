@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import time
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Set
 
 from pc_client.core.service_manager import ServiceManager
 
@@ -39,7 +39,18 @@ class ServiceWatchdog:
                                   was running stably (default: 300s = 5 minutes).
             check_interval_seconds: Interval between service status checks (default: 10s).
             sse_publish_fn: Optional callback to publish SSE notifications.
+
+        Raises:
+            ValueError: If configuration parameters are invalid.
         """
+        # Validate configuration parameters
+        if max_retry_count < 0:
+            raise ValueError("max_retry_count must be non-negative")
+        if retry_window_seconds <= 0:
+            raise ValueError("retry_window_seconds must be positive")
+        if check_interval_seconds <= 0:
+            raise ValueError("check_interval_seconds must be positive")
+
         self._service_manager = service_manager
         self._monitored_services = monitored_services or []
         self._max_retry_count = max_retry_count
@@ -50,6 +61,12 @@ class ServiceWatchdog:
         # Track retry attempts and last failure timestamps per service
         # Format: {unit: {"count": int, "last_failure_ts": float}}
         self._retry_state: Dict[str, Dict[str, Any]] = {}
+
+        # Track services that have exhausted retries to avoid repeated notifications
+        self._exhausted_services: Set[str] = set()
+
+        # Lock for protecting access to _retry_state and _exhausted_services
+        self._state_lock = asyncio.Lock()
 
         self._running = False
         self._task: Optional[asyncio.Task] = None
@@ -86,6 +103,8 @@ class ServiceWatchdog:
                 )
                 state["count"] = 0
                 state["last_failure_ts"] = 0
+                # Also clear exhausted status so future failures can be notified
+                self._exhausted_services.discard(unit)
 
     def _record_failure(self, unit: str, current_time: float) -> None:
         """Record a failure and increment retry counter."""
@@ -117,66 +136,69 @@ class ServiceWatchdog:
 
         monitored = self._get_monitored_units(services)
 
-        for service in monitored:
-            unit = service.get("unit", "")
-            active_state = str(service.get("active", "")).lower()
+        async with self._state_lock:
+            for service in monitored:
+                unit = service.get("unit", "")
+                active_state = str(service.get("active", "")).lower()
 
-            # Reset counter if service is active (includes running sub-state)
-            if active_state == "active":
-                self._maybe_reset_retry_counter(unit, current_time)
-                continue
+                # Reset counter if service is active (includes running sub-state)
+                if active_state == "active":
+                    self._maybe_reset_retry_counter(unit, current_time)
+                    continue
 
-            # Check if service is failed
-            if active_state != "failed":
-                continue
+                # Check if service is failed
+                if active_state != "failed":
+                    continue
 
-            # Service is failed - check if we should auto-heal
-            retry_state = self._retry_state.get(unit, {"count": 0})
-            current_count = retry_state.get("count", 0)
+                # Service is failed - check if we should auto-heal
+                if not self._should_auto_heal(unit):
+                    # Already exhausted retries - only log/notify once
+                    if unit not in self._exhausted_services:
+                        self._exhausted_services.add(unit)
+                        logger.error(
+                            "Auto-healing failed for %s. Manual intervention required. "
+                            "(Retry limit %d reached)",
+                            unit,
+                            self._max_retry_count,
+                        )
+                        self._publish_sse(
+                            "watchdog.exhausted",
+                            unit,
+                            f"Auto-healing failed for {unit}. Manual intervention required.",
+                        )
+                    continue
 
-            if current_count >= self._max_retry_count:
-                # Already exhausted retries, log but don't restart
-                logger.error(
-                    "Auto-healing failed for %s. Manual intervention required. "
-                    "(Retry limit %d reached)",
+                # Attempt auto-heal
+                retry_state = self._retry_state.get(unit, {"count": 0})
+                current_count = retry_state.get("count", 0)
+
+                logger.warning(
+                    "Auto-healing service %s (Attempt %d/%d)",
                     unit,
+                    current_count + 1,
                     self._max_retry_count,
                 )
                 self._publish_sse(
-                    "watchdog.exhausted",
+                    "watchdog.healing",
                     unit,
-                    f"Auto-healing failed for {unit}. Manual intervention required.",
+                    f"Auto-healing service {unit} (Attempt {current_count + 1}/{self._max_retry_count})",
                 )
-                continue
 
-            # Attempt auto-heal
-            logger.warning(
-                "Auto-healing service %s (Attempt %d/%d)",
-                unit,
-                current_count + 1,
-                self._max_retry_count,
-            )
-            self._publish_sse(
-                "watchdog.healing",
-                unit,
-                f"Auto-healing service {unit} (Attempt {current_count + 1}/{self._max_retry_count})",
-            )
+                try:
+                    result = await self._service_manager.control_service(unit, "restart")
+                    if result.get("ok"):
+                        logger.info("Auto-heal restart initiated for %s", unit)
+                    else:
+                        logger.error(
+                            "Auto-heal restart failed for %s: %s",
+                            unit,
+                            result.get("error", "unknown error"),
+                        )
+                except Exception as exc:
+                    logger.error("Auto-heal restart exception for %s: %s", unit, exc)
 
-            try:
-                result = await self._service_manager.control_service(unit, "restart")
-                if result.get("ok"):
-                    logger.info("Auto-heal restart initiated for %s", unit)
-                else:
-                    logger.error(
-                        "Auto-heal restart failed for %s: %s",
-                        unit,
-                        result.get("error", "unknown error"),
-                    )
-            except Exception as exc:
-                logger.error("Auto-heal restart exception for %s: %s", unit, exc)
-
-            # Record the failure and increment counter regardless of restart result
-            self._record_failure(unit, current_time)
+                # Record the failure and increment counter regardless of restart result
+                self._record_failure(unit, current_time)
 
     async def _watchdog_loop(self) -> None:
         """Main watchdog loop that periodically checks services."""
@@ -216,10 +238,12 @@ class ServiceWatchdog:
             try:
                 await self._task
             except asyncio.CancelledError:
+                # Task cancellation is expected during shutdown; ignore this exception.
                 pass
             self._task = None
         logger.info("ServiceWatchdog stopped")
 
-    def get_retry_state(self) -> Dict[str, Dict[str, Any]]:
+    async def get_retry_state(self) -> Dict[str, Dict[str, Any]]:
         """Return current retry state for diagnostics."""
-        return dict(self._retry_state)
+        async with self._state_lock:
+            return dict(self._retry_state)

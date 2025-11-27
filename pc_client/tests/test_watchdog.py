@@ -2,11 +2,9 @@
 
 import asyncio
 import pytest
-import time
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 from pc_client.core.watchdog import ServiceWatchdog
-from pc_client.core.service_manager import ServiceManager
 
 
 class MockServiceManager:
@@ -45,6 +43,33 @@ async def test_watchdog_initialization():
     assert watchdog._retry_window_seconds == 300
     assert watchdog._monitored_services == ["test.service"]
     assert not watchdog._running
+
+
+@pytest.mark.asyncio
+async def test_watchdog_parameter_validation():
+    """Test watchdog validates configuration parameters."""
+    service_manager = MockServiceManager()
+
+    # Negative max_retry_count should raise ValueError
+    with pytest.raises(ValueError, match="max_retry_count must be non-negative"):
+        ServiceWatchdog(
+            service_manager=service_manager,
+            max_retry_count=-1,
+        )
+
+    # Zero retry_window_seconds should raise ValueError
+    with pytest.raises(ValueError, match="retry_window_seconds must be positive"):
+        ServiceWatchdog(
+            service_manager=service_manager,
+            retry_window_seconds=0,
+        )
+
+    # Zero check_interval_seconds should raise ValueError
+    with pytest.raises(ValueError, match="check_interval_seconds must be positive"):
+        ServiceWatchdog(
+            service_manager=service_manager,
+            check_interval_seconds=0,
+        )
 
 
 @pytest.mark.asyncio
@@ -160,7 +185,7 @@ async def test_watchdog_resets_retry_counter_after_window():
     await watchdog.stop()
 
     assert len(service_manager.control_calls) == 1
-    retry_state = watchdog.get_retry_state()
+    retry_state = await watchdog.get_retry_state()
     assert "test.service" in retry_state
     assert retry_state["test.service"]["count"] == 1
 
@@ -174,7 +199,7 @@ async def test_watchdog_resets_retry_counter_after_window():
     await watchdog.stop()
 
     # Counter should be reset
-    retry_state = watchdog.get_retry_state()
+    retry_state = await watchdog.get_retry_state()
     assert retry_state["test.service"]["count"] == 0
 
 
@@ -238,7 +263,8 @@ async def test_watchdog_exhausted_notification():
 
     # Should have sent exhausted notification
     exhausted_events = [e for e in sse_events if e["type"] == "watchdog.exhausted"]
-    assert len(exhausted_events) >= 1
+    # Should have sent exhausted notification only ONCE despite multiple check cycles
+    assert len(exhausted_events) == 1
     assert exhausted_events[0]["unit"] == "failed.service"
     assert "Manual intervention required" in exhausted_events[0]["message"]
 
@@ -328,14 +354,14 @@ async def test_watchdog_get_retry_state():
     )
 
     # Initially empty
-    assert watchdog.get_retry_state() == {}
+    assert await watchdog.get_retry_state() == {}
 
     await watchdog.start()
     await asyncio.sleep(0.08)
     await watchdog.stop()
 
     # Should have recorded the failure
-    retry_state = watchdog.get_retry_state()
+    retry_state = await watchdog.get_retry_state()
     assert "failed.service" in retry_state
     assert retry_state["failed.service"]["count"] == 1
     assert retry_state["failed.service"]["last_failure_ts"] > 0
