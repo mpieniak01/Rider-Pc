@@ -4,6 +4,7 @@ This module provides a simple vector store implementation using ChromaDB
 for storing and searching document embeddings.
 """
 
+import hashlib
 import logging
 from pathlib import Path
 from typing import List, Optional, Any
@@ -106,14 +107,14 @@ class VectorStore:
             return 0
 
         try:
-            # Prepare data for ChromaDB
-            ids = [f"doc_{i}" for i in range(len(documents))]
+            # Prepare data for ChromaDB with unique IDs based on content hash
+            ids = []
+            for doc in documents:
+                source = doc.metadata.get("source", "")
+                content_hash = hashlib.sha256(f"{doc.content}{source}".encode()).hexdigest()[:16]
+                ids.append(f"doc_{content_hash}")
             texts = [doc.content for doc in documents]
             metadatas = [doc.metadata for doc in documents]
-
-            # Clear existing documents before adding new ones
-            # ChromaDB requires a where filter; we match all documents with a source field
-            self._collection.delete(where={"source": {"$exists": True}})
 
             self._collection.add(
                 ids=ids,

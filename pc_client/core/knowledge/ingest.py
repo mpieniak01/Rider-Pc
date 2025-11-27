@@ -64,7 +64,7 @@ class DocumentLoader:
                         Document(
                             content=content,
                             metadata={
-                                "source": str(relative_path),
+                                "source": relative_path.as_posix(),
                                 "filename": md_file.name,
                             },
                         )
@@ -86,7 +86,14 @@ class TextSplitter:
         Args:
             chunk_size: Target size for each chunk in characters.
             chunk_overlap: Number of characters to overlap between chunks.
+
+        Raises:
+            ValueError: If chunk_overlap >= chunk_size or values are invalid.
         """
+        if chunk_size <= 0 or chunk_overlap < 0:
+            raise ValueError("chunk_size must be positive and chunk_overlap must be non-negative")
+        if chunk_overlap >= chunk_size:
+            raise ValueError(f"chunk_overlap ({chunk_overlap}) must be less than chunk_size ({chunk_size})")
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
 

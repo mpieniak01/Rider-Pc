@@ -2,9 +2,8 @@
 
 import pytest
 from pathlib import Path
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch
 import tempfile
-import os
 
 from pc_client.core.knowledge.ingest import Document, DocumentLoader, TextSplitter
 

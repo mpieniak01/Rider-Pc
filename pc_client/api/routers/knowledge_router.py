@@ -2,9 +2,9 @@
 
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks
 from fastapi.responses import JSONResponse
 
 from pc_client.config.settings import settings
@@ -15,9 +15,13 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Maximum query length for search requests
+MAX_QUERY_LENGTH = 1000
+
 # Global vector store instance (lazy initialization)
 _vector_store: Optional[VectorStore] = None
 _reindex_in_progress = False
+_reindex_lock = asyncio.Lock()
 
 
 def _get_vector_store() -> VectorStore:
@@ -39,10 +43,11 @@ async def _perform_reindex() -> Dict[str, Any]:
     """
     global _reindex_in_progress
 
-    if _reindex_in_progress:
-        return {"ok": False, "error": "Reindexing already in progress"}
+    async with _reindex_lock:
+        if _reindex_in_progress:
+            return {"ok": False, "error": "Reindexing already in progress"}
+        _reindex_in_progress = True
 
-    _reindex_in_progress = True
     try:
         # Parse document paths from settings
         docs_paths = [p.strip() for p in settings.rag_docs_paths.split(",") if p.strip()]
@@ -92,12 +97,9 @@ async def _perform_reindex() -> Dict[str, Any]:
         _reindex_in_progress = False
 
 
-def _reindex_background_task():
+async def _reindex_background_task():
     """Background task wrapper for reindexing."""
-    import asyncio
-
-    # Use asyncio.run which properly handles loop lifecycle
-    result = asyncio.run(_perform_reindex())
+    result = await _perform_reindex()
     logger.info("Background reindex completed: %s", result)
 
 
@@ -165,6 +167,12 @@ async def search_knowledge_base(
     if not q.strip():
         return JSONResponse(
             {"ok": False, "error": "Query parameter 'q' is required"},
+            status_code=400,
+        )
+
+    if len(q) > MAX_QUERY_LENGTH:
+        return JSONResponse(
+            {"ok": False, "error": f"Query too long (max {MAX_QUERY_LENGTH} characters)"},
             status_code=400,
         )
 
