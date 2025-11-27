@@ -28,6 +28,7 @@ export const I18N = {
     control:       { pl: "Sterowanie", en: "Control" },
     navigation:    { pl: "Nawigacja", en: "Navigation" },
     system:        { pl: "System", en: "System" },
+    project:       { pl: "Projekt", en: "Project" },
     home:          { pl: "Statusy", en: "Status" },
     google_home:   { pl: "Google Home", en: "Google Home" },
     chat:          { pl: "Chat", en: "Chat" },
@@ -457,6 +458,27 @@ export const I18N = {
     domain_vision_desc:   { pl: "Detekcja przeszkód, przetwarzanie obrazu.", en: "Obstacle detection, vision processing." },
     domain_voice_desc:    { pl: "ASR / TTS, komendy głosowe i rozmowy.", en: "ASR / TTS, voice commands and chat." },
     domain_text_desc:     { pl: "LLM, odpowiedzi tekstowe i generowanie komend.", en: "LLM, textual replies and command generation." },
+  },
+
+  // ===== PROJECT DASHBOARD =====
+  project: {
+    page_title:       { pl: "Projekt – Rider-PC", en: "Project – Rider-PC" },
+    title:            { pl: "Projekt", en: "Project" },
+    subtitle:         { pl: "Zadania GitHub", en: "GitHub Issues" },
+    refresh:          { pl: "Odśwież", en: "Refresh" },
+    loading:          { pl: "Ładowanie zgłoszeń...", en: "Loading issues..." },
+    no_issues:        { pl: "Brak otwartych zgłoszeń", en: "No open issues" },
+    no_issues_desc:   { pl: "Wszystkie zadania zostały ukończone lub nie ma aktywnych zgłoszeń.", en: "All tasks are complete or there are no active issues." },
+    tasks:            { pl: "zadań", en: "tasks" },
+    no_checklist:     { pl: "Brak checklisty", en: "No checklist" },
+    unassigned:       { pl: "Nieprzypisane", en: "Unassigned" },
+    open_github:      { pl: "→ GitHub", en: "→ GitHub" },
+    data_refreshed:   { pl: "Dane odświeżone", en: "Data refreshed" },
+    not_configured:   { pl: "GitHub nie skonfigurowany", en: "GitHub not configured" },
+    config_error:     { pl: "Konfiguracja GitHub niekompletna", en: "GitHub configuration incomplete" },
+    connection_error: { pl: "Błąd połączenia", en: "Connection error" },
+    from_cache:       { pl: "z cache", en: "from cache" },
+    open_issues:      { pl: "otwartych zgłoszeń", en: "open issues" },
   },
 };
 
