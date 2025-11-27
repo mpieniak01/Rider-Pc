@@ -311,5 +311,7 @@ class ModelManager:
                 tomli_w.dump(self._providers_config, tmp_file)
             tmp_path.replace(self.providers_config_path)
             logger.info("Updated %s for slot %s", self.providers_config_path, slot)
+        except (IOError, OSError) as exc:
+            logger.error("Failed to write providers config file: %s", exc)
         except Exception as exc:  # noqa: BLE001
-            logger.error("Failed to persist providers config: %s", exc)
+            logger.error("Unexpected error while persisting providers config: %s", exc)
