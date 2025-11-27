@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Projekt – Rider-PC</title>
+  <link rel="stylesheet" href="/web/assets/dashboard-common.css">
+  <link rel="stylesheet" href="/web/assets/project.css">
+</head>
+<body data-page="project">
+<div data-dashboard-menu-target></div>
+<div class="wrap">
+  
+  <header class="project-header">
+    <h1>
+      <span class="brand-accent">Projekt</span>
+      <span>— Zadania GitHub</span>
+    </h1>
+    <div class="project-actions">
+      <button id="refresh-btn" class="c-btn c-btn-sm" title="Odśwież dane">
+        <span class="refresh-icon">↻</span>
+        <span data-i18n="project.refresh">Odśwież</span>
+      </button>
+    </div>
+  </header>
+
+  <p id="status-line" class="status-line">Ładowanie zgłoszeń...</p>
+
+  <!-- Error/Warning Banner -->
+  <div id="error-banner" class="error-banner" style="display: none;">
+    <span class="error-icon">⚠️</span>
+    <span id="error-message"></span>
+  </div>
+
+  <!-- Issues Grid -->
+  <section id="issues-container" class="issues-grid">
+    <!-- Issue cards will be dynamically inserted here -->
+  </section>
+
+  <!-- Empty State -->
+  <div id="empty-state" class="empty-state" style="display: none;">
+    <div class="empty-icon">📋</div>
+    <h2 data-i18n="project.no_issues">Brak otwartych zgłoszeń</h2>
+    <p class="muted" data-i18n="project.no_issues_desc">Wszystkie zadania zostały ukończone lub nie ma aktywnych zgłoszeń.</p>
+  </div>
+
+  <!-- Footer Links -->
+  <div class="l-row footer-links">
+    <a href="/web/view.html" class="muted">↩ dashboard</a>
+    <span class="u-sep">•</span>
+    <a href="/web/system.html" class="muted">⚙ system</a>
+  </div>
+
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+  const POLL_INTERVAL_MS = 60000; // 1 minute (data cached 5 min on server)
+  
+  const issuesContainer = document.getElementById('issues-container');
+  const statusLine = document.getElementById('status-line');
+  const errorBanner = document.getElementById('error-banner');
+  const errorMessage = document.getElementById('error-message');
+  const emptyState = document.getElementById('empty-state');
+  const refreshBtn = document.getElementById('refresh-btn');
+  const toastContainer = document.getElementById('toast-container');
+
+  function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    toastContainer.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  function showError(message) {
+    errorBanner.style.display = 'flex';
+    errorMessage.textContent = message;
+  }
+
+  function hideError() {
+    errorBanner.style.display = 'none';
+  }
+
+  function formatTimestamp(ts) {
+    if (!ts) return '—';
+    const d = new Date(ts * 1000);
+    return d.toLocaleString('pl-PL', {
+      hour: '2-digit',
+      minute: '2-digit',
+      day: '2-digit',
+      month: '2-digit'
+    });
+  }
+
+  function getProgressClass(pct) {
+    if (pct === 100) return 'progress-complete';
+    if (pct >= 75) return 'progress-high';
+    if (pct >= 50) return 'progress-medium';
+    if (pct >= 25) return 'progress-low';
+    return 'progress-minimal';
+  }
+
+  function createIssueCard(issue) {
+    const card = document.createElement('article');
+    card.className = 'issue-card';
+    card.setAttribute('data-issue', issue.number);
+    
+    // Make entire card clickable to open GitHub
+    card.addEventListener('click', () => {
+      window.open(issue.url, '_blank', 'noopener');
+    });
+
+    // Header with issue number and title
+    const header = document.createElement('header');
+    header.className = 'issue-header';
+    
+    const number = document.createElement('span');
+    number.className = 'issue-number';
+    number.textContent = `#${issue.number}`;
+    header.appendChild(number);
+    
+    const title = document.createElement('h3');
+    title.className = 'issue-title';
+    title.textContent = issue.title;
+    title.title = issue.title;
+    header.appendChild(title);
+    
+    card.appendChild(header);
+
+    // Progress section (only if there are tasks)
+    if (issue.tasks_total > 0) {
+      const progressSection = document.createElement('div');
+      progressSection.className = 'issue-progress';
+      
+      // Progress bar
+      const progressBar = document.createElement('div');
+      progressBar.className = `progress-bar ${getProgressClass(issue.progress_pct)}`;
+      
+      const progressFill = document.createElement('div');
+      progressFill.className = 'progress-fill';
+      progressFill.style.width = `${issue.progress_pct}%`;
+      progressBar.appendChild(progressFill);
+      
+      progressSection.appendChild(progressBar);
+      
+      // Task counter and percentage
+      const progressInfo = document.createElement('div');
+      progressInfo.className = 'progress-info';
+      
+      const taskCount = document.createElement('span');
+      taskCount.className = 'task-count';
+      taskCount.textContent = `${issue.tasks_done}/${issue.tasks_total} zadań`;
+      progressInfo.appendChild(taskCount);
+      
+      const progressPct = document.createElement('span');
+      progressPct.className = 'progress-pct';
+      progressPct.textContent = `${issue.progress_pct}%`;
+      progressInfo.appendChild(progressPct);
+      
+      progressSection.appendChild(progressInfo);
+      card.appendChild(progressSection);
+    } else {
+      // No tasks indicator
+      const noTasks = document.createElement('div');
+      noTasks.className = 'no-tasks muted';
+      noTasks.textContent = 'Brak checklisty';
+      card.appendChild(noTasks);
+    }
+
+    // Footer with assignee
+    const footer = document.createElement('footer');
+    footer.className = 'issue-footer';
+    
+    if (issue.assignee) {
+      const assignee = document.createElement('span');
+      assignee.className = 'issue-assignee';
+      assignee.innerHTML = `<span class="assignee-icon">👤</span> ${escapeHtml(issue.assignee)}`;
+      footer.appendChild(assignee);
+    } else {
+      const unassigned = document.createElement('span');
+      unassigned.className = 'issue-unassigned muted';
+      unassigned.textContent = 'Nieprzypisane';
+      footer.appendChild(unassigned);
+    }
+    
+    const openLink = document.createElement('span');
+    openLink.className = 'open-link';
+    openLink.textContent = '→ GitHub';
+    footer.appendChild(openLink);
+    
+    card.appendChild(footer);
+
+    return card;
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  function renderIssues(issues) {
+    issuesContainer.innerHTML = '';
+    
+    if (!issues || issues.length === 0) {
+      issuesContainer.style.display = 'none';
+      emptyState.style.display = 'block';
+      return;
+    }
+    
+    issuesContainer.style.display = 'grid';
+    emptyState.style.display = 'none';
+    
+    issues.forEach(issue => {
+      issuesContainer.appendChild(createIssueCard(issue));
+    });
+  }
+
+  async function loadIssues(forceRefresh = false) {
+    refreshBtn.disabled = true;
+    refreshBtn.classList.add('is-loading');
+    statusLine.textContent = 'Ładowanie zgłoszeń...';
+    
+    try {
+      const url = forceRefresh 
+        ? '/api/project/issues?refresh=true' 
+        : `/api/project/issues?ts=${Date.now()}`;
+      
+      const resp = await fetch(url, { cache: 'no-store' });
+      
+      if (!resp.ok) {
+        throw new Error(`HTTP ${resp.status}`);
+      }
+      
+      const data = await resp.json();
+      
+      // Handle configuration error
+      if (!data.configured) {
+        showError(data.error || 'Konfiguracja GitHub niekompletna');
+        issuesContainer.style.display = 'none';
+        emptyState.style.display = 'none';
+        statusLine.textContent = 'GitHub nie skonfigurowany';
+        return;
+      }
+      
+      // Handle API error
+      if (data.error) {
+        showError(data.error);
+        statusLine.textContent = 'Błąd podczas pobierania danych';
+        return;
+      }
+      
+      hideError();
+      renderIssues(data.issues);
+      
+      const cacheInfo = data.cached ? ' (z cache)' : '';
+      const issueCount = data.issues?.length || 0;
+      statusLine.textContent = `${issueCount} otwartych zgłoszeń • ${data.repo}${cacheInfo} • ${formatTimestamp(data.timestamp)}`;
+      
+      if (forceRefresh) {
+        showToast('Dane odświeżone', 'success');
+      }
+      
+    } catch (err) {
+      console.error('Failed to load issues:', err);
+      showError(`Błąd połączenia: ${err.message}`);
+      statusLine.textContent = 'Błąd podczas pobierania danych';
+    } finally {
+      refreshBtn.disabled = false;
+      refreshBtn.classList.remove('is-loading');
+    }
+  }
+
+  // Event Listeners
+  refreshBtn.addEventListener('click', () => loadIssues(true));
+
+  // Initial load
+  loadIssues();
+
+  // Poll for updates (respecting server-side cache)
+  setInterval(() => loadIssues(false), POLL_INTERVAL_MS);
+</script>
+<script type="module" src="/web/assets/menu.js"></script>
+
+</body>
+</html>

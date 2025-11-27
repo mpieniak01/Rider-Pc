@@ -133,6 +133,12 @@ class Settings:
     max_retry_count: int = field(default_factory=lambda: _safe_int("MAX_RETRY_COUNT", "1"))
     retry_window_seconds: int = field(default_factory=lambda: _safe_int("RETRY_WINDOW_SECONDS", "300"))
 
+    # GitHub API configuration
+    github_token: Optional[str] = field(default_factory=lambda: os.getenv("GITHUB_TOKEN"))
+    github_repo_owner: str = field(default_factory=lambda: os.getenv("GITHUB_REPO_OWNER", ""))
+    github_repo_name: str = field(default_factory=lambda: os.getenv("GITHUB_REPO_NAME", ""))
+    github_cache_ttl_seconds: int = field(default_factory=lambda: _safe_int("GITHUB_CACHE_TTL_SECONDS", "300"))
+
     @property
     def rider_pi_base_url(self) -> str:
         """Get the base URL for Rider-PI API."""
