@@ -338,7 +338,7 @@ class RestAdapter:
             response = await self.client.get(f"{self.base_url}/api/models/installed")
             response.raise_for_status()
             return response.json()
-        except Exception as e:
+        except (httpx.RequestError, httpx.HTTPStatusError) as e:
             logger.error(f"Error fetching /api/models/installed: {e}")
             return {"error": str(e)}
 
