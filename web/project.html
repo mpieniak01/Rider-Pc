@@ -537,19 +537,27 @@
         body: JSON.stringify(payload),
       });
       
-      // Check response status first
-      if (!resp.ok) {
-        let errorMsg = `HTTP ${resp.status}`;
-        try {
-          const data = await resp.json();
-          errorMsg = data.error || errorMsg;
-        } catch (e) {
-          // JSON parsing failed, use HTTP status
+      const data = await resp.json();
+      
+      // Handle 409 Conflict (dirty repo) - issue created but branch op blocked
+      if (resp.status === 409) {
+        closeModal();
+        if (data.success && data.issue) {
+          showToast(`Issue #${data.issue.number} utworzone!`, 'success');
+          if (data.warning) {
+            showToast(data.warning, 'error');
+          }
+          loadIssues(true);
+        } else {
+          throw new Error(data.error || 'Konflikt przy tworzeniu zadania');
         }
-        throw new Error(errorMsg);
+        return;
       }
       
-      const data = await resp.json();
+      // Check response status for other errors
+      if (!resp.ok) {
+        throw new Error(data.error || `HTTP ${resp.status}`);
+      }
       
       if (data.success) {
         closeModal();

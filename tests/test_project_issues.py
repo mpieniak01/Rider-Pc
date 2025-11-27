@@ -380,6 +380,9 @@ def test_create_task_with_new_branch(tmp_path, monkeypatch):
         created_branch["name"] = name
         return True, ""
 
+    async def mock_is_dirty(self):
+        return False
+
     monkeypatch.setattr(
         "pc_client.adapters.github_adapter.GitHubAdapter.create_issue",
         mock_create_issue,
@@ -387,6 +390,10 @@ def test_create_task_with_new_branch(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "pc_client.adapters.git_adapter.GitAdapter.create_branch",
         mock_create_branch,
+    )
+    monkeypatch.setattr(
+        "pc_client.adapters.git_adapter.GitAdapter.is_dirty",
+        mock_is_dirty,
     )
 
     client = make_client(
@@ -458,7 +465,10 @@ def test_create_task_branch_fails_with_warning(tmp_path, monkeypatch):
         }
 
     async def mock_create_branch(self, name, base="main"):
-        return False, "Dirty repository state"
+        return False, "Branch creation failed"
+
+    async def mock_is_dirty(self):
+        return False
 
     monkeypatch.setattr(
         "pc_client.adapters.github_adapter.GitHubAdapter.create_issue",
@@ -467,6 +477,10 @@ def test_create_task_branch_fails_with_warning(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "pc_client.adapters.git_adapter.GitAdapter.create_branch",
         mock_create_branch,
+    )
+    monkeypatch.setattr(
+        "pc_client.adapters.git_adapter.GitAdapter.is_dirty",
+        mock_is_dirty,
     )
 
     client = make_client(
@@ -505,6 +519,9 @@ def test_create_task_with_main_strategy(tmp_path, monkeypatch):
     async def mock_checkout_branch(self, name):
         return True, ""
 
+    async def mock_is_dirty(self):
+        return False
+
     monkeypatch.setattr(
         "pc_client.adapters.github_adapter.GitHubAdapter.create_issue",
         mock_create_issue,
@@ -512,6 +529,10 @@ def test_create_task_with_main_strategy(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "pc_client.adapters.git_adapter.GitAdapter.checkout_branch",
         mock_checkout_branch,
+    )
+    monkeypatch.setattr(
+        "pc_client.adapters.git_adapter.GitAdapter.is_dirty",
+        mock_is_dirty,
     )
 
     client = make_client(
@@ -549,6 +570,9 @@ def test_create_task_with_existing_strategy(tmp_path, monkeypatch):
     async def mock_checkout_branch(self, name):
         return True, ""
 
+    async def mock_is_dirty(self):
+        return False
+
     monkeypatch.setattr(
         "pc_client.adapters.github_adapter.GitHubAdapter.create_issue",
         mock_create_issue,
@@ -556,6 +580,10 @@ def test_create_task_with_existing_strategy(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "pc_client.adapters.git_adapter.GitAdapter.checkout_branch",
         mock_checkout_branch,
+    )
+    monkeypatch.setattr(
+        "pc_client.adapters.git_adapter.GitAdapter.is_dirty",
+        mock_is_dirty,
     )
 
     client = make_client(
@@ -591,9 +619,16 @@ def test_create_task_existing_strategy_no_branch(tmp_path, monkeypatch):
             "title": title,
         }
 
+    async def mock_is_dirty(self):
+        return False
+
     monkeypatch.setattr(
         "pc_client.adapters.github_adapter.GitHubAdapter.create_issue",
         mock_create_issue,
+    )
+    monkeypatch.setattr(
+        "pc_client.adapters.git_adapter.GitAdapter.is_dirty",
+        mock_is_dirty,
     )
 
     client = make_client(
@@ -611,3 +646,105 @@ def test_create_task_existing_strategy_no_branch(tmp_path, monkeypatch):
     data = resp.json()
 
     assert "error" in data
+
+
+def test_create_task_dirty_repo_returns_409(tmp_path, monkeypatch):
+    """Test that dirty repository blocks branch operations with 409 Conflict."""
+    # Reset the singletons
+    project_router_module._github_adapter = None
+    project_router_module._git_adapter = None
+
+    async def mock_create_issue(self, title, body="", assignees=None, labels=None):
+        return {
+            "success": True,
+            "number": 156,
+            "url": "https://github.com/mpieniak01/rider-pc/issues/156",
+            "title": title,
+        }
+
+    async def mock_is_dirty(self):
+        return True
+
+    monkeypatch.setattr(
+        "pc_client.adapters.github_adapter.GitHubAdapter.create_issue",
+        mock_create_issue,
+    )
+    monkeypatch.setattr(
+        "pc_client.adapters.git_adapter.GitAdapter.is_dirty",
+        mock_is_dirty,
+    )
+
+    client = make_client(
+        tmp_path / "cache.db",
+        github_token="fake_token",
+        github_owner="mpieniak01",
+        github_repo="rider-pc",
+    )
+
+    resp = client.post("/api/project/create-task", json={
+        "title": "Test Issue",
+        "git_strategy": "new_branch",
+    })
+    assert resp.status_code == 409
+    data = resp.json()
+
+    # Issue should still be created
+    assert data["success"] is True
+    assert data["issue"]["number"] == 156
+    # Warning should indicate dirty repo
+    assert "warning" in data
+    assert "niezatwierdzone" in data["warning"].lower()
+
+
+def test_create_task_dirty_repo_allows_current_strategy(tmp_path, monkeypatch):
+    """Test that dirty repository does not block 'current' git strategy."""
+    # Reset the singletons
+    project_router_module._github_adapter = None
+    project_router_module._git_adapter = None
+
+    async def mock_create_issue(self, title, body="", assignees=None, labels=None):
+        return {
+            "success": True,
+            "number": 157,
+            "url": "https://github.com/mpieniak01/rider-pc/issues/157",
+            "title": title,
+        }
+
+    async def mock_is_dirty(self):
+        return True
+
+    async def mock_get_current_branch(self):
+        return "feature-xyz"
+
+    monkeypatch.setattr(
+        "pc_client.adapters.github_adapter.GitHubAdapter.create_issue",
+        mock_create_issue,
+    )
+    monkeypatch.setattr(
+        "pc_client.adapters.git_adapter.GitAdapter.is_dirty",
+        mock_is_dirty,
+    )
+    monkeypatch.setattr(
+        "pc_client.adapters.git_adapter.GitAdapter.get_current_branch",
+        mock_get_current_branch,
+    )
+
+    client = make_client(
+        tmp_path / "cache.db",
+        github_token="fake_token",
+        github_owner="mpieniak01",
+        github_repo="rider-pc",
+    )
+
+    resp = client.post("/api/project/create-task", json={
+        "title": "Test Issue",
+        "git_strategy": "current",
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["success"] is True
+    assert data["issue"]["number"] == 157
+    assert data["branch"] == "feature-xyz"
+    # No warning should be present for 'current' strategy
+    assert "warning" not in data

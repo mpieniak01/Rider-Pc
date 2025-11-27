@@ -244,6 +244,16 @@ async def create_task(request: Request, payload: CreateTaskRequest) -> JSONRespo
     issue_number = issue_result["number"]
     branch_error: Optional[str] = None
 
+    # Check for dirty repository if a git operation is required
+    if payload.git_strategy in ("new_branch", "main", "existing"):
+        is_dirty = await git.is_dirty()
+        if is_dirty:
+            result["warning"] = (
+                f"Issue utworzono (#{issue_number}), ale repozytorium zawiera niezatwierdzone zmiany. "
+                "Zatwierdź lub cofnij zmiany przed zmianą brancha."
+            )
+            return JSONResponse(content=result, status_code=409)
+
     if payload.git_strategy == "new_branch":
         # Generate branch name from issue number and title
         title_slug = slugify(payload.title)
