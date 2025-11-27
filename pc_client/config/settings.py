@@ -129,9 +129,7 @@ class Settings:
     systemd_use_sudo: bool = field(default_factory=lambda: os.getenv("SYSTEMD_USE_SUDO", "true").lower() == "true")
 
     # Self-healing watchdog configuration
-    auto_heal_enabled: bool = field(
-        default_factory=lambda: os.getenv("AUTO_HEAL_ENABLED", "true").lower() == "true"
-    )
+    auto_heal_enabled: bool = field(default_factory=lambda: os.getenv("AUTO_HEAL_ENABLED", "true").lower() == "true")
     max_retry_count: int = field(default_factory=lambda: _safe_int("MAX_RETRY_COUNT", "1"))
     retry_window_seconds: int = field(default_factory=lambda: _safe_int("RETRY_WINDOW_SECONDS", "300"))
 

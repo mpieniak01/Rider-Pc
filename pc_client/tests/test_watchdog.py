@@ -190,9 +190,11 @@ async def test_watchdog_resets_retry_counter_after_window():
     assert retry_state["test.service"]["count"] == 1
 
     # Simulate service becoming active for the window period
-    service_manager.set_services([
-        {"unit": "test.service", "active": "active", "is_local": True},
-    ])
+    service_manager.set_services(
+        [
+            {"unit": "test.service", "active": "active", "is_local": True},
+        ]
+    )
 
     await watchdog.start()
     await asyncio.sleep(0.15)  # Wait for window to expire

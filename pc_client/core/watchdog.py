@@ -126,12 +126,14 @@ class ServiceWatchdog:
     def _publish_sse(self, event_type: str, unit: str, message: str) -> None:
         """Publish an SSE notification if callback is configured."""
         if self._sse_publish_fn:
-            self._sse_publish_fn({
-                "type": event_type,
-                "unit": unit,
-                "message": message,
-                "ts": time.time(),
-            })
+            self._sse_publish_fn(
+                {
+                    "type": event_type,
+                    "unit": unit,
+                    "message": message,
+                    "ts": time.time(),
+                }
+            )
 
     async def _check_and_heal_services(self) -> None:
         """Check service statuses and attempt auto-healing for failed services."""
@@ -165,8 +167,7 @@ class ServiceWatchdog:
                     if unit not in self._exhausted_services:
                         self._exhausted_services.add(unit)
                         logger.error(
-                            "Auto-healing failed for %s. Manual intervention required. "
-                            "(Retry limit %d reached)",
+                            "Auto-healing failed for %s. Manual intervention required. (Retry limit %d reached)",
                             unit,
                             self._max_retry_count,
                         )
