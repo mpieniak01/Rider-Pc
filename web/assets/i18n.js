@@ -28,6 +28,7 @@ export const I18N = {
     control:       { pl: "Sterowanie", en: "Control" },
     navigation:    { pl: "Nawigacja", en: "Navigation" },
     system:        { pl: "System", en: "System" },
+    models:        { pl: "Modele", en: "Models" },
     project:       { pl: "Projekt", en: "Project" },
     home:          { pl: "Statusy", en: "Status" },
     google_home:   { pl: "Google Home", en: "Google Home" },
