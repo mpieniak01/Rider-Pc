@@ -17,6 +17,10 @@
       <span>— Zadania GitHub</span>
     </h1>
     <div class="project-actions">
+      <button id="new-task-btn" class="c-btn c-btn-sm c-btn-primary" title="Utwórz nowe zadanie">
+        <span>+</span>
+        <span data-i18n="project.new_task">Nowe Zadanie</span>
+      </button>
       <button id="refresh-btn" class="c-btn c-btn-sm" title="Odśwież dane">
         <span class="refresh-icon">↻</span>
         <span data-i18n="project.refresh">Odśwież</span>
@@ -54,6 +58,82 @@
 </div>
 
 <div id="toast-container"></div>
+
+<!-- New Task Modal -->
+<div id="task-modal" class="modal-overlay" style="display: none;">
+  <div class="modal-container">
+    <header class="modal-header">
+      <h2 data-i18n="project.new_task_title">Nowe Zadanie</h2>
+      <button id="modal-close" class="modal-close" title="Zamknij">&times;</button>
+    </header>
+    
+    <form id="task-form" class="modal-form">
+      <div class="form-group">
+        <label for="task-title" data-i18n="project.form.title">Tytuł *</label>
+        <input type="text" id="task-title" name="title" required placeholder="Opisz krótko zadanie..." />
+      </div>
+      
+      <div class="form-group">
+        <label for="task-body" data-i18n="project.form.description">Opis</label>
+        <textarea id="task-body" name="body" rows="4" placeholder="Dodaj szczegóły (obsługuje Markdown)..."></textarea>
+      </div>
+      
+      <div class="form-row">
+        <div class="form-group">
+          <label for="task-labels" data-i18n="project.form.labels">Tagi</label>
+          <select id="task-labels" name="labels" multiple>
+            <!-- Labels will be populated dynamically -->
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="task-assignee" data-i18n="project.form.assignee">Przypisz do</label>
+          <select id="task-assignee" name="assignee">
+            <option value="">— Nieprzypisane —</option>
+            <!-- Collaborators will be populated dynamically -->
+          </select>
+        </div>
+      </div>
+      
+      <fieldset class="form-group git-strategy-group">
+        <legend data-i18n="project.form.git_context">Kontekst GIT</legend>
+        
+        <label class="radio-option">
+          <input type="radio" name="git_strategy" value="current" checked />
+          <span data-i18n="project.form.stay_current">Zostań na obecnym branchu</span>
+          <span id="current-branch-label" class="branch-label muted"></span>
+        </label>
+        
+        <label class="radio-option">
+          <input type="radio" name="git_strategy" value="new_branch" />
+          <span data-i18n="project.form.new_branch">Utwórz nowy branch z main</span>
+          <span class="hint muted">(Automatyczna nazwa na podst. tytułu)</span>
+        </label>
+        
+        <label class="radio-option">
+          <input type="radio" name="git_strategy" value="existing" />
+          <span data-i18n="project.form.existing_branch">Przełącz na istniejący branch</span>
+        </label>
+        
+        <div id="existing-branch-select" class="nested-option" style="display: none;">
+          <select id="task-existing-branch" name="existing_branch">
+            <!-- Branches will be populated dynamically -->
+          </select>
+        </div>
+      </fieldset>
+      
+      <div class="form-actions">
+        <button type="button" id="modal-cancel" class="c-btn" data-i18n="project.form.cancel">Anuluj</button>
+        <button type="submit" id="modal-submit" class="c-btn c-btn-primary" data-i18n="project.form.create">Utwórz Zadanie</button>
+      </div>
+    </form>
+    
+    <div id="modal-loading" class="modal-loading" style="display: none;">
+      <span class="loading-spinner"></span>
+      <span data-i18n="project.form.creating">Tworzenie zadania...</span>
+    </div>
+  </div>
+</div>
 
 <script>
   const POLL_INTERVAL_MS = 60000; // 1 minute (data cached 5 min on server)
@@ -298,6 +378,188 @@
   // Cleanup on page unload
   window.addEventListener('beforeunload', () => {
     clearInterval(pollInterval);
+  });
+
+  // =====================
+  // NEW TASK MODAL LOGIC
+  // =====================
+  
+  const newTaskBtn = document.getElementById('new-task-btn');
+  const taskModal = document.getElementById('task-modal');
+  const modalClose = document.getElementById('modal-close');
+  const modalCancel = document.getElementById('modal-cancel');
+  const taskForm = document.getElementById('task-form');
+  const modalLoading = document.getElementById('modal-loading');
+  const modalSubmit = document.getElementById('modal-submit');
+  
+  // Form elements
+  const taskTitle = document.getElementById('task-title');
+  const taskBody = document.getElementById('task-body');
+  const taskLabels = document.getElementById('task-labels');
+  const taskAssignee = document.getElementById('task-assignee');
+  const currentBranchLabel = document.getElementById('current-branch-label');
+  const existingBranchSelect = document.getElementById('existing-branch-select');
+  const taskExistingBranch = document.getElementById('task-existing-branch');
+  
+  // Cache for form metadata
+  let formMeta = null;
+  
+  async function loadFormMetadata() {
+    try {
+      const resp = await fetch('/api/project/meta', { cache: 'no-store' });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      formMeta = await resp.json();
+      
+      // Populate labels
+      taskLabels.innerHTML = '';
+      formMeta.labels.forEach(label => {
+        const opt = document.createElement('option');
+        opt.value = label;
+        opt.textContent = label;
+        taskLabels.appendChild(opt);
+      });
+      
+      // Populate collaborators
+      taskAssignee.innerHTML = '<option value="">— Nieprzypisane —</option>';
+      formMeta.collaborators.forEach(user => {
+        const opt = document.createElement('option');
+        opt.value = user;
+        opt.textContent = user;
+        taskAssignee.appendChild(opt);
+      });
+      
+      // Populate branches
+      taskExistingBranch.innerHTML = '';
+      formMeta.branches.forEach(branch => {
+        const opt = document.createElement('option');
+        opt.value = branch;
+        opt.textContent = branch;
+        taskExistingBranch.appendChild(opt);
+      });
+      
+      // Show current branch
+      currentBranchLabel.textContent = `(${formMeta.current_branch || 'unknown'})`;
+      
+    } catch (err) {
+      console.error('Failed to load form metadata:', err);
+      showToast('Nie udało się załadować danych formularza', 'error');
+    }
+  }
+  
+  function openModal() {
+    // Reset form
+    taskForm.reset();
+    taskModal.style.display = 'flex';
+    modalLoading.style.display = 'none';
+    taskForm.style.display = 'block';
+    existingBranchSelect.style.display = 'none';
+    
+    // Load metadata
+    loadFormMetadata();
+    
+    // Focus on title
+    setTimeout(() => taskTitle.focus(), 100);
+  }
+  
+  function closeModal() {
+    taskModal.style.display = 'none';
+  }
+  
+  // Handle git strategy change
+  document.querySelectorAll('input[name="git_strategy"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      existingBranchSelect.style.display = e.target.value === 'existing' ? 'block' : 'none';
+    });
+  });
+  
+  // Submit form
+  taskForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const title = taskTitle.value.trim();
+    if (!title) {
+      showToast('Tytuł jest wymagany', 'error');
+      taskTitle.focus();
+      return;
+    }
+    
+    // Get selected labels
+    const selectedLabels = Array.from(taskLabels.selectedOptions).map(opt => opt.value);
+    
+    // Get git strategy
+    const gitStrategy = document.querySelector('input[name="git_strategy"]:checked').value;
+    
+    const payload = {
+      title: title,
+      body: taskBody.value,
+      assignee: taskAssignee.value || null,
+      labels: selectedLabels,
+      git_strategy: gitStrategy,
+      base_branch: 'main',
+    };
+    
+    if (gitStrategy === 'existing') {
+      payload.existing_branch = taskExistingBranch.value;
+    }
+    
+    // Show loading
+    taskForm.style.display = 'none';
+    modalLoading.style.display = 'flex';
+    modalSubmit.disabled = true;
+    
+    try {
+      const resp = await fetch('/api/project/create-task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      
+      const data = await resp.json();
+      
+      if (data.success) {
+        closeModal();
+        
+        let message = `Issue #${data.issue.number} utworzone!`;
+        if (data.branch) {
+          message += ` Branch: ${data.branch}`;
+        }
+        if (data.warning) {
+          showToast(data.warning, 'error');
+        } else {
+          showToast(message, 'success');
+        }
+        
+        // Refresh issues list
+        loadIssues(true);
+      } else {
+        throw new Error(data.error || 'Nieznany błąd');
+      }
+      
+    } catch (err) {
+      console.error('Failed to create task:', err);
+      showToast(`Błąd: ${err.message}`, 'error');
+      taskForm.style.display = 'block';
+      modalLoading.style.display = 'none';
+    } finally {
+      modalSubmit.disabled = false;
+    }
+  });
+  
+  // Event listeners for modal
+  newTaskBtn.addEventListener('click', openModal);
+  modalClose.addEventListener('click', closeModal);
+  modalCancel.addEventListener('click', closeModal);
+  
+  // Close modal on overlay click
+  taskModal.addEventListener('click', (e) => {
+    if (e.target === taskModal) closeModal();
+  });
+  
+  // Close modal on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && taskModal.style.display !== 'none') {
+      closeModal();
+    }
   });
 </script>
 <script type="module" src="/web/assets/menu.js"></script>

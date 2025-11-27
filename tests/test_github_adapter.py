@@ -186,3 +186,62 @@ class TestMockGitHubAdapter:
         adapter = MockGitHubAdapter(configured=True)
         # Should not raise
         await adapter.close()
+
+    @pytest.mark.asyncio
+    async def test_mock_get_collaborators(self):
+        """Test mock adapter returns collaborators."""
+        adapter = MockGitHubAdapter(configured=True, collaborators=["alice", "bob"])
+        collaborators = await adapter.get_collaborators()
+        assert collaborators == ["alice", "bob"]
+
+    @pytest.mark.asyncio
+    async def test_mock_get_collaborators_not_configured(self):
+        """Test mock adapter returns empty collaborators when not configured."""
+        adapter = MockGitHubAdapter(configured=False)
+        collaborators = await adapter.get_collaborators()
+        assert collaborators == []
+
+    @pytest.mark.asyncio
+    async def test_mock_get_labels(self):
+        """Test mock adapter returns labels."""
+        adapter = MockGitHubAdapter(configured=True, labels=["bug", "feature"])
+        labels = await adapter.get_labels()
+        assert labels == ["bug", "feature"]
+
+    @pytest.mark.asyncio
+    async def test_mock_get_labels_not_configured(self):
+        """Test mock adapter returns empty labels when not configured."""
+        adapter = MockGitHubAdapter(configured=False)
+        labels = await adapter.get_labels()
+        assert labels == []
+
+    @pytest.mark.asyncio
+    async def test_mock_create_issue_success(self):
+        """Test mock adapter creates issue successfully."""
+        adapter = MockGitHubAdapter(configured=True)
+        result = await adapter.create_issue(
+            title="Test Issue",
+            body="Test body",
+            assignees=["alice"],
+            labels=["bug"]
+        )
+        assert result["success"] is True
+        assert result["number"] == 100
+        assert "url" in result
+        assert result["title"] == "Test Issue"
+
+    @pytest.mark.asyncio
+    async def test_mock_create_issue_not_configured(self):
+        """Test mock adapter fails to create issue when not configured."""
+        adapter = MockGitHubAdapter(configured=False)
+        result = await adapter.create_issue(title="Test Issue")
+        assert result["success"] is False
+        assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_mock_create_issue_empty_title(self):
+        """Test mock adapter fails with empty title."""
+        adapter = MockGitHubAdapter(configured=True)
+        result = await adapter.create_issue(title="")
+        assert result["success"] is False
+        assert "error" in result

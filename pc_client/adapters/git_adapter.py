@@ -9,7 +9,7 @@ import asyncio
 import logging
 import shutil
 import time
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -246,6 +246,90 @@ class GitAdapter:
         self._update_cache(data)
         return data
 
+    async def get_local_branches(self) -> List[str]:
+        """
+        Get list of local branches.
+
+        Returns:
+            List of branch names.
+        """
+        if not self._available:
+            return []
+
+        cmd = ["git", "branch", "--format=%(refname:short)"]
+        if self._repo_path:
+            cmd = ["git", "-C", self._repo_path, "branch", "--format=%(refname:short)"]
+
+        returncode, stdout, stderr = await self._run_command(*cmd)
+
+        if returncode != 0:
+            logger.warning("Failed to get local branches: %s", stderr or stdout)
+            return []
+
+        branches = [b.strip() for b in stdout.split('\n') if b.strip()]
+        return branches
+
+    async def checkout_branch(self, name: str) -> Tuple[bool, str]:
+        """
+        Checkout an existing branch.
+
+        Args:
+            name: Branch name to checkout.
+
+        Returns:
+            Tuple of (success, error_message).
+        """
+        if not self._available:
+            return False, "Git nie jest dostępny"
+
+        if not name or not name.strip():
+            return False, "Nazwa brancha nie może być pusta"
+
+        cmd = ["git", "checkout", name.strip()]
+        if self._repo_path:
+            cmd = ["git", "-C", self._repo_path, "checkout", name.strip()]
+
+        returncode, stdout, stderr = await self._run_command(*cmd)
+
+        if returncode != 0:
+            error = stderr or stdout or "Nieznany błąd"
+            logger.warning("Failed to checkout branch %s: %s", name, error)
+            return False, error
+
+        self.invalidate_cache()
+        return True, ""
+
+    async def create_branch(self, name: str, base: str = "main") -> Tuple[bool, str]:
+        """
+        Create and checkout a new branch.
+
+        Args:
+            name: New branch name.
+            base: Base branch name (default: main).
+
+        Returns:
+            Tuple of (success, error_message).
+        """
+        if not self._available:
+            return False, "Git nie jest dostępny"
+
+        if not name or not name.strip():
+            return False, "Nazwa brancha nie może być pusta"
+
+        cmd = ["git", "checkout", "-b", name.strip(), base.strip()]
+        if self._repo_path:
+            cmd = ["git", "-C", self._repo_path, "checkout", "-b", name.strip(), base.strip()]
+
+        returncode, stdout, stderr = await self._run_command(*cmd)
+
+        if returncode != 0:
+            error = stderr or stdout or "Nieznany błąd"
+            logger.warning("Failed to create branch %s: %s", name, error)
+            return False, error
+
+        self.invalidate_cache()
+        return True, ""
+
 
 class MockGitAdapter:
     """
@@ -261,6 +345,7 @@ class MockGitAdapter:
         dirty: bool = False,
         message: str = "Test commit message",
         available: bool = True,
+        branches: Optional[List[str]] = None,
     ):
         """
         Initialize the mock adapter.
@@ -271,12 +356,14 @@ class MockGitAdapter:
             dirty: Mock dirty status.
             message: Mock commit message.
             available: Whether to simulate git being available.
+            branches: Mock list of branches.
         """
         self._branch = branch
         self._commit = commit
         self._dirty = dirty
         self._message = message
         self._available = available
+        self._branches = branches or ["main", "develop"]
 
     @property
     def available(self) -> bool:
@@ -313,3 +400,30 @@ class MockGitAdapter:
             "ts": int(time.time()),
             "available": self._available,
         }
+
+    async def get_local_branches(self) -> List[str]:
+        """Return mock branches list."""
+        return self._branches if self._available else []
+
+    async def checkout_branch(self, name: str) -> Tuple[bool, str]:
+        """Return mock checkout result."""
+        if not self._available:
+            return False, "Git nie jest dostępny"
+        if not name or not name.strip():
+            return False, "Nazwa brancha nie może być pusta"
+        if name not in self._branches:
+            return False, f"Branch '{name}' nie istnieje"
+        self._branch = name
+        return True, ""
+
+    async def create_branch(self, name: str, base: str = "main") -> Tuple[bool, str]:
+        """Return mock create branch result."""
+        if not self._available:
+            return False, "Git nie jest dostępny"
+        if not name or not name.strip():
+            return False, "Nazwa brancha nie może być pusta"
+        if name in self._branches:
+            return False, f"Branch '{name}' już istnieje"
+        self._branches.append(name)
+        self._branch = name
+        return True, ""
