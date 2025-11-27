@@ -284,3 +284,132 @@ class TestKnowledgeRouterMock:
             bg = BackgroundTasks()
             response = await reindex_knowledge_base(bg, blocking=True)
             assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_successful_blocking_reindex(self):
+        """Should successfully reindex documents when RAG is enabled."""
+        import json
+        from unittest.mock import MagicMock, AsyncMock
+
+        with patch("pc_client.api.routers.knowledge_router.settings") as mock_settings, \
+             patch("pc_client.api.routers.knowledge_router._get_vector_store") as mock_get_store, \
+             patch("pc_client.api.routers.knowledge_router.DocumentLoader") as mock_loader_class, \
+             patch("pc_client.api.routers.knowledge_router.TextSplitter") as mock_splitter_class, \
+             patch("pc_client.api.routers.knowledge_router._reindex_in_progress", False), \
+             patch("pc_client.api.routers.knowledge_router._reindex_lock", AsyncMock()):
+
+            mock_settings.rag_enabled = True
+            mock_settings.rag_docs_paths = "docs_pl,docs"
+            mock_settings.rag_chunk_size = 800
+            mock_settings.rag_chunk_overlap = 100
+
+            # Mock loader to return test documents
+            mock_loader = MagicMock()
+            mock_loader.load.return_value = [
+                Document(content="Test content", metadata={"source": "test.md"})
+            ]
+            mock_loader_class.return_value = mock_loader
+
+            # Mock splitter to return chunks
+            mock_splitter = MagicMock()
+            mock_splitter.split.return_value = [
+                Document(content="Test chunk", metadata={"source": "test.md"})
+            ]
+            mock_splitter_class.return_value = mock_splitter
+
+            # Mock vector store
+            mock_store = MagicMock()
+            mock_store.clear.return_value = True
+            mock_store.add_documents.return_value = 1
+            mock_get_store.return_value = mock_store
+
+            from pc_client.api.routers.knowledge_router import reindex_knowledge_base
+            from fastapi import BackgroundTasks
+
+            bg = BackgroundTasks()
+            response = await reindex_knowledge_base(bg, blocking=True)
+            data = json.loads(response.body.decode())
+
+            assert response.status_code == 200
+            assert data["ok"] is True
+            assert data["documents_loaded"] == 1
+            assert data["chunks_indexed"] == 1
+
+    @pytest.mark.asyncio
+    async def test_successful_search_with_results(self):
+        """Should return search results when RAG is enabled and documents exist."""
+        import json
+        from unittest.mock import MagicMock
+
+        with patch("pc_client.api.routers.knowledge_router.settings") as mock_settings, \
+             patch("pc_client.api.routers.knowledge_router._get_vector_store") as mock_get_store:
+
+            mock_settings.rag_enabled = True
+
+            # Mock vector store to return search results
+            mock_store = MagicMock()
+            mock_store.search.return_value = [
+                Document(content="Found content", metadata={"source": "docs/found.md", "heading": "Section"})
+            ]
+            mock_get_store.return_value = mock_store
+
+            from pc_client.api.routers.knowledge_router import search_knowledge_base
+
+            response = await search_knowledge_base(q="test query", k=3)
+            data = json.loads(response.body.decode())
+
+            assert response.status_code == 200
+            assert data["ok"] is True
+            assert data["count"] == 1
+            assert len(data["results"]) == 1
+            assert data["results"][0]["content"] == "Found content"
+            assert data["results"][0]["source"] == "docs/found.md"
+
+    @pytest.mark.asyncio
+    async def test_successful_status_when_initialized(self):
+        """Should return initialized status when RAG is enabled and store is ready."""
+        import json
+        from unittest.mock import MagicMock
+
+        with patch("pc_client.api.routers.knowledge_router.settings") as mock_settings, \
+             patch("pc_client.api.routers.knowledge_router._get_vector_store") as mock_get_store, \
+             patch("pc_client.api.routers.knowledge_router._reindex_in_progress", False):
+
+            mock_settings.rag_enabled = True
+            mock_settings.embedding_model = "all-MiniLM-L6-v2"
+            mock_settings.rag_persist_path = "data/chroma_db"
+
+            # Mock vector store
+            mock_store = MagicMock()
+            mock_store.initialized = True
+            mock_store.count.return_value = 10
+            mock_get_store.return_value = mock_store
+
+            from pc_client.api.routers.knowledge_router import knowledge_base_status
+
+            response = await knowledge_base_status()
+            data = json.loads(response.body.decode())
+
+            assert response.status_code == 200
+            assert data["ok"] is True
+            assert data["enabled"] is True
+            assert data["initialized"] is True
+            assert data["document_count"] == 10
+
+    @pytest.mark.asyncio
+    async def test_search_query_too_long(self):
+        """Should return error when query exceeds max length."""
+        import json
+
+        with patch("pc_client.api.routers.knowledge_router.settings") as mock_settings:
+            mock_settings.rag_enabled = True
+
+            from pc_client.api.routers.knowledge_router import search_knowledge_base
+
+            long_query = "x" * 1001  # Exceeds MAX_QUERY_LENGTH of 1000
+            response = await search_knowledge_base(q=long_query, k=3)
+            data = json.loads(response.body.decode())
+
+            assert response.status_code == 400
+            assert data["ok"] is False
+            assert "too long" in data["error"].lower()
