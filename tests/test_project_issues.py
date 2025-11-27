@@ -1,11 +1,64 @@
 """Tests for the /api/project/issues endpoint."""
 
+import sys
 from fastapi.testclient import TestClient
 
 from pc_client.api.server import create_app
 from pc_client.cache import CacheManager
 from pc_client.config import Settings
-import pc_client.api.routers.project_router as project_router_module
+
+# Import the module correctly (avoiding __init__.py shadowing)
+import pc_client.api.routers.project_router
+project_router_module = sys.modules['pc_client.api.routers.project_router']
+
+# Import slugify after module is properly loaded
+from pc_client.api.routers.project_router import slugify
+
+
+class TestSlugify:
+    """Tests for the slugify function."""
+
+    def test_basic_text(self):
+        """Test basic text slugification."""
+        assert slugify("Hello World") == "hello-world"
+
+    def test_polish_characters(self):
+        """Test Polish characters are transliterated or removed."""
+        assert slugify("Nowa Funkcja X") == "nowa-funkcja-x"
+        # NFKD normalization handles some Polish diacritics:
+        # ż (U+017C) -> z with combining dot above -> 'z' after stripping
+        # ó (U+00F3) -> o with combining acute -> 'o' after stripping  
+        # ł (U+0142) has no NFKD decomposition -> removed entirely
+        # ć (U+0107) -> c with combining acute -> 'c' after stripping
+        # Result: "żółć" -> "zoc" (without ł which has no decomposition)
+        result = slugify("żółć")
+        assert result == "zoc"  # ł is removed as it has no NFKD decomposition
+
+    def test_special_characters(self):
+        """Test special characters are removed."""
+        assert slugify("Test@#$%^&*()!") == "test"
+
+    def test_multiple_spaces(self):
+        """Test multiple spaces become single hyphen."""
+        assert slugify("hello   world") == "hello-world"
+
+    def test_underscores(self):
+        """Test underscores become hyphens."""
+        assert slugify("hello_world_test") == "hello-world-test"
+
+    def test_max_length(self):
+        """Test max length truncation."""
+        result = slugify("a" * 100, max_length=50)
+        assert len(result) <= 50
+
+    def test_trailing_hyphens_removed(self):
+        """Test trailing hyphens are removed after truncation."""
+        result = slugify("hello world-", max_length=11)
+        assert not result.endswith("-")
+
+    def test_empty_string(self):
+        """Test empty string returns empty."""
+        assert slugify("") == ""
 
 
 def make_client(db_path, github_token=None, github_owner="", github_repo=""):
@@ -206,3 +259,355 @@ def test_project_refresh_endpoint(tmp_path, monkeypatch):
     resp = client.post("/api/project/refresh")
     assert resp.status_code == 200
     assert invalidate_called["value"] is True
+
+
+def test_project_meta_endpoint(tmp_path, monkeypatch):
+    """Test the meta endpoint returns collaborators, labels, and branches."""
+    # Reset the singletons
+    project_router_module._github_adapter = None
+    project_router_module._git_adapter = None
+
+    async def mock_get_collaborators(self):
+        return ["alice", "bob"]
+
+    async def mock_get_labels(self):
+        return ["bug", "feature", "enhancement"]
+
+    async def mock_get_local_branches(self):
+        return ["main", "develop", "feature/test"]
+
+    async def mock_get_current_branch(self):
+        return "main"
+
+    monkeypatch.setattr(
+        "pc_client.adapters.github_adapter.GitHubAdapter.get_collaborators",
+        mock_get_collaborators,
+    )
+    monkeypatch.setattr(
+        "pc_client.adapters.github_adapter.GitHubAdapter.get_labels",
+        mock_get_labels,
+    )
+    monkeypatch.setattr(
+        "pc_client.adapters.git_adapter.GitAdapter.get_local_branches",
+        mock_get_local_branches,
+    )
+    monkeypatch.setattr(
+        "pc_client.adapters.git_adapter.GitAdapter.get_current_branch",
+        mock_get_current_branch,
+    )
+
+    client = make_client(
+        tmp_path / "cache.db",
+        github_token="fake_token",
+        github_owner="mpieniak01",
+        github_repo="rider-pc",
+    )
+
+    resp = client.get("/api/project/meta")
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["collaborators"] == ["alice", "bob"]
+    assert data["labels"] == ["bug", "feature", "enhancement"]
+    assert data["branches"] == ["main", "develop", "feature/test"]
+    assert data["current_branch"] == "main"
+    assert data["configured"] is True
+
+
+def test_create_task_endpoint_success(tmp_path, monkeypatch):
+    """Test creating a task successfully."""
+    # Reset the singletons
+    project_router_module._github_adapter = None
+    project_router_module._git_adapter = None
+
+    async def mock_create_issue(self, title, body="", assignees=None, labels=None):
+        return {
+            "success": True,
+            "number": 150,
+            "url": "https://github.com/mpieniak01/rider-pc/issues/150",
+            "title": title,
+        }
+
+    async def mock_get_current_branch(self):
+        return "main"
+
+    monkeypatch.setattr(
+        "pc_client.adapters.github_adapter.GitHubAdapter.create_issue",
+        mock_create_issue,
+    )
+    monkeypatch.setattr(
+        "pc_client.adapters.git_adapter.GitAdapter.get_current_branch",
+        mock_get_current_branch,
+    )
+
+    client = make_client(
+        tmp_path / "cache.db",
+        github_token="fake_token",
+        github_owner="mpieniak01",
+        github_repo="rider-pc",
+    )
+
+    resp = client.post("/api/project/create-task", json={
+        "title": "Test Issue",
+        "body": "Test description",
+        "git_strategy": "current",
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["success"] is True
+    assert data["issue"]["number"] == 150
+    assert data["branch"] == "main"
+
+
+def test_create_task_with_new_branch(tmp_path, monkeypatch):
+    """Test creating a task with new branch strategy."""
+    # Reset the singletons
+    project_router_module._github_adapter = None
+    project_router_module._git_adapter = None
+
+    created_branch = {"name": None}
+
+    async def mock_create_issue(self, title, body="", assignees=None, labels=None):
+        return {
+            "success": True,
+            "number": 151,
+            "url": "https://github.com/mpieniak01/rider-pc/issues/151",
+            "title": title,
+        }
+
+    async def mock_create_branch(self, name, base="main"):
+        created_branch["name"] = name
+        return True, ""
+
+    monkeypatch.setattr(
+        "pc_client.adapters.github_adapter.GitHubAdapter.create_issue",
+        mock_create_issue,
+    )
+    monkeypatch.setattr(
+        "pc_client.adapters.git_adapter.GitAdapter.create_branch",
+        mock_create_branch,
+    )
+
+    client = make_client(
+        tmp_path / "cache.db",
+        github_token="fake_token",
+        github_owner="mpieniak01",
+        github_repo="rider-pc",
+    )
+
+    resp = client.post("/api/project/create-task", json={
+        "title": "Nowa Funkcja X",
+        "git_strategy": "new_branch",
+        "base_branch": "main",
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["success"] is True
+    assert "feat/151-" in created_branch["name"]
+    assert "nowa-funkcja-x" in created_branch["name"]
+
+
+def test_create_task_issue_creation_fails(tmp_path, monkeypatch):
+    """Test that endpoint returns error when issue creation fails."""
+    # Reset the singletons
+    project_router_module._github_adapter = None
+    project_router_module._git_adapter = None
+
+    async def mock_create_issue(self, title, body="", assignees=None, labels=None):
+        return {
+            "success": False,
+            "error": "Błąd API GitHub",
+        }
+
+    monkeypatch.setattr(
+        "pc_client.adapters.github_adapter.GitHubAdapter.create_issue",
+        mock_create_issue,
+    )
+
+    client = make_client(
+        tmp_path / "cache.db",
+        github_token="fake_token",
+        github_owner="mpieniak01",
+        github_repo="rider-pc",
+    )
+
+    resp = client.post("/api/project/create-task", json={
+        "title": "Test Issue",
+    })
+    assert resp.status_code == 400
+    data = resp.json()
+
+    assert data["success"] is False
+    assert "error" in data
+
+
+def test_create_task_branch_fails_with_warning(tmp_path, monkeypatch):
+    """Test that warning is returned when branch operation fails."""
+    # Reset the singletons
+    project_router_module._github_adapter = None
+    project_router_module._git_adapter = None
+
+    async def mock_create_issue(self, title, body="", assignees=None, labels=None):
+        return {
+            "success": True,
+            "number": 152,
+            "url": "https://github.com/mpieniak01/rider-pc/issues/152",
+            "title": title,
+        }
+
+    async def mock_create_branch(self, name, base="main"):
+        return False, "Dirty repository state"
+
+    monkeypatch.setattr(
+        "pc_client.adapters.github_adapter.GitHubAdapter.create_issue",
+        mock_create_issue,
+    )
+    monkeypatch.setattr(
+        "pc_client.adapters.git_adapter.GitAdapter.create_branch",
+        mock_create_branch,
+    )
+
+    client = make_client(
+        tmp_path / "cache.db",
+        github_token="fake_token",
+        github_owner="mpieniak01",
+        github_repo="rider-pc",
+    )
+
+    resp = client.post("/api/project/create-task", json={
+        "title": "Test Issue",
+        "git_strategy": "new_branch",
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["success"] is True
+    assert "warning" in data
+    assert "#152" in data["warning"]
+
+
+def test_create_task_with_main_strategy(tmp_path, monkeypatch):
+    """Test creating a task with main git strategy."""
+    # Reset the singletons
+    project_router_module._github_adapter = None
+    project_router_module._git_adapter = None
+
+    async def mock_create_issue(self, title, body="", assignees=None, labels=None):
+        return {
+            "success": True,
+            "number": 153,
+            "url": "https://github.com/mpieniak01/rider-pc/issues/153",
+            "title": title,
+        }
+
+    async def mock_checkout_branch(self, name):
+        return True, ""
+
+    monkeypatch.setattr(
+        "pc_client.adapters.github_adapter.GitHubAdapter.create_issue",
+        mock_create_issue,
+    )
+    monkeypatch.setattr(
+        "pc_client.adapters.git_adapter.GitAdapter.checkout_branch",
+        mock_checkout_branch,
+    )
+
+    client = make_client(
+        tmp_path / "cache.db",
+        github_token="fake_token",
+        github_owner="mpieniak01",
+        github_repo="rider-pc",
+    )
+
+    resp = client.post("/api/project/create-task", json={
+        "title": "Test Issue",
+        "git_strategy": "main",
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["success"] is True
+    assert data["branch"] == "main"
+
+
+def test_create_task_with_existing_strategy(tmp_path, monkeypatch):
+    """Test creating a task with existing branch strategy."""
+    # Reset the singletons
+    project_router_module._github_adapter = None
+    project_router_module._git_adapter = None
+
+    async def mock_create_issue(self, title, body="", assignees=None, labels=None):
+        return {
+            "success": True,
+            "number": 154,
+            "url": "https://github.com/mpieniak01/rider-pc/issues/154",
+            "title": title,
+        }
+
+    async def mock_checkout_branch(self, name):
+        return True, ""
+
+    monkeypatch.setattr(
+        "pc_client.adapters.github_adapter.GitHubAdapter.create_issue",
+        mock_create_issue,
+    )
+    monkeypatch.setattr(
+        "pc_client.adapters.git_adapter.GitAdapter.checkout_branch",
+        mock_checkout_branch,
+    )
+
+    client = make_client(
+        tmp_path / "cache.db",
+        github_token="fake_token",
+        github_owner="mpieniak01",
+        github_repo="rider-pc",
+    )
+
+    resp = client.post("/api/project/create-task", json={
+        "title": "Test Issue",
+        "git_strategy": "existing",
+        "existing_branch": "develop",
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["success"] is True
+    assert data["branch"] == "develop"
+
+
+def test_create_task_existing_strategy_no_branch(tmp_path, monkeypatch):
+    """Test that existing strategy without branch returns error."""
+    # Reset the singletons
+    project_router_module._github_adapter = None
+    project_router_module._git_adapter = None
+
+    async def mock_create_issue(self, title, body="", assignees=None, labels=None):
+        return {
+            "success": True,
+            "number": 155,
+            "url": "https://github.com/mpieniak01/rider-pc/issues/155",
+            "title": title,
+        }
+
+    monkeypatch.setattr(
+        "pc_client.adapters.github_adapter.GitHubAdapter.create_issue",
+        mock_create_issue,
+    )
+
+    client = make_client(
+        tmp_path / "cache.db",
+        github_token="fake_token",
+        github_owner="mpieniak01",
+        github_repo="rider-pc",
+    )
+
+    resp = client.post("/api/project/create-task", json={
+        "title": "Test Issue",
+        "git_strategy": "existing",
+    })
+    assert resp.status_code == 400
+    data = resp.json()
+
+    assert "error" in data

@@ -260,6 +260,158 @@ class GitHubAdapter:
                 "timestamp": int(time.time()),
             }
 
+    async def get_collaborators(self) -> List[str]:
+        """
+        Get list of repository collaborators.
+
+        Returns:
+            List of collaborator login names.
+        """
+        if not self.configured:
+            logger.warning("GitHub adapter not configured - returning empty collaborators")
+            return []
+
+        try:
+            client = await self._get_client()
+            url = f"{self.BASE_URL}/repos/{self._owner}/{self._repo}/collaborators"
+            response = await client.get(url)
+            response.raise_for_status()
+
+            collaborators = response.json()
+            return [c.get("login", "") for c in collaborators if c.get("login")]
+
+        except httpx.HTTPStatusError as e:
+            logger.error("GitHub API HTTP error fetching collaborators: %s", e)
+            return []
+        except httpx.RequestError as e:
+            logger.error("GitHub API request error fetching collaborators: %s", e)
+            return []
+        except Exception as e:
+            logger.error("Unexpected error fetching collaborators: %s", e)
+            return []
+
+    async def get_labels(self) -> List[str]:
+        """
+        Get list of repository labels.
+
+        Returns:
+            List of label names.
+        """
+        if not self.configured:
+            logger.warning("GitHub adapter not configured - returning empty labels")
+            return []
+
+        try:
+            client = await self._get_client()
+            url = f"{self.BASE_URL}/repos/{self._owner}/{self._repo}/labels"
+            response = await client.get(url)
+            response.raise_for_status()
+
+            labels = response.json()
+            return [lbl.get("name", "") for lbl in labels if lbl.get("name")]
+
+        except httpx.HTTPStatusError as e:
+            logger.error("GitHub API HTTP error fetching labels: %s", e)
+            return []
+        except httpx.RequestError as e:
+            logger.error("GitHub API request error fetching labels: %s", e)
+            return []
+        except Exception as e:
+            logger.error("Unexpected error fetching labels: %s", e)
+            return []
+
+    async def create_issue(
+        self,
+        title: str,
+        body: str = "",
+        assignees: Optional[List[str]] = None,
+        labels: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Create a new issue in the repository.
+
+        Args:
+            title: Issue title.
+            body: Issue body (markdown).
+            assignees: List of usernames to assign.
+            labels: List of label names.
+
+        Returns:
+            Dictionary containing:
+                - success: Whether the issue was created
+                - number: Issue number (if created)
+                - url: Issue URL (if created)
+                - error: Error message (if failed)
+        """
+        if not self.configured:
+            logger.warning("GitHub adapter not configured - cannot create issue")
+            return {
+                "success": False,
+                "error": "Konfiguracja GitHub niekompletna",
+            }
+
+        if not title or not title.strip():
+            return {
+                "success": False,
+                "error": "Tytuł issue nie może być pusty",
+            }
+
+        try:
+            client = await self._get_client()
+            url = f"{self.BASE_URL}/repos/{self._owner}/{self._repo}/issues"
+
+            payload: Dict[str, Any] = {"title": title.strip()}
+            if body:
+                payload["body"] = body
+            if assignees:
+                payload["assignees"] = assignees
+            if labels:
+                payload["labels"] = labels
+
+            response = await client.post(url, json=payload)
+            response.raise_for_status()
+
+            issue = response.json()
+            logger.info("Created issue #%d: %s", issue["number"], title)
+
+            # Invalidate cache so the new issue appears on refresh
+            self.invalidate_cache()
+
+            return {
+                "success": True,
+                "number": issue["number"],
+                "url": issue["html_url"],
+                "title": issue["title"],
+            }
+
+        except httpx.HTTPStatusError as e:
+            logger.error("GitHub API HTTP error creating issue: %s", e)
+            error_msg = f"Błąd API GitHub: {e.response.status_code}"
+            if e.response.status_code == 401:
+                error_msg = "Nieprawidłowy token GitHub"
+            elif e.response.status_code == 403:
+                error_msg = "Brak uprawnień do tworzenia issue"
+            elif e.response.status_code == 404:
+                error_msg = f"Repozytorium nie znalezione: {self.repo_full_name}"
+            elif e.response.status_code == 422:
+                error_msg = "Nieprawidłowe dane issue"
+            return {
+                "success": False,
+                "error": error_msg,
+            }
+        except httpx.RequestError as e:
+            logger.error("GitHub API request error creating issue: %s", e)
+            return {
+                "success": False,
+                "error": f"Błąd połączenia z GitHub: {e}",
+            }
+        except Exception as e:
+            logger.error("Unexpected error creating issue: %s", e)
+            return {
+                "success": False,
+                "error": f"Nieoczekiwany błąd: {e}",
+            }
+
 
 class MockGitHubAdapter:
     """
@@ -272,6 +424,8 @@ class MockGitHubAdapter:
         self,
         configured: bool = True,
         issues: Optional[List[Dict[str, Any]]] = None,
+        collaborators: Optional[List[str]] = None,
+        labels: Optional[List[str]] = None,
     ):
         """
         Initialize the mock adapter.
@@ -279,9 +433,14 @@ class MockGitHubAdapter:
         Args:
             configured: Whether to simulate being configured.
             issues: Mock issues to return.
+            collaborators: Mock collaborators to return.
+            labels: Mock labels to return.
         """
         self._configured = configured
         self._issues = issues or []
+        self._collaborators = collaborators or ["user1", "user2"]
+        self._labels = labels or ["bug", "enhancement", "feature"]
+        self._next_issue_number = 100
 
     @property
     def configured(self) -> bool:
@@ -317,4 +476,46 @@ class MockGitHubAdapter:
             "configured": True,
             "cached": False,
             "timestamp": int(time.time()),
+        }
+
+    async def get_collaborators(self) -> List[str]:
+        """Return mock collaborators."""
+        if not self._configured:
+            return []
+        return self._collaborators
+
+    async def get_labels(self) -> List[str]:
+        """Return mock labels."""
+        if not self._configured:
+            return []
+        return self._labels
+
+    async def create_issue(
+        self,
+        title: str,
+        body: str = "",
+        assignees: Optional[List[str]] = None,
+        labels: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Return mock issue creation result."""
+        if not self._configured:
+            return {
+                "success": False,
+                "error": "Konfiguracja GitHub niekompletna",
+            }
+
+        if not title or not title.strip():
+            return {
+                "success": False,
+                "error": "Tytuł issue nie może być pusty",
+            }
+
+        issue_number = self._next_issue_number
+        self._next_issue_number += 1
+
+        return {
+            "success": True,
+            "number": issue_number,
+            "url": f"https://github.com/mock/repo/issues/{issue_number}",
+            "title": title.strip(),
         }
