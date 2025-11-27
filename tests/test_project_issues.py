@@ -465,7 +465,7 @@ def test_create_task_branch_fails_with_warning(tmp_path, monkeypatch):
         }
 
     async def mock_create_branch(self, name, base="main"):
-        return False, "Branch creation failed"
+        return False, "Dirty repository state"
 
     async def mock_is_dirty(self):
         return False

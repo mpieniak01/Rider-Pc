@@ -542,7 +542,7 @@
       // Handle 409 Conflict (dirty repo) - issue created but branch op blocked
       if (resp.status === 409) {
         closeModal();
-        if (data.success && data.issue) {
+        if (data.issue) {
           showToast(`Issue #${data.issue.number} utworzone!`, 'success');
           if (data.warning) {
             showToast(data.warning, 'error');
