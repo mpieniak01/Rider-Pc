@@ -359,6 +359,81 @@ class GitAdapter:
         self.invalidate_cache()
         return True, ""
 
+    async def create_branch_and_checkout(self, name: str, base: str = "main") -> Tuple[bool, str]:
+        """
+        Create and checkout a new branch (alias for create_branch).
+
+        Note: create_branch already performs both operations (git checkout -b),
+        this alias is provided for API clarity.
+
+        Args:
+            name: New branch name.
+            base: Base branch name (default: main).
+
+        Returns:
+            Tuple of (success, error_message).
+        """
+        return await self.create_branch(name, base)
+
+    async def add_file(self, path: str) -> Tuple[bool, str]:
+        """
+        Stage a file for commit.
+
+        Args:
+            path: Path to file to stage.
+
+        Returns:
+            Tuple of (success, error_message).
+        """
+        if not self._available:
+            return False, "Git nie jest dostępny"
+
+        if not path or not path.strip():
+            return False, "Ścieżka pliku nie może być pusta"
+
+        cmd = ["git", "add", path.strip()]
+        if self._repo_path:
+            cmd = ["git", "-C", self._repo_path, "add", path.strip()]
+
+        returncode, stdout, stderr = await self._run_command(*cmd)
+
+        if returncode != 0:
+            error = stderr or stdout or "Nieznany błąd"
+            logger.warning("Failed to add file %s: %s", path, error)
+            return False, error
+
+        return True, ""
+
+    async def commit(self, message: str) -> Tuple[bool, str]:
+        """
+        Commit staged changes.
+
+        Args:
+            message: Commit message.
+
+        Returns:
+            Tuple of (success, error_message).
+        """
+        if not self._available:
+            return False, "Git nie jest dostępny"
+
+        if not message or not message.strip():
+            return False, "Wiadomość commita nie może być pusta"
+
+        cmd = ["git", "commit", "-m", message.strip()]
+        if self._repo_path:
+            cmd = ["git", "-C", self._repo_path, "commit", "-m", message.strip()]
+
+        returncode, stdout, stderr = await self._run_command(*cmd)
+
+        if returncode != 0:
+            error = stderr or stdout or "Nieznany błąd"
+            logger.warning("Failed to commit: %s", error)
+            return False, error
+
+        self.invalidate_cache()
+        return True, ""
+
 
 class MockGitAdapter:
     """
@@ -455,4 +530,24 @@ class MockGitAdapter:
             return False, f"Branch '{name}' już istnieje"
         self._branches.append(name)
         self._branch = name
+        return True, ""
+
+    async def create_branch_and_checkout(self, name: str, base: str = "main") -> Tuple[bool, str]:
+        """Return mock create branch and checkout result."""
+        return await self.create_branch(name, base)
+
+    async def add_file(self, path: str) -> Tuple[bool, str]:
+        """Return mock add file result."""
+        if not self._available:
+            return False, "Git nie jest dostępny"
+        if not path or not path.strip():
+            return False, "Ścieżka pliku nie może być pusta"
+        return True, ""
+
+    async def commit(self, message: str) -> Tuple[bool, str]:
+        """Return mock commit result."""
+        if not self._available:
+            return False, "Git nie jest dostępny"
+        if not message or not message.strip():
+            return False, "Wiadomość commita nie może być pusta"
         return True, ""

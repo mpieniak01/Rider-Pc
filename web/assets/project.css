@@ -480,6 +480,25 @@ body[data-page="project"] {
   margin-top: 8px;
 }
 
+/* Checkbox option styling */
+.checkbox-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.checkbox-option input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.checkbox-option .hint {
+  font-size: 12px;
+}
+
 /* Form Actions */
 .form-actions {
   display: flex;
