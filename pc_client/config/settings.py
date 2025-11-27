@@ -110,6 +110,13 @@ class Settings:
     # Whether to use sudo for systemctl commands (set to false if running as root)
     systemd_use_sudo: bool = field(default_factory=lambda: os.getenv("SYSTEMD_USE_SUDO", "true").lower() == "true")
 
+    # Self-healing watchdog configuration
+    auto_heal_enabled: bool = field(
+        default_factory=lambda: os.getenv("AUTO_HEAL_ENABLED", "true").lower() == "true"
+    )
+    max_retry_count: int = field(default_factory=lambda: int(os.getenv("MAX_RETRY_COUNT", "1")))
+    retry_window_seconds: int = field(default_factory=lambda: int(os.getenv("RETRY_WINDOW_SECONDS", "300")))
+
     @property
     def rider_pi_base_url(self) -> str:
         """Get the base URL for Rider-PI API."""

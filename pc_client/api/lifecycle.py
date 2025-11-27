@@ -12,6 +12,7 @@ from fastapi import FastAPI
 from pc_client.adapters import RestAdapter
 from pc_client.cache import CacheManager
 from pc_client.config import Settings
+from pc_client.core.watchdog import ServiceWatchdog
 from pc_client.providers import VisionProvider, VoiceProvider, TextProvider
 from pc_client.queue import TaskQueue
 from pc_client.queue.task_queue import TaskQueueWorker
@@ -532,10 +533,36 @@ async def startup_event(app: FastAPI):
     app.state.sync_task = asyncio.create_task(sync_data_periodically(app))
     logger.info("Background sync task started")
 
+    # Initialize and start ServiceWatchdog if enabled
+    app.state.service_watchdog = None
+    if settings.auto_heal_enabled:
+        watchdog = ServiceWatchdog(
+            service_manager=app.state.service_manager,
+            monitored_services=settings.monitored_services,
+            max_retry_count=settings.max_retry_count,
+            retry_window_seconds=settings.retry_window_seconds,
+            sse_publish_fn=app.state.sse_manager.publish,
+        )
+        await watchdog.start()
+        app.state.service_watchdog = watchdog
+        logger.info(
+            "ServiceWatchdog started (monitored=%d services, max_retry=%d, window=%ds)",
+            len(settings.monitored_services) if settings.monitored_services else 0,
+            settings.max_retry_count,
+            settings.retry_window_seconds,
+        )
+    else:
+        logger.info("ServiceWatchdog disabled (AUTO_HEAL_ENABLED=false)")
+
 
 async def shutdown_event(app: FastAPI):
     """Cleanup on shutdown."""
     logger.info("Shutting down Rider-PC Client API server...")
+
+    # Stop ServiceWatchdog
+    if getattr(app.state, "service_watchdog", None):
+        await app.state.service_watchdog.stop()
+        logger.info("ServiceWatchdog stopped")
 
     # Stop sync task
     if app.state.sync_task:
