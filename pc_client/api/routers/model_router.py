@@ -1,7 +1,7 @@
 """Model management API endpoints."""
 
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -38,6 +38,49 @@ def get_model_manager(request: Request) -> ModelManager:
     return request.app.state.model_manager
 
 
+async def _fetch_remote_models(request: Request) -> List[Dict[str, Any]]:
+    """Fetch Rider-PI model inventory via RestAdapter."""
+    adapter = getattr(request.app.state, "rest_adapter", None)
+    if adapter is None:
+        return []
+
+    try:
+        remote_payload = await adapter.get_remote_models()
+    except Exception as exc:  # pragma: no cover - network errors
+        logger.debug("Failed to fetch Rider-PI models: %s", exc)
+        return []
+
+    if not isinstance(remote_payload, dict):
+        return []
+
+    # Try "models" key first, fall back to "local" for backward compatibility
+    models = remote_payload.get("models", remote_payload.get("local"))
+    return models if isinstance(models, list) else []
+
+
+async def _switch_provider_mode(request: Request, slot: str, target: str) -> Optional[Dict[str, Any]]:
+    """Switch Rider-PI provider mode for a domain."""
+    adapter = getattr(request.app.state, "rest_adapter", None)
+    if adapter is None:
+        return None
+
+    domain_map = {
+        "vision": "vision",
+        "voice_asr": "voice",
+        "voice_tts": "voice",
+        "text": "text",
+    }
+    domain = domain_map.get(slot)
+    if domain is None:
+        return None
+
+    try:
+        return await adapter.patch_provider(domain, {"target": target, "reason": "models_ui"})
+    except Exception as exc:  # pragma: no cover - Rider-PI offline
+        logger.error("Failed to switch provider %s to %s: %s", domain, target, exc)
+        return {"error": str(exc)}
+
+
 @router.get("/installed")
 async def get_installed_models(request: Request) -> JSONResponse:
     """
@@ -65,13 +108,16 @@ async def get_installed_models(request: Request) -> JSONResponse:
 
         installed = manager.get_installed_models()
         ollama = manager.get_ollama_models()
+        remote = await _fetch_remote_models(request)
 
         return JSONResponse(
             content={
                 "local": installed,
                 "ollama": ollama,
+                "remote": remote,
                 "total_local": len(installed),
                 "total_ollama": len(ollama),
+                "total_remote": len(remote),
             }
         )
     except Exception as e:
@@ -133,6 +179,8 @@ async def bind_model(request: Request, payload: BindModelRequest) -> JSONRespons
         slot_config = {}
     slot_config = {**slot_config, "provider": provider, "model": model}
     setattr(active, slot, slot_config)
+    manager.persist_active_model(slot, model)
+    provider_switch = await _switch_provider_mode(request, slot, "pc")
 
     logger.info("Model binding updated: slot=%s, provider=%s, model=%s", slot, provider, model)
 
@@ -142,7 +190,7 @@ async def bind_model(request: Request, payload: BindModelRequest) -> JSONRespons
             "slot": slot,
             "provider": provider,
             "model": model,
-            "note": "Configuration updated in memory. Restart may be required for full effect.",
+            "provider_switch": provider_switch,
         }
     )
 
@@ -168,8 +216,11 @@ async def get_models_summary(request: Request) -> JSONResponse:
             pass  # Ollama may not be available
 
         manager.get_active_models()
+        remote = await _fetch_remote_models(request)
+        payload = manager.get_all_models()
+        payload["remote"] = remote
 
-        return JSONResponse(content=manager.get_all_models())
+        return JSONResponse(content=payload)
     except Exception as e:
         logger.error("Failed to get models summary: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e

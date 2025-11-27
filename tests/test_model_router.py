@@ -1,11 +1,11 @@
 """Tests for model_router.py API endpoints."""
 
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock, MagicMock
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from pc_client.api.routers.model_router import router
+from pc_client.api.routers.model_router import router, _fetch_remote_models, _switch_provider_mode
 from pc_client.core.model_manager import ModelManager, ActiveModels
 
 
@@ -38,6 +38,8 @@ class TestGetInstalledModels:
         assert data["total_local"] == 0
         assert data["total_ollama"] == 0
         assert data["local"] == []
+        assert data["total_remote"] == 0
+        assert data["remote"] == []
         assert data["ollama"] == []
 
     def test_returns_local_models(self, client, tmp_path):
@@ -92,10 +94,11 @@ class TestBindModel:
         mock_active = ActiveModels()
 
         with patch.object(ModelManager, "get_active_models", return_value=mock_active):
-            response = client.post(
-                "/api/models/bind",
-                json={"slot": "text", "provider": "ollama", "model": "llama3.2:1b"},
-            )
+            with patch.object(ModelManager, "persist_active_model", return_value=None):
+                response = client.post(
+                    "/api/models/bind",
+                    json={"slot": "text", "provider": "ollama", "model": "llama3.2:1b"},
+                )
 
         assert response.status_code == 200
         data = response.json()
@@ -181,3 +184,237 @@ class TestGetModelsSummary:
         assert "installed" in data
         assert "ollama" in data
         assert "active" in data
+        assert "remote" in data
+
+
+class TestFetchRemoteModels:
+    """Tests for _fetch_remote_models helper function."""
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_when_no_adapter(self):
+        """Test returns empty list when rest_adapter is not available."""
+        mock_request = MagicMock()
+        mock_request.app.state = MagicMock(spec=[])  # No rest_adapter attribute
+
+        result = await _fetch_remote_models(mock_request)
+
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_when_adapter_is_none(self):
+        """Test returns empty list when rest_adapter is None."""
+        mock_request = MagicMock()
+        mock_request.app.state.rest_adapter = None
+
+        result = await _fetch_remote_models(mock_request)
+
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_returns_models_from_models_key(self):
+        """Test returns models from 'models' key in response."""
+        mock_adapter = MagicMock()
+        mock_adapter.get_remote_models = AsyncMock(
+            return_value={"models": [{"name": "yolov8n", "category": "vision"}]}
+        )
+        mock_request = MagicMock()
+        mock_request.app.state.rest_adapter = mock_adapter
+
+        result = await _fetch_remote_models(mock_request)
+
+        assert len(result) == 1
+        assert result[0]["name"] == "yolov8n"
+
+    @pytest.mark.asyncio
+    async def test_returns_models_from_local_key_for_backward_compat(self):
+        """Test returns models from 'local' key for backward compatibility."""
+        mock_adapter = MagicMock()
+        mock_adapter.get_remote_models = AsyncMock(
+            return_value={"local": [{"name": "whisper-base", "category": "voice_asr"}]}
+        )
+        mock_request = MagicMock()
+        mock_request.app.state.rest_adapter = mock_adapter
+
+        result = await _fetch_remote_models(mock_request)
+
+        assert len(result) == 1
+        assert result[0]["name"] == "whisper-base"
+
+    @pytest.mark.asyncio
+    async def test_prefers_models_key_over_local(self):
+        """Test prefers 'models' key over 'local' when both present."""
+        mock_adapter = MagicMock()
+        mock_adapter.get_remote_models = AsyncMock(
+            return_value={
+                "models": [{"name": "new-format"}],
+                "local": [{"name": "old-format"}],
+            }
+        )
+        mock_request = MagicMock()
+        mock_request.app.state.rest_adapter = mock_adapter
+
+        result = await _fetch_remote_models(mock_request)
+
+        assert len(result) == 1
+        assert result[0]["name"] == "new-format"
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_on_network_error(self):
+        """Test returns empty list when network error occurs."""
+        mock_adapter = MagicMock()
+        mock_adapter.get_remote_models = AsyncMock(
+            side_effect=ConnectionError("Network unreachable")
+        )
+        mock_request = MagicMock()
+        mock_request.app.state.rest_adapter = mock_adapter
+
+        result = await _fetch_remote_models(mock_request)
+
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_on_invalid_payload(self):
+        """Test returns empty list when payload is not a dict."""
+        mock_adapter = MagicMock()
+        mock_adapter.get_remote_models = AsyncMock(return_value="invalid")
+        mock_request = MagicMock()
+        mock_request.app.state.rest_adapter = mock_adapter
+
+        result = await _fetch_remote_models(mock_request)
+
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_on_missing_keys(self):
+        """Test returns empty list when neither models nor local keys present."""
+        mock_adapter = MagicMock()
+        mock_adapter.get_remote_models = AsyncMock(return_value={"other": []})
+        mock_request = MagicMock()
+        mock_request.app.state.rest_adapter = mock_adapter
+
+        result = await _fetch_remote_models(mock_request)
+
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_when_models_not_list(self):
+        """Test returns empty list when models value is not a list."""
+        mock_adapter = MagicMock()
+        mock_adapter.get_remote_models = AsyncMock(
+            return_value={"models": "not-a-list"}
+        )
+        mock_request = MagicMock()
+        mock_request.app.state.rest_adapter = mock_adapter
+
+        result = await _fetch_remote_models(mock_request)
+
+        assert result == []
+
+
+class TestSwitchProviderMode:
+    """Tests for _switch_provider_mode helper function."""
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_no_adapter(self):
+        """Test returns None when rest_adapter is not available."""
+        mock_request = MagicMock()
+        mock_request.app.state = MagicMock(spec=[])  # No rest_adapter attribute
+
+        result = await _switch_provider_mode(mock_request, "vision", "pc")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_adapter_is_none(self):
+        """Test returns None when rest_adapter is None."""
+        mock_request = MagicMock()
+        mock_request.app.state.rest_adapter = None
+
+        result = await _switch_provider_mode(mock_request, "vision", "pc")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_for_invalid_slot(self):
+        """Test returns None for unknown slot."""
+        mock_adapter = MagicMock()
+        mock_request = MagicMock()
+        mock_request.app.state.rest_adapter = mock_adapter
+
+        result = await _switch_provider_mode(mock_request, "invalid_slot", "pc")
+
+        assert result is None
+        mock_adapter.patch_provider.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_maps_vision_slot_to_vision_domain(self):
+        """Test vision slot maps to vision domain."""
+        mock_adapter = MagicMock()
+        mock_adapter.patch_provider = AsyncMock(return_value={"success": True})
+        mock_request = MagicMock()
+        mock_request.app.state.rest_adapter = mock_adapter
+
+        result = await _switch_provider_mode(mock_request, "vision", "pc")
+
+        mock_adapter.patch_provider.assert_called_once_with(
+            "vision", {"target": "pc", "reason": "models_ui"}
+        )
+        assert result == {"success": True}
+
+    @pytest.mark.asyncio
+    async def test_maps_voice_asr_slot_to_voice_domain(self):
+        """Test voice_asr slot maps to voice domain."""
+        mock_adapter = MagicMock()
+        mock_adapter.patch_provider = AsyncMock(return_value={"success": True})
+        mock_request = MagicMock()
+        mock_request.app.state.rest_adapter = mock_adapter
+
+        result = await _switch_provider_mode(mock_request, "voice_asr", "local")
+
+        mock_adapter.patch_provider.assert_called_once_with(
+            "voice", {"target": "local", "reason": "models_ui"}
+        )
+
+    @pytest.mark.asyncio
+    async def test_maps_voice_tts_slot_to_voice_domain(self):
+        """Test voice_tts slot maps to voice domain."""
+        mock_adapter = MagicMock()
+        mock_adapter.patch_provider = AsyncMock(return_value={"success": True})
+        mock_request = MagicMock()
+        mock_request.app.state.rest_adapter = mock_adapter
+
+        result = await _switch_provider_mode(mock_request, "voice_tts", "pc")
+
+        mock_adapter.patch_provider.assert_called_once_with(
+            "voice", {"target": "pc", "reason": "models_ui"}
+        )
+
+    @pytest.mark.asyncio
+    async def test_maps_text_slot_to_text_domain(self):
+        """Test text slot maps to text domain."""
+        mock_adapter = MagicMock()
+        mock_adapter.patch_provider = AsyncMock(return_value={"success": True})
+        mock_request = MagicMock()
+        mock_request.app.state.rest_adapter = mock_adapter
+
+        result = await _switch_provider_mode(mock_request, "text", "pc")
+
+        mock_adapter.patch_provider.assert_called_once_with(
+            "text", {"target": "pc", "reason": "models_ui"}
+        )
+
+    @pytest.mark.asyncio
+    async def test_returns_error_on_network_failure(self):
+        """Test returns error dict when network failure occurs."""
+        mock_adapter = MagicMock()
+        mock_adapter.patch_provider = AsyncMock(
+            side_effect=ConnectionError("Rider-PI offline")
+        )
+        mock_request = MagicMock()
+        mock_request.app.state.rest_adapter = mock_adapter
+
+        result = await _switch_provider_mode(mock_request, "vision", "pc")
+
+        assert result is not None
+        assert "error" in result
+        assert "Rider-PI offline" in result["error"]

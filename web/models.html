@@ -15,7 +15,7 @@
     <p class="page-subtitle">Zarządzanie modelami sztucznej inteligencji</p>
   </header>
 
-  <p id="status-line" class="status-line">Ładowanie danych modeli...</p>
+<p id="status-line" class="status-line">Ładowanie danych modeli...</p>
 
   <!-- Active Models Section -->
   <section class="models-section">
@@ -23,6 +23,16 @@
     <div class="models-grid" id="active-models-grid">
       <!-- Active model cards will be dynamically inserted -->
     </div>
+  </section>
+
+  <!-- Provider State -->
+  <section class="models-section">
+    <h2 class="section-title">🛰️ Stan Rider-Pi</h2>
+    <p class="section-desc">Informacje z rejestru providera Rider-Pi: gdzie wykonywane są obecnie zadania Vision / Voice / Text.</p>
+    <div class="provider-grid" id="provider-state-grid">
+      <div class="loading-placeholder">Oczekiwanie na dane z Rider-Pi...</div>
+    </div>
+    <p class="provider-note" id="provider-note"></p>
   </section>
 
   <!-- Vision Models -->
@@ -66,24 +76,53 @@
   <section class="models-section">
     <h2 class="section-title">📁 Zainstalowane Pliki Modeli</h2>
     <p class="section-desc">Pliki modeli wykryte w katalogu <code>data/models/</code></p>
-    <div class="installed-models-table-wrapper">
-      <table class="installed-models-table" id="installed-models-table">
-        <thead>
-          <tr>
-            <th>Nazwa</th>
-            <th>Kategoria</th>
-            <th>Typ</th>
-            <th>Format</th>
-            <th>Rozmiar</th>
-            <th>Akcje</th>
-          </tr>
-        </thead>
-        <tbody id="installed-models-tbody">
-          <tr>
-            <td colspan="6" class="empty-message">Skanowanie plików...</td>
-          </tr>
-        </tbody>
-      </table>
+    <div class="installed-columns">
+      <div class="installed-column">
+        <h3 class="subsection-title">💻 Rider-PC</h3>
+        <p class="section-desc">Pliki lokalne używane przez providera PC. Kliknięcie „Aktywuj” zapisuje konfigurację i przełącza Rider-Pi w tryb PC.</p>
+        <div class="installed-models-table-wrapper">
+          <table class="installed-models-table" id="installed-models-table">
+            <thead>
+              <tr>
+                <th>Nazwa</th>
+                <th>Kategoria</th>
+                <th>Typ</th>
+                <th>Format</th>
+                <th>Rozmiar</th>
+                <th>Akcje</th>
+              </tr>
+            </thead>
+            <tbody id="installed-models-tbody">
+              <tr>
+                <td colspan="6" class="empty-message">Skanowanie plików...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="installed-column">
+        <h3 class="subsection-title">🤖 Rider-Pi</h3>
+        <p class="section-desc">Lista plików zgłaszanych przez API <code>/api/models/installed</code> na Rider-Pi. Przycisk „Ustaw lokalnie” przełącza domenę na tryb lokalny.</p>
+        <div class="installed-models-table-wrapper">
+          <table class="installed-models-table" id="remote-models-table">
+            <thead>
+              <tr>
+                <th>Nazwa</th>
+                <th>Kategoria</th>
+                <th>Typ</th>
+                <th>Format</th>
+                <th>Rozmiar</th>
+                <th>Akcje</th>
+              </tr>
+            </thead>
+            <tbody id="remote-models-tbody">
+              <tr>
+                <td colspan="6" class="empty-message">Brak danych z Rider-Pi...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </section>
 </div>
@@ -96,6 +135,9 @@ const voiceAsrModels = document.getElementById('voice-asr-models');
 const voiceTtsModels = document.getElementById('voice-tts-models');
 const textModels = document.getElementById('text-models');
 const installedTbody = document.getElementById('installed-models-tbody');
+const remoteTbody = document.getElementById('remote-models-tbody');
+const providerStateGrid = document.getElementById('provider-state-grid');
+const providerNote = document.getElementById('provider-note');
 
 // HTML escape function to prevent XSS
 function escapeHtml(text) {
@@ -128,6 +170,89 @@ const providerNames = {
   openai: 'OpenAI',
   gemini: 'Gemini'
 };
+
+const slotDomainMap = {
+  vision: 'vision',
+  voice_asr: 'voice',
+  voice_tts: 'voice',
+  text: 'text'
+};
+
+function slotToDomain(slot) {
+  return slotDomainMap[slot] || slot || 'unknown';
+}
+
+function formatRelativeTime(timestamp) {
+  if (!timestamp) return '---';
+  try {
+    const date = new Date(timestamp * 1000);
+    const diffMs = Date.now() - date.getTime();
+    const diffMinutes = Math.round(diffMs / 60000);
+    if (diffMinutes < 1) return 'przed chwilą';
+    if (diffMinutes === 1) return 'minutę temu';
+    if (diffMinutes < 60) return `${diffMinutes} min temu`;
+    const diffHours = Math.round(diffMinutes / 60);
+    if (diffHours === 1) return 'godzinę temu';
+    return `${diffHours} h temu`;
+  } catch (err) {
+    return '---';
+  }
+}
+
+const domainLabels = {
+  vision: 'Wizja',
+  voice: 'Mowa',
+  text: 'Tekst'
+};
+
+function createProviderCard(domain, state) {
+  const card = document.createElement('div');
+  card.className = 'provider-card';
+  const mode = (state.mode || 'local').toLowerCase() === 'pc' ? 'pc' : 'local';
+  const status = (state.status || 'unknown').replace('_', ' ');
+  const modeLabel = mode === 'pc' ? 'PC (offload)' : 'Lokalny';
+  const modeClass = mode === 'pc' ? 'mode-pc' : 'mode-local';
+  const changed = formatRelativeTime(state.changed_ts);
+  const reason = escapeHtml(state.reason || '');
+
+  card.innerHTML = `
+    <div class="provider-card-head">
+      <div>
+        <div class="provider-domain">${escapeHtml(domainLabels[domain] || domain)}</div>
+        <div class="provider-status-pill">${escapeHtml(status)}</div>
+      </div>
+      <span class="provider-mode"></span>
+    </div>
+    <div class="provider-card-body">
+      <div class="provider-meta">
+        <span class="meta-item">⏱️ ${changed}</span>
+        ${reason ? `<span class="meta-item">ℹ️ ${reason}</span>` : ''}
+      </div>
+    </div>
+  `;
+  const providerModeEl = card.querySelector('.provider-mode');
+  providerModeEl.textContent = modeLabel;
+  providerModeEl.classList.add(modeClass);
+  return card;
+}
+
+function renderProviderState(payload) {
+  if (!payload || !payload.domains) {
+    providerStateGrid.innerHTML = '<div class="no-models">Brak danych z Rider-Pi.</div>';
+    providerNote.textContent = '';
+    return;
+  }
+
+  providerStateGrid.innerHTML = '';
+  Object.entries(payload.domains).forEach(([domain, state]) => {
+    providerStateGrid.appendChild(createProviderCard(domain, state || {}));
+  });
+
+  const health = payload.pc_health || {};
+  const reachable = health.reachable ? 'połączony' : 'offline';
+  const latency = typeof health.latency_ms === 'number' ? `${health.latency_ms.toFixed(0)} ms` : '---';
+  providerNote.textContent = `PC według Rider-Pi: ${reachable} (status ${health.status || 'unknown'}, RTT ${latency})`;
+}
 
 function createActiveModelCard(category, config) {
   const card = document.createElement('div');
@@ -195,7 +320,7 @@ function createOllamaModelCard(model) {
       </div>
     </div>
     <div class="model-card-actions">
-      <button class="btn-activate" data-model="${safeName}" data-provider="ollama" data-slot="text">
+      <button class="btn-activate" data-origin="pc" data-model="${safeName}" data-provider="ollama" data-slot="text">
         Aktywuj
       </button>
     </div>
@@ -227,7 +352,7 @@ function createLocalModelCard(model) {
       </div>
     </div>
     <div class="model-card-actions">
-      <button class="btn-activate" data-model="${safeName}" data-provider="${safeType}" data-slot="${safeCategory}">
+      <button class="btn-activate" data-origin="pc" data-model="${safeName}" data-provider="${safeType}" data-slot="${safeCategory}">
         Aktywuj
       </button>
     </div>
@@ -257,7 +382,7 @@ function renderActiveModels(active) {
   });
 }
 
-function renderInstalledModels(local, ollama) {
+function renderInstalledModels(local, ollama, remote) {
   installedTbody.innerHTML = '';
   
   if (!local.length && !ollama.length) {
@@ -288,7 +413,7 @@ function renderInstalledModels(local, ollama) {
       <td><code>.${safeFormat}</code></td>
       <td>${safeSize} MB</td>
       <td>
-        <button class="btn-sm btn-activate" data-model="${safeName}" data-slot="${safeCategoryClass}">
+        <button class="btn-sm btn-activate" data-origin="pc" data-model="${safeName}" data-slot="${safeCategoryClass}">
           Aktywuj
         </button>
       </td>
@@ -313,12 +438,53 @@ function renderInstalledModels(local, ollama) {
       <td><code>gguf</code></td>
       <td>${safeSize}</td>
       <td>
-        <button class="btn-sm btn-activate" data-model="${safeName}" data-provider="ollama" data-slot="text">
+        <button class="btn-sm btn-activate" data-origin="pc" data-model="${safeName}" data-provider="ollama" data-slot="text">
           Aktywuj
         </button>
       </td>
     `;
     installedTbody.appendChild(tr);
+  });
+
+  renderRemoteModels(remote);
+}
+
+function renderRemoteModels(remote) {
+  remoteTbody.innerHTML = '';
+
+  if (!remote.length) {
+    remoteTbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="empty-message">
+          Brak danych zwróconych przez Rider-Pi. Upewnij się, że API /api/models/installed jest dostępne.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  remote.forEach(model => {
+    const safeName = escapeHtml(model.name || 'Unknown');
+    const slot = escapeHtml(model.category || 'unknown');
+    const safeType = escapeHtml(model.type || 'unknown');
+    const safeFormat = escapeHtml(model.format || '?');
+    const sizeValue =
+      typeof model.size_mb === 'number' ? `${model.size_mb.toFixed(1)} MB` : escapeHtml(String(model.size_mb || '---'));
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="model-name-cell">${safeName}</span></td>
+      <td><span class="category-badge ${slot}">${escapeHtml(categoryNames[model.category] || model.category || '---')}</span></td>
+      <td>${safeType}</td>
+      <td><code>.${safeFormat}</code></td>
+      <td>${sizeValue}</td>
+      <td>
+        <button class="btn-sm btn-activate" data-origin="rider-pi" data-slot="${slot}" data-model="${safeName}">
+          Ustaw lokalnie
+        </button>
+      </td>
+    `;
+    remoteTbody.appendChild(tr);
   });
 }
 
@@ -376,8 +542,10 @@ function renderCategoryModels(local, ollama) {
 }
 
 async function activateModel(slot, provider, model) {
+  const domain = slotToDomain(slot);
+  const domainLabel = domainLabels[domain] || categoryNames[slot] || slot;
   try {
-    statusLine.textContent = `Aktywuję model ${model}...`;
+    statusLine.textContent = `Aktywuję model ${model} (domena ${domainLabel})...`;
     statusLine.className = 'status-line working';
     
     const response = await fetch('/api/models/bind', {
@@ -389,9 +557,13 @@ async function activateModel(slot, provider, model) {
     const result = await response.json();
     
     if (response.ok && result.success) {
-      statusLine.textContent = `✅ Model ${model} aktywowany dla ${slot}`;
-      statusLine.className = 'status-line success';
-      // Refresh data
+      if (result.provider_switch && result.provider_switch.error) {
+        statusLine.textContent = `⚠️ Model ${model} zapisany, ale przełączenie Rider-Pi nie powiodło się: ${result.provider_switch.error}`;
+        statusLine.className = 'status-line error';
+      } else {
+        statusLine.textContent = `✅ Model ${model} aktywowany dla ${domainLabel} (Rider-Pi przełączony na PC)`;
+        statusLine.className = 'status-line success';
+      }
       setTimeout(loadModelsData, 1000);
     } else {
       statusLine.textContent = `❌ Błąd: ${result.error || 'Nie udało się aktywować modelu'}`;
@@ -404,15 +576,51 @@ async function activateModel(slot, provider, model) {
   }
 }
 
+async function switchProviderToLocal(slot, model) {
+  const domain = slotToDomain(slot);
+  const domainLabel = domainLabels[domain] || categoryNames[slot] || slot;
+  try {
+    statusLine.textContent = `Przełączam Rider-Pi na lokalny model ${model} (${domainLabel})...`;
+    statusLine.className = 'status-line working';
+    
+    const response = await fetch(`/api/providers/${domain}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target: 'local', reason: 'models_ui' })
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok && !result.error) {
+      statusLine.textContent = `✅ Domena ${domainLabel} ustawiona na Rider-Pi (lokalnie)`;
+      statusLine.className = 'status-line success';
+      // Refresh data
+      setTimeout(loadModelsData, 1000);
+    } else {
+      statusLine.textContent = `❌ Błąd przełączania Rider-Pi: ${result.error || 'Nieznany błąd'}`;
+      statusLine.className = 'status-line error';
+    }
+  } catch (error) {
+    console.error('Provider switch error:', error);
+    statusLine.textContent = `❌ Błąd połączenia z Rider-Pi: ${error.message}`;
+    statusLine.className = 'status-line error';
+  }
+}
+
 // Event delegation for activate buttons
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('.btn-activate');
   if (btn) {
     const model = btn.dataset.model;
-    const provider = btn.dataset.provider || 'local';
     const slot = btn.dataset.slot;
+    const origin = btn.dataset.origin || 'pc';
     if (model && slot) {
-      activateModel(slot, provider, model);
+      if (origin === 'rider-pi') {
+        switchProviderToLocal(slot, model);
+      } else {
+        const provider = btn.dataset.provider || 'local';
+        activateModel(slot, provider, model);
+      }
     }
   }
 });
@@ -422,23 +630,26 @@ async function loadModelsData() {
     statusLine.textContent = 'Aktualizuję dane modeli...';
     statusLine.className = 'status-line';
     
-    // Fetch installed models
-    const installedResp = await fetch('/api/models/installed', { cache: 'no-store' });
-    const installedData = installedResp.ok ? await installedResp.json() : { local: [], ollama: [] };
-    
-    // Fetch active models
-    const activeResp = await fetch('/api/models/active', { cache: 'no-store' });
+    const [installedResp, activeResp, providerResp] = await Promise.all([
+      fetch('/api/models/installed', { cache: 'no-store' }),
+      fetch('/api/models/active', { cache: 'no-store' }),
+      fetch('/api/providers/state', { cache: 'no-store' })
+    ]);
+    const installedData = installedResp.ok ? await installedResp.json() : { local: [], ollama: [], remote: [] };
     const activeData = activeResp.ok ? await activeResp.json() : {};
+    const providerState = providerResp.ok ? await providerResp.json() : null;
     
     // Render UI
     renderActiveModels(activeData);
     renderCategoryModels(installedData.local || [], installedData.ollama || []);
-    renderInstalledModels(installedData.local || [], installedData.ollama || []);
+    renderInstalledModels(installedData.local || [], installedData.ollama || [], installedData.remote || []);
+    renderProviderState(providerState);
     
     const timestamp = new Date().toLocaleTimeString();
     const localCount = (installedData.local || []).length;
     const ollamaCount = (installedData.ollama || []).length;
-    statusLine.textContent = `Ostatnia aktualizacja: ${timestamp} | Lokalne: ${localCount} | Ollama: ${ollamaCount}`;
+    const remoteCount = (installedData.remote || []).length;
+    statusLine.textContent = `Ostatnia aktualizacja: ${timestamp} | PC: ${localCount} | Ollama: ${ollamaCount} | Rider-Pi: ${remoteCount}`;
     statusLine.className = 'status-line';
     
   } catch (error) {

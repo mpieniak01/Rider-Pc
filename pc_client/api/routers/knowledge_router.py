@@ -138,10 +138,12 @@ async def reindex_knowledge_base(
     else:
         # Async reindexing in background
         background_tasks.add_task(_reindex_background_task)
-        return JSONResponse({
-            "ok": True,
-            "message": "Reindexing started in background",
-        })
+        return JSONResponse(
+            {
+                "ok": True,
+                "message": "Reindexing started in background",
+            }
+        )
 
 
 @router.get("/api/knowledge/search")
@@ -183,19 +185,21 @@ async def search_knowledge_base(
         store = _get_vector_store()
         results = await asyncio.to_thread(store.search, q, k)
 
-        return JSONResponse({
-            "ok": True,
-            "query": q,
-            "count": len(results),
-            "results": [
-                {
-                    "content": doc.content,
-                    "source": doc.metadata.get("source", ""),
-                    "heading": doc.metadata.get("heading", ""),
-                }
-                for doc in results
-            ],
-        })
+        return JSONResponse(
+            {
+                "ok": True,
+                "query": q,
+                "count": len(results),
+                "results": [
+                    {
+                        "content": doc.content,
+                        "source": doc.metadata.get("source", ""),
+                        "heading": doc.metadata.get("heading", ""),
+                    }
+                    for doc in results
+                ],
+            }
+        )
 
     except Exception as e:
         logger.exception("Search failed")
@@ -213,25 +217,29 @@ async def knowledge_base_status() -> JSONResponse:
         JSON response with knowledge base status.
     """
     if not settings.rag_enabled:
-        return JSONResponse({
-            "ok": True,
-            "enabled": False,
-            "message": "RAG is not enabled",
-        })
+        return JSONResponse(
+            {
+                "ok": True,
+                "enabled": False,
+                "message": "RAG is not enabled",
+            }
+        )
 
     try:
         store = _get_vector_store()
         count = await asyncio.to_thread(store.count)
 
-        return JSONResponse({
-            "ok": True,
-            "enabled": True,
-            "initialized": store.initialized,
-            "document_count": count,
-            "embedding_model": settings.embedding_model,
-            "persist_path": settings.rag_persist_path,
-            "reindex_in_progress": _reindex_in_progress,
-        })
+        return JSONResponse(
+            {
+                "ok": True,
+                "enabled": True,
+                "initialized": store.initialized,
+                "document_count": count,
+                "embedding_model": settings.embedding_model,
+                "persist_path": settings.rag_persist_path,
+                "reindex_in_progress": _reindex_in_progress,
+            }
+        )
 
     except Exception as e:
         logger.exception("Status check failed")
