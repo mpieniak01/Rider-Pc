@@ -1,7 +1,5 @@
 """Tests for the /api/status/version endpoint."""
 
-from unittest.mock import AsyncMock, patch
-
 from fastapi.testclient import TestClient
 
 from pc_client.api.server import create_app

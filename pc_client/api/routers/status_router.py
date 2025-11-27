@@ -2,6 +2,7 @@
 
 import logging
 import time
+from typing import Optional
 
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse
@@ -18,7 +19,7 @@ PC_SYSINFO_CACHE_KEY = "pc_sysinfo"
 PC_SYSINFO_TTL = 5
 
 # Git adapter singleton for version info (caching handled internally)
-_git_adapter: GitAdapter = None
+_git_adapter: Optional[GitAdapter] = None
 
 
 def get_git_adapter() -> GitAdapter:
