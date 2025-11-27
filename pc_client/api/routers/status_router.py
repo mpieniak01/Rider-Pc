@@ -9,12 +9,24 @@ from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 from pc_client.cache import CacheManager
 from pc_client.utils.system_info import collect_system_metrics
+from pc_client.adapters.git_adapter import GitAdapter
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 PC_SYSINFO_CACHE_KEY = "pc_sysinfo"
 PC_SYSINFO_TTL = 5
+
+# Git adapter singleton for version info (caching handled internally)
+_git_adapter: GitAdapter = None
+
+
+def get_git_adapter() -> GitAdapter:
+    """Get or create the git adapter singleton."""
+    global _git_adapter
+    if _git_adapter is None:
+        _git_adapter = GitAdapter()
+    return _git_adapter
 
 
 @router.get("/healthz")
@@ -181,3 +193,21 @@ async def metrics() -> Response:
     """Prometheus metrics endpoint."""
     metrics_data = generate_latest()
     return Response(content=metrics_data, media_type=CONTENT_TYPE_LATEST)
+
+
+@router.get("/api/status/version")
+async def version_info() -> JSONResponse:
+    """
+    Get git version information for the running Rider-PC application.
+
+    Returns JSON containing:
+    - branch: Current git branch name (e.g., 'main')
+    - commit: Short commit hash (e.g., 'a1b2c3d')
+    - dirty: Boolean indicating if there are uncommitted changes
+    - message: Last commit message
+    - ts: Unix timestamp when the info was retrieved
+    - available: Boolean indicating if git info is available
+    """
+    git_adapter = get_git_adapter()
+    data = await git_adapter.get_version_info()
+    return JSONResponse(content=data)
