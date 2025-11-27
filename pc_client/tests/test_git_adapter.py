@@ -348,3 +348,171 @@ class TestGitAdapter:
         adapter = GitAdapter()
         branch = await adapter.get_current_branch()
         assert branch == "unknown"
+
+    @patch("pc_client.adapters.git_adapter.is_git_available")
+    @patch("pc_client.adapters.git_adapter.asyncio.create_subprocess_exec")
+    @pytest.mark.asyncio
+    async def test_add_file_success(self, mock_subprocess, mock_available):
+        """Should successfully add a file."""
+        mock_available.return_value = True
+        mock_subprocess.return_value = _make_mock_process(0, b"")
+
+        adapter = GitAdapter()
+        success, error = await adapter.add_file("test.md")
+        assert success is True
+        assert error == ""
+
+    @patch("pc_client.adapters.git_adapter.is_git_available")
+    @patch("pc_client.adapters.git_adapter.asyncio.create_subprocess_exec")
+    @pytest.mark.asyncio
+    async def test_add_file_failure(self, mock_subprocess, mock_available):
+        """Should return error when add fails."""
+        mock_available.return_value = True
+        mock_subprocess.return_value = _make_mock_process(1, b"", b"fatal: pathspec 'test.md' did not match any files")
+
+        adapter = GitAdapter()
+        success, error = await adapter.add_file("test.md")
+        assert success is False
+        assert "pathspec" in error
+
+    @patch("pc_client.adapters.git_adapter.is_git_available")
+    @pytest.mark.asyncio
+    async def test_add_file_empty_path(self, mock_available):
+        """Should return error for empty path."""
+        mock_available.return_value = True
+        adapter = GitAdapter()
+        success, error = await adapter.add_file("")
+        assert success is False
+        assert "pusta" in error.lower()
+
+    @patch("pc_client.adapters.git_adapter.is_git_available")
+    @pytest.mark.asyncio
+    async def test_add_file_unavailable(self, mock_available):
+        """Should return error when git is unavailable."""
+        mock_available.return_value = False
+        adapter = GitAdapter()
+        success, error = await adapter.add_file("test.md")
+        assert success is False
+        assert "dostępny" in error.lower()
+
+    @patch("pc_client.adapters.git_adapter.is_git_available")
+    @patch("pc_client.adapters.git_adapter.asyncio.create_subprocess_exec")
+    @pytest.mark.asyncio
+    async def test_commit_success(self, mock_subprocess, mock_available):
+        """Should successfully commit."""
+        mock_available.return_value = True
+        mock_subprocess.return_value = _make_mock_process(0, b"[main abc1234] Test commit")
+
+        adapter = GitAdapter()
+        success, error = await adapter.commit("Test commit")
+        assert success is True
+        assert error == ""
+
+    @patch("pc_client.adapters.git_adapter.is_git_available")
+    @patch("pc_client.adapters.git_adapter.asyncio.create_subprocess_exec")
+    @pytest.mark.asyncio
+    async def test_commit_failure(self, mock_subprocess, mock_available):
+        """Should return error when commit fails."""
+        mock_available.return_value = True
+        mock_subprocess.return_value = _make_mock_process(1, b"", b"nothing to commit")
+
+        adapter = GitAdapter()
+        success, error = await adapter.commit("Test commit")
+        assert success is False
+        assert "nothing to commit" in error
+
+    @patch("pc_client.adapters.git_adapter.is_git_available")
+    @pytest.mark.asyncio
+    async def test_commit_empty_message(self, mock_available):
+        """Should return error for empty message."""
+        mock_available.return_value = True
+        adapter = GitAdapter()
+        success, error = await adapter.commit("")
+        assert success is False
+        assert "pusta" in error.lower()
+
+    @patch("pc_client.adapters.git_adapter.is_git_available")
+    @pytest.mark.asyncio
+    async def test_commit_unavailable(self, mock_available):
+        """Should return error when git is unavailable."""
+        mock_available.return_value = False
+        adapter = GitAdapter()
+        success, error = await adapter.commit("Test commit")
+        assert success is False
+        assert "dostępny" in error.lower()
+
+    @patch("pc_client.adapters.git_adapter.is_git_available")
+    @patch("pc_client.adapters.git_adapter.asyncio.create_subprocess_exec")
+    @pytest.mark.asyncio
+    async def test_create_branch_and_checkout_success(self, mock_subprocess, mock_available):
+        """Should successfully create and checkout a branch."""
+        mock_available.return_value = True
+        mock_subprocess.return_value = _make_mock_process(0, b"Switched to a new branch 'feat/123-test'")
+
+        adapter = GitAdapter()
+        success, error = await adapter.create_branch_and_checkout("feat/123-test", "main")
+        assert success is True
+        assert error == ""
+
+
+class TestMockGitAdapterNewMethods:
+    """Tests for new MockGitAdapter methods."""
+
+    @pytest.mark.asyncio
+    async def test_add_file_success(self):
+        """Should return success for add_file."""
+        adapter = MockGitAdapter()
+        success, error = await adapter.add_file("test.md")
+        assert success is True
+        assert error == ""
+
+    @pytest.mark.asyncio
+    async def test_add_file_empty_path(self):
+        """Should return error for empty path."""
+        adapter = MockGitAdapter()
+        success, error = await adapter.add_file("")
+        assert success is False
+        assert "pusta" in error.lower()
+
+    @pytest.mark.asyncio
+    async def test_add_file_unavailable(self):
+        """Should return error when unavailable."""
+        adapter = MockGitAdapter(available=False)
+        success, error = await adapter.add_file("test.md")
+        assert success is False
+        assert "dostępny" in error.lower()
+
+    @pytest.mark.asyncio
+    async def test_commit_success(self):
+        """Should return success for commit."""
+        adapter = MockGitAdapter()
+        success, error = await adapter.commit("Test commit")
+        assert success is True
+        assert error == ""
+
+    @pytest.mark.asyncio
+    async def test_commit_empty_message(self):
+        """Should return error for empty message."""
+        adapter = MockGitAdapter()
+        success, error = await adapter.commit("")
+        assert success is False
+        assert "pusta" in error.lower()
+
+    @pytest.mark.asyncio
+    async def test_commit_unavailable(self):
+        """Should return error when unavailable."""
+        adapter = MockGitAdapter(available=False)
+        success, error = await adapter.commit("Test commit")
+        assert success is False
+        assert "dostępny" in error.lower()
+
+    @pytest.mark.asyncio
+    async def test_create_branch_and_checkout_success(self):
+        """Should create and checkout a branch."""
+        adapter = MockGitAdapter()
+        success, error = await adapter.create_branch_and_checkout("feat/123-test", "main")
+        assert success is True
+        assert error == ""
+        # Verify branch was added and is now current
+        assert adapter._branch == "feat/123-test"
+        assert "feat/123-test" in adapter._branches

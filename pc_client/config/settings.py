@@ -139,6 +139,13 @@ class Settings:
     github_repo_name: str = field(default_factory=lambda: os.getenv("GITHUB_REPO_NAME", ""))
     github_cache_ttl_seconds: int = field(default_factory=lambda: _safe_int("GITHUB_CACHE_TTL_SECONDS", "300"))
 
+    # Task auto-init configuration
+    task_auto_init_enabled: bool = field(
+        default_factory=lambda: os.getenv("TASK_AUTO_INIT_ENABLED", "true").lower() == "true"
+    )
+    task_docs_path: str = field(default_factory=lambda: os.getenv("TASK_DOCS_PATH", "docs_pl/_to_do"))
+    task_branch_prefix: str = field(default_factory=lambda: os.getenv("TASK_BRANCH_PREFIX", "feat"))
+
     @property
     def rider_pi_base_url(self) -> str:
         """Get the base URL for Rider-PI API."""

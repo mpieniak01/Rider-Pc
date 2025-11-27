@@ -748,3 +748,154 @@ def test_create_task_dirty_repo_allows_current_strategy(tmp_path, monkeypatch):
     assert data["branch"] == "feature-xyz"
     # No warning should be present for 'current' strategy
     assert "warning" not in data
+
+
+def test_create_task_with_auto_init(tmp_path, monkeypatch):
+    """Test creating a task with auto_init enabled creates docs file."""
+    # Reset the singletons
+    project_router_module._github_adapter = None
+    project_router_module._git_adapter = None
+
+    created_branch = {"name": None}
+    added_files = []
+    committed_messages = []
+
+    async def mock_create_issue(self, title, body="", assignees=None, labels=None):
+        return {
+            "success": True,
+            "number": 160,
+            "url": "https://github.com/mpieniak01/rider-pc/issues/160",
+            "title": title,
+        }
+
+    async def mock_create_branch_and_checkout(self, name, base="main"):
+        created_branch["name"] = name
+        return True, ""
+
+    async def mock_is_dirty(self):
+        return False
+
+    async def mock_add_file(self, path):
+        added_files.append(path)
+        return True, ""
+
+    async def mock_commit(self, message):
+        committed_messages.append(message)
+        return True, ""
+
+    monkeypatch.setattr(
+        "pc_client.adapters.github_adapter.GitHubAdapter.create_issue",
+        mock_create_issue,
+    )
+    monkeypatch.setattr(
+        "pc_client.adapters.git_adapter.GitAdapter.create_branch_and_checkout",
+        mock_create_branch_and_checkout,
+    )
+    monkeypatch.setattr(
+        "pc_client.adapters.git_adapter.GitAdapter.is_dirty",
+        mock_is_dirty,
+    )
+    monkeypatch.setattr(
+        "pc_client.adapters.git_adapter.GitAdapter.add_file",
+        mock_add_file,
+    )
+    monkeypatch.setattr(
+        "pc_client.adapters.git_adapter.GitAdapter.commit",
+        mock_commit,
+    )
+
+    client = make_client(
+        tmp_path / "cache.db",
+        github_token="fake_token",
+        github_owner="mpieniak01",
+        github_repo="rider-pc",
+    )
+
+    resp = client.post("/api/project/create-task", json={
+        "title": "Nowa Funkcja Y",
+        "body": "Opis zadania testowego",
+        "git_strategy": "new_branch",
+        "base_branch": "main",
+        "auto_init": True,
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["success"] is True
+    assert data["issue"]["number"] == 160
+    assert "feat/160-" in created_branch["name"]
+    # Verify docs file was created
+    assert "docs_file" in data
+    assert "160_" in data["docs_file"]
+    assert len(added_files) == 1
+    assert "160_" in added_files[0]
+    assert len(committed_messages) == 1
+    assert "#160" in committed_messages[0]
+
+
+def test_create_task_auto_init_disabled(tmp_path, monkeypatch):
+    """Test creating a task with auto_init disabled doesn't create docs file."""
+    # Reset the singletons
+    project_router_module._github_adapter = None
+    project_router_module._git_adapter = None
+
+    created_branch = {"name": None}
+    added_files = []
+
+    async def mock_create_issue(self, title, body="", assignees=None, labels=None):
+        return {
+            "success": True,
+            "number": 161,
+            "url": "https://github.com/mpieniak01/rider-pc/issues/161",
+            "title": title,
+        }
+
+    async def mock_create_branch_and_checkout(self, name, base="main"):
+        created_branch["name"] = name
+        return True, ""
+
+    async def mock_is_dirty(self):
+        return False
+
+    async def mock_add_file(self, path):
+        added_files.append(path)
+        return True, ""
+
+    monkeypatch.setattr(
+        "pc_client.adapters.github_adapter.GitHubAdapter.create_issue",
+        mock_create_issue,
+    )
+    monkeypatch.setattr(
+        "pc_client.adapters.git_adapter.GitAdapter.create_branch_and_checkout",
+        mock_create_branch_and_checkout,
+    )
+    monkeypatch.setattr(
+        "pc_client.adapters.git_adapter.GitAdapter.is_dirty",
+        mock_is_dirty,
+    )
+    monkeypatch.setattr(
+        "pc_client.adapters.git_adapter.GitAdapter.add_file",
+        mock_add_file,
+    )
+
+    client = make_client(
+        tmp_path / "cache.db",
+        github_token="fake_token",
+        github_owner="mpieniak01",
+        github_repo="rider-pc",
+    )
+
+    resp = client.post("/api/project/create-task", json={
+        "title": "Nowa Funkcja Z",
+        "git_strategy": "new_branch",
+        "base_branch": "main",
+        "auto_init": False,
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["success"] is True
+    assert data["issue"]["number"] == 161
+    # Docs file should NOT be created
+    assert "docs_file" not in data
+    assert len(added_files) == 0

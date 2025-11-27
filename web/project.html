@@ -110,6 +110,14 @@
           <span class="hint muted">(Automatyczna nazwa na podst. tytułu)</span>
         </label>
         
+        <div id="auto-init-option" class="nested-option" style="display: none;">
+          <label class="checkbox-option">
+            <input type="checkbox" id="task-auto-init" name="auto_init" checked />
+            <span data-i18n="project.form.auto_init">Zainicjuj automatycznie</span>
+            <span class="hint muted">(Utwórz plik dokumentacji i wykonaj pierwszy commit)</span>
+          </label>
+        </div>
+        
         <label class="radio-option">
           <input type="radio" name="git_strategy" value="existing" />
           <span data-i18n="project.form.existing_branch">Przełącz na istniejący branch</span>
@@ -400,6 +408,8 @@
   const currentBranchLabel = document.getElementById('current-branch-label');
   const existingBranchSelect = document.getElementById('existing-branch-select');
   const taskExistingBranch = document.getElementById('task-existing-branch');
+  const autoInitOption = document.getElementById('auto-init-option');
+  const taskAutoInit = document.getElementById('task-auto-init');
   
   // Cache for form metadata
   let formMeta = null;
@@ -482,6 +492,7 @@
   document.querySelectorAll('input[name="git_strategy"]').forEach(radio => {
     radio.addEventListener('change', (e) => {
       existingBranchSelect.style.display = e.target.value === 'existing' ? 'block' : 'none';
+      autoInitOption.style.display = e.target.value === 'new_branch' ? 'block' : 'none';
     });
   });
   
@@ -518,6 +529,7 @@
       assignee: taskAssignee.value || null,
       labels: selectedLabels,
       git_strategy: gitStrategy,
+      auto_init: gitStrategy === 'new_branch' ? taskAutoInit.checked : false,
       base_branch: 'main',
     };
     
@@ -566,10 +578,16 @@
         if (data.branch) {
           message += ` Branch: ${data.branch}`;
         }
+        if (data.docs_file) {
+          message += ` | Docs: ${data.docs_file}`;
+        }
         if (data.warning) {
           showToast(data.warning, 'error');
         } else {
           showToast(message, 'success');
+        }
+        if (data.init_warning) {
+          showToast(data.init_warning, 'error');
         }
         
         // Refresh issues list
