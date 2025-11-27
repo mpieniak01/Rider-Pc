@@ -321,6 +321,61 @@ In mock/simulated mode, the dashboard shows default services with simulated stat
 - Regularly audit which services are controllable
 - Consider running Rider-PC in a dedicated user account
 
+## GitHub Integration
+
+### Overview
+
+Rider-PC supports integration with GitHub for issue tracking and project dashboard features. This integration reads credentials from environment variables, keeping secrets out of configuration files.
+
+### Configuration
+
+Set the following environment variables for GitHub integration:
+
+```bash
+# Required: GitHub Personal Access Token
+# Create at: https://github.com/settings/tokens
+# Required scopes: repo (for private repos) or public_repo (for public repos only)
+GITHUB_TOKEN=ghp_your_token_here
+
+# Required: Repository owner (username or organization)
+GITHUB_REPO_OWNER=your-username
+
+# Required: Repository name
+GITHUB_REPO_NAME=your-repo
+
+# Optional: Cache TTL in seconds for GitHub API responses (default: 300)
+GITHUB_CACHE_TTL_SECONDS=300
+```
+
+### Checking Configuration Status
+
+The `Settings` class provides an `is_github_configured` property to check if GitHub integration is available:
+
+```python
+from pc_client.config.settings import settings
+
+if settings.is_github_configured:
+    print("GitHub integration is available")
+else:
+    print("GitHub token not set - integration disabled")
+```
+
+### Security Considerations
+
+- **Never commit tokens**: Store `GITHUB_TOKEN` in environment variables only
+- **Use minimal scopes**: Grant only the permissions needed for your use case
+- **Rotate tokens**: Periodically regenerate your GitHub token
+- **Use fine-grained tokens**: Consider using fine-grained personal access tokens for better security
+
+### Platform Behavior
+
+| Environment | Behavior |
+|-------------|----------|
+| **Local development** | Set variables in shell or `.env` file (not committed) |
+| **Docker** | Pass via `docker-compose.yml` environment section |
+| **CI/CD** | Use repository secrets |
+| **Production** | Use secure secret management (e.g., HashiCorp Vault) |
+
 ## Documentation Status
 
 - ✅ AI Model Configuration
@@ -329,5 +384,6 @@ In mock/simulated mode, the dashboard shows default services with simulated stat
 - ✅ Monitoring Configuration
 - ✅ Configuration Hub (this document)
 - ✅ Local System Service Management
+- ✅ GitHub Integration
 
-**Last update**: 2025-11-26
+**Last update**: 2025-11-27

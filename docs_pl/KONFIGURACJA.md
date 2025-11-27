@@ -303,6 +303,61 @@ W trybie symulowanym dashboard pokazuje domyślne usługi z symulowanymi stanami
 - Regularnie audytuj które usługi są kontrolowalne
 - Rozważ uruchamianie Rider-PC na dedykowanym koncie użytkownika
 
+## Integracja z GitHub
+
+### Przegląd
+
+Rider-PC wspiera integrację z GitHub dla śledzenia zadań i funkcji dashboardu projektowego. Integracja odczytuje poświadczenia ze zmiennych środowiskowych, dzięki czemu sekrety nie trafiają do plików konfiguracyjnych.
+
+### Konfiguracja
+
+Ustaw następujące zmienne środowiskowe dla integracji z GitHub:
+
+```bash
+# Wymagane: GitHub Personal Access Token
+# Utwórz na: https://github.com/settings/tokens
+# Wymagane uprawnienia: repo (dla prywatnych repo) lub public_repo (tylko dla publicznych)
+GITHUB_TOKEN=ghp_twoj_token_tutaj
+
+# Wymagane: Właściciel repozytorium (nazwa użytkownika lub organizacji)
+GITHUB_REPO_OWNER=twoja-nazwa-uzytkownika
+
+# Wymagane: Nazwa repozytorium
+GITHUB_REPO_NAME=twoje-repo
+
+# Opcjonalne: TTL cache dla odpowiedzi API GitHub w sekundach (domyślnie: 300)
+GITHUB_CACHE_TTL_SECONDS=300
+```
+
+### Sprawdzanie Statusu Konfiguracji
+
+Klasa `Settings` udostępnia właściwość `is_github_configured` do sprawdzenia, czy integracja z GitHub jest dostępna:
+
+```python
+from pc_client.config.settings import settings
+
+if settings.is_github_configured:
+    print("Integracja z GitHub jest dostępna")
+else:
+    print("Token GitHub nie ustawiony - integracja wyłączona")
+```
+
+### Względy Bezpieczeństwa
+
+- **Nigdy nie commituj tokenów**: Przechowuj `GITHUB_TOKEN` tylko w zmiennych środowiskowych
+- **Używaj minimalnych uprawnień**: Nadawaj tylko uprawnienia potrzebne do Twojego przypadku użycia
+- **Rotuj tokeny**: Okresowo regeneruj swój token GitHub
+- **Używaj fine-grained tokenów**: Rozważ użycie fine-grained personal access tokens dla lepszego bezpieczeństwa
+
+### Zachowanie na Różnych Platformach
+
+| Środowisko | Zachowanie |
+|------------|------------|
+| **Lokalne środowisko deweloperskie** | Ustaw zmienne w powłoce lub pliku `.env` (nie commituj) |
+| **Docker** | Przekaż przez sekcję environment w `docker-compose.yml` |
+| **CI/CD** | Użyj sekretów repozytorium |
+| **Produkcja** | Użyj bezpiecznego zarządzania sekretami (np. HashiCorp Vault) |
+
 ## Dalsze Informacje
 
 - **Szybki Start**: [SZYBKI_START.md](SZYBKI_START.md)
@@ -318,5 +373,6 @@ W trybie symulowanym dashboard pokazuje domyślne usługi z symulowanymi stanami
 - ✅ Konfiguracja Monitoringu
 - ✅ Hub Konfiguracyjny (ten dokument)
 - ✅ Zarządzanie Lokalnymi Usługami Systemowymi
+- ✅ Integracja z GitHub
 
-**Ostatnia aktualizacja**: 2025-11-26
+**Ostatnia aktualizacja**: 2025-11-27

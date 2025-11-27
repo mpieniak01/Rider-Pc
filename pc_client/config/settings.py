@@ -159,6 +159,15 @@ class Settings:
         """Get telemetry ZMQ PUB endpoint."""
         return f"tcp://{self.telemetry_zmq_host}:{self.telemetry_zmq_port}"
 
+    @property
+    def is_github_configured(self) -> bool:
+        """Check if GitHub integration is properly configured.
+
+        Returns:
+            True if github_token is set (not None and not empty), False otherwise.
+        """
+        return bool(self.github_token)
+
 
 # Global settings instance
 settings = Settings()
