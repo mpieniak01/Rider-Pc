@@ -90,6 +90,10 @@ class TextSplitter:
         Raises:
             ValueError: If chunk_overlap >= chunk_size or values are invalid.
         """
+        if chunk_overlap >= chunk_size:
+            raise ValueError(f"chunk_overlap ({chunk_overlap}) must be less than chunk_size ({chunk_size})")
+        if chunk_size <= 0 or chunk_overlap < 0:
+            raise ValueError("chunk_size must be positive and chunk_overlap must be non-negative")
         if chunk_size <= 0 or chunk_overlap < 0:
             raise ValueError("chunk_size must be positive and chunk_overlap must be non-negative")
         if chunk_overlap >= chunk_size:
