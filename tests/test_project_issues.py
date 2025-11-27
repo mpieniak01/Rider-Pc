@@ -6,11 +6,13 @@ from fastapi.testclient import TestClient
 from pc_client.api.server import create_app
 from pc_client.cache import CacheManager
 from pc_client.config import Settings
-from pc_client.api.routers.project_router import slugify
 
 # Import the module correctly (avoiding __init__.py shadowing)
 import pc_client.api.routers.project_router
 project_router_module = sys.modules['pc_client.api.routers.project_router']
+
+# Import slugify after module is properly loaded
+from pc_client.api.routers.project_router import slugify
 
 
 class TestSlugify:

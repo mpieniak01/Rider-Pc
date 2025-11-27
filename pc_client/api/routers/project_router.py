@@ -270,6 +270,7 @@ async def create_task(request: Request, payload: CreateTaskRequest) -> JSONRespo
             else:
                 result["branch"] = payload.existing_branch
         else:
+            result["success"] = False
             result["error"] = "Nie wybrano istniejącego brancha"
             return JSONResponse(content=result, status_code=400)
 
