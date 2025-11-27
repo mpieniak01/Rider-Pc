@@ -111,7 +111,8 @@ class VectorStore:
             texts = [doc.content for doc in documents]
             metadatas = [doc.metadata for doc in documents]
 
-            # Clear existing collection and add new documents
+            # Clear existing documents before adding new ones
+            # ChromaDB requires a where filter; we match all documents with a source field
             self._collection.delete(where={"source": {"$exists": True}})
 
             self._collection.add(

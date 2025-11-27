@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Global vector store instance (lazy initialization)
-_vector_store: VectorStore | None = None
+_vector_store: Optional[VectorStore] = None
 _reindex_in_progress = False
 
 
@@ -96,13 +96,9 @@ def _reindex_background_task():
     """Background task wrapper for reindexing."""
     import asyncio
 
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        result = loop.run_until_complete(_perform_reindex())
-        logger.info("Background reindex completed: %s", result)
-    finally:
-        loop.close()
+    # Use asyncio.run which properly handles loop lifecycle
+    result = asyncio.run(_perform_reindex())
+    logger.info("Background reindex completed: %s", result)
 
 
 @router.post("/api/knowledge/reindex")

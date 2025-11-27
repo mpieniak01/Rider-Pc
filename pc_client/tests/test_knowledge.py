@@ -239,15 +239,15 @@ class TestKnowledgeRouterMock:
     @pytest.mark.asyncio
     async def test_status_when_rag_disabled(self):
         """Should return disabled status when RAG is not enabled."""
+        import json
         with patch("pc_client.api.routers.knowledge_router.settings") as mock_settings:
             mock_settings.rag_enabled = False
 
             from pc_client.api.routers.knowledge_router import knowledge_base_status
 
             response = await knowledge_base_status()
-            data = response.body.decode()
-            assert "enabled" in data
-            assert "false" in data.lower() or '"enabled": false' in data.lower()
+            data = json.loads(response.body.decode())
+            assert data["enabled"] is False
 
     @pytest.mark.asyncio
     async def test_search_when_rag_disabled(self):
