@@ -310,7 +310,6 @@ async def create_task(request: Request, payload: CreateTaskRequest) -> JSONRespo
     issue_url = issue_result["url"]
     issue_title = issue_result["title"]
     branch_error: Optional[str] = None
-    title_slug = slugify(payload.title)
 
     # Check for dirty repository if a git operation is required
     if payload.git_strategy in ("new_branch", "main", "existing"):
@@ -324,6 +323,7 @@ async def create_task(request: Request, payload: CreateTaskRequest) -> JSONRespo
 
     if payload.git_strategy == "new_branch":
         # Generate branch name from issue number and title
+        title_slug = slugify(payload.title)
         branch_prefix = task_config.get("branch_prefix", "feat")
         branch_name = f"{branch_prefix}/{issue_number}-{title_slug}"
 
@@ -339,41 +339,62 @@ async def create_task(request: Request, payload: CreateTaskRequest) -> JSONRespo
                 docs_filename = f"{issue_number}_{title_slug}.md"
                 docs_filepath = os.path.join(docs_path, docs_filename)
 
+                # Path traversal protection using commonpath for cross-platform safety
+                repo_root = os.path.abspath(os.getcwd())
+                abs_docs_filepath = os.path.abspath(docs_filepath)
+                
+                # Check for path traversal attempts
+                is_safe_path = False
                 try:
-                    # Ensure docs directory exists
-                    os.makedirs(docs_path, exist_ok=True)
+                    # commonpath raises ValueError if paths are on different drives (Windows)
+                    # or if one path is not relative to the other
+                    common = os.path.commonpath([repo_root, abs_docs_filepath])
+                    is_safe_path = common == repo_root
+                except ValueError:
+                    is_safe_path = False
+                
+                if os.path.isabs(docs_path) or ".." in docs_path.split(os.sep):
+                    logger.error("Unsafe docs_path detected: %s", docs_path)
+                    result["init_warning"] = "Nieprawidłowa ścieżka dokumentacji (docs_path)."
+                elif not is_safe_path:
+                    logger.error("Docs file path escapes repository root: %s", abs_docs_filepath)
+                    result["init_warning"] = "Nieprawidłowa ścieżka pliku dokumentacji."
+                else:
+                    try:
+                        # Ensure docs directory exists
+                        os.makedirs(docs_path, exist_ok=True)
 
-                    # Generate markdown content
-                    md_content = generate_task_markdown(
-                        issue_number=issue_number,
-                        title=issue_title,
-                        github_url=issue_url,
-                        assignee=payload.assignee,
-                        body=payload.body,
-                    )
+                        # Generate markdown content
+                        md_content = generate_task_markdown(
+                            issue_number=issue_number,
+                            title=issue_title,
+                            github_url=issue_url,
+                            assignee=payload.assignee,
+                            body=payload.body,
+                        )
 
-                    # Write the file
-                    with open(docs_filepath, "w", encoding="utf-8") as f:
-                        f.write(md_content)
+                        # Write the file
+                        with open(docs_filepath, "w", encoding="utf-8") as f:
+                            f.write(md_content)
 
-                    # Git add and commit
-                    add_success, add_error = await git.add_file(docs_filepath)
-                    if add_success:
-                        commit_msg = f"docs: Start task #{issue_number} - {issue_title}"
-                        commit_success, commit_error = await git.commit(commit_msg)
-                        if commit_success:
-                            result["docs_file"] = docs_filepath
-                            logger.info("Auto-init completed: created %s", docs_filepath)
+                        # Git add and commit
+                        add_success, add_error = await git.add_file(docs_filepath)
+                        if add_success:
+                            commit_msg = f"docs: Start task #{issue_number} - {issue_title}"
+                            commit_success, commit_error = await git.commit(commit_msg)
+                            if commit_success:
+                                result["docs_file"] = docs_filepath
+                                logger.info("Auto-init completed: created %s", docs_filepath)
+                            else:
+                                logger.warning("Failed to commit docs file: %s", commit_error)
+                                result["init_warning"] = f"Plik dokumentacji utworzony, ale commit nie powiódł się: {commit_error}"
                         else:
-                            logger.warning("Failed to commit docs file: %s", commit_error)
-                            result["init_warning"] = f"Plik dokumentacji utworzony, ale commit nie powiódł się: {commit_error}"
-                    else:
-                        logger.warning("Failed to add docs file: %s", add_error)
-                        result["init_warning"] = f"Plik dokumentacji utworzony, ale git add nie powiódł się: {add_error}"
+                            logger.warning("Failed to add docs file: %s", add_error)
+                            result["init_warning"] = f"Plik dokumentacji utworzony, ale git add nie powiódł się: {add_error}. Plik pozostaje w katalogu roboczym."
 
-                except OSError as e:
-                    logger.error("Failed to create docs file: %s", e)
-                    result["init_warning"] = f"Nie udało się utworzyć pliku dokumentacji: {e}"
+                    except OSError as e:
+                        logger.error("Failed to create docs file: %s", e)
+                        result["init_warning"] = f"Nie udało się utworzyć pliku dokumentacji: {e}"
 
     elif payload.git_strategy == "main":
         success, error = await git.checkout_branch("main")

@@ -359,18 +359,21 @@ class GitAdapter:
         self.invalidate_cache()
         return True, ""
 
-    async def create_branch_and_checkout(self, branch_name: str, base: str = "main") -> Tuple[bool, str]:
+    async def create_branch_and_checkout(self, name: str, base: str = "main") -> Tuple[bool, str]:
         """
         Create and checkout a new branch (alias for create_branch).
 
+        Note: create_branch already performs both operations (git checkout -b),
+        this alias is provided for API clarity.
+
         Args:
-            branch_name: New branch name.
+            name: New branch name.
             base: Base branch name (default: main).
 
         Returns:
             Tuple of (success, error_message).
         """
-        return await self.create_branch(branch_name, base)
+        return await self.create_branch(name, base)
 
     async def add_file(self, path: str) -> Tuple[bool, str]:
         """
@@ -529,9 +532,9 @@ class MockGitAdapter:
         self._branch = name
         return True, ""
 
-    async def create_branch_and_checkout(self, branch_name: str, base: str = "main") -> Tuple[bool, str]:
+    async def create_branch_and_checkout(self, name: str, base: str = "main") -> Tuple[bool, str]:
         """Return mock create branch and checkout result."""
-        return await self.create_branch(branch_name, base)
+        return await self.create_branch(name, base)
 
     async def add_file(self, path: str) -> Tuple[bool, str]:
         """Return mock add file result."""
