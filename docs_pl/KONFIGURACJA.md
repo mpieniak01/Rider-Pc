@@ -419,6 +419,67 @@ else:
 | **CI/CD** | Użyj sekretów repozytorium |
 | **Produkcja** | Użyj bezpiecznego zarządzania sekretami (np. HashiCorp Vault) |
 
+## Baza Wiedzy (RAG)
+
+### Przegląd
+
+Rider-PC zawiera moduł **Knowledge Base** oparty na technologii RAG (Retrieval-Augmented Generation), który indeksuje dokumentację projektu i umożliwia inteligentne wyszukiwanie informacji.
+
+### Funkcje
+
+- **Indeksowanie dokumentów**: Automatyczne przetwarzanie plików Markdown z katalogów `docs_pl/` i `docs/`
+- **Wyszukiwanie semantyczne**: Znajdowanie fragmentów tekstu pasujących do zapytania
+- **Persystencja**: Baza wektorowa zachowuje stan między restartami
+
+### Konfiguracja
+
+```bash
+# Włącz bazę wiedzy RAG
+RAG_ENABLED=true
+
+# Katalogi z dokumentacją (oddzielone przecinkiem)
+RAG_DOCS_PATHS=docs_pl,docs
+
+# Model do generowania embeddingów (sentence-transformers)
+EMBEDDING_MODEL=all-MiniLM-L6-v2
+
+# Rozmiar chunków (w znakach)
+RAG_CHUNK_SIZE=800
+
+# Nakładanie się chunków (w znakach)
+RAG_CHUNK_OVERLAP=100
+
+# Ścieżka do persystentnej bazy ChromaDB
+RAG_PERSIST_PATH=data/chroma_db
+```
+
+### Wymagane zależności
+
+Moduł RAG wymaga dodatkowych bibliotek:
+- `chromadb` - baza wektorowa
+- `sentence-transformers` - generowanie embeddingów
+
+### Endpointy API
+
+| Endpoint | Metoda | Opis |
+|----------|--------|------|
+| `/api/knowledge/status` | GET | Status bazy wiedzy |
+| `/api/knowledge/reindex` | POST | Przebuduj indeks dokumentów |
+| `/api/knowledge/search?q=...` | GET | Wyszukaj fragmenty |
+
+### Przykład użycia
+
+```bash
+# Sprawdź status bazy wiedzy
+curl http://localhost:8000/api/knowledge/status
+
+# Przeindeksuj dokumentację (synchronicznie)
+curl -X POST "http://localhost:8000/api/knowledge/reindex?blocking=true"
+
+# Wyszukaj informacje o konfiguracji Voice
+curl "http://localhost:8000/api/knowledge/search?q=konfiguracja+voice&k=3"
+```
+
 ## Dalsze Informacje
 
 - **Szybki Start**: [SZYBKI_START.md](SZYBKI_START.md)
@@ -435,5 +496,6 @@ else:
 - ✅ Hub Konfiguracyjny (ten dokument)
 - ✅ Zarządzanie Lokalnymi Usługami Systemowymi
 - ✅ Integracja z GitHub
+- ✅ Baza Wiedzy (RAG)
 
 **Ostatnia aktualizacja**: 2025-11-27

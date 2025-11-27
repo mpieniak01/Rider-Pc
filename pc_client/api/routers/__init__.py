@@ -7,6 +7,7 @@ from .voice_router import router as voice_router
 from .chat_router import router as chat_router
 from .project_router import router as project_router
 from .model_router import router as model_router
+from .knowledge_router import router as knowledge_router
 
 __all__ = [
     "status_router",
@@ -16,4 +17,5 @@ __all__ = [
     "chat_router",
     "project_router",
     "model_router",
+    "knowledge_router",
 ]

@@ -146,6 +146,14 @@ class Settings:
     task_docs_path: str = field(default_factory=lambda: os.getenv("TASK_DOCS_PATH", "docs_pl/_to_do"))
     task_branch_prefix: str = field(default_factory=lambda: os.getenv("TASK_BRANCH_PREFIX", "feat"))
 
+    # RAG (Knowledge Base) configuration
+    rag_enabled: bool = field(default_factory=lambda: os.getenv("RAG_ENABLED", "false").lower() == "true")
+    rag_docs_paths: str = field(default_factory=lambda: os.getenv("RAG_DOCS_PATHS", "docs_pl,docs"))
+    embedding_model: str = field(default_factory=lambda: os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2"))
+    rag_chunk_size: int = field(default_factory=lambda: _safe_int("RAG_CHUNK_SIZE", "800"))
+    rag_chunk_overlap: int = field(default_factory=lambda: _safe_int("RAG_CHUNK_OVERLAP", "100"))
+    rag_persist_path: str = field(default_factory=lambda: os.getenv("RAG_PERSIST_PATH", "data/chroma_db"))
+
     @property
     def rider_pi_base_url(self) -> str:
         """Get the base URL for Rider-PI API."""

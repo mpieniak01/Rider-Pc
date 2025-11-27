@@ -24,6 +24,7 @@ from pc_client.api.routers import (
     chat_router,
     project_router,
     model_router,
+    knowledge_router,
 )
 from pc_client.api.sse_manager import SseManager
 
@@ -156,6 +157,7 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
     app.include_router(chat_router)
     app.include_router(project_router)
     app.include_router(model_router)
+    app.include_router(knowledge_router)
 
     class NoCacheStaticFiles(StaticFiles):
         """StaticFiles variant that disables conditional caching."""
