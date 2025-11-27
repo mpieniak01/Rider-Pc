@@ -307,16 +307,40 @@ W trybie symulowanym dashboard pokazuje domyślne usługi z symulowanymi stanami
 
 ### Przegląd
 
-Rider-PC wspiera integrację z GitHub dla śledzenia zadań i funkcji dashboardu projektowego. Integracja odczytuje poświadczenia ze zmiennych środowiskowych, dzięki czemu sekrety nie trafiają do plików konfiguracyjnych.
+Rider-PC wspiera integrację z GitHub dla śledzenia zadań i funkcji dashboardu projektowego. Integracja obejmuje:
+- **Dashboard Projektu** - przeglądanie otwartych zgłoszeń (Issues) z GitHub
+- **Kreator Zadań** - tworzenie nowych Issues bezpośrednio z interfejsu Rider-PC
+- **Auto-init** - automatyczne tworzenie branchy i plików dokumentacji
 
-### Konfiguracja
+Integracja odczytuje poświadczenia ze zmiennych środowiskowych, dzięki czemu sekrety nie trafiają do plików konfiguracyjnych.
+
+### Generowanie Personal Access Token (PAT)
+
+1. Przejdź do **GitHub Settings** → **Developer settings** → **Personal access tokens**
+   - Klasyczne tokeny: https://github.com/settings/tokens
+   - Fine-grained tokeny (zalecane): https://github.com/settings/tokens?type=beta
+
+2. Kliknij **"Generate new token"**
+
+3. Nadaj tokenowi opisową nazwę, np. `rider-pc-integration`
+
+4. Ustaw czas wygaśnięcia (zalecane: 90 dni, maksymalnie 1 rok)
+
+5. Wybierz wymagane uprawnienia:
+   - Dla **klasycznych tokenów**: zaznacz scope `repo` (pełen dostęp do prywatnych repozytoriów) lub `public_repo` (tylko publiczne)
+   - Dla **fine-grained tokenów**: wybierz repozytorium i ustaw uprawnienia:
+     - `Contents`: Read and write (dla tworzenia branchy i plików)
+     - `Issues`: Read and write (dla tworzenia i przeglądania Issues)
+     - `Metadata`: Read-only (wymagane)
+
+6. Kliknij **"Generate token"** i **natychmiast skopiuj** wygenerowany token (nie będzie ponownie widoczny)
+
+### Konfiguracja Zmiennych Środowiskowych
 
 Ustaw następujące zmienne środowiskowe dla integracji z GitHub:
 
 ```bash
 # Wymagane: GitHub Personal Access Token
-# Utwórz na: https://github.com/settings/tokens
-# Wymagane uprawnienia: repo (dla prywatnych repo) lub public_repo (tylko dla publicznych)
 GITHUB_TOKEN=ghp_twoj_token_tutaj
 
 # Wymagane: Właściciel repozytorium (nazwa użytkownika lub organizacji)
@@ -327,6 +351,42 @@ GITHUB_REPO_NAME=twoje-repo
 
 # Opcjonalne: TTL cache dla odpowiedzi API GitHub w sekundach (domyślnie: 300)
 GITHUB_CACHE_TTL_SECONDS=300
+```
+
+### Konfiguracja Auto-init (Kreator Zadań)
+
+Opcjonalne zmienne do konfiguracji funkcji automatycznej inicjalizacji zadań:
+
+```bash
+# Włącz/wyłącz funkcję auto-init (domyślnie: true)
+TASK_AUTO_INIT_ENABLED=true
+
+# Ścieżka do katalogu dokumentacji zadań (domyślnie: docs_pl/_to_do)
+TASK_DOCS_PATH=docs_pl/_to_do
+
+# Prefiks dla nowych branchy (domyślnie: feat)
+# Wynikowa nazwa: feat/<numer-issue>-<slug-tytulu>
+TASK_BRANCH_PREFIX=feat
+```
+
+### Konfiguracja w .bashrc / .zshrc
+
+Dla bezpiecznej konfiguracji, dodaj zmienne do pliku konfiguracyjnego powłoki:
+
+```bash
+# ~/.bashrc lub ~/.zshrc
+# Konfiguracja GitHub dla Rider-PC
+# UWAGA: Nigdy nie commituj tego pliku do repozytorium!
+
+export GITHUB_TOKEN="ghp_twoj_prawdziwy_token"
+export GITHUB_REPO_OWNER="twoja-nazwa-uzytkownika"
+export GITHUB_REPO_NAME="twoje-repo"
+```
+
+Po edycji pliku, przeładuj konfigurację:
+
+```bash
+source ~/.bashrc  # lub source ~/.zshrc
 ```
 
 ### Sprawdzanie Statusu Konfiguracji
@@ -344,17 +404,18 @@ else:
 
 ### Względy Bezpieczeństwa
 
-- **Nigdy nie commituj tokenów**: Przechowuj `GITHUB_TOKEN` tylko w zmiennych środowiskowych
+- **Nigdy nie commituj tokenów**: Przechowuj `GITHUB_TOKEN` tylko w zmiennych środowiskowych lub bezpiecznych menedżerach sekretów
 - **Używaj minimalnych uprawnień**: Nadawaj tylko uprawnienia potrzebne do Twojego przypadku użycia
-- **Rotuj tokeny**: Okresowo regeneruj swój token GitHub
+- **Rotuj tokeny**: Okresowo regeneruj swój token GitHub (zalecane co 90 dni)
 - **Używaj fine-grained tokenów**: Rozważ użycie fine-grained personal access tokens dla lepszego bezpieczeństwa
+- **Nie używaj pliku .env w produkcji**: Plik `.env` jest wygodny dla rozwoju, ale w produkcji użyj bezpieczniejszych metod
 
 ### Zachowanie na Różnych Platformach
 
 | Środowisko | Zachowanie |
 |------------|------------|
-| **Lokalne środowisko deweloperskie** | Ustaw zmienne w powłoce lub pliku `.env` (nie commituj) |
-| **Docker** | Przekaż przez sekcję environment w `docker-compose.yml` |
+| **Lokalne środowisko deweloperskie** | Ustaw zmienne w `~/.bashrc` lub `~/.zshrc` (nie w plikach repo) |
+| **Docker** | Przekaż przez sekcję environment w `docker-compose.yml` lub plik `.env` (nie commituj) |
 | **CI/CD** | Użyj sekretów repozytorium |
 | **Produkcja** | Użyj bezpiecznego zarządzania sekretami (np. HashiCorp Vault) |
 
