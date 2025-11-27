@@ -332,6 +332,16 @@ class RestAdapter:
             logger.error(f"Error fetching /api/providers/health: {e}")
             return {"error": str(e)}
 
+    async def get_remote_models(self) -> Dict[str, Any]:
+        """Fetch Rider-PI model inventory."""
+        try:
+            response = await self.client.get(f"{self.base_url}/api/models/installed")
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error fetching /api/models/installed: {e}")
+            return {"error": str(e)}
+
     async def get_resource(self, resource_name: str) -> Dict[str, Any]:
         """
         Get resource status from /api/resource/{resource_name}.

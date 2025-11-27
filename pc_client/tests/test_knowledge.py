@@ -239,6 +239,7 @@ class TestKnowledgeRouterMock:
     async def test_status_when_rag_disabled(self):
         """Should return disabled status when RAG is not enabled."""
         import json
+
         with patch("pc_client.api.routers.knowledge_router.settings") as mock_settings:
             mock_settings.rag_enabled = False
 
@@ -291,13 +292,14 @@ class TestKnowledgeRouterMock:
         import json
         from unittest.mock import MagicMock, AsyncMock
 
-        with patch("pc_client.api.routers.knowledge_router.settings") as mock_settings, \
-             patch("pc_client.api.routers.knowledge_router._get_vector_store") as mock_get_store, \
-             patch("pc_client.api.routers.knowledge_router.DocumentLoader") as mock_loader_class, \
-             patch("pc_client.api.routers.knowledge_router.TextSplitter") as mock_splitter_class, \
-             patch("pc_client.api.routers.knowledge_router._reindex_in_progress", False), \
-             patch("pc_client.api.routers.knowledge_router._reindex_lock", AsyncMock()):
-
+        with (
+            patch("pc_client.api.routers.knowledge_router.settings") as mock_settings,
+            patch("pc_client.api.routers.knowledge_router._get_vector_store") as mock_get_store,
+            patch("pc_client.api.routers.knowledge_router.DocumentLoader") as mock_loader_class,
+            patch("pc_client.api.routers.knowledge_router.TextSplitter") as mock_splitter_class,
+            patch("pc_client.api.routers.knowledge_router._reindex_in_progress", False),
+            patch("pc_client.api.routers.knowledge_router._reindex_lock", AsyncMock()),
+        ):
             mock_settings.rag_enabled = True
             mock_settings.rag_docs_paths = "docs_pl,docs"
             mock_settings.rag_chunk_size = 800
@@ -305,16 +307,12 @@ class TestKnowledgeRouterMock:
 
             # Mock loader to return test documents
             mock_loader = MagicMock()
-            mock_loader.load.return_value = [
-                Document(content="Test content", metadata={"source": "test.md"})
-            ]
+            mock_loader.load.return_value = [Document(content="Test content", metadata={"source": "test.md"})]
             mock_loader_class.return_value = mock_loader
 
             # Mock splitter to return chunks
             mock_splitter = MagicMock()
-            mock_splitter.split.return_value = [
-                Document(content="Test chunk", metadata={"source": "test.md"})
-            ]
+            mock_splitter.split.return_value = [Document(content="Test chunk", metadata={"source": "test.md"})]
             mock_splitter_class.return_value = mock_splitter
 
             # Mock vector store
@@ -341,9 +339,10 @@ class TestKnowledgeRouterMock:
         import json
         from unittest.mock import MagicMock
 
-        with patch("pc_client.api.routers.knowledge_router.settings") as mock_settings, \
-             patch("pc_client.api.routers.knowledge_router._get_vector_store") as mock_get_store:
-
+        with (
+            patch("pc_client.api.routers.knowledge_router.settings") as mock_settings,
+            patch("pc_client.api.routers.knowledge_router._get_vector_store") as mock_get_store,
+        ):
             mock_settings.rag_enabled = True
 
             # Mock vector store to return search results
@@ -371,10 +370,11 @@ class TestKnowledgeRouterMock:
         import json
         from unittest.mock import MagicMock
 
-        with patch("pc_client.api.routers.knowledge_router.settings") as mock_settings, \
-             patch("pc_client.api.routers.knowledge_router._get_vector_store") as mock_get_store, \
-             patch("pc_client.api.routers.knowledge_router._reindex_in_progress", False):
-
+        with (
+            patch("pc_client.api.routers.knowledge_router.settings") as mock_settings,
+            patch("pc_client.api.routers.knowledge_router._get_vector_store") as mock_get_store,
+            patch("pc_client.api.routers.knowledge_router._reindex_in_progress", False),
+        ):
             mock_settings.rag_enabled = True
             mock_settings.embedding_model = "all-MiniLM-L6-v2"
             mock_settings.rag_persist_path = "data/chroma_db"

@@ -38,6 +38,8 @@ class TestGetInstalledModels:
         assert data["total_local"] == 0
         assert data["total_ollama"] == 0
         assert data["local"] == []
+        assert data["total_remote"] == 0
+        assert data["remote"] == []
         assert data["ollama"] == []
 
     def test_returns_local_models(self, client, tmp_path):
@@ -92,10 +94,11 @@ class TestBindModel:
         mock_active = ActiveModels()
 
         with patch.object(ModelManager, "get_active_models", return_value=mock_active):
-            response = client.post(
-                "/api/models/bind",
-                json={"slot": "text", "provider": "ollama", "model": "llama3.2:1b"},
-            )
+            with patch.object(ModelManager, "persist_active_model", return_value=None):
+                response = client.post(
+                    "/api/models/bind",
+                    json={"slot": "text", "provider": "ollama", "model": "llama3.2:1b"},
+                )
 
         assert response.status_code == 200
         data = response.json()
@@ -181,3 +184,4 @@ class TestGetModelsSummary:
         assert "installed" in data
         assert "ollama" in data
         assert "active" in data
+        assert "remote" in data

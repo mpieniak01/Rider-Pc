@@ -214,6 +214,22 @@ class MockRestAdapter:
             "text": {"status": "healthy", "last_check": time.time()},
         }
 
+    async def get_remote_models(self) -> Dict[str, Any]:
+        """Return mock Rider-Pi model list."""
+        return {
+            "models": [
+                {
+                    "name": "pi-vision-model",
+                    "category": "vision",
+                    "type": "yolo",
+                    "path": "vision/pi-vision-model.pt",
+                    "size_mb": 25.0,
+                    "format": "pt",
+                }
+            ],
+            "total": 1,
+        }
+
     async def get_resource(self, resource_name: str) -> Dict[str, Any]:
         """Return mock resource status."""
         resources = {
