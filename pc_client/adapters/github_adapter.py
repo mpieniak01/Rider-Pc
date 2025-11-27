@@ -4,6 +4,7 @@ This module provides async wrappers for GitHub API calls to retrieve
 issue information with progress calculation based on markdown checklists.
 """
 
+import asyncio
 import logging
 import re
 import time
@@ -75,6 +76,7 @@ class GitHubAdapter:
         self._cache: Dict[str, Any] = {}
         self._cache_ts: float = 0
         self._client: Optional[httpx.AsyncClient] = None
+        self._lock = asyncio.Lock()
 
     @property
     def configured(self) -> bool:
@@ -97,19 +99,21 @@ class GitHubAdapter:
         return headers
 
     async def _get_client(self) -> httpx.AsyncClient:
-        """Get or create the HTTP client."""
-        if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(
-                timeout=self._timeout,
-                headers=self._get_headers(),
-            )
+        """Get or create the HTTP client (thread-safe)."""
+        async with self._lock:
+            if self._client is None or self._client.is_closed:
+                self._client = httpx.AsyncClient(
+                    timeout=self._timeout,
+                    headers=self._get_headers(),
+                )
         return self._client
 
     async def close(self) -> None:
-        """Close the HTTP client."""
-        if self._client and not self._client.is_closed:
-            await self._client.aclose()
-            self._client = None
+        """Close the HTTP client (thread-safe)."""
+        async with self._lock:
+            if self._client and not self._client.is_closed:
+                await self._client.aclose()
+                self._client = None
 
     def _is_cache_valid(self) -> bool:
         """Check if cached data is still valid."""

@@ -280,7 +280,12 @@
   loadIssues();
 
   // Poll for updates (respecting server-side cache)
-  setInterval(() => loadIssues(false), POLL_INTERVAL_MS);
+  const pollInterval = setInterval(() => loadIssues(false), POLL_INTERVAL_MS);
+
+  // Cleanup on page unload
+  window.addEventListener('beforeunload', () => {
+    clearInterval(pollInterval);
+  });
 </script>
 <script type="module" src="/web/assets/menu.js"></script>
 
