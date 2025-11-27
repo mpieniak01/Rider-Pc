@@ -122,15 +122,15 @@ class TestModelManager:
         """Test scanning directory with model files."""
         models_dir = tmp_path / "models"
         models_dir.mkdir()
-        
+
         # Create test model files
         (models_dir / "yolov8n.pt").write_bytes(b"fake model data")
         (models_dir / "whisper-base.onnx").write_bytes(b"fake whisper data")
         (models_dir / "readme.txt").write_text("Not a model file")
-        
+
         manager = ModelManager(models_dir=str(models_dir))
         result = manager.scan_local_models()
-        
+
         assert len(result) == 2
         names = [m.name for m in result]
         assert "yolov8n" in names
@@ -163,10 +163,10 @@ enabled = true
 use_mock = false
 ollama_host = "http://localhost:11434"
 """)
-        
+
         manager = ModelManager(providers_config_path=str(config_path))
         result = manager.get_active_models()
-        
+
         assert result.vision["model"] == "yolov8n"
         assert result.vision["enabled"] is True
         assert result.voice_asr["model"] == "base"
@@ -179,10 +179,10 @@ ollama_host = "http://localhost:11434"
         models_dir = tmp_path / "models"
         models_dir.mkdir()
         (models_dir / "test.pt").write_bytes(b"data")
-        
+
         manager = ModelManager(models_dir=str(models_dir))
         result = manager.get_installed_models()
-        
+
         assert isinstance(result, list)
         assert len(result) == 1
         assert isinstance(result[0], dict)
@@ -192,18 +192,18 @@ ollama_host = "http://localhost:11434"
         """Test get_all_models returns complete inventory."""
         models_dir = tmp_path / "models"
         models_dir.mkdir()
-        
+
         config_path = tmp_path / "providers.toml"
         config_path.write_text("[vision]\ndetection_model = 'yolov8n'\n")
-        
+
         manager = ModelManager(
             models_dir=str(models_dir),
             providers_config_path=str(config_path),
         )
         manager.get_active_models()
-        
+
         result = manager.get_all_models()
-        
+
         assert "installed" in result
         assert "ollama" in result
         assert "active" in result

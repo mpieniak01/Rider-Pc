@@ -16,7 +16,15 @@ from pc_client.config import Settings
 from pc_client.cache import CacheManager
 from pc_client.core import ServiceManager
 from pc_client.api import lifecycle
-from pc_client.api.routers import status_router, provider_router, control_router, voice_router, chat_router, project_router, model_router
+from pc_client.api.routers import (
+    status_router,
+    provider_router,
+    control_router,
+    voice_router,
+    chat_router,
+    project_router,
+    model_router,
+)
 from pc_client.api.sse_manager import SseManager
 
 logger = logging.getLogger(__name__)

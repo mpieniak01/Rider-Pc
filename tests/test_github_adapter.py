@@ -166,9 +166,7 @@ class TestMockGitHubAdapter:
     @pytest.mark.asyncio
     async def test_mock_respects_limit(self):
         """Test mock adapter respects limit parameter."""
-        mock_issues = [
-            {"number": i, "title": f"Issue {i}"} for i in range(10)
-        ]
+        mock_issues = [{"number": i, "title": f"Issue {i}"} for i in range(10)]
         adapter = MockGitHubAdapter(configured=True, issues=mock_issues)
         result = await adapter.get_open_issues(limit=3)
         assert len(result["issues"]) == 3
@@ -219,12 +217,7 @@ class TestMockGitHubAdapter:
     async def test_mock_create_issue_success(self):
         """Test mock adapter creates issue successfully."""
         adapter = MockGitHubAdapter(configured=True)
-        result = await adapter.create_issue(
-            title="Test Issue",
-            body="Test body",
-            assignees=["alice"],
-            labels=["bug"]
-        )
+        result = await adapter.create_issue(title="Test Issue", body="Test body", assignees=["alice"], labels=["bug"])
         assert result["success"] is True
         assert result["number"] == 100
         assert "url" in result

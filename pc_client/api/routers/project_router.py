@@ -101,23 +101,17 @@ def get_task_config(request: Request) -> Dict[str, Any]:
 
 class CreateTaskRequest(BaseModel):
     """Request model for creating a new task/issue."""
+
     title: str = Field(..., min_length=1, description="Issue title")
     body: str = Field(default="", description="Issue body/description (markdown)")
     assignee: Optional[str] = Field(default=None, description="Username to assign")
     labels: List[str] = Field(default_factory=list, description="List of label names")
     git_strategy: GitStrategy = Field(
-        default="current",
-        description="Git strategy: 'current', 'main', 'existing', 'new_branch'"
+        default="current", description="Git strategy: 'current', 'main', 'existing', 'new_branch'"
     )
     base_branch: str = Field(default="main", description="Base branch for new_branch strategy")
-    existing_branch: Optional[str] = Field(
-        default=None,
-        description="Branch name for existing strategy"
-    )
-    auto_init: bool = Field(
-        default=True,
-        description="Auto-initialize branch and documentation file"
-    )
+    existing_branch: Optional[str] = Field(default=None, description="Branch name for existing strategy")
+    auto_init: bool = Field(default=True, description="Auto-initialize branch and documentation file")
 
 
 @router.get("/api/project/issues")
@@ -188,7 +182,7 @@ async def get_project_meta(request: Request) -> JSONResponse:
         github.get_labels(),
         git.get_local_branches(),
         git.get_current_branch(),
-        return_exceptions=True
+        return_exceptions=True,
     )
 
     # Handle exceptions and substitute defaults
@@ -203,13 +197,15 @@ async def get_project_meta(request: Request) -> JSONResponse:
     branches = handle_result(results[2], [], "branches")
     current_branch = handle_result(results[3], "", "current_branch")
 
-    return JSONResponse(content={
-        "collaborators": collaborators,
-        "labels": labels,
-        "branches": branches,
-        "current_branch": current_branch,
-        "configured": github.configured,
-    })
+    return JSONResponse(
+        content={
+            "collaborators": collaborators,
+            "labels": labels,
+            "branches": branches,
+            "current_branch": current_branch,
+            "configured": github.configured,
+        }
+    )
 
 
 def generate_task_markdown(
@@ -342,7 +338,7 @@ async def create_task(request: Request, payload: CreateTaskRequest) -> JSONRespo
                 # Path traversal protection using commonpath for cross-platform safety
                 repo_root = os.path.abspath(os.getcwd())
                 abs_docs_filepath = os.path.abspath(docs_filepath)
-                
+
                 # Check for path traversal attempts
                 is_safe_path = False
                 try:
@@ -352,7 +348,7 @@ async def create_task(request: Request, payload: CreateTaskRequest) -> JSONRespo
                     is_safe_path = common == repo_root
                 except ValueError:
                     is_safe_path = False
-                
+
                 if os.path.isabs(docs_path) or ".." in docs_path.split(os.sep):
                     logger.error("Unsafe docs_path detected: %s", docs_path)
                     result["init_warning"] = "Nieprawidłowa ścieżka dokumentacji (docs_path)."
@@ -387,10 +383,14 @@ async def create_task(request: Request, payload: CreateTaskRequest) -> JSONRespo
                                 logger.info("Auto-init completed: created %s", docs_filepath)
                             else:
                                 logger.warning("Failed to commit docs file: %s", commit_error)
-                                result["init_warning"] = f"Plik dokumentacji utworzony, ale commit nie powiódł się: {commit_error}"
+                                result["init_warning"] = (
+                                    f"Plik dokumentacji utworzony, ale commit nie powiódł się: {commit_error}"
+                                )
                         else:
                             logger.warning("Failed to add docs file: %s", add_error)
-                            result["init_warning"] = f"Plik dokumentacji utworzony, ale git add nie powiódł się: {add_error}. Plik pozostaje w katalogu roboczym."
+                            result["init_warning"] = (
+                                f"Plik dokumentacji utworzony, ale git add nie powiódł się: {add_error}. Plik pozostaje w katalogu roboczym."
+                            )
 
                     except OSError as e:
                         logger.error("Failed to create docs file: %s", e)

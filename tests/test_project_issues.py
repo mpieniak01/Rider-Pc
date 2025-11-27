@@ -9,6 +9,7 @@ from pc_client.config import Settings
 
 # Import the module correctly (avoiding __init__.py shadowing)
 import pc_client.api.routers.project_router
+
 project_router_module = sys.modules['pc_client.api.routers.project_router']
 
 # Import slugify after module is properly loaded
@@ -27,7 +28,7 @@ class TestSlugify:
         assert slugify("Nowa Funkcja X") == "nowa-funkcja-x"
         # NFKD normalization handles some Polish diacritics:
         # ż (U+017C) -> z with combining dot above -> 'z' after stripping
-        # ó (U+00F3) -> o with combining acute -> 'o' after stripping  
+        # ó (U+00F3) -> o with combining acute -> 'o' after stripping
         # ł (U+0142) has no NFKD decomposition -> removed entirely
         # ć (U+0107) -> c with combining acute -> 'c' after stripping
         # Result: "żółć" -> "zoc" (without ł which has no decomposition)
@@ -347,11 +348,14 @@ def test_create_task_endpoint_success(tmp_path, monkeypatch):
         github_repo="rider-pc",
     )
 
-    resp = client.post("/api/project/create-task", json={
-        "title": "Test Issue",
-        "body": "Test description",
-        "git_strategy": "current",
-    })
+    resp = client.post(
+        "/api/project/create-task",
+        json={
+            "title": "Test Issue",
+            "body": "Test description",
+            "git_strategy": "current",
+        },
+    )
     assert resp.status_code == 200
     data = resp.json()
 
@@ -403,11 +407,14 @@ def test_create_task_with_new_branch(tmp_path, monkeypatch):
         github_repo="rider-pc",
     )
 
-    resp = client.post("/api/project/create-task", json={
-        "title": "Nowa Funkcja X",
-        "git_strategy": "new_branch",
-        "base_branch": "main",
-    })
+    resp = client.post(
+        "/api/project/create-task",
+        json={
+            "title": "Nowa Funkcja X",
+            "git_strategy": "new_branch",
+            "base_branch": "main",
+        },
+    )
     assert resp.status_code == 200
     data = resp.json()
 
@@ -440,9 +447,12 @@ def test_create_task_issue_creation_fails(tmp_path, monkeypatch):
         github_repo="rider-pc",
     )
 
-    resp = client.post("/api/project/create-task", json={
-        "title": "Test Issue",
-    })
+    resp = client.post(
+        "/api/project/create-task",
+        json={
+            "title": "Test Issue",
+        },
+    )
     assert resp.status_code == 400
     data = resp.json()
 
@@ -490,10 +500,13 @@ def test_create_task_branch_fails_with_warning(tmp_path, monkeypatch):
         github_repo="rider-pc",
     )
 
-    resp = client.post("/api/project/create-task", json={
-        "title": "Test Issue",
-        "git_strategy": "new_branch",
-    })
+    resp = client.post(
+        "/api/project/create-task",
+        json={
+            "title": "Test Issue",
+            "git_strategy": "new_branch",
+        },
+    )
     assert resp.status_code == 200
     data = resp.json()
 
@@ -542,10 +555,13 @@ def test_create_task_with_main_strategy(tmp_path, monkeypatch):
         github_repo="rider-pc",
     )
 
-    resp = client.post("/api/project/create-task", json={
-        "title": "Test Issue",
-        "git_strategy": "main",
-    })
+    resp = client.post(
+        "/api/project/create-task",
+        json={
+            "title": "Test Issue",
+            "git_strategy": "main",
+        },
+    )
     assert resp.status_code == 200
     data = resp.json()
 
@@ -593,11 +609,14 @@ def test_create_task_with_existing_strategy(tmp_path, monkeypatch):
         github_repo="rider-pc",
     )
 
-    resp = client.post("/api/project/create-task", json={
-        "title": "Test Issue",
-        "git_strategy": "existing",
-        "existing_branch": "develop",
-    })
+    resp = client.post(
+        "/api/project/create-task",
+        json={
+            "title": "Test Issue",
+            "git_strategy": "existing",
+            "existing_branch": "develop",
+        },
+    )
     assert resp.status_code == 200
     data = resp.json()
 
@@ -638,10 +657,13 @@ def test_create_task_existing_strategy_no_branch(tmp_path, monkeypatch):
         github_repo="rider-pc",
     )
 
-    resp = client.post("/api/project/create-task", json={
-        "title": "Test Issue",
-        "git_strategy": "existing",
-    })
+    resp = client.post(
+        "/api/project/create-task",
+        json={
+            "title": "Test Issue",
+            "git_strategy": "existing",
+        },
+    )
     assert resp.status_code == 400
     data = resp.json()
 
@@ -681,10 +703,13 @@ def test_create_task_dirty_repo_returns_409(tmp_path, monkeypatch):
         github_repo="rider-pc",
     )
 
-    resp = client.post("/api/project/create-task", json={
-        "title": "Test Issue",
-        "git_strategy": "new_branch",
-    })
+    resp = client.post(
+        "/api/project/create-task",
+        json={
+            "title": "Test Issue",
+            "git_strategy": "new_branch",
+        },
+    )
     assert resp.status_code == 409
     data = resp.json()
 
@@ -736,10 +761,13 @@ def test_create_task_dirty_repo_allows_current_strategy(tmp_path, monkeypatch):
         github_repo="rider-pc",
     )
 
-    resp = client.post("/api/project/create-task", json={
-        "title": "Test Issue",
-        "git_strategy": "current",
-    })
+    resp = client.post(
+        "/api/project/create-task",
+        json={
+            "title": "Test Issue",
+            "git_strategy": "current",
+        },
+    )
     assert resp.status_code == 200
     data = resp.json()
 
@@ -811,13 +839,16 @@ def test_create_task_with_auto_init(tmp_path, monkeypatch):
         github_repo="rider-pc",
     )
 
-    resp = client.post("/api/project/create-task", json={
-        "title": "Nowa Funkcja Y",
-        "body": "Opis zadania testowego",
-        "git_strategy": "new_branch",
-        "base_branch": "main",
-        "auto_init": True,
-    })
+    resp = client.post(
+        "/api/project/create-task",
+        json={
+            "title": "Nowa Funkcja Y",
+            "body": "Opis zadania testowego",
+            "git_strategy": "new_branch",
+            "base_branch": "main",
+            "auto_init": True,
+        },
+    )
     assert resp.status_code == 200
     data = resp.json()
 
@@ -885,12 +916,15 @@ def test_create_task_auto_init_disabled(tmp_path, monkeypatch):
         github_repo="rider-pc",
     )
 
-    resp = client.post("/api/project/create-task", json={
-        "title": "Nowa Funkcja Z",
-        "git_strategy": "new_branch",
-        "base_branch": "main",
-        "auto_init": False,
-    })
+    resp = client.post(
+        "/api/project/create-task",
+        json={
+            "title": "Nowa Funkcja Z",
+            "git_strategy": "new_branch",
+            "base_branch": "main",
+            "auto_init": False,
+        },
+    )
     assert resp.status_code == 200
     data = resp.json()
 

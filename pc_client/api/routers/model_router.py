@@ -25,6 +25,7 @@ class BindModelRequest(BaseModel):
             raise ValueError("Field cannot be empty or whitespace-only")
         return v.strip()
 
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/models", tags=["models"])

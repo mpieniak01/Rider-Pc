@@ -619,6 +619,7 @@ async def shutdown_event(app: FastAPI):
 
     # Close GitHub adapter
     from pc_client.api.routers.project_router import cleanup_github_adapter
+
     await cleanup_github_adapter()
 
     logger.info("Shutdown complete")

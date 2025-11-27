@@ -200,16 +200,18 @@ class GitHubAdapter:
                 if issue.get("assignee"):
                     assignee = issue["assignee"].get("login")
 
-                issues.append({
-                    "number": issue["number"],
-                    "title": issue["title"],
-                    "state": issue["state"],
-                    "tasks_total": tasks_total,
-                    "tasks_done": tasks_done,
-                    "progress_pct": progress_pct,
-                    "assignee": assignee,
-                    "url": issue["html_url"],
-                })
+                issues.append(
+                    {
+                        "number": issue["number"],
+                        "title": issue["title"],
+                        "state": issue["state"],
+                        "tasks_total": tasks_total,
+                        "tasks_done": tasks_done,
+                        "progress_pct": progress_pct,
+                        "assignee": assignee,
+                        "url": issue["html_url"],
+                    }
+                )
 
             result = {
                 "repo": self._repo,

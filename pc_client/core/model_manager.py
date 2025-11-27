@@ -133,7 +133,9 @@ class ModelManager:
 
         return ModelInfo(
             name=name,
-            path=str(file_path.relative_to(self.models_dir) if file_path.is_relative_to(self.models_dir) else file_path),
+            path=str(
+                file_path.relative_to(self.models_dir) if file_path.is_relative_to(self.models_dir) else file_path
+            ),
             type=model_type,
             category=category,
             size_mb=size_mb,
