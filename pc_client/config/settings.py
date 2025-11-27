@@ -164,9 +164,9 @@ class Settings:
         """Check if GitHub integration is properly configured.
 
         Returns:
-            True if github_token is set (not None and not empty), False otherwise.
+            True if all required GitHub fields (token, owner, repo) are set (not None and not empty), False otherwise.
         """
-        return bool(self.github_token)
+        return bool(self.github_token and self.github_repo_owner and self.github_repo_name)
 
 
 # Global settings instance

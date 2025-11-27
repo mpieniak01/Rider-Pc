@@ -349,15 +349,15 @@ GITHUB_CACHE_TTL_SECONDS=300
 
 ### Checking Configuration Status
 
-The `Settings` class provides an `is_github_configured` property to check if GitHub integration is available:
+The `Settings` class provides an `is_github_configured` property to check if all required GitHub fields are set (token, owner, and repo):
 
 ```python
 from pc_client.config.settings import settings
 
 if settings.is_github_configured:
-    print("GitHub integration is available")
+    print("GitHub integration is fully configured")
 else:
-    print("GitHub token not set - integration disabled")
+    print("GitHub configuration incomplete - check token, owner, and repo name")
 ```
 
 ### Security Considerations

@@ -331,15 +331,15 @@ GITHUB_CACHE_TTL_SECONDS=300
 
 ### Sprawdzanie Statusu Konfiguracji
 
-Klasa `Settings` udostępnia właściwość `is_github_configured` do sprawdzenia, czy integracja z GitHub jest dostępna:
+Klasa `Settings` udostępnia właściwość `is_github_configured` do sprawdzenia, czy wszystkie wymagane pola GitHub są ustawione (token, właściciel i nazwa repozytorium):
 
 ```python
 from pc_client.config.settings import settings
 
 if settings.is_github_configured:
-    print("Integracja z GitHub jest dostępna")
+    print("Integracja z GitHub jest w pełni skonfigurowana")
 else:
-    print("Token GitHub nie ustawiony - integracja wyłączona")
+    print("Konfiguracja GitHub niekompletna - sprawdź token, właściciela i nazwę repo")
 ```
 
 ### Względy Bezpieczeństwa

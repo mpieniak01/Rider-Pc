@@ -46,33 +46,58 @@ class TestGitHubSettings:
 class TestIsGitHubConfigured:
     """Tests for is_github_configured property."""
 
-    def test_configured_with_token(self, monkeypatch):
-        """Test is_github_configured returns True when token is set."""
+    def test_configured_with_all_fields(self, monkeypatch):
+        """Test is_github_configured returns True when all fields are set."""
         monkeypatch.setenv("GITHUB_TOKEN", "ghp_test123token")
+        monkeypatch.setenv("GITHUB_REPO_OWNER", "test-owner")
+        monkeypatch.setenv("GITHUB_REPO_NAME", "test-repo")
         settings = Settings()
         assert settings.is_github_configured is True
 
     def test_not_configured_without_token(self, monkeypatch):
         """Test is_github_configured returns False when token is not set."""
         monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.setenv("GITHUB_REPO_OWNER", "test-owner")
+        monkeypatch.setenv("GITHUB_REPO_NAME", "test-repo")
         settings = Settings()
         assert settings.is_github_configured is False
 
     def test_not_configured_with_empty_token(self, monkeypatch):
         """Test is_github_configured returns False when token is empty string."""
         monkeypatch.setenv("GITHUB_TOKEN", "")
+        monkeypatch.setenv("GITHUB_REPO_OWNER", "test-owner")
+        monkeypatch.setenv("GITHUB_REPO_NAME", "test-repo")
         settings = Settings()
         assert settings.is_github_configured is False
 
-    def test_configured_ignores_owner_and_repo(self, monkeypatch):
-        """Test is_github_configured only checks token, not owner/repo.
-        
-        Note: The adapter separately validates owner/repo, but the Settings
-        property only checks if the token is present per the specification.
-        """
+    def test_not_configured_without_owner(self, monkeypatch):
+        """Test is_github_configured returns False when owner is not set."""
         monkeypatch.setenv("GITHUB_TOKEN", "ghp_test123token")
         monkeypatch.delenv("GITHUB_REPO_OWNER", raising=False)
+        monkeypatch.setenv("GITHUB_REPO_NAME", "test-repo")
+        settings = Settings()
+        assert settings.is_github_configured is False
+
+    def test_not_configured_without_repo(self, monkeypatch):
+        """Test is_github_configured returns False when repo is not set."""
+        monkeypatch.setenv("GITHUB_TOKEN", "ghp_test123token")
+        monkeypatch.setenv("GITHUB_REPO_OWNER", "test-owner")
         monkeypatch.delenv("GITHUB_REPO_NAME", raising=False)
         settings = Settings()
-        # Token is set, so is_github_configured should be True
-        assert settings.is_github_configured is True
+        assert settings.is_github_configured is False
+
+    def test_not_configured_with_empty_owner(self, monkeypatch):
+        """Test is_github_configured returns False when owner is empty string."""
+        monkeypatch.setenv("GITHUB_TOKEN", "ghp_test123token")
+        monkeypatch.setenv("GITHUB_REPO_OWNER", "")
+        monkeypatch.setenv("GITHUB_REPO_NAME", "test-repo")
+        settings = Settings()
+        assert settings.is_github_configured is False
+
+    def test_not_configured_with_empty_repo(self, monkeypatch):
+        """Test is_github_configured returns False when repo is empty string."""
+        monkeypatch.setenv("GITHUB_TOKEN", "ghp_test123token")
+        monkeypatch.setenv("GITHUB_REPO_OWNER", "test-owner")
+        monkeypatch.setenv("GITHUB_REPO_NAME", "")
+        settings = Settings()
+        assert settings.is_github_configured is False
