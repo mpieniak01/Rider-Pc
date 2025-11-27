@@ -1,5 +1,6 @@
 """Tests for model_manager.py"""
 
+import os
 import sys
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -409,7 +410,6 @@ ollama_host = "http://localhost:11434"
         manager.get_active_models()
 
         # Make directory read-only to cause write failure
-        import os
         tmp_path.chmod(0o444)
 
         try:

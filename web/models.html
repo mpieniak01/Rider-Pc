@@ -221,7 +221,7 @@ function createProviderCard(domain, state) {
         <div class="provider-domain">${escapeHtml(domainLabels[domain] || domain)}</div>
         <div class="provider-status-pill">${escapeHtml(status)}</div>
       </div>
-      <span class="provider-mode">${modeLabel}</span>
+      <span class="provider-mode"></span>
     </div>
     <div class="provider-card-body">
       <div class="provider-meta">
@@ -230,7 +230,9 @@ function createProviderCard(domain, state) {
       </div>
     </div>
   `;
-  card.querySelector('.provider-mode').classList.add(modeClass);
+  const providerModeEl = card.querySelector('.provider-mode');
+  providerModeEl.textContent = modeLabel;
+  providerModeEl.classList.add(modeClass);
   return card;
 }
 
