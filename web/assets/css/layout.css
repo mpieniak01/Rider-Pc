@@ -90,6 +90,17 @@ main,
   display: grid;
   gap: var(--grid-gap, var(--space-xl));
   grid-template-columns: repeat(auto-fit, minmax(var(--grid-min, 240px), 1fr));
+  align-items: stretch;
+}
+
+.l-grid > *,
+.grid > * {
+  height: 100%;
+}
+
+.l-grid .c-card,
+.grid .c-card {
+  margin-top: 0;
 }
 
 .l-grid--2 {
@@ -229,6 +240,7 @@ main,
 .panel-row > .c-card {
   flex: 1 1 360px;
   margin: 0;
+  height: 100%;
 }
 
 @media (max-width: 900px) {

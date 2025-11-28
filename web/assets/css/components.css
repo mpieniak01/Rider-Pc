@@ -7,6 +7,9 @@
 /* ===== Card Component ===== */
 .c-card,
 .card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: var(--card-radius);
@@ -19,13 +22,19 @@
   padding: calc(var(--card-padding) / 2) var(--card-padding);
 }
 
-.c-card + .c-card {
+.l-stack > .c-card + .c-card,
+.stack > .c-card + .c-card {
   margin-top: var(--space-xl);
 }
 
 .c-card__title,
+.c-card h1,
+.c-card h2,
+.c-card h3,
+.c-card h4,
 .card h3 {
-  margin: 0 0 var(--space-md);
+  display: block;
+  margin: 0 0 var(--space-xl);
   font-size: var(--font-size-lg);
   color: #c7dbf5;
 }
@@ -247,7 +256,7 @@ button:disabled {
 .legend-item {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
 }
 
 .c-legend__dot,
@@ -257,6 +266,7 @@ button:disabled {
   height: 10px;
   border-radius: 50%;
   display: inline-block;
+  margin-right: var(--space-xxs);
 }
 
 /* ===== Thumbnail Component ===== */

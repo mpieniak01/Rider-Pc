@@ -142,6 +142,8 @@ web/assets/
 </div>
 ```
 
+> **Uwaga:** `.u-spacer` (oraz alias `.spacer`) to utility z `web/assets/css/utilities.css`, które rozszerza element tak, aby zajmował dostępne miejsce w rzędzie. Jeśli używasz go w nowych komponentach, odnotuj to w dokumentacji strony lub sekcji „Utilities”.
+
 ### Spinner
 
 ```html
@@ -238,17 +240,17 @@ web/assets/
 
 ## Nowe klasy layoutu
 
-W ramach migracji do wspólnego szablonu dodano następujące utility:
+W ramach migracji do wspólnego szablonu dodano następujące (wcześniej nieistniejące) utility:
 
 | Klasa | Opis |
 |-------|------|
 | `.cluster` | Flex-wrap layout z równomiernym gap (dla inline elements) |
-| `.stack` | Kolumna z jednolitym gap (dla stacked items) |
 | `.flow` | Pionowy rytm z `margin-top` (dla treści tekstowych) |
 | `.auto-grid` | Responsywny grid z `auto-fit` (dla kart) |
 | `.form-grid` | Dwukolumnowy grid dla formularzy |
 | `.media-frame` | Kontener na obrazy/video/canvas |
-| `.surface` | Karta/sekcja z tłem i paddingiem |
+
+> `.l-stack` / `.stack` oraz `.surface` były dostępne wcześniej i nadal służą jako podstawowe layouty — nie są częścią tej listy „nowo dodanych” klas.
 
 ## Kryteria akceptacji
 
