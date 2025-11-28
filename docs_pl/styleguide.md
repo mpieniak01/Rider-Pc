@@ -291,7 +291,7 @@ Dla kompatybilności wstecznej plik `dashboard-common.css` zawiera aliasy dla st
 |--------------|------------------------|
 | `.wrap` | `.layout-main` |
 | `.card` | `.c-card` |
-| `.pill .ok` | `.c-pill.is-ok` |
+| `.pill.ok` | `.c-pill.is-ok` |
 | `.btn` | `.c-btn` |
 | `.muted` | `.u-muted` |
 | `.spinner` | `.c-spinner` |
@@ -312,6 +312,8 @@ Status migracji stron dashboardu:
 | `project.html` | ✅ Kompatybilna | Lista issues działa |
 | `chat.html` | ✅ Kompatybilna | Interfejs czatu bez regresji |
 | `google_home.html` | ✅ Kompatybilna | Siatka urządzeń działa |
+| `providers.html` | ⚠️ Legacy | Strona wymieniona w Faza A; status migracji do potwierdzenia |
+| `mode.html` | ⚠️ Legacy | Strona wymieniona w Faza B; status migracji do potwierdzenia |
 | `navigation.html` | ⚠️ Legacy | Używa utility Tailwind-like; wymaga pełnej migracji |
 
 ### Znane różnice

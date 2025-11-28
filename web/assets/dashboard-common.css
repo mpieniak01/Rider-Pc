@@ -23,7 +23,7 @@
 
 /* ===== Legacy Backward Compatibility ===== */
 /* These styles maintain compatibility with existing pages until migrated.
-   See web/assets/README.md for the full mapping table. */
+   See web/assets/css/README.md for the full mapping table. */
 
 /* Label text variants */
 .label-text,
@@ -167,58 +167,8 @@
   letter-spacing: 0.04em;
 }
 
-/* Service state classes (from control.html) */
-.svc-state-ok {
-  color: var(--color-ok);
-}
-
-.svc-state-warn {
-  color: var(--color-warn);
-}
-
-.svc-state-err {
-  color: var(--color-error);
-}
-
-/* Service description wrappers (from control.html) */
-.svc-desc-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.svc-desc-pl {
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-fg-primary);
-}
-
-.svc-desc-en {
-  font-size: var(--font-size-sm);
-  color: var(--color-fg-muted);
-}
-
-/* Status message (from multiple pages) */
-.status-msg {
-  border-radius: var(--radius-xl);
-  padding: var(--space-lg) var(--space-md);
-  font-size: var(--font-size-md);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--color-border-subtle);
-}
-
-/* Thumb container (from view.html) */
-.thumb {
-  background: #08111c;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-xl);
-  padding: var(--space-sm);
-}
-
-.thumb img {
-  display: block;
-  width: 100%;
-  border-radius: var(--radius-md);
-}
+/* Service state and description classes are now provided by css/components.css */
+/* Legacy aliases (.svc-state-*, .svc-desc-*) work via the component definitions */
 
 /* Log panel (from system.html) */
 .log-panel {
@@ -246,40 +196,5 @@
   border-color: var(--color-error);
 }
 
-/* Hint text styling */
-.hint {
-  font-size: var(--font-size-xs);
-  color: var(--color-fg-muted);
-  opacity: 0.85;
-}
-
-/* Note text styling */
-.note {
-  font-size: var(--font-size-md);
-  color: var(--color-fg-primary);
-  opacity: 0.75;
-}
-
-/* Kbd keyboard key styling */
-.kbd {
-  font-family: var(--font-family-mono);
-  background: #102233;
-  border: 1px solid #203a57;
-  border-radius: var(--radius-sm);
-  padding: 2px var(--space-xs);
-  margin: 0 2px;
-  color: var(--color-fg-secondary);
-}
-
-/* Spinner animation - uses c-spin keyframes from components.css */
-.spinner {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--color-off-border);
-  border-top-color: var(--color-ok);
-  border-radius: 50%;
-  animation: c-spin 0.8s linear infinite;
-}
-
-/* Note: The c-spin keyframes are defined in css/components.css */
+/* Hint, Note, Kbd, Spinner, Thumb, and Status-msg styles are provided by css/components.css */
+/* Legacy class names (.hint, .note, .kbd, .spinner, .thumb, .status-msg) work via component definitions */

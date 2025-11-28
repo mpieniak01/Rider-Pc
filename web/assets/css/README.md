@@ -91,10 +91,18 @@ These classes are used by specific pages and have fallback definitions:
 | `.data-value` | home.html | Data list value |
 | `.snapshot` | home.html | JSON snapshot display |
 | `.status-pill` | system.html | Status pill variant |
-| `.svc-state-*` | control.html | Service state colors |
-| `.svc-desc-*` | control.html | Service descriptions |
 | `.log-panel` | system.html | Log panel container |
 | `.network-card` | system.html | Network status card |
+
+> **Note:** The following classes are standard components defined in `components.css` with legacy aliases for backward compatibility. They should not be considered page-specific:
+> - `.svc-state-*` — Service state colors
+> - `.svc-desc-*` — Service description wrappers
+> - `.hint` / `.c-hint` — Hint text styling
+> - `.note` / `.c-note` — Note text styling
+> - `.kbd` / `.c-kbd` — Keyboard key styling
+> - `.spinner` / `.c-spinner` — Loading spinner
+> - `.status-msg` / `.c-status-msg` — Status message
+> - `.thumb` / `.c-thumb` — Thumbnail container
 
 ## Migration Guide
 
