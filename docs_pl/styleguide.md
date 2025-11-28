@@ -242,12 +242,82 @@ web/assets/
 ## Narzędzia
 
 ```bash
+# Zainstaluj zależności (wymagane przed pierwszym uruchomieniem)
+npm install
+
 # Sprawdź styl CSS
 npm run lint:css
 
-# Napraw automatycznie
+# Napraw automatycznie problemy ze stylem
 npm run lint:css:fix
 
-# Sprawdź rozmiar plików CSS
+# Sprawdź rozmiar plików CSS (strony < 150 linii)
 npm run css:size
+
+# Za pomocą Makefile
+make lint-css   # = npm run lint:css
+make css-size   # = npm run css:size
 ```
+
+## Migracja istniejących stron
+
+### Plan migracji (fazy)
+
+1. **Faza A – podstawowe widoki**: `home.html`, `system.html`, `providers.html`
+   - Mało JS, dobre do walidacji layoutu i stylów
+   - Rezultat: potwierdzony wygląd kart/statusów
+
+2. **Faza B – widoki sterowania**: `control.html`, `mode.html`, `navigation.html`
+   - Więcej interakcji; potrzeba przetestować bindingi JS po zmianie DOM
+   - Rezultat: zgodność z nowym szablonem + testy manualne ruchu/trybów
+
+3. **Faza C – pozostałe**: `view.html`, `project.html`, `models.html`, `chat.html`, `google_home.html`
+   - Finalne porządki, usunięcie legacy CSS
+
+### Kroki migracji strony
+
+1. **Podmień kontener główny**: `.wrap` → `.layout-main`
+2. **Podmień klasy komponentów**: `.card` → `.c-card`, `.pill` → `.c-pill`
+3. **Zastosuj modyfikatory stanu**: `.is-ok`, `.is-warn`, `.is-err` zamiast `.ok`, `.warn`, `.err`
+4. **Użyj prefiksów utility**: `.u-muted`, `.u-gap-md` zamiast `.muted`, `.gap`
+5. **Ogranicz CSS strony**: Utrzymuj plik poniżej 150 linii, tylko unikalne style
+6. **Usuń selektory `body[data-page="..."]`**: Użyj klas modyfikujących lub neutralnych nazw
+
+### Legacy class fallbacks
+
+Dla kompatybilności wstecznej plik `dashboard-common.css` zawiera aliasy dla starych klas:
+
+| Klasa legacy | Odpowiednik / Fallback |
+|--------------|------------------------|
+| `.wrap` | `.layout-main` |
+| `.card` | `.c-card` |
+| `.pill.ok` | `.c-pill.is-ok` |
+| `.btn` | `.c-btn` |
+| `.muted` | `.u-muted` |
+| `.spinner` | `.c-spinner` |
+
+Pełna lista w `web/assets/css/README.md`.
+
+## Zweryfikowane strony
+
+Status migracji stron dashboardu:
+
+| Strona | Status | Uwagi |
+|--------|--------|-------|
+| `home.html` | ✅ Kompatybilna | Używa nowych tokenów i fallbacków |
+| `control.html` | ✅ Kompatybilna | Panel sterowania działa bez regresji |
+| `system.html` | ✅ Kompatybilna | Status sieci i usług renderuje się poprawnie |
+| `models.html` | ✅ Kompatybilna | Tabele modeli wyświetlają się prawidłowo |
+| `view.html` | ✅ Kompatybilna | Karty i wykresy bez zmian wizualnych |
+| `project.html` | ✅ Kompatybilna | Lista issues działa |
+| `chat.html` | ✅ Kompatybilna | Interfejs czatu bez regresji |
+| `google_home.html` | ✅ Kompatybilna | Siatka urządzeń działa |
+| `providers.html` | ⚠️ Legacy | Strona wymieniona w Faza A; status migracji do potwierdzenia |
+| `mode.html` | ⚠️ Legacy | Strona wymieniona w Faza B; status migracji do potwierdzenia |
+| `navigation.html` | ⚠️ Legacy | Używa utility Tailwind-like; wymaga pełnej migracji |
+
+### Znane różnice
+
+- Spacing może różnić się o ±2px ze względu na ujednolicenie tokenów
+- Kolory pozostają zgodne dzięki aliasowi `--bg`, `--fg`, `--accent`
+- Animacje i przejścia używają ustandaryzowanych tokenów `--transition-*`
