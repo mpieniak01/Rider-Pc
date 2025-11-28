@@ -1,4 +1,8 @@
 <!doctype html>
+<!--
+  Migrated to dashboard_base.html template structure
+  Uses shared layout classes: .layout-header, .layout-main, .layout-footer
+-->
 <html lang="pl">
 <head>
   <meta charset="utf-8" />
@@ -7,22 +11,27 @@
   <link rel="stylesheet" href="/web/assets/dashboard-common.css">
   <link rel="stylesheet" href="/web/assets/system.css">
 </head>
-<body data-page="system">
-<div data-dashboard-menu-target></div>
-<div class="system-shell">
-  <header>
-    <div class="header-main">
-      <h1><span class="brand-accent">Rider-PC</span>: <span>System Dashboard</span></h1>
-      <div id="version-info" class="version-info" title="Informacje o wersji">
-        <span class="version-loading">Wczytywanie wersji...</span>
+<body data-page="system" class="page page-system">
+  <!-- Header with Menu -->
+  <header class="layout-header" data-dashboard-menu-target></header>
+
+  <!-- Main content -->
+  <main class="layout-main layout-main--wide">
+    <!-- Page header -->
+    <header class="l-cluster u-mb-lg">
+      <div class="header-main">
+        <h1><span class="brand-accent">Rider-PC</span>: <span>System Dashboard</span></h1>
+        <div id="version-info" class="version-info" title="Informacje o wersji">
+          <span class="version-loading">Wczytywanie wersji...</span>
+        </div>
       </div>
-    </div>
-    <nav class="system-links">
-      <a href="/web/view.html">Podgląd</a>
-      <a href="/web/control.html">Sterowanie</a>
-    </nav>
-  </header>
-  <p id="status-line">Ładowanie danych usług…</p>
+      <div class="u-spacer"></div>
+      <nav class="system-links cluster">
+        <a href="/view">Podgląd</a>
+        <a href="/control">Sterowanie</a>
+      </nav>
+    </header>
+    <p id="status-line" class="c-note">Ładowanie danych usług…</p>
   
   <section class="location-block" id="network-status-block">
     <h2 class="location-title network-title">Status Sieci</h2>
@@ -68,19 +77,21 @@
     <div id="pi-services-graph" class="services-grid"></div>
   </section>
   
-  <section class="log-panel">
-    <header class="log-header">
+  <section class="log-panel surface">
+    <header class="log-header l-cluster">
       <h2>Log Systemowy</h2>
-      <button id="log-clear-btn" class="btn btn-sm" title="Wyczyść log">Wyczyść</button>
+      <div class="u-spacer"></div>
+      <button id="log-clear-btn" class="c-btn c-btn-sm" title="Wyczyść log">Wyczyść</button>
     </header>
     <div id="log-terminal" class="log-terminal" role="log" aria-live="polite" aria-label="Log systemowy">
       <div class="log-entry log-info"><span class="log-timestamp">[--:--:--]</span> <span class="log-level">INFO</span> Oczekiwanie na zdarzenia...</div>
     </div>
   </section>
+  </main>
 
-  </div>
-  <div data-dashboard-footer-target></div>
-<div id="toast-container"></div>
+  <!-- Footer -->
+  <footer class="layout-footer" data-dashboard-footer-target></footer>
+  <div id="toast-container"></div>
 
   <script>
     const pcGraphEl = document.getElementById('pc-services-graph');

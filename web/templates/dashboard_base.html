@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Rider-PC: {{PAGE_TITLE}}</title>
+  <!-- Common styles (includes tokens, base, layout, components, utilities) -->
+  <link rel="stylesheet" href="/web/assets/dashboard-common.css">
+  <!-- Optional: Page-specific styles (keep under 150 lines) -->
+  <!-- <link rel="stylesheet" href="/web/assets/{{page-name}}.css"> -->
+</head>
+<body data-page="{{page-name}}" class="page page-{{page-name}}">
+  <!-- Header with Menu placeholder - loaded dynamically -->
+  <header class="layout-header" data-dashboard-menu-target></header>
+  
+  <!-- Main content area -->
+  <main class="layout-main">
+    <!-- Page header -->
+    <header class="l-row l-cluster u-mb-lg">
+      <h1>
+        <span class="brand-accent">Rider-PC</span>
+        <span class="page-title-text">: {{PAGE_TITLE}}</span>
+      </h1>
+      <!-- Optional: Status badge -->
+      <!-- <span id="statusBadge" class="c-pill is-ok">Status</span> -->
+    </header>
+
+    <!-- Content sections -->
+    <section class="surface u-mb-xl">
+      <h2 class="c-card__title">Section Title</h2>
+      
+      <!-- Key-value data list -->
+      <div class="c-data-list">
+        <div class="c-data-list__item">
+          <span class="c-data-list__label">Label</span>
+          <span class="c-data-list__value">Value</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Grid layout example -->
+    <div class="l-grid auto-grid">
+      <article class="c-card">
+        <h3 class="c-card__title">Card 1</h3>
+        <p class="c-hint">Card content goes here.</p>
+      </article>
+      
+      <article class="c-card">
+        <h3 class="c-card__title">Card 2</h3>
+        <p class="c-hint">Card content goes here.</p>
+      </article>
+    </div>
+
+    <!-- Two-column panel layout -->
+    <div class="panel-row u-mt-xl">
+      <div class="c-card">
+        <h3 class="c-card__title">Left Panel</h3>
+        <!-- Content -->
+      </div>
+      
+      <div class="c-card">
+        <h3 class="c-card__title">Right Panel</h3>
+        <!-- Content -->
+      </div>
+    </div>
+
+    <!-- Stack layout example -->
+    <div class="stack u-mt-xl">
+      <div class="surface">Stacked item 1</div>
+      <div class="surface">Stacked item 2</div>
+    </div>
+
+    <!-- Cluster layout example (inline items with wrapping) -->
+    <div class="cluster u-mt-xl">
+      <span class="c-pill is-ok">OK</span>
+      <span class="c-pill is-warn">Warning</span>
+      <span class="c-pill is-err">Error</span>
+      <span class="c-pill is-off">Offline</span>
+    </div>
+
+    <!-- Flow layout example (content with consistent vertical rhythm) -->
+    <div class="flow u-mt-xl">
+      <p>First paragraph with flow.</p>
+      <p>Second paragraph with consistent spacing.</p>
+    </div>
+
+    <!-- Form grid example -->
+    <form class="form-grid u-mt-xl">
+      <div class="c-form-group">
+        <label for="field1">Field 1</label>
+        <input type="text" id="field1" class="c-input" />
+      </div>
+      <div class="c-form-group">
+        <label for="field2">Field 2</label>
+        <input type="text" id="field2" class="c-input" />
+      </div>
+    </form>
+
+    <!-- Media frame example -->
+    <div class="media-frame u-mt-xl">
+      <img src="/camera/placeholder" alt="Media content" />
+    </div>
+
+    <!-- Actions / buttons -->
+    <div class="l-row u-gap-md u-mt-xl">
+      <button class="c-btn c-btn-primary">Primary Action</button>
+      <button class="c-btn">Secondary Action</button>
+      <button class="c-btn c-btn-sm">Small Button</button>
+    </div>
+  </main>
+
+  <!-- Footer placeholder - loaded dynamically -->
+  <footer class="layout-footer" data-dashboard-footer-target></footer>
+
+  <!-- JavaScript modules -->
+  <script type="module" src="/web/assets/menu.js"></script>
+  <script type="module" src="/web/assets/footer.js"></script>
+  
+  <!-- Page-specific JavaScript -->
+  <script type="module">
+    // Import i18n if needed
+    // import { initI18n, applyDom, t } from '/web/assets/i18n.js';
+    
+    // Page initialization
+    document.addEventListener('DOMContentLoaded', () => {
+      // Your page logic here
+    });
+  </script>
+</body>
+</html>
