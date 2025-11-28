@@ -1,8 +1,3 @@
-/**
- * View Page Styles - Rider-PC Dashboard
- * Mini dashboard page-specific overrides (~80 lines)
- * ------------------------------------------------------------------
- */
 
 /* Page token overrides */
 .page-view {
@@ -98,9 +93,7 @@
 }
 
 /* Card spanning */
-.page-view .c-card--span2 {
-  grid-column: span 2;
-}
+.page-view .c-card--span2 { grid-column: span 2; }
 
 /* PC status indicator */
 .page-view .pc-status {
@@ -151,13 +144,5 @@
 }
 
 .page-view .pc-service-dot.ok { background: #5fe39a; }
-
-.page-view .pc-service-name {
-  font-weight: var(--font-weight-semibold);
-  font-size: var(--font-size-sm);
-}
-
-.page-view .pc-service-meta {
-  font-size: var(--font-size-xs);
-  color: var(--value-color);
-}
+.page-view .pc-service-name { font-weight: var(--font-weight-semibold); font-size: var(--font-size-sm); }
+.page-view .pc-service-meta { font-size: var(--font-size-xs); color: var(--value-color); }

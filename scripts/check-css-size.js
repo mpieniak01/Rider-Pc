@@ -10,19 +10,18 @@ const path = require('path');
 
 const MAX_LINES = 150;
 const CSS_DIR = path.join(__dirname, '..', 'web', 'assets');
+const PAGES_DIR = path.join(CSS_DIR, 'pages');
 
-// Page-specific CSS files to check (excludes common/modular files)
-const PAGE_CSS_FILES = [
-  'home.css',
-  'view.css',
-  'control.css',
-  'chat.css',
-  'google-home.css',
-  'navigation.css',
-  'models.css',
-  'project.css',
-  'system.css'
-];
+function getPageCssFiles() {
+  try {
+    return fs.readdirSync(PAGES_DIR)
+      .filter((file) => file.endsWith('.css'))
+      .sort();
+  } catch (err) {
+    console.error('Nie udało się odczytać katalogu pages/:', err.message);
+    return [];
+  }
+}
 
 // Files that are shared components (allowed to be larger)
 const SHARED_FILES = [
@@ -75,30 +74,38 @@ function countLines(filePath) {
   }
 }
 
+function logPageFile(file, result) {
+  const status = result.code <= MAX_LINES ? '✓' : '✗';
+  const color = result.code <= MAX_LINES ? '\x1b[32m' : '\x1b[31m';
+  const reset = '\x1b[0m';
+  console.log(`  ${color}${status}${reset} ${file}: ${result.code} lines (${result.total} total)`);
+}
+
 function main() {
   console.log('CSS Size Report - Rider-PC Dashboard');
   console.log('=====================================\n');
-  
+
   let hasErrors = false;
-  
+
   console.log('Page-specific CSS files (max ' + MAX_LINES + ' lines):');
   console.log('-'.repeat(50));
-  
-  for (const file of PAGE_CSS_FILES) {
-    const filePath = path.join(CSS_DIR, file);
+
+  const pageFiles = getPageCssFiles();
+  if (!pageFiles.length) {
+    console.log('  (brak plików w web/assets/pages)');
+  }
+
+  for (const file of pageFiles) {
+    const filePath = path.join(PAGES_DIR, file);
     const result = countLines(filePath);
-    
+
     if (!result) {
       console.log(`  ${file}: NOT FOUND`);
       continue;
     }
-    
-    const status = result.code <= MAX_LINES ? '✓' : '✗';
-    const color = result.code <= MAX_LINES ? '\x1b[32m' : '\x1b[31m';
-    const reset = '\x1b[0m';
-    
-    console.log(`  ${color}${status}${reset} ${file}: ${result.code} lines (${result.total} total)`);
-    
+
+    logPageFile(file, result);
+
     if (result.code > MAX_LINES) {
       hasErrors = true;
     }

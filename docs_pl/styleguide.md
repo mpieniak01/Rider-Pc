@@ -227,8 +227,8 @@ web/assets/
    - `<main class="layout-main">` - główna treść
    - `<footer class="layout-footer" data-dashboard-footer-target></footer>` - stopka
 5. Jeśli potrzebne są style specyficzne:
-   - Utwórz `web/assets/page-name.css`
-   - Utrzymuj plik poniżej **150 linii**
+   - Utwórz `web/assets/pages/page-name.css`
+   - Utrzymuj plik poniżej **150 linii** (`npm run css:size` pokaże bieżący stan)
    - Używaj tokenów i istniejących komponentów
    - Używaj selektora `.page-{page-name}` zamiast `body[data-page="..."]`
    - Dodaj import w HTML
@@ -275,10 +275,20 @@ npm run lint:css:fix
 # Sprawdź rozmiar plików CSS (strony < 150 linii)
 npm run css:size
 
+# Wygeneruj raport screenshotów + statyczne użycie selektorów
+npm run css:audit
+
 # Za pomocą Makefile
 make lint-css   # = npm run lint:css
 make css-size   # = npm run css:size
 ```
+
+### Manualna checklist
+
+1. **Przeglądarki**: Chrome/Chromium, Firefox (desktop). Po migracji strony prześledź zachowanie na obu (skrypt `npm run css:audit` używa Firefox/Playwright i zapisuje screenshoty do `logs/css_audit/*.png`).
+2. **Rozdzielczości**: minimum 1366×768 (domyślna w audycie) oraz szeroki widok (`layout-main--wide`). W razie potrzeby sprawdź mobilny viewport w DevTools.
+3. **Tryby**: Ciemny (domyślny). Jeżeli dodamy jasny motyw (`data-theme="light"`), należy potwierdzić, że tokeny `--color-*` są ustawione.
+4. **Zależności skryptów**: upewnij się, że `npm run lint:css`, `npm run css:size` i `npm run css:audit` przechodzą lokalnie przed PR/CI. W razie pracy na WSL uruchamiaj `./.venv/bin/python scripts/css_audit.py`, ponieważ `npm` uruchomione w kontekście Windows może nie widzieć `.venv`.
 
 ## Migracja istniejących stron
 

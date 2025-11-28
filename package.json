@@ -4,9 +4,10 @@
   "private": true,
   "description": "CSS/HTML linting and tools for Rider-PC dashboard",
   "scripts": {
-    "lint:css": "stylelint 'web/assets/**/*.css'",
-    "lint:css:fix": "stylelint 'web/assets/**/*.css' --fix",
-    "css:size": "node scripts/check-css-size.js"
+    "lint:css": "npx stylelint 'web/assets/**/*.css'",
+    "lint:css:fix": "npx stylelint 'web/assets/**/*.css' --fix",
+    "css:size": "node scripts/check-css-size.js",
+    "css:audit": ".venv/bin/python scripts/css_audit.py"
   },
   "devDependencies": {
     "stylelint": "^16.0.0",

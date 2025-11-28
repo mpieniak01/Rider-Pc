@@ -5,7 +5,7 @@
  */
 
 /* Page token overrides */
-body[data-page="chat"] {
+.page-chat {
   --page-max-width: 980px;
   --page-padding: var(--space-xl) var(--space-lg) 60px;
   --card-bg: #122234;
@@ -18,18 +18,18 @@ body[data-page="chat"] {
 }
 
 /* Chat header */
-body[data-page="chat"] .chat-head {
+.page-chat .chat-head {
   align-items: center;
   gap: var(--space-md);
   margin-bottom: var(--space-md);
 }
 
-body[data-page="chat"] .chat-head h1 {
+.page-chat .chat-head h1 {
   font-size: var(--font-size-xxl);
   margin: 0;
 }
 
-body[data-page="chat"] .chat-head .links {
+.page-chat .chat-head .links {
   margin-left: auto;
   font-size: var(--font-size-sm);
   display: flex;
@@ -38,17 +38,17 @@ body[data-page="chat"] .chat-head .links {
 }
 
 /* Status indicator */
-body[data-page="chat"] .status {
+.page-chat .status {
   font-size: var(--font-size-sm);
   margin-bottom: var(--space-md);
 }
 
-body[data-page="chat"] .status.ok { color: var(--color-ok); }
-body[data-page="chat"] .status.warn { color: var(--color-warn); }
-body[data-page="chat"] .status.err { color: var(--color-error); }
+.page-chat .status.ok { color: var(--color-ok); }
+.page-chat .status.warn { color: var(--color-warn); }
+.page-chat .status.err { color: var(--color-error); }
 
 /* Chat board */
-body[data-page="chat"] .board {
+.page-chat .board {
   min-height: 58vh;
   padding: var(--space-lg);
   display: flex;
@@ -57,7 +57,7 @@ body[data-page="chat"] .board {
 }
 
 /* Chat messages */
-body[data-page="chat"] .msg {
+.page-chat .msg {
   max-width: 78%;
   padding: var(--space-lg) var(--space-md);
   border-radius: var(--radius-lg);
@@ -66,30 +66,30 @@ body[data-page="chat"] .msg {
   word-break: break-word;
 }
 
-body[data-page="chat"] .msg.you {
+.page-chat .msg.you {
   align-self: flex-end;
   background: var(--chat-mine);
   border-top-right-radius: var(--radius-xxs);
 }
 
-body[data-page="chat"] .msg.bot {
+.page-chat .msg.bot {
   align-self: flex-start;
   background: var(--chat-bot);
   border-top-left-radius: var(--radius-xxs);
 }
 
-body[data-page="chat"] .msg.err {
+.page-chat .msg.err {
   background: var(--chat-err);
 }
 
 /* Compose area */
-body[data-page="chat"] .compose-row {
+.page-chat .compose-row {
   gap: var(--space-md);
   margin-top: var(--space-lg);
   align-items: flex-start;
 }
 
-body[data-page="chat"] textarea {
+.page-chat textarea {
   flex: 1;
   min-height: 64px;
   max-height: 220px;
@@ -102,7 +102,7 @@ body[data-page="chat"] textarea {
   font: inherit;
 }
 
-body[data-page="chat"] select {
+.page-chat select {
   background: var(--color-bg-input);
   color: inherit;
   border: 1px solid var(--card-border);
@@ -113,14 +113,14 @@ body[data-page="chat"] select {
 }
 
 /* Provider card */
-body[data-page="chat"] .providers-card {
+.page-chat .providers-card {
   margin-top: var(--space-xxl);
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
 }
 
-body[data-page="chat"] .provider-row {
+.page-chat .provider-row {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-md);
@@ -130,17 +130,17 @@ body[data-page="chat"] .provider-row {
   border: 1px solid var(--card-border);
 }
 
-body[data-page="chat"] .provider-info {
+.page-chat .provider-info {
   flex: 2;
   min-width: 220px;
 }
 
-body[data-page="chat"] .provider-name {
+.page-chat .provider-name {
   font-weight: var(--font-weight-semibold);
   margin-bottom: var(--space-xxs);
 }
 
-body[data-page="chat"] .provider-desc {
+.page-chat .provider-desc {
   font-size: var(--font-size-sm);
   color: var(--color-fg-hint);
 }
