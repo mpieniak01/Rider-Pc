@@ -22,7 +22,8 @@
 @import url('./css/footer.css');
 
 /* ===== Legacy Backward Compatibility ===== */
-/* These styles maintain compatibility with existing pages */
+/* These styles maintain compatibility with existing pages until migrated.
+   See web/assets/README.md for the full mapping table. */
 
 /* Label text variants */
 .label-text,
@@ -31,4 +32,252 @@
 .section-label {
   font-size: var(--font-size-sm);
   text-transform: capitalize;
+}
+
+/* Page title components */
+.control-title,
+.page-title {
+  font-size: var(--font-size-xxl);
+  margin: 0 0 var(--space-xl);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.page-title-text {
+  font-weight: var(--font-weight-normal);
+}
+
+.brand-accent {
+  color: var(--color-accent);
+}
+
+/* Control status indicators */
+.control-status {
+  font-size: var(--font-size-sm);
+  color: var(--color-fg-muted);
+}
+
+.control-badge {
+  margin-left: var(--space-sm);
+}
+
+/* AI mode styling (from control.html) */
+.ai-mode-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  align-items: center;
+}
+
+.ai-mode-actions {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+/* Camera frame (from control.html) */
+.cam-frame {
+  background: #08111c;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.cam-frame .cam {
+  width: 100%;
+  display: block;
+}
+
+/* Motion button (from control.html) */
+.motion-btn {
+  min-width: 100px;
+  min-height: 44px;
+  font-size: var(--font-size-lg);
+}
+
+/* Service select (from control.html) */
+.svc-select {
+  padding: var(--space-sm) var(--space-md);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--color-border-interactive);
+  border-radius: var(--radius-sm);
+  color: var(--color-fg-primary);
+  font-size: var(--font-size-sm);
+  min-height: 32px;
+}
+
+/* Feature/Resource row (from control.html) */
+.feature-resource {
+  margin-top: var(--space-xl);
+}
+
+/* Shell containers (from system.html, models.html) */
+.system-shell,
+.models-shell {
+  padding: var(--space-lg);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Project header (from project.html) */
+.project-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  margin-bottom: var(--space-xl);
+}
+
+/* Data list component (from home.html) */
+.data-list {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-xs) var(--space-md);
+  font-size: var(--font-size-md);
+}
+
+.data-value {
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Snapshot (from home.html) */
+.snapshot {
+  background: var(--color-bg-elevated);
+  border: 1px solid #1c3349;
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+/* Status pill legacy variants (from system.html) */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 2px var(--space-sm);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Service state classes (from control.html) */
+.svc-state-ok {
+  color: var(--color-ok);
+}
+
+.svc-state-warn {
+  color: var(--color-warn);
+}
+
+.svc-state-err {
+  color: var(--color-error);
+}
+
+/* Service description wrappers (from control.html) */
+.svc-desc-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.svc-desc-pl {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-fg-primary);
+}
+
+.svc-desc-en {
+  font-size: var(--font-size-sm);
+  color: var(--color-fg-muted);
+}
+
+/* Status message (from multiple pages) */
+.status-msg {
+  border-radius: var(--radius-xl);
+  padding: var(--space-lg) var(--space-md);
+  font-size: var(--font-size-md);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--color-border-subtle);
+}
+
+/* Thumb container (from view.html) */
+.thumb {
+  background: #08111c;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-xl);
+  padding: var(--space-sm);
+}
+
+.thumb img {
+  display: block;
+  width: 100%;
+  border-radius: var(--radius-md);
+}
+
+/* Log panel (from system.html) */
+.log-panel {
+  margin-top: var(--space-xxl);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* Network card (from system.html) */
+.network-card {
+  background: var(--card-bg);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md) var(--space-lg);
+  transition: border-color var(--transition-normal);
+}
+
+.network-card.is-online {
+  border-color: var(--color-ok);
+}
+
+.network-card.is-offline {
+  border-color: var(--color-error);
+}
+
+/* Hint text styling */
+.hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-fg-muted);
+  opacity: 0.85;
+}
+
+/* Note text styling */
+.note {
+  font-size: var(--font-size-md);
+  color: var(--color-fg-primary);
+  opacity: 0.75;
+}
+
+/* Kbd keyboard key styling */
+.kbd {
+  font-family: var(--font-family-mono);
+  background: #102233;
+  border: 1px solid #203a57;
+  border-radius: var(--radius-sm);
+  padding: 2px var(--space-xs);
+  margin: 0 2px;
+  color: var(--color-fg-secondary);
+}
+
+/* Spinner animation */
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-off-border);
+  border-top-color: var(--color-ok);
+  border-radius: 50%;
+  animation: c-spin 0.8s linear infinite;
 }
