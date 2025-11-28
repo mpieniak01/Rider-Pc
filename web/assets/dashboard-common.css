@@ -29,43 +29,6 @@
 .data-label,
 .provider-label,
 .section-label {
-  font-size: var(--font-size-label, 13px);
+  font-size: var(--font-size-sm);
   text-transform: capitalize;
-}
-
-/* Control dashboard customizations (page-specific) */
-body[data-page="control"] .ai-mode-card {
-  margin-bottom: 22px;
-}
-
-body[data-page="control"] .balance-control-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-lg);
-  align-items: center;
-  border-top: 1px solid var(--color-border-subtle);
-  padding-top: var(--space-md);
-  margin-top: var(--space-md);
-}
-
-body[data-page="control"] .balance-control {
-  flex: 1 1 280px;
-  min-width: 240px;
-}
-
-body[data-page="control"] .balance-control label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  justify-content: space-between;
-}
-
-/* View dashboard page-specific overrides */
-body[data-page="view"] {
-  --page-max-width: 1180px;
-  --page-padding: 28px 18px 40px;
-  --card-bg: #0f2233;
-  --card-border: #1d3548;
-  --card-radius: 12px;
-  --grid-gap: 18px;
 }
