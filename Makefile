@@ -1,4 +1,4 @@
-.PHONY: start stop reload lint format test
+.PHONY: start stop reload lint lint-css format test css-size
 VENV_BIN ?= .venv/bin
 PY ?= $(if $(wildcard $(VENV_BIN)/python),$(VENV_BIN)/python,python3)
 
@@ -14,6 +14,9 @@ reload: stop start
 lint:
 	@$(PY) -m ruff check .
 
+lint-css:
+	@npm run lint:css
+
 format:
 	@$(PY) -m ruff format .
 
@@ -24,3 +27,6 @@ test:
 		-p pytest_asyncio.plugin \
 		-p pytest_timeout \
 		--timeout=30 --timeout-method=thread
+
+css-size:
+	@node scripts/check-css-size.js
