@@ -57,3 +57,4 @@
 - Menu, stopka, karty, listy statusów, przyciski i badge wyglądają identycznie na wszystkich stronach i są konfigurowane przez klasy modyfikujące.
 - Łatwość dodania nowego ekranu: wystarczy skopiować szablon `layout-page.html`, przypisać klasy komponentów i ewentualnie dopisać kilka reguł.
 - Stylelint + testy wizualne w pipeline pilnują regresji oraz wielkości CSS.
+- Komponenty i layouty są zgodne ze standardami dostępności (np. WCAG 2.1 AA) i przetestowane pod kątem nawigacji klawiaturą oraz działania z czytnikami ekranu.
