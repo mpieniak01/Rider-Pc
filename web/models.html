@@ -1,4 +1,8 @@
 <!doctype html>
+<!--
+  Migrated to dashboard_base.html template structure
+  Uses shared layout classes: .layout-header, .layout-main, .layout-footer
+-->
 <html lang="pl">
 <head>
   <meta charset="utf-8" />
@@ -7,9 +11,12 @@
   <link rel="stylesheet" href="/web/assets/dashboard-common.css">
   <link rel="stylesheet" href="/web/assets/models.css">
 </head>
-<body data-page="models">
-<div data-dashboard-menu-target></div>
-<div class="models-shell">
+<body data-page="models" class="page page-models">
+  <!-- Header with Menu -->
+  <header class="layout-header" data-dashboard-menu-target></header>
+
+  <!-- Main content -->
+  <main class="layout-main layout-main--wide">
   <header>
     <h1 class="page-title"><span class="brand-accent">Rider-PC</span>: <span>Modele AI</span></h1>
     <p class="page-subtitle">Zarządzanie modelami sztucznej inteligencji</p>
@@ -125,8 +132,10 @@
       </div>
     </div>
   </section>
-</div>
-<div data-dashboard-footer-target></div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="layout-footer" data-dashboard-footer-target></footer>
 
 <script>
 const statusLine = document.getElementById('status-line');

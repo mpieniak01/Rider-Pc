@@ -1,11 +1,12 @@
 /**
  * Home Page Styles - Rider-PC Dashboard
  * Page-specific overrides (~50 lines)
+ * Migrated: Uses .page-home instead of body[data-page="home"]
  * ------------------------------------------------------------------
  */
 
 /* Page token overrides */
-body[data-page="home"] {
+.page-home {
   --page-max-width: 900px;
   --page-padding: var(--space-xxl) var(--space-xl) 60px;
   --card-bg: #0f2030;
@@ -14,7 +15,7 @@ body[data-page="home"] {
 }
 
 /* Page header */
-body[data-page="home"] h1 {
+.page-home h1 {
   font-size: var(--font-size-xxl);
   margin: 0 0 var(--space-xl);
   display: flex;
@@ -24,27 +25,21 @@ body[data-page="home"] h1 {
 }
 
 /* Data list styling */
-body[data-page="home"] .data-list {
-  gap: var(--space-sm) var(--space-md);
-  font-size: var(--font-size-md);
+.page-home .c-data-list {
+  gap: var(--space-sm);
 }
 
-body[data-page="home"] .data-label {
+.page-home .c-data-list__label {
   color: var(--color-fg-secondary);
   min-width: 140px;
 }
 
-body[data-page="home"] .data-value {
+.page-home .c-data-list__value {
   font-weight: var(--font-weight-semibold);
 }
 
-/* Snapshot code block */
-body[data-page="home"] .snapshot {
-  background: var(--color-bg-elevated);
-  border: 1px solid #1c3349;
-  border-radius: var(--radius-lg);
-  padding: var(--space-md);
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-normal);
-  overflow: auto;
+/* Code block for snapshot */
+.page-home .c-code-block {
+  max-height: 400px;
+  overflow-y: auto;
 }

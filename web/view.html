@@ -1,4 +1,8 @@
 <!doctype html>
+<!--
+  Migrated to dashboard_base.html template structure
+  Uses shared layout classes: .layout-header, .layout-main, .layout-footer
+-->
 <html lang="pl">
 <head>
 <meta charset="utf-8" />
@@ -7,9 +11,12 @@
 <link rel="stylesheet" href="/web/assets/dashboard-common.css">
 <link rel="stylesheet" href="/web/assets/view.css">
 </head>
-<body data-page="view">
-<div data-dashboard-menu-target></div>
-<div class="wrap">
+<body data-page="view" class="page page-view">
+  <!-- Header with Menu -->
+  <header class="layout-header" data-dashboard-menu-target></header>
+
+  <!-- Main content -->
+  <main class="layout-main layout-main--wide">
   <h1><span class="brand-accent">Rider-PC</span>: <span class="page-title-text">mini dashboard</span></h1>
   <div class="c-hint">
     <span data-i18n="dash.hint_prefix">Auto-refresh co ≈ 2 s.</span>
@@ -196,8 +203,10 @@
     </div>
   </div>
 
-  </div>
-  <div data-dashboard-footer-target></div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="layout-footer" data-dashboard-footer-target></footer>
 
 <script type="module">
 import { initI18n, applyDom, t } from '/web/assets/i18n.js?v=3';

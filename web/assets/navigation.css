@@ -1,125 +1,60 @@
-html,
-body {
-    height: 100%;
-    margin: 0;
-    overflow: hidden;
+/**
+ * Navigation Page Styles - Rider-PC Dashboard
+ * Navigation visualizer page-specific overrides (~80 lines)
+ * Migrated: Uses .page-navigation instead of Tailwind-like utilities
+ * ------------------------------------------------------------------
+ */
+
+/* Page-specific overrides */
+.page-navigation {
+  --page-padding: var(--space-lg);
 }
 
-body {
-    display: flex;
-    flex-direction: column;
-    background-color: #111827;
-    color: #e5e7eb;
-    font-family: "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+.page-navigation .layout-main {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 140px);
 }
 
-/* Utility classes used by navigation.html (replacing Tailwind CDN) */
-.bg-gray-900 {
-    background-color: #111827;
+/* Status indicator */
+.nav-status-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: #f59e0b;
+  transition: background-color var(--transition-normal);
 }
 
-.text-gray-200 {
-    color: #e5e7eb;
+.nav-status-dot.is-connected {
+  background-color: var(--color-ok);
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
 }
 
-.font-sans {
-    font-family: "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+.nav-status-dot.is-disconnected {
+  background-color: var(--color-error);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
 }
 
-.flex {
-    display: flex;
+/* Canvas container - uses media-frame from layout.css */
+.page-navigation #canvas-container {
+  flex-grow: 1;
+  position: relative;
+  width: 100%;
+  min-height: 400px;
+  padding: 0;
 }
 
-.flex-wrap {
-    flex-wrap: wrap;
+.page-navigation #canvas-container canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #1f2937;
+  border-radius: var(--radius-md);
 }
 
-.justify-between {
-    justify-content: space-between;
-}
-
-.items-center {
-    align-items: center;
-}
-
-.mb-4 {
-    margin-bottom: 1rem;
-}
-
-.mr-2 {
-    margin-right: 0.5rem;
-}
-
-.text-2xl {
-    font-size: 1.5rem;
-    line-height: 2rem;
-}
-
-.font-bold {
-    font-weight: 700;
-}
-
-.w-4 {
-    width: 1rem;
-}
-
-.h-4 {
-    height: 1rem;
-}
-
-.rounded-full {
-    border-radius: 9999px;
-}
-
-.bg-yellow-500 {
-    background-color: #f59e0b;
-}
-
-.bg-green-500 {
-    background-color: #22c55e;
-}
-
-.bg-red-500 {
-    background-color: #ef4444;
-}
-
-main {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    padding: 1rem;
-    height: calc(100vh - 90px);
-    box-sizing: border-box;
-}
-
-#canvas-container {
-    flex-grow: 1;
-    position: relative;
-    width: 100%;
-    height: calc(100% - 100px);
-}
-
-canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: #1f2937;
-    border-radius: 0.5rem;
-    border: 1px solid #4b5563;
-}
-
-.legend-item {
-    display: flex;
-    align-items: center;
-    margin-right: 1rem;
-}
-
-.legend-color {
-    width: 16px;
-    height: 16px;
-    border-radius: 4px;
-    margin-right: 0.5rem;
-    border: 1px solid #9ca3af;
+/* Legend items - extends c-legend from components.css */
+.page-navigation .c-legend__dot {
+  border: 1px solid #9ca3af;
 }

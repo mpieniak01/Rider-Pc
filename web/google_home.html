@@ -1,4 +1,8 @@
 <!doctype html>
+<!--
+  Migrated to dashboard_base.html template structure
+  Uses shared layout classes: .layout-header, .layout-main, .layout-footer
+-->
 <html lang="pl">
 <head>
   <meta charset="utf-8" />
@@ -7,9 +11,12 @@
   <link rel="stylesheet" href="/web/assets/dashboard-common.css">
   <link rel="stylesheet" href="/web/assets/google-home.css">
 </head>
-<body data-page="google">
-<div data-dashboard-menu-target></div>
-<div class="wrap">
+<body data-page="google" class="page page-google">
+  <!-- Header with Menu -->
+  <header class="layout-header" data-dashboard-menu-target></header>
+
+  <!-- Main content -->
+  <main class="layout-main">
   
   <h1>
     <span class="brand-accent">Rider-PC</span>
@@ -38,10 +45,12 @@
       <div class="muted" data-i18n="meta.loading">Loading…</div>
     </div>
   </div>
-</div>
-<div data-dashboard-footer-target></div>
+  </main>
 
-<!-- APP (i18n + logika) -->
+  <!-- Footer -->
+  <footer class="layout-footer" data-dashboard-footer-target></footer>
+
+  <!-- APP (i18n + logika) -->
 <script type="module">
 import { initI18n, applyDom, t } from '/web/assets/i18n.js';
 

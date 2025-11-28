@@ -217,19 +217,38 @@ web/assets/
 
 ## Tworzenie nowej strony
 
-1. Skopiuj szablon `web/layout-page.html`
-2. Zmień `data-page="page-name"` na unikalną nazwę
-3. Zaktualizuj tytuł i treść
-4. Jeśli potrzebne są style specyficzne:
+1. Skopiuj szablon `web/templates/dashboard_base.html`
+2. Zmień `data-page="page-name"` i `class="page page-{page-name}"` na unikalną nazwę
+3. Zaktualizuj tytuł i treść w sekcji `<main class="layout-main">`
+4. Użyj struktury:
+   - `<header class="layout-header" data-dashboard-menu-target></header>` - menu
+   - `<main class="layout-main">` - główna treść
+   - `<footer class="layout-footer" data-dashboard-footer-target></footer>` - stopka
+5. Jeśli potrzebne są style specyficzne:
    - Utwórz `web/assets/page-name.css`
    - Utrzymuj plik poniżej **150 linii**
    - Używaj tokenów i istniejących komponentów
+   - Używaj selektora `.page-{page-name}` zamiast `body[data-page="..."]`
    - Dodaj import w HTML
 
 ```html
 <link rel="stylesheet" href="/web/assets/dashboard-common.css">
 <link rel="stylesheet" href="/web/assets/page-name.css">
 ```
+
+## Nowe klasy layoutu
+
+W ramach migracji do wspólnego szablonu dodano następujące utility:
+
+| Klasa | Opis |
+|-------|------|
+| `.cluster` | Flex-wrap layout z równomiernym gap (dla inline elements) |
+| `.stack` | Kolumna z jednolitym gap (dla stacked items) |
+| `.flow` | Pionowy rytm z `margin-top` (dla treści tekstowych) |
+| `.auto-grid` | Responsywny grid z `auto-fit` (dla kart) |
+| `.form-grid` | Dwukolumnowy grid dla formularzy |
+| `.media-frame` | Kontener na obrazy/video/canvas |
+| `.surface` | Karta/sekcja z tłem i paddingiem |
 
 ## Kryteria akceptacji
 
@@ -276,12 +295,17 @@ make css-size   # = npm run css:size
 
 ### Kroki migracji strony
 
-1. **Podmień kontener główny**: `.wrap` → `.layout-main`
-2. **Podmień klasy komponentów**: `.card` → `.c-card`, `.pill` → `.c-pill`
-3. **Zastosuj modyfikatory stanu**: `.is-ok`, `.is-warn`, `.is-err` zamiast `.ok`, `.warn`, `.err`
-4. **Użyj prefiksów utility**: `.u-muted`, `.u-gap-md` zamiast `.muted`, `.gap`
-5. **Ogranicz CSS strony**: Utrzymuj plik poniżej 150 linii, tylko unikalne style
-6. **Usuń selektory `body[data-page="..."]`**: Użyj klas modyfikujących lub neutralnych nazw
+1. **Użyj nowego szablonu**: Skopiuj `web/templates/dashboard_base.html`
+2. **Dodaj klasę strony**: `class="page page-{page-name}"` na `<body>`
+3. **Użyj struktury layoutu**:
+   - `<header class="layout-header" data-dashboard-menu-target></header>`
+   - `<main class="layout-main">` (główna treść)
+   - `<footer class="layout-footer" data-dashboard-footer-target></footer>`
+4. **Podmień klasy komponentów**: `.card` → `.c-card`, `.pill` → `.c-pill`
+5. **Zastosuj modyfikatory stanu**: `.is-ok`, `.is-warn`, `.is-err` zamiast `.ok`, `.warn`, `.err`
+6. **Użyj prefiksów utility**: `.u-muted`, `.u-gap-md` zamiast `.muted`, `.gap`
+7. **Ogranicz CSS strony**: Utrzymuj plik poniżej 150 linii, tylko unikalne style
+8. **Zmień selektory CSS**: `body[data-page="..."]` → `.page-{page-name}`
 
 ### Legacy class fallbacks
 
@@ -304,17 +328,17 @@ Status migracji stron dashboardu:
 
 | Strona | Status | Uwagi |
 |--------|--------|-------|
-| `home.html` | ✅ Kompatybilna | Używa nowych tokenów i fallbacków |
-| `control.html` | ✅ Kompatybilna | Panel sterowania działa bez regresji |
-| `system.html` | ✅ Kompatybilna | Status sieci i usług renderuje się poprawnie |
-| `models.html` | ✅ Kompatybilna | Tabele modeli wyświetlają się prawidłowo |
-| `view.html` | ✅ Kompatybilna | Karty i wykresy bez zmian wizualnych |
-| `project.html` | ✅ Kompatybilna | Lista issues działa |
-| `chat.html` | ✅ Kompatybilna | Interfejs czatu bez regresji |
-| `google_home.html` | ✅ Kompatybilna | Siatka urządzeń działa |
-| `providers.html` | ⚠️ Legacy | Strona wymieniona w Faza A; status migracji do potwierdzenia |
-| `mode.html` | ⚠️ Legacy | Strona wymieniona w Faza B; status migracji do potwierdzenia |
-| `navigation.html` | ⚠️ Legacy | Używa utility Tailwind-like; wymaga pełnej migracji |
+| `home.html` | ✅ Zmigrowane | Używa `dashboard_base.html`, `.page-home` |
+| `control.html` | ✅ Zmigrowane | Używa `dashboard_base.html`, `.page-control` |
+| `system.html` | ✅ Zmigrowane | Używa `dashboard_base.html`, `.page-system` |
+| `models.html` | ✅ Zmigrowane | Używa `dashboard_base.html`, `.page-models` |
+| `view.html` | ✅ Zmigrowane | Używa `dashboard_base.html`, `.page-view` |
+| `project.html` | ✅ Zmigrowane | Używa `dashboard_base.html`, `.page-project` |
+| `chat.html` | ✅ Zmigrowane | Używa `dashboard_base.html`, `.page-chat` |
+| `google_home.html` | ✅ Zmigrowane | Używa `dashboard_base.html`, `.page-google` |
+| `providers.html` | ✅ Zmigrowane | Redirect do /control, używa nowego szablonu |
+| `mode.html` | ✅ Zmigrowane | Redirect do /control, używa nowego szablonu |
+| `navigation.html` | ✅ Zmigrowane | Usunięto Tailwind utilities, używa `.page-navigation` |
 
 ### Znane różnice
 

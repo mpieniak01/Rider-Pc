@@ -134,11 +134,73 @@ main,
 }
 
 /* ===== Cluster Layout ===== */
-.l-cluster {
+.l-cluster,
+.cluster {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-md);
   align-items: center;
+}
+
+/* ===== Flow Layout (consistent vertical rhythm) ===== */
+.flow > * + * {
+  margin-top: var(--flow-space, var(--space-md));
+}
+
+.flow--sm > * + * {
+  margin-top: var(--space-sm);
+}
+
+.flow--lg > * + * {
+  margin-top: var(--space-xl);
+}
+
+/* ===== Auto Grid (responsive equal columns) ===== */
+.auto-grid {
+  display: grid;
+  gap: var(--grid-gap, var(--space-xl));
+  grid-template-columns: repeat(auto-fit, minmax(var(--auto-grid-min, 280px), 1fr));
+}
+
+.auto-grid--sm {
+  --auto-grid-min: 200px;
+}
+
+.auto-grid--lg {
+  --auto-grid-min: 360px;
+}
+
+/* ===== Form Grid ===== */
+.form-grid {
+  display: grid;
+  gap: var(--space-lg);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.form-grid--single {
+  grid-template-columns: 1fr;
+}
+
+/* ===== Media Frame ===== */
+.media-frame {
+  background: #08111c;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-xl);
+  padding: var(--space-sm);
+  overflow: hidden;
+}
+
+.media-frame img,
+.media-frame video,
+.media-frame canvas {
+  display: block;
+  width: 100%;
+  border-radius: var(--radius-md);
+}
+
+.media-frame--blank {
+  background: #000;
+  border-color: #222;
 }
 
 /* ===== Surface/Section ===== */

@@ -1,4 +1,8 @@
 <!doctype html>
+<!--
+  Migrated to dashboard_base.html template structure
+  Uses shared layout classes: .layout-header, .layout-main, .layout-footer
+-->
 <html lang="pl">
 <head>
   <meta charset="utf-8" />
@@ -7,9 +11,12 @@
   <link rel="stylesheet" href="/web/assets/dashboard-common.css">
   <link rel="stylesheet" href="/web/assets/project.css">
 </head>
-<body data-page="project">
-<div data-dashboard-menu-target></div>
-<div class="wrap">
+<body data-page="project" class="page page-project">
+  <!-- Header with Menu -->
+  <header class="layout-header" data-dashboard-menu-target></header>
+
+  <!-- Main content -->
+  <main class="layout-main">
   
   <header class="project-header">
     <h1>
@@ -47,11 +54,12 @@
     <h2 data-i18n="project.no_issues">Brak otwartych zgłoszeń</h2>
     <p class="muted" data-i18n="project.no_issues_desc">Wszystkie zadania zostały ukończone lub nie ma aktywnych zgłoszeń.</p>
   </div>
-  </div>
-</div>
-<div data-dashboard-footer-target></div>
+  </main>
 
-<div id="toast-container"></div>
+  <!-- Footer -->
+  <footer class="layout-footer" data-dashboard-footer-target></footer>
+
+  <div id="toast-container"></div>
 
 <!-- New Task Modal -->
 <div id="task-modal" class="modal-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="task-modal-title">
