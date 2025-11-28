@@ -1,0 +1,333 @@
+(function () {
+  const targets = Array.from(document.querySelectorAll('[data-dashboard-footer-target]'));
+  if (!targets.length) {
+    return;
+  }
+
+  const pendingQueue = Array.isArray(window.__footerPending) ? window.__footerPending.slice() : [];
+  delete window.__footerPending;
+
+  loadTemplate()
+    .then((html) => {
+      const contexts = targets.map((target) => {
+        target.innerHTML = html;
+        target.classList.add('footer-ready');
+        const root = target.querySelector('[data-footer-root]') || target;
+        return {
+          root,
+          presencePill: root.querySelector('[data-footer-presence]'),
+          presenceState: root.querySelector('[data-footer-presence-state]'),
+          modeEl: root.querySelector('[data-footer-mode]'),
+          modeLabel: extractLabel(root.querySelector('[data-footer-mode]'), 'mode'),
+          confEl: root.querySelector('[data-footer-conf]'),
+          confLabel: extractLabel(root.querySelector('[data-footer-conf]'), 'conf'),
+          camEl: root.querySelector('[data-footer-camera]'),
+          camLabel: extractLabel(root.querySelector('[data-footer-camera]'), 'CAM'),
+          camMetaEl: root.querySelector('[data-footer-camera-meta]'),
+          camMetaLabel: extractLabel(root.querySelector('[data-footer-camera-meta]'), 'fps'),
+          branchEl: root.querySelector('[data-footer-branch]'),
+          commitBtn: root.querySelector('[data-footer-commit]'),
+        };
+      });
+      initVersionBlocks(contexts);
+      initStatusBlocks(contexts, pendingQueue);
+    })
+    .catch((err) => {
+      console.error('Nie udało się przygotować stopki:', err);
+      targets.forEach((target) => {
+        target.innerHTML = '<div class="footer-error">Błąd ładowania stopki</div>';
+      });
+    });
+
+  function loadTemplate() {
+    return fetch('/web/dashboard_footer_template.html', { cache: 'no-store' })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error('Footer HTTP ' + res.status);
+        }
+        return res.text();
+      })
+      .catch((err) => {
+        console.warn('Używam awaryjnej wersji stopki:', err);
+        return getInlineTemplate();
+      });
+  }
+
+  function getInlineTemplate() {
+    return `
+<div class="c-statusbar" data-footer-root>
+  <span class="c-pill" data-footer-presence>
+    <span>VISION:</span>&nbsp;
+    <span data-footer-presence-state>—</span>
+  </span>
+  <span class="u-sep">•</span>
+  <span class="muted" data-footer-mode>mode: —</span>
+  <span class="u-sep">•</span>
+  <span class="muted" data-footer-conf>conf: —</span>
+  <span class="u-sep">•</span>
+  <span class="c-pill" data-footer-camera>CAM: —</span>
+  <span class="muted" data-footer-camera-meta>fps: —</span>
+  <span class="u-spacer"></span>
+  <span class="footer-version">
+    <span class="footer-version__label">Wersja</span>
+    <span class="footer-version__branch" data-footer-branch>—</span>
+    <button type="button" class="footer-version__commit" data-footer-commit title="Kliknij, aby skopiować hash">#unknown</button>
+  </span>
+</div>
+`.trim();
+  }
+
+  function extractLabel(el, fallback) {
+    if (!el) return fallback;
+    const text = el.textContent || '';
+    const idx = text.indexOf(':');
+    if (idx === -1) {
+      return text.trim() || fallback;
+    }
+    return text.slice(0, idx).trim() || fallback;
+  }
+
+  function initStatusBlocks(contexts, pendingQueue) {
+    if (!contexts.length) {
+      return;
+    }
+
+    const FOOTER_POLL_INTERVAL_MS = 6000;
+    const footerState = {
+      state: null,
+      snapInfo: null,
+      cameraResource: null,
+    };
+
+    function render() {
+      contexts.forEach((ctx) => {
+        renderPresence(ctx, footerState.state);
+        renderCamera(ctx, footerState.state, footerState.snapInfo, footerState.cameraResource);
+      });
+    }
+
+    function update(partial) {
+      let changed = false;
+      if (Object.prototype.hasOwnProperty.call(partial, 'state')) {
+        footerState.state = partial.state || null;
+        changed = true;
+      }
+      if (Object.prototype.hasOwnProperty.call(partial, 'snapInfo')) {
+        footerState.snapInfo = partial.snapInfo || null;
+        changed = true;
+      }
+      if (Object.prototype.hasOwnProperty.call(partial, 'cameraResource')) {
+        footerState.cameraResource = partial.cameraResource || null;
+        changed = true;
+      }
+      if (changed) {
+        render();
+      }
+    }
+
+    window.dashboardFooter = { update };
+    pendingQueue.forEach((payload) => {
+      try {
+        update(payload || {});
+      } catch (err) {
+        console.warn('Nie udało się zastosować oczekującej aktualizacji stopki:', err);
+      }
+    });
+
+    const poll = async () => {
+      const [state, snapInfo, cameraResource] = await Promise.all([
+        fetchJson('/state'),
+        fetchJson('/vision/snap-info'),
+        fetchJson('/api/resource/camera'),
+      ]);
+      update({ state, snapInfo, cameraResource });
+    };
+
+    poll().catch((err) => console.warn('Footer poll error:', err));
+    setInterval(() => {
+      poll().catch((err) => console.warn('Footer poll error:', err));
+    }, FOOTER_POLL_INTERVAL_MS);
+  }
+
+  async function fetchJson(url) {
+    try {
+      const response = await fetch(url, { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error('HTTP ' + response.status);
+      }
+      return await response.json();
+    } catch (err) {
+      console.warn('Footer request failed:', url, err);
+      return null;
+    }
+  }
+
+  function renderPresence(ctx, state) {
+    if (!ctx.presencePill || !ctx.presenceState || !ctx.modeEl || !ctx.confEl) {
+      return;
+    }
+    const present = Boolean(state?.present);
+    ctx.presencePill.className = 'c-pill ' + (present ? 'ok' : 'off');
+    ctx.presenceState.textContent = present ? 'ACTIVE' : 'IDLE';
+    const modeValue = state?.mode || '—';
+    ctx.modeEl.textContent = `${ctx.modeLabel}: ${modeValue}`;
+    const confValue = state?.confidence != null ? Number(state.confidence).toFixed(3) : '—';
+    ctx.confEl.textContent = `${ctx.confLabel}: ${confValue}`;
+  }
+
+  function renderCamera(ctx, state, snapInfo, cameraResource) {
+    if (!ctx.camEl || !ctx.camMetaEl) {
+      return;
+    }
+    const rawAge = snapInfo?.raw?.age_s;
+    const procAge = snapInfo?.proc?.age_s;
+    const trackerAge = snapInfo?.tracker?.age_s;
+    const rawTxt = formatAge(rawAge);
+    const procTxt = formatAge(procAge);
+    const trackerTxt = formatAge(trackerAge);
+    ctx.camEl.textContent = `${ctx.camLabel}: ${rawTxt} / ${procTxt} • TRK: ${trackerTxt}`;
+    const cameraOk = isCameraOnline(state);
+    ctx.camEl.className = 'c-pill ' + (cameraOk ? 'ok' : 'off');
+
+    const metaParts = [];
+    const fps = state?.camera?.fps;
+    if (typeof fps === 'number' && !Number.isNaN(fps)) {
+      metaParts.push(`${fps.toFixed(1)} fps`);
+    }
+    const holdersText = describeCameraResource(cameraResource);
+    if (holdersText) {
+      metaParts.push(holdersText);
+    }
+    const metaValue = metaParts.length ? metaParts.join(' • ') : '—';
+    ctx.camMetaEl.textContent = `${ctx.camMetaLabel}: ${metaValue}`;
+  }
+
+  function isCameraOnline(state) {
+    if (!state || !state.camera) {
+      return false;
+    }
+    if (state.camera.vision_enabled === false) {
+      return false;
+    }
+    if (state.camera.on === false) {
+      return false;
+    }
+    return true;
+  }
+
+  function formatAge(value) {
+    if (value == null || Number.isNaN(Number(value))) {
+      return '—';
+    }
+    return `${Number(value).toFixed(1)}s`;
+  }
+
+  function describeCameraResource(resource) {
+    if (!resource) {
+      return '';
+    }
+    if (resource.error) {
+      return `err: ${resource.error}`;
+    }
+    if (resource.free) {
+      return 'free';
+    }
+    if (Array.isArray(resource.holders) && resource.holders.length) {
+      const holders = resource.holders
+        .map((holder) => {
+          const cmd = holder?.cmd || holder?.command || 'proc';
+          const pid = holder?.pid != null ? holder.pid : '?';
+          const svc = holder?.service ? `:${holder.service}` : '';
+          return `${cmd}#${pid}${svc}`;
+        })
+        .join(', ');
+      return `hold: ${holders}`;
+    }
+    return '';
+  }
+
+  async function initVersionBlocks(contexts) {
+    const versionContexts = contexts.filter((ctx) => ctx.branchEl || ctx.commitBtn);
+    if (!versionContexts.length) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/status/version', { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error('HTTP ' + response.status);
+      }
+      const data = await response.json();
+      versionContexts.forEach((ctx) => renderVersion(ctx, data));
+    } catch (error) {
+      console.error('Nie udało się odczytać wersji:', error);
+      versionContexts.forEach((ctx) => renderVersion(ctx, null));
+    }
+  }
+
+  function renderVersion(ctx, data) {
+    const available = Boolean(data?.available);
+    const branch = available ? data?.branch || 'unknown' : 'unknown';
+    const commit = available ? data?.commit || '' : '';
+
+    if (ctx.branchEl) {
+      ctx.branchEl.textContent = branch;
+    }
+
+    if (ctx.commitBtn) {
+      const text = commit ? '#' + commit : '#unknown';
+      ctx.commitBtn.textContent = text;
+      ctx.commitBtn.dataset.commit = commit;
+      ctx.commitBtn.disabled = !commit;
+      ctx.commitBtn.title = commit
+        ? data?.message
+          ? `Ostatni commit: ${data.message}`
+          : 'Kliknij, aby skopiować hash'
+        : 'Brak informacji o commicie';
+      ctx.commitBtn.onclick = commit ? () => copyCommit(ctx.commitBtn) : null;
+    }
+  }
+
+  function copyCommit(button) {
+    const commit = button?.dataset?.commit;
+    if (!commit) {
+      return;
+    }
+
+    const originalText = button.textContent;
+    const originalTitle = button.title;
+
+    const restore = () => {
+      button.classList.remove('is-copied');
+      button.textContent = originalText;
+      button.title = originalTitle;
+    };
+
+    const handleSuccess = () => {
+      button.classList.add('is-copied');
+      button.textContent = 'Skopiowano';
+      button.title = commit;
+      setTimeout(restore, 1500);
+    };
+
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(commit).then(handleSuccess).catch(restore);
+    } else {
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = commit;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'absolute';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        handleSuccess();
+      } catch (err) {
+        console.error('Nie udało się skopiować commit hash:', err);
+        restore();
+      }
+    }
+  }
+})();

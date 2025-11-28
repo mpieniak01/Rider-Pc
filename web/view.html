@@ -196,17 +196,8 @@
     </div>
   </div>
 
-  <div class="c-statusbar" id="statusbar">
-    <span class="c-pill" id="sb_presence"><span data-i18n="dash.status.vision_prefix">VISION:</span>&nbsp;<span id="sb_presence_state">—</span></span>
-    <span class="u-sep">•</span>
-    <span id="sb_mode" class="muted">mode: —</span>
-    <span class="u-sep">•</span>
-    <span id="sb_conf" class="muted">conf: —</span>
-    <span class="u-sep">•</span>
-    <span class="c-pill" id="sb_cam">CAM: —</span>
-    <span id="sb_cam_meta" class="muted">fps: —</span>
   </div>
-</div>
+  <div data-dashboard-footer-target></div>
 
 <script type="module">
 import { initI18n, applyDom, t } from '/web/assets/i18n.js?v=3';
@@ -235,6 +226,17 @@ const formatDuration=(seconds)=>{
   const SS=String(s%60).padStart(2,'0');
   return `${HH}:${MM}:${SS}`;
 };
+
+function pushFooterUpdate(partial){
+  if (window.dashboardFooter?.update) {
+    window.dashboardFooter.update(partial);
+    return;
+  }
+  if (!Array.isArray(window.__footerPending)) {
+    window.__footerPending = [];
+  }
+  window.__footerPending.push(partial);
+}
 
 /* --- black preview helper --- */
 const BLACK_SVG='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"><rect width="100%" height="100%" fill="black"/></svg>';
@@ -450,13 +452,6 @@ function setCamBadgeAndMeta(cam){
       camBadge.removeAttribute('title');
     }
   }
-  const sbMeta=el('sb_cam_meta');
-  if(sbMeta){
-    const fpsVal = (cam && cam.fps!=null) ? cam.fps : lastCamState.fps;
-    const fpsTxt = fpsVal!=null ? `${fmt(fpsVal,1)} fps` : 'fps: —';
-    const extra = resourceInfo && resourceInfo.tooltip ? ` • ${resourceInfo.tooltip}` : '';
-    sbMeta.textContent = `${fpsTxt}${extra}`;
-  }
 }
 function setImageSafely(imgEl,url,tagStore){
   const tag=Date.now(); tagStore.value=tag;
@@ -531,6 +526,7 @@ async function refreshCameraResource(){
   }
   setCamBadgeAndMeta(lastState?.camera || {});
   try{ applyDevices({state:lastState, health:lastHealth}); }catch{}
+  pushFooterUpdate({ cameraResource: lastCameraResource || null });
 }
 
 /* ===== HEALTH ===== */
@@ -577,10 +573,6 @@ function updateStateUI(s){
   setTxt('p_conf',fmt(s.confidence,3)); setTxt('p_mode',s.mode||'—');
   setTxt('p_ts',s.ts? new Date(s.ts*1000).toLocaleTimeString():'—');
   setTxt('p_age',(s.age_s!=null? fmt(s.age_s,1)+' s':'—'));
-  setTxt('sb_presence_state',s.present? t('dash.status.present'): t('dash.status.idle'));
-  setCls('sb_presence','c-pill '+(s.present?'ok':'bad'));
-  setTxt('sb_mode',`${t('dash.status.mode')}: ${s.mode||'—'}`);
-  setTxt('sb_conf',`${t('dash.status.conf')}: ${fmt(s.confidence,3)}`);
 
   lastCamState.vision_enabled = s?.camera?.vision_enabled;
   lastCamState.on = s?.camera?.on;
@@ -591,6 +583,7 @@ function updateStateUI(s){
   lastTrackingInfo = s?.tracking || {};
   setCamBadgeAndMeta(s?.camera||{});
   refreshCamLegends();
+  pushFooterUpdate({ state: s || null });
 }
 
 /* ===== DEVICES ===== */
@@ -754,15 +747,11 @@ function applySnapInfo(si){
   setTxt('age_raw',rawAge!=null? fmt(rawAge,1)+' s':'—');
   setTxt('age_proc',procAge!=null? fmt(procAge,1)+' s':'—');
   setTxt('age_tracker',trackerAge!=null? fmt(trackerAge,1)+' s':'—');
-  const ok=(rawAge!=null && rawAge<=SNAP_STALE_S);
-  setCls('sb_cam','c-pill '+(ok?'ok':'bad'));
-  const camText='CAM: '+(rawAge!=null? fmt(rawAge,1)+'s':'—')+' / '+(procAge!=null? fmt(procAge,1)+'s':'—');
-  const trackerText=trackerAge!=null? ' • TRK: '+fmt(trackerAge,1)+'s':'';
-  setTxt('sb_cam',camText+trackerText);
   const imgCam=el('img_cam'); const imgProc=el('img_proc');
   if(rawAge!=null && rawAge>SNAP_STALE_S) blackify(imgCam,true); else blackify(imgCam,false);
   if(procAge!=null && procAge>SNAP_STALE_S) blackify(imgProc,true); else blackify(imgProc,false);
   refreshCamLegends();
+  pushFooterUpdate({ snapInfo: si || null });
 }
 async function refreshSnapInfo(){
   try{ const r=await fetch('/vision/snap-info',{cache:'no-store'}); if(!r.ok) return;
@@ -847,5 +836,6 @@ setInterval(refreshPcServices, PC_SERVICE_REFRESH_MS); refreshPcServices();
 startSSE();
 </script>
 <script type="module" src="/web/assets/menu.js"></script>
+<script type="module" src="/web/assets/footer.js"></script>
 </body>
 </html>

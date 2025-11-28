@@ -161,32 +161,6 @@ body[data-page="view"] .cam-img {
   object-fit: cover;
 }
 
-body[data-page="view"] .c-statusbar {
-  position: sticky;
-  bottom: -1px;
-  margin-top: 18px;
-  gap: 14px;
-  border: 1px solid #1d3548;
-  background: #0f2233;
-}
-
-body[data-page="view"] .c-pill {
-  padding: 2px 10px;
-  border: 1px solid #2b5577;
-  background: #11263a;
-  color: #b7cee3;
-}
-
-body[data-page="view"] .c-pill.ok {
-  border-color: #2d6a4f;
-  background: #103226;
-  color: #9be3b0;
-}
-
-body[data-page="view"] .u-sep {
-  opacity: 0.4;
-}
-
 body[data-page="view"] .c-card--span2 {
   grid-column: span 2;
 }

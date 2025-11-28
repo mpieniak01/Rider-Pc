@@ -43,17 +43,8 @@
     <h2 class="c-card__title">Last Snapshot</h2>
     <pre id="snapshotData" class="snapshot muted">No data available</pre>
   </div>
-
-  <!-- Footer -->
-  <div class="l-row footer-links">
-    <a href="/web/view.html" class="muted">↩ dashboard</a>
-    <span class="u-sep">•</span>
-    <a href="/web/chat.html" class="muted">💬 chat</a>
-    <span class="u-sep">•</span>
-    <a href="/web/google_home.html" class="muted">🏠 Google Home</a>
   </div>
-
-</div>
+<div data-dashboard-footer-target></div>
 
 <!-- App Logic -->
 <script type="module">
@@ -141,6 +132,7 @@
   setInterval(updateAll, POLL_INTERVAL_MS);
 </script>
 <script type="module" src="/web/assets/menu.js"></script>
+<script type="module" src="/web/assets/footer.js"></script>
 
 </body>
 </html>
