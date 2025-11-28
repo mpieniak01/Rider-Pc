@@ -1,32 +1,42 @@
 <!doctype html>
+<!--
+  Migrated to dashboard_base.html template structure
+  Mode panel has been merged with Control page
+  This page now redirects to /control
+-->
 <html lang="pl">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Rider-PC: Tryb i Provider Control</title>
-    <link rel="stylesheet" href="/web/assets/dashboard-common.css" />
-    <link rel="stylesheet" href="/web/assets/control.css" />
-    <meta http-equiv="refresh" content="0;url=/control" />
-  </head>
-  <body data-page="mode">
-    <div data-dashboard-menu-target></div>
-    <div class="wrap">
-      <div class="c-card">
-        <h1 class="c-card__title">Panel przeniesiono</h1>
-        <p class="c-note">
-          Panel wyboru trybów AI i Provider Control został scalony z ekranem „Sterowanie”.
-          Zostaniesz przekierowany automatycznie, ale możesz też
-          <a href="/control">przejść bezpośrednio do /control</a>.
-        </p>
-      </div>
-    </div>
-    <div data-dashboard-footer-target></div>
-    <script type="module" src="/web/assets/menu.js"></script>
-    <script type="module" src="/web/assets/footer.js"></script>
-    <script>
-      setTimeout(() => {
-        window.location.assign("/control");
-      }, 2000);
-    </script>
-  </body>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Rider-PC: Tryb i Provider Control</title>
+  <link rel="stylesheet" href="/web/assets/dashboard-common.css" />
+  <meta http-equiv="refresh" content="0;url=/control" />
+</head>
+<body data-page="mode" class="page page-mode">
+  <!-- Header with Menu -->
+  <header class="layout-header" data-dashboard-menu-target></header>
+
+  <!-- Main content -->
+  <main class="layout-main">
+    <section class="surface">
+      <h1 class="c-card__title">Panel przeniesiono</h1>
+      <p class="c-note">
+        Panel wyboru trybów AI i Provider Control został scalony z ekranem „Sterowanie".
+        Zostaniesz przekierowany automatycznie, ale możesz też
+        <a href="/control">przejść bezpośrednio do /control</a>.
+      </p>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="layout-footer" data-dashboard-footer-target></footer>
+
+  <script type="module" src="/web/assets/menu.js"></script>
+  <script type="module" src="/web/assets/footer.js"></script>
+  <script>
+    setTimeout(() => {
+      window.location.assign("/control");
+    }, 2000);
+  </script>
+</body>
 </html>
