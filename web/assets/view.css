@@ -5,7 +5,7 @@
  */
 
 /* Page token overrides */
-body[data-page="view"] {
+.page-view {
   --muted: #9fb7ce;
   --accent: #87b7ff;
   --page-max-width: 1180px;
@@ -21,48 +21,48 @@ body[data-page="view"] {
   --value-color: #d7e2ee;
 }
 
-body[data-page="view"] h1 {
+.page-view h1 {
   font-size: 28px;
   margin: 0 0 var(--space-sm);
 }
 
-body[data-page="view"] .c-hint {
+.page-view .c-hint {
   margin-bottom: var(--space-xl);
   opacity: 0.65;
 }
 
 /* 4-column grid on larger screens */
-body[data-page="view"] .l-grid {
+.page-view .l-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-body[data-page="view"] .l-grid + .l-grid {
+.page-view .l-grid + .l-grid {
   margin-top: var(--space-xl);
 }
 
 @media (max-width: 1100px) {
-  body[data-page="view"] .l-grid {
+  .page-view .l-grid {
     grid-template-columns: repeat(auto-fit, minmax(var(--grid-min), 1fr));
   }
 }
 
 /* Card title color */
-body[data-page="view"] .c-card h3 {
+.page-view .c-card h3 {
   color: #9cc8ff;
 }
 
 /* Key-value styling */
-body[data-page="view"] .c-kv div:nth-child(odd) {
+.page-view .c-kv div:nth-child(odd) {
   font-weight: var(--font-weight-normal);
   color: var(--label-color);
 }
 
-body[data-page="view"] .c-kv div:nth-child(even) {
+.page-view .c-kv div:nth-child(even) {
   color: var(--value-color);
 }
 
 /* Canvas styling */
-body[data-page="view"] canvas {
+.page-view canvas {
   width: 100%;
   height: 140px;
   background: #0c1b28;
@@ -71,16 +71,16 @@ body[data-page="view"] canvas {
 }
 
 /* Legend dots for charts */
-body[data-page="view"] .c-legend__dot.cpu,
-body[data-page="view"] .c-legend__dot.raw { background: #6db3ff; }
+.page-view .c-legend__dot.cpu,
+.page-view .c-legend__dot.raw { background: #6db3ff; }
 
-body[data-page="view"] .c-legend__dot.mem,
-body[data-page="view"] .c-legend__dot.proc { background: #ffd36d; }
-body[data-page="view"] .c-legend__dot.edge { background: #6db3ff; }
-body[data-page="view"] .c-legend__dot.obst { background: #9be3b0; }
+.page-view .c-legend__dot.mem,
+.page-view .c-legend__dot.proc { background: #ffd36d; }
+.page-view .c-legend__dot.edge { background: #6db3ff; }
+.page-view .c-legend__dot.obst { background: #9be3b0; }
 
 /* Camera badge */
-body[data-page="view"] .cam-badge {
+.page-view .cam-badge {
   display: inline-block;
   padding: 2px var(--space-sm);
   border-radius: var(--radius-pill);
@@ -91,19 +91,19 @@ body[data-page="view"] .cam-badge {
   color: var(--color-fg-secondary);
 }
 
-body[data-page="view"] .cam-badge.on {
+.page-view .cam-badge.on {
   border-color: var(--color-ok-border);
   color: #9be3b0;
   background: #103226;
 }
 
 /* Card spanning */
-body[data-page="view"] .c-card--span2 {
+.page-view .c-card--span2 {
   grid-column: span 2;
 }
 
 /* PC status indicator */
-body[data-page="view"] .pc-status {
+.page-view .pc-status {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
@@ -112,7 +112,7 @@ body[data-page="view"] .pc-status {
   letter-spacing: 0.02em;
 }
 
-body[data-page="view"] .pc-status::before {
+.page-view .pc-status::before {
   content: "";
   width: 9px;
   height: 9px;
@@ -120,17 +120,17 @@ body[data-page="view"] .pc-status::before {
   background: #4e6074;
 }
 
-body[data-page="view"] .pc-status.ok::before { background: #5fe39a; }
-body[data-page="view"] .pc-status.off::before { background: #4e6074; }
+.page-view .pc-status.ok::before { background: #5fe39a; }
+.page-view .pc-status.off::before { background: #4e6074; }
 
 /* PC service list */
-body[data-page="view"] .pc-service-list {
+.page-view .pc-service-list {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
 }
 
-body[data-page="view"] .pc-service {
+.page-view .pc-service {
   display: flex;
   align-items: center;
   gap: var(--space-lg);
@@ -138,11 +138,11 @@ body[data-page="view"] .pc-service {
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-body[data-page="view"] .pc-service:last-child {
+.page-view .pc-service:last-child {
   border-bottom: none;
 }
 
-body[data-page="view"] .pc-service-dot {
+.page-view .pc-service-dot {
   width: 10px;
   height: 10px;
   border-radius: 50%;
@@ -150,14 +150,14 @@ body[data-page="view"] .pc-service-dot {
   flex-shrink: 0;
 }
 
-body[data-page="view"] .pc-service-dot.ok { background: #5fe39a; }
+.page-view .pc-service-dot.ok { background: #5fe39a; }
 
-body[data-page="view"] .pc-service-name {
+.page-view .pc-service-name {
   font-weight: var(--font-weight-semibold);
   font-size: var(--font-size-sm);
 }
 
-body[data-page="view"] .pc-service-meta {
+.page-view .pc-service-meta {
   font-size: var(--font-size-xs);
   color: var(--value-color);
 }

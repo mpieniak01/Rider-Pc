@@ -1,4 +1,8 @@
 <!doctype html>
+<!--
+  Migrated to dashboard_base.html template structure
+  Uses shared layout classes: .layout-header, .layout-main, .layout-footer
+-->
 <html lang="pl">
 <head>
 <meta charset="utf-8">
@@ -7,9 +11,12 @@
 <link rel="stylesheet" href="/web/assets/dashboard-common.css">
 <link rel="stylesheet" href="/web/assets/chat.css">
 </head>
-<body data-page="chat">
-  <div data-dashboard-menu-target></div>
-  <div class="wrap">
+<body data-page="chat" class="page page-chat">
+  <!-- Header with Menu -->
+  <header class="layout-header" data-dashboard-menu-target></header>
+
+  <!-- Main content -->
+  <main class="layout-main">
     <header class="l-row chat-head">
       <h1><span class="brand-accent">Rider-PC</span>: <span>Chat</span></h1>
       <div class="links">
@@ -56,8 +63,10 @@
     </section>
 
     <div class="meta" id="latency"></div>
-  </div>
-  <div data-dashboard-footer-target></div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="layout-footer" data-dashboard-footer-target></footer>
 
 <script>
 (function(){

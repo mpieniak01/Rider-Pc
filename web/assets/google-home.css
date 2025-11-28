@@ -5,7 +5,7 @@
  */
 
 /* Page token overrides */
-body[data-page="google"] {
+.page-google {
   --page-max-width: 1100px;
   --page-padding: 26px var(--space-xl) 60px;
   --card-bg: #0f2030;
@@ -14,7 +14,7 @@ body[data-page="google"] {
   --card-padding: var(--space-xl);
 }
 
-body[data-page="google"] h1 {
+.page-google h1 {
   font-size: var(--font-size-xxl);
   margin: 0 0 var(--space-xl);
   display: flex;
@@ -24,7 +24,7 @@ body[data-page="google"] h1 {
 }
 
 /* Auth button styling */
-body[data-page="google"] .btn-auth {
+.page-google .btn-auth {
   padding: var(--space-md) var(--space-xxl);
   font-size: var(--font-size-lg);
   border-radius: var(--radius-xl);
@@ -35,23 +35,23 @@ body[data-page="google"] .btn-auth {
   transition: transform var(--transition-fast), background var(--transition-fast);
 }
 
-body[data-page="google"] .btn-auth:hover {
+.page-google .btn-auth:hover {
   background: #1557b0;
   border-color: #1557b0;
 }
 
-body[data-page="google"] .btn-auth:active {
+.page-google .btn-auth:active {
   transform: scale(0.98);
 }
 
 /* Device grid */
-body[data-page="google"] .device-grid {
+.page-google .device-grid {
   --grid-min: 280px;
   gap: var(--gap);
   margin: var(--space-lg) 0;
 }
 
-body[data-page="google"] .device-card {
+.page-google .device-card {
   background: var(--color-bg-elevated);
   border: 1px solid #1c3349;
   border-radius: var(--space-md);
@@ -62,12 +62,12 @@ body[data-page="google"] .device-card {
   min-height: 200px;
 }
 
-body[data-page="google"] .device-name {
+.page-google .device-name {
   font-weight: var(--font-weight-semibold);
   font-size: 15px;
 }
 
-body[data-page="google"] .device-type {
+.page-google .device-type {
   font-size: var(--font-size-xs);
   color: var(--color-fg-secondary);
   text-transform: uppercase;
@@ -75,19 +75,19 @@ body[data-page="google"] .device-type {
 }
 
 /* Device controls */
-body[data-page="google"] .control-row {
+.page-google .control-row {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-lg);
   align-items: center;
 }
 
-body[data-page="google"] input[type="range"] {
+.page-google input[type="range"] {
   width: 200px;
   accent-color: var(--color-ok);
 }
 
-body[data-page="google"] input[type="color"] {
+.page-google input[type="color"] {
   width: 60px;
   height: 36px;
   border: 1px solid var(--color-off-border);
@@ -97,7 +97,7 @@ body[data-page="google"] input[type="color"] {
   padding: 2px;
 }
 
-body[data-page="google"] select {
+.page-google select {
   padding: var(--space-xs) var(--space-lg);
   border: 1px solid var(--color-off-border);
   border-radius: var(--radius-md);
@@ -107,22 +107,22 @@ body[data-page="google"] select {
 }
 
 /* Status messages */
-body[data-page="google"] .c-status-msg {
+.page-google .c-status-msg {
   margin-bottom: var(--space-md);
   border: 1px solid #1c3349;
   background: var(--color-bg-elevated);
 }
 
-body[data-page="google"] .c-status-msg.ok {
+.page-google .c-status-msg.ok {
   border-color: var(--color-ok-border);
   color: var(--color-ok);
 }
 
-body[data-page="google"] .c-status-msg.err {
+.page-google .c-status-msg.err {
   border-color: var(--color-error-border);
   color: #ff9f9f;
 }
 
-body[data-page="google"] .hidden {
+.page-google .hidden {
   display: none !important;
 }

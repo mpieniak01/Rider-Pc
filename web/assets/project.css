@@ -5,7 +5,7 @@
  */
 
 /* Page token overrides */
-body[data-page="project"] {
+.page-project {
   --page-max-width: 1100px;
   --grid-min: 320px;
 }
