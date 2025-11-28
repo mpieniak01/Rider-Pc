@@ -50,7 +50,7 @@
 7.2. Opisać proces dodawania nowej strony: które pliki importować, jak nazywać klasy, gdzie dopisywać warianty.
 7.3. Zaplanować rollout: migracja stron w porcjach (np. `home + system`, potem `control`, potem reszta), każdej zmianie towarzyszy test manualny i screenshoty referencyjne.
 7.4. Po wdrożeniu monitorować logi frontu oraz feedback UX – zebrać listę poprawek dla ewentualnej iteracji 2 (np. jasny motyw, responsywne usprawnienia).
-7.5 Weryfikacja i modernizacja istniejących testów, w tym audyt i aktualizacja testów E2E w odpowiedzi na zmiany w selektorach i strukturze DOM.
+7.5 Weryfikacja testów i ich modernizacja testów jeżeli jest wymagana.
 
 ## Kryteria akceptacji
 - Każdy ekran korzysta z tych samych tokenów, layoutów i komponentów, a dedykowane arkusze zawierają wyłącznie logikę unikatową dla danej funkcji (< ~150 linii na stronę).
