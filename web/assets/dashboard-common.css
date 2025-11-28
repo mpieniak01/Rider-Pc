@@ -224,7 +224,7 @@
 .log-panel {
   margin-top: var(--space-xxl);
   background: var(--card-bg);
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border-primary);
   border-radius: var(--radius-md);
   overflow: hidden;
 }
@@ -232,7 +232,7 @@
 /* Network card (from system.html) */
 .network-card {
   background: var(--card-bg);
-  border: 2px solid var(--border);
+  border: 2px solid var(--color-border-primary);
   border-radius: var(--radius-md);
   padding: var(--space-md) var(--space-lg);
   transition: border-color var(--transition-normal);
@@ -271,7 +271,7 @@
   color: var(--color-fg-secondary);
 }
 
-/* Spinner animation */
+/* Spinner animation - uses c-spin keyframes from components.css */
 .spinner {
   display: inline-block;
   width: 14px;
@@ -281,3 +281,5 @@
   border-radius: 50%;
   animation: c-spin 0.8s linear infinite;
 }
+
+/* Note: The c-spin keyframes are defined in css/components.css */
