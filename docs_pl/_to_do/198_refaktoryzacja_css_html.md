@@ -8,7 +8,7 @@
 ## Plan działania
 
 ### 1. Audyt i katalog elementów UI
-1.1. Zmapować elementy wspólne i unikalne na podstawie `web/assets/*.css` i `web/*.html` (karty, listy danych, statusy, panele formularzy, siatki przycisków, listy usług, listy modeli).
+1.1. Zmapować elementy wspólne i unikalne na podstawie `web/assets/*.css` i `web/*.html` (karty, listy danych, status bary, panele formularzy, siatki przycisków, listy usług, listy modeli).
 1.2. Zanotować wszystkie zmienne CSS i wartości stałe (kolory, odstępy, promienie, cienie) używane w arkuszach per‑strona – posłużą do stworzenia katalogu design tokens.
 1.3. Uporządkować powtarzające się layouty (np. `.panel-row` vs `.l-row`, różne warianty `.wrap`, `.section`) i określić, gdzie potrzebne są nowe utility (np. `.cluster`, `.flow`, `.pad-lg`).
 
@@ -50,11 +50,9 @@
 7.2. Opisać proces dodawania nowej strony: które pliki importować, jak nazywać klasy, gdzie dopisywać warianty.
 7.3. Zaplanować rollout: migracja stron w porcjach (np. `home + system`, potem `control`, potem reszta), każdej zmianie towarzyszy test manualny i screenshoty referencyjne.
 7.4. Po wdrożeniu monitorować logi frontu oraz feedback UX – zebrać listę poprawek dla ewentualnej iteracji 2 (np. jasny motyw, responsywne usprawnienia).
-7.5 Weryfikacja testów i ich modernizacja testów jeżeli jest wymagana.
 
 ## Kryteria akceptacji
 - Każdy ekran korzysta z tych samych tokenów, layoutów i komponentów, a dedykowane arkusze zawierają wyłącznie logikę unikatową dla danej funkcji (< ~150 linii na stronę).
-- Menu, stopka, karty, listy statusów, przyciski i badge/pills wyglądają identycznie na wszystkich stronach i są konfigurowane przez klasy modyfikujące.
+- Menu, stopka, karty, listy statusów, przyciski i badge wyglądają identycznie na wszystkich stronach i są konfigurowane przez klasy modyfikujące.
 - Łatwość dodania nowego ekranu: wystarczy skopiować szablon `layout-page.html`, przypisać klasy komponentów i ewentualnie dopisać kilka reguł.
 - Stylelint + testy wizualne w pipeline pilnują regresji oraz wielkości CSS.
-- Komponenty i layouty są zgodne ze standardami dostępności (np. WCAG 2.1 AA) i przetestowane pod kątem nawigacji klawiaturą oraz działania z czytnikami ekranu.
