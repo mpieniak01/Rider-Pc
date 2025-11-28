@@ -28,8 +28,8 @@
   z-index: 1200;
   display: block;
   margin: 0;
-  background: linear-gradient(180deg, rgba(5, 11, 18, 0.97), rgba(5, 11, 18, 0.92));
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+  background: linear-gradient(180deg, rgba(5, 11, 24, 0.97), rgba(5, 11, 24, 0.92));
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
 }
 [data-dashboard-menu-target]:empty {
   min-height: var(--menu-height);
@@ -298,10 +298,9 @@ body[data-page="control"] .balance-control label {
   justify-content: center;
   gap: 16px;
   padding: 10px 24px;
-  background: rgba(8,13,22,.95);
-  border-bottom: 1px solid rgba(255,255,255,.04);
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
+  background: transparent;
+  border-bottom: none;
+  box-shadow: none;
   max-width: 1200px;
   min-height: var(--menu-height);
   margin: 0 auto;
