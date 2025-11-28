@@ -26,7 +26,7 @@
 .c-card__title,
 .card h3 {
   margin: 0 0 var(--space-md);
-  font-size: var(--font-size-heading);
+  font-size: var(--font-size-lg);
   color: #c7dbf5;
 }
 
@@ -144,19 +144,19 @@ button:disabled {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: var(--space-xs) var(--space-md);
-  font-size: var(--font-size-body);
+  font-size: var(--font-size-md);
 }
 
 .c-kv div:nth-child(odd),
 .kv div:nth-child(odd) {
-  font-size: var(--font-size-label);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   text-transform: capitalize;
 }
 
 .c-kv div:nth-child(even),
 .kv div:nth-child(even) {
-  font-size: var(--font-size-body);
+  font-size: var(--font-size-md);
   text-transform: none;
 }
 
@@ -180,7 +180,7 @@ button:disabled {
 }
 
 .c-data-list__label {
-  font-size: var(--font-size-label);
+  font-size: var(--font-size-sm);
   color: var(--color-fg-secondary);
 }
 
@@ -221,14 +221,14 @@ button:disabled {
 /* ===== Hint/Note Components ===== */
 .c-hint,
 .hint {
-  font-size: var(--font-size-hint);
+  font-size: var(--font-size-xs);
   color: var(--color-fg-muted);
   opacity: 0.85;
 }
 
 .c-note,
 .note {
-  font-size: var(--font-size-body);
+  font-size: var(--font-size-md);
   color: var(--color-fg-primary);
   opacity: 0.75;
 }
@@ -239,7 +239,7 @@ button:disabled {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-md);
-  font-size: var(--font-size-hint);
+  font-size: var(--font-size-xs);
   color: var(--color-fg-muted);
 }
 

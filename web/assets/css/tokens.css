@@ -76,8 +76,9 @@
   --line-height-relaxed: 1.6;
 
   /* ===== Border Radius Tokens ===== */
-  --radius-xs: 4px;
-  --radius-sm: 6px;
+  --radius-xxs: 4px;
+  --radius-xs: 6px;
+  --radius-sm: 8px;
   --radius-md: 8px;
   --radius-lg: 10px;
   --radius-xl: 12px;
