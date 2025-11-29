@@ -6,10 +6,7 @@
 
 /* Page token overrides */
 .page-chat {
-  --page-max-width: 980px;
   --page-padding: var(--space-xl) var(--space-lg) 60px;
-  --card-bg: #122234;
-  --card-border: #1a2c43;
   --card-radius: var(--radius-xl);
   --card-padding: var(--space-lg);
   --chat-mine: #1f3a57;
@@ -24,11 +21,6 @@
   margin-bottom: var(--space-md);
 }
 
-.page-chat .chat-head h1 {
-  font-size: var(--font-size-xxl);
-  margin: 0;
-}
-
 .page-chat .chat-head .links {
   margin-left: auto;
   font-size: var(--font-size-sm);
@@ -37,23 +29,29 @@
   align-items: center;
 }
 
-/* Status indicator */
-.page-chat .status {
-  font-size: var(--font-size-sm);
-  margin-bottom: var(--space-md);
-}
-
-.page-chat .status.ok { color: var(--color-ok); }
-.page-chat .status.warn { color: var(--color-warn); }
-.page-chat .status.err { color: var(--color-error); }
-
 /* Chat board */
 .page-chat .board {
   min-height: 58vh;
-  padding: var(--space-lg);
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
+}
+
+.page-chat .provider-hint {
+  margin-top: var(--space-md);
+}
+
+.page-chat .side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 260px;
+  max-width: 360px;
+}
+
+.page-chat #providerHint {
+  display: block;
+  word-break: break-word;
 }
 
 /* Chat messages */
@@ -115,19 +113,14 @@
 /* Provider card */
 .page-chat .providers-card {
   margin-top: var(--space-xxl);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-lg);
+  --stack-gap: var(--space-lg);
 }
 
 .page-chat .provider-row {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-md);
-  padding: var(--space-md);
-  border-radius: var(--radius-lg);
-  background: rgba(11, 27, 42, 0.9);
-  border: 1px solid var(--card-border);
+  --card-padding: var(--space-md);
 }
 
 .page-chat .provider-info {

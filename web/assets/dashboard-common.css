@@ -27,12 +27,14 @@
 
 /* Page title components */
 .page-title {
-  font-size: var(--font-size-xxl);
-  margin: 0 0 var(--space-xl);
+  font-size: 28px;
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  margin: 0 0 var(--space-sm);
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-sm);
-  align-items: center;
+  align-items: baseline;
 }
 
 .page-title-text {

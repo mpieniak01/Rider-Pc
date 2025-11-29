@@ -7,21 +7,8 @@
 
 /* Page token overrides */
 .page-home {
-  --page-max-width: 900px;
   --page-padding: var(--space-xxl) var(--space-xl) 60px;
-  --card-bg: #0f2030;
-  --card-border: #1e3a56;
   --card-padding: var(--space-xl);
-}
-
-/* Page header */
-.page-home h1 {
-  font-size: var(--font-size-xxl);
-  margin: 0 0 var(--space-xl);
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-lg);
-  align-items: center;
 }
 
 /* Data list styling */

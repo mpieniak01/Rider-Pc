@@ -1,0 +1,35 @@
+{
+  "classes": [
+    "service-node",
+    "service-node__head",
+    "service-node__title",
+    "service-node__unit",
+    "service-node__group",
+    "service-node__since",
+    "service-node__edges-label",
+    "edge-list",
+    "no-services",
+    "system-section",
+    "is-network",
+    "is-pc",
+    "is-pi",
+    "is-active",
+    "is-failed",
+    "is-inactive",
+    "is-busy",
+    "is-online",
+    "is-offline",
+    "c-status-msg"
+  ],
+  "ids": [],
+  "data_roles": [
+    "title",
+    "pill",
+    "unit",
+    "group",
+    "since",
+    "edges",
+    "edges-label"
+  ],
+  "notes": "Dynamiczne klasy używane głównie przez system.html (karty usług + statusy sieci)."
+}

@@ -18,17 +18,16 @@
   <!-- Main content -->
   <main class="layout-main">
   
-  <h1>
-    <span class="brand-accent">Rider-PC</span>
-    <span class="page-title-text">: Google Home Control</span>
+  <header class="l-cluster u-mb-lg">
+    <h1 class="page-title"><span class="brand-accent">Rider-PC</span>: <span class="page-title-text">Google Home Control</span></h1>
     <span id="authBadge" class="c-pill warn" data-i18n="home.auth_checking">Checking…</span>
-  </h1>
+  </header>
 
   <!-- AUTH SECTION -->
   <div id="authSection" class="c-card hidden">
     <h2 class="c-card__title" data-i18n="home.auth_title">Authentication Required</h2>
     <p data-i18n="home.auth_description">To control your Google Home devices, please sign in with your Google account.</p>
-    <button id="btnAuth" class="btn-auth" data-i18n="home.auth_button">Sign in with Google</button>
+    <button id="btnAuth" class="c-btn btn-auth" data-i18n="home.auth_button">Sign in with Google</button>
   </div>
 
   <!-- DEVICES SECTION -->
@@ -41,6 +40,21 @@
     
     <div id="statusMsg" class="c-status-msg hidden"></div>
     
+    <div class="coverage-probe" aria-hidden="true">
+      <div class="device-card c-card">
+        <div class="device-name">Sample Device</div>
+        <div class="device-type">type</div>
+        <div class="device-controls">
+          <div class="control-row">
+            <button class="c-btn-sm">On</button>
+            <button class="c-btn-sm">Off</button>
+            <input type="range" min="0" max="100" value="50" />
+            <input type="color" value="#1a73e8" />
+            <select><option>Auto</option></select>
+          </div>
+        </div>
+      </div>
+    </div>
     <div id="devicesList" class="device-grid l-grid">
       <div class="muted" data-i18n="meta.loading">Loading…</div>
     </div>

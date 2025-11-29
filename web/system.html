@@ -16,11 +16,11 @@
   <header class="layout-header" data-dashboard-menu-target></header>
 
   <!-- Main content -->
-  <main class="layout-main layout-main--wide">
+  <main class="layout-main">
     <!-- Page header -->
     <header class="l-cluster u-mb-lg">
       <div class="header-main">
-        <h1><span class="brand-accent">Rider-PC</span>: <span>System Dashboard</span></h1>
+        <h1 class="page-title"><span class="brand-accent">Rider-PC</span>: <span class="page-title-text">System Dashboard</span></h1>
         <div id="version-info" class="version-info" title="Informacje o wersji">
           <span class="version-loading">Wczytywanie wersji...</span>
         </div>
@@ -31,18 +31,18 @@
         <a href="/control">Sterowanie</a>
       </nav>
     </header>
-    <p id="status-line" class="c-note">Ładowanie danych usług…</p>
+    <p id="status-line" class="status-line c-status-msg">Ładowanie danych usług…</p>
   
-  <section class="location-block" id="network-status-block">
-    <h2 class="location-title network-title">Status Sieci</h2>
+  <section class="c-card system-section is-network" id="network-status-block">
+    <h2 class="c-card__title">Status Sieci</h2>
     <div class="network-status-grid">
-      <div class="network-card" id="local-ip-card">
+      <div class="network-card c-card" id="local-ip-card">
         <div class="network-card-header">
           <span class="network-label">IP Hosta</span>
         </div>
         <div class="network-value" id="local-ip-value">---.---.---.---</div>
       </div>
-      <div class="network-card" id="rider-pi-card">
+      <div class="network-card c-card" id="rider-pi-card">
         <div class="network-card-header">
           <span class="network-label">Rider-Pi</span>
           <span class="network-status-indicator" id="rider-pi-indicator"></span>
@@ -53,7 +53,7 @@
         </div>
         <div class="network-host" id="rider-pi-host"></div>
       </div>
-      <div class="network-card" id="internet-card">
+      <div class="network-card c-card" id="internet-card">
         <div class="network-card-header">
           <span class="network-label">Internet</span>
           <span class="network-status-indicator" id="internet-indicator"></span>
@@ -67,17 +67,31 @@
     </div>
   </section>
   
-  <section class="location-block" id="pc-services-block">
-    <h2 class="location-title">Usługi lokalne (PC)</h2>
-    <div id="pc-services-graph" class="services-grid"></div>
+  <section class="c-card system-section is-pc" id="pc-services-block">
+    <h2 class="c-card__title">Usługi lokalne (PC)</h2>
+    <div id="pc-services-graph" class="services-grid l-grid"></div>
   </section>
   
-  <section class="location-block" id="pi-services-block">
-    <h2 class="location-title">Usługi na Rider-Pi</h2>
-    <div id="pi-services-graph" class="services-grid"></div>
+  <section class="c-card system-section is-pi" id="pi-services-block">
+    <h2 class="c-card__title">Usługi na Rider-Pi</h2>
+    <div id="pi-services-graph" class="services-grid l-grid"></div>
   </section>
   
-  <section class="log-panel surface">
+  <template id="service-card-template">
+    <article class="service-node c-card" data-unit="" data-status="">
+      <header class="service-node__head">
+        <h3 class="service-node__title" data-role="title"></h3>
+        <span class="c-pill" data-role="pill"></span>
+      </header>
+      <p class="desc service-node__unit" data-role="unit"></p>
+      <p class="desc service-node__group" data-role="group"></p>
+      <p class="desc service-node__since" data-role="since" hidden></p>
+      <p class="desc service-node__edges-label" data-role="edges-label" hidden>Połączenia →</p>
+      <div class="edge-list" data-role="edges" hidden></div>
+    </article>
+  </template>
+  
+  <section class="log-panel surface c-card">
     <header class="log-header l-cluster">
       <h2>Log Systemowy</h2>
       <div class="u-spacer"></div>
@@ -91,26 +105,25 @@
 
   <!-- Footer -->
   <footer class="layout-footer" data-dashboard-footer-target></footer>
-  <div id="toast-container"></div>
 
   <script>
+    const serviceCardTemplate = document.getElementById('service-card-template');
     const pcGraphEl = document.getElementById('pc-services-graph');
     const piGraphEl = document.getElementById('pi-services-graph');
     const pcBlockEl = document.getElementById('pc-services-block');
     const piBlockEl = document.getElementById('pi-services-block');
     const statusEl = document.getElementById('status-line');
-    const toastContainer = document.getElementById('toast-container');
 
     function statusClass(status) {
       switch ((status || '').toLowerCase()) {
         case 'active':
-          return 'status-running';
+          return 'is-ok';
         case 'failed':
-          return 'status-failed';
+          return 'is-err';
         case 'inactive':
-          return 'status-inactive';
+          return 'is-off';
         default:
-          return 'status-unknown';
+          return 'is-warn';
       }
     }
 
@@ -149,14 +162,45 @@
       return value;
     }
 
+    function ensureToastHost() {
+      let host = document.querySelector('[data-toast-host]');
+      if (!host) {
+        host = document.createElement('div');
+        host.dataset.toastHost = 'true';
+        host.style.position = 'fixed';
+        host.style.bottom = 'var(--space-xl)';
+        host.style.right = 'var(--space-xl)';
+        host.style.display = 'flex';
+        host.style.flexDirection = 'column';
+        host.style.gap = 'var(--space-md)';
+        host.style.zIndex = '1000';
+        document.body.appendChild(host);
+      }
+      return host;
+    }
+
     function showToast(message, type = 'success') {
+      const host = ensureToastHost();
       const toast = document.createElement('div');
-      toast.className = `toast ${type}`;
+      toast.className = 'c-status-msg';
       toast.textContent = message;
-      toastContainer.appendChild(toast);
-      setTimeout(() => {
-        toast.remove();
-      }, 3000);
+      toast.style.minWidth = '220px';
+      toast.style.maxWidth = '360px';
+      toast.style.cursor = 'pointer';
+      if (type === 'error') {
+        toast.style.borderColor = 'var(--color-error-border)';
+        toast.style.color = 'var(--color-error)';
+      } else if (type === 'warn') {
+        toast.style.borderColor = 'var(--color-warn-border)';
+        toast.style.color = 'var(--color-warn)';
+      } else {
+        toast.style.borderColor = 'var(--color-ok-border)';
+        toast.style.color = 'var(--color-ok)';
+      }
+      host.appendChild(toast);
+      const remove = () => toast.remove();
+      setTimeout(remove, 3200);
+      toast.addEventListener('click', remove);
     }
 
     async function toggleService(unit, currentStatus) {
@@ -197,9 +241,17 @@
     }
 
     function createServiceCard(node, group) {
-      const card = document.createElement('article');
+      const labelGroup = group || 'services';
+      let card;
+      if (serviceCardTemplate && serviceCardTemplate.content?.firstElementChild) {
+        card = serviceCardTemplate.content.firstElementChild.cloneNode(true);
+      } else {
+        card = document.createElement('article');
+        card.className = 'service-node c-card';
+      }
       const stateClass = nodeStateClass(node.status);
-      card.className = `service-node ${stateClass}`;
+      card.classList.remove('is-active', 'is-failed', 'is-inactive');
+      if (stateClass) card.classList.add(stateClass);
       card.setAttribute('data-unit', node.unit);
       card.setAttribute('data-status', node.status || 'unknown');
       card.setAttribute('data-location', node.location || 'pc');
@@ -207,53 +259,48 @@
       card.setAttribute('role', 'button');
       card.setAttribute('aria-label', `${node.label}: ${getTooltipText(node.status)}`);
       
-      // Add click handler for toggling service
-      card.addEventListener('click', () => {
-        toggleService(node.unit, node.status);
-      });
-
-      const header = document.createElement('div');
-      const title = document.createElement('h2');
-      title.textContent = node.label;
-      header.appendChild(title);
-      const pill = document.createElement('span');
-      pill.className = `status-pill ${statusClass(node.status)}`;
-      pill.textContent = node.status || 'unknown';
-      header.appendChild(pill);
-      card.appendChild(header);
-
-      const unit = document.createElement('div');
-      unit.textContent = `Unit: ${node.unit}`;
-      unit.className = 'desc';
-      card.appendChild(unit);
-
-      const info = document.createElement('div');
-      info.textContent = `Grupa: ${group}`;
-      info.className = 'desc';
-      card.appendChild(info);
-
-      if (node.since) {
-        const since = document.createElement('div');
-        since.textContent = `Aktywny od: ${formatSince(node.since)}`;
-        since.className = 'desc';
-        card.appendChild(since);
+      const titleEl = card.querySelector('[data-role="title"]') || card.querySelector('.service-node__title');
+      if (titleEl) titleEl.textContent = node.label;
+      
+      const pillEl = card.querySelector('[data-role="pill"]');
+      if (pillEl) {
+        pillEl.textContent = node.status || 'unknown';
+        pillEl.className = `c-pill ${statusClass(node.status)}`;
       }
-
-      if (node.edges_out && node.edges_out.length) {
-        const label = document.createElement('div');
-        label.textContent = 'Połączenia →';
-        label.className = 'desc';
-        card.appendChild(label);
-        const list = document.createElement('div');
-        list.className = 'edge-list';
+      
+      const unitEl = card.querySelector('[data-role="unit"]');
+      if (unitEl) unitEl.textContent = `Unit: ${node.unit}`;
+      
+      const groupEl = card.querySelector('[data-role="group"]');
+      if (groupEl) groupEl.textContent = `Grupa: ${labelGroup}`;
+      
+      const sinceEl = card.querySelector('[data-role="since"]');
+      if (sinceEl) {
+        if (node.since) {
+          sinceEl.textContent = `Aktywny od: ${formatSince(node.since)}`;
+          sinceEl.hidden = false;
+        } else {
+          sinceEl.hidden = true;
+        }
+      }
+      
+      const edgesLabelEl = card.querySelector('[data-role="edges-label"]');
+      const edgesEl = card.querySelector('[data-role="edges"]');
+      if (edgesEl) edgesEl.innerHTML = '';
+      if (edgesLabelEl) edgesLabelEl.hidden = true;
+      if (edgesEl) edgesEl.hidden = true;
+      
+      if (node.edges_out && node.edges_out.length && edgesEl) {
+        if (edgesLabelEl) edgesLabelEl.hidden = false;
+        edgesEl.hidden = false;
         node.edges_out.forEach((target) => {
           const chip = document.createElement('span');
           chip.textContent = target;
-          list.appendChild(chip);
+          edgesEl.appendChild(chip);
         });
-        card.appendChild(list);
       }
-
+      
+      card.addEventListener('click', () => toggleService(node.unit, node.status));
       return card;
     }
 
@@ -262,7 +309,7 @@
       piGraphEl.innerHTML = '';
       
       if (!nodes.length) {
-        pcGraphEl.innerHTML = '<p class="no-services">Brak danych usług.</p>';
+        pcGraphEl.innerHTML = '<div class="no-services c-card">Brak danych usług.</div>';
         piBlockEl.style.display = 'none';
         return;
       }
@@ -294,7 +341,7 @@
         });
       } else {
         pcBlockEl.style.display = 'block';
-        pcGraphEl.innerHTML = '<p class="no-services">Brak usług lokalnych.</p>';
+        pcGraphEl.innerHTML = '<div class="no-services c-card">Brak usług lokalnych.</div>';
       }
       
       // Render Pi services
@@ -526,7 +573,7 @@
           riderPiHostEl.textContent = data.rider_pi.host || '';
         }
         if (riderPiCard) {
-          riderPiCard.className = 'network-card ' + (isOnline ? 'is-online' : 'is-offline');
+          riderPiCard.className = 'network-card c-card ' + (isOnline ? 'is-online' : 'is-offline');
         }
 
         // Show warning toast if Rider-Pi goes offline
@@ -557,7 +604,7 @@
           internetIndicator.className = 'network-status-indicator ' + (isOnline ? 'is-online' : 'is-offline');
         }
         if (internetCard) {
-          internetCard.className = 'network-card ' + (isOnline ? 'is-online' : 'is-offline');
+          internetCard.className = 'network-card c-card ' + (isOnline ? 'is-online' : 'is-offline');
         }
       }
     }

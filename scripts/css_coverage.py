@@ -77,8 +77,8 @@ def collect():
             page = context.new_page()
             print(f"[coverage] visiting {url}")
             try:
-                page.goto(url, wait_until="networkidle", timeout=30000)
-                page.wait_for_timeout(500)
+                page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                page.wait_for_timeout(2000)
                 page_data = page.evaluate(EVAL_SCRIPT)
             except Exception as exc:  # noqa: BLE001
                 failed.append(f"{url}: {exc}")

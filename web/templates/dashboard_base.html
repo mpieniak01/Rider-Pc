@@ -16,7 +16,7 @@
   <!-- Common styles (includes tokens, base, layout, components, utilities) -->
   <link rel="stylesheet" href="/web/assets/dashboard-common.css">
   <!-- Optional: Page-specific styles (keep under 150 lines) -->
-  <!-- <link rel="stylesheet" href="/web/assets/{{page-name}}.css"> -->
+  <!-- <link rel="stylesheet" href="/web/assets/pages/{{page-name}}.css"> -->
 </head>
 <body data-page="{{page-name}}" class="page page-{{page-name}}">
   <!-- Header with Menu placeholder - loaded dynamically -->
@@ -24,15 +24,170 @@
   
   <!-- Main content area -->
   <main class="layout-main">
-    <!-- Page header -->
-    <header class="l-row l-cluster u-mb-lg">
-      <h1>
-        <span class="brand-accent">Rider-PC</span>
-        <span class="page-title-text">: {{PAGE_TITLE}}</span>
-      </h1>
-      <!-- Optional: Status badge -->
-      <!-- <span id="statusBadge" class="c-pill is-ok">Status</span> -->
+    <!-- Page hero (title + hint + badges) -->
+    <header class="l-cluster u-mb-lg">
+      <div>
+        <h1 class="page-title">
+          <span class="brand-accent">Rider-PC</span>: <span class="page-title-text">{{PAGE_TITLE}}</span>
+        </h1>
+        <p class="c-hint">Opcjonalny opis / hint (jak na mini dashboardzie).</p>
+        <div class="version-info">
+          <span class="version-branch">main</span>
+          <span class="version-commit">abcd123</span>
+          <span class="version-dirty">dirty</span>
+        </div>
+      </div>
+      <div class="cluster">
+        <span class="c-pill is-ok">Status OK</span>
+        <span class="c-pill is-warn">Tryb testowy</span>
+      </div>
+      <nav class="cluster">
+        <a href="/view">Podgląd</a>
+        <a href="/control">Sterowanie</a>
+      </nav>
     </header>
+
+    <!-- Informacyjne statusy -->
+    <div class="c-status-msg is-info u-mb-lg">Przykładowa wiadomość statusowa (`home.html`).</div>
+    <p class="status-line u-mb-xl">Baner statusu jak w `models.html`.</p>
+
+    <!-- Location blocks (system.html) -->
+    <section class="location-block u-mb-xl">
+      <h2 class="location-title network-title">Status Sieci</h2>
+      <div class="network-status-grid">
+        <article class="network-card c-card is-online">
+          <header class="network-card-header">
+            <span class="network-label">Rider-PC</span>
+            <span class="network-status-indicator is-online"></span>
+          </header>
+          <div class="network-value">
+            <span>Online</span>
+            <span class="network-latency">14 ms</span>
+          </div>
+          <div class="network-host">192.168.0.2</div>
+        </article>
+        <article class="network-card c-card is-offline">
+          <header class="network-card-header">
+            <span class="network-label">Rider-Pi</span>
+            <span class="network-status-indicator is-offline"></span>
+          </header>
+          <div class="network-value">
+            <span>Offline</span>
+            <span class="network-latency">n/a</span>
+          </div>
+          <div class="network-host">192.168.0.71</div>
+        </article>
+      </div>
+    </section>
+
+    <!-- BLOKI STRON -->
+    <section class="surface u-mb-xl">
+      <h2 class="c-card__title">1‑blokowy layout</h2>
+      <p class="c-hint">Prosty ekran typu „home” – jedna kolumna z danymi.</p>
+    </section>
+
+    <section class="surface u-mb-xl">
+      <h2 class="c-card__title">2‑blokowy layout</h2>
+      <div class="panel-row">
+        <article class="c-card">
+          <h3>API Metrics</h3>
+          <div class="c-kv">
+            <div>Control</div><div>OK / 0 err</div>
+            <div>Navigator</div><div>OK / 1 err</div>
+            <div>Voice</div><div>OK</div>
+            <div>Google Home</div><div>pending</div>
+            <div>Chat</div><div>OK</div>
+            <div>Vision</div><div>OK</div>
+            <div class="metric-highlight">Total errors</div><div class="metric-highlight bad">1</div>
+          </div>
+          <p class="c-hint c-hint--sub">Układ zaczerpnięty z `view.html` – sekcja API Metrics.</p>
+        </article>
+        <article class="c-card">
+          <h3>Snap freshness</h3>
+          <div class="c-kv">
+            <div>raw.age</div><div>1.2s</div>
+            <div>proc.age</div><div>3.5s</div>
+          </div>
+          <p class="c-hint c-hint--sub">Źródło danych: <code>/vision/snap-info</code>.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="surface u-mb-xl">
+      <h2 class="c-card__title">3‑blokowy layout</h2>
+      <div class="l-grid l-grid--3">
+        <article class="c-card">
+          <h3>Health</h3>
+          <div class="c-kv">
+            <div>status</div><div class="ok">OK</div>
+            <div>uptime</div><div>12h 44m</div>
+            <div>bus.last_msg_age</div><div>0.4s</div>
+            <div>bus.last_heartbeat_age</div><div>0.9s</div>
+          </div>
+        </article>
+        <article class="c-card">
+          <h3>Obstacle</h3>
+          <div class="c-kv">
+            <div>present</div><div>NO</div>
+            <div>confidence</div><div>0.08</div>
+            <div>edge_pct</div><div>12%</div>
+          </div>
+        </article>
+        <article class="c-card">
+          <h3>ROI histogram — edges</h3>
+          <canvas id="roiHistogramExample" width="280" height="120"></canvas>
+          <div class="c-legend">
+            <span><i class="c-legend__dot edge"></i><span>LOW/HIGH: 18 / 232</span></span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="surface u-mb-xl">
+      <h2 class="c-card__title">4‑blokowy layout</h2>
+      <div class="l-grid l-grid--4">
+        <article class="c-card">
+          <h3>System Pi</h3>
+          <div class="c-kv">
+            <div>Host</div><div>rider-pi</div>
+            <div>cpu (szac.)</div><div>7%</div>
+            <div>load (1/5/15)</div><div>0.42 / 0.38 / 0.33</div>
+            <div>pamięć</div><div>2.1 / 8 GB</div>
+            <div>dysk</div><div>31 / 64 GB</div>
+            <div>system</div><div>Debian 12</div>
+            <div>fw</div><div>2025.03</div>
+          </div>
+        </article>
+        <article class="c-card">
+          <h3>Urządzenia Pi</h3>
+          <div class="c-kv">
+            <div>kamera</div><div>ON</div>
+            <div>lcd</div><div>OFF</div>
+            <div>xgo.imu</div><div>OK</div>
+            <div>xgo.pose</div><div>stała</div>
+            <div>xgo.batt</div><div>82%</div>
+            <div>temp</div><div>34°C</div>
+          </div>
+        </article>
+        <article class="c-card">
+          <h3>Historia (60 s) — Pi CPU / MEM</h3>
+          <canvas width="260" height="120"></canvas>
+          <div class="c-legend">
+            <span><i class="c-legend__dot cpu"></i><span>cpu%</span></span>
+            <span><i class="c-legend__dot mem"></i><span>mem%</span></span>
+          </div>
+        </article>
+        <article class="c-card">
+          <h3>Kamera</h3>
+          <div class="c-thumb">
+            <img src="/camera/placeholder" alt="kamera" />
+          </div>
+          <div class="c-legend">
+            <span><i class="c-legend__dot raw"></i><span>RAW • age: 0.8s</span></span>
+          </div>
+        </article>
+      </div>
+    </section>
 
     <!-- Content sections -->
     <section class="surface u-mb-xl">
@@ -44,6 +199,25 @@
           <span class="c-data-list__label">Label</span>
           <span class="c-data-list__value">Value</span>
         </div>
+      </div>
+    </section>
+
+    <!-- Device / card grid (jak google_home) -->
+    <section class="c-card u-mb-xl">
+      <div class="l-row">
+        <h2 class="c-card__title">Device Grid</h2>
+        <div class="u-spacer"></div>
+        <button class="c-btn c-btn-sm">⟳ Refresh</button>
+      </div>
+      <div class="l-grid device-grid">
+        <article class="device-card">
+          <div class="device-name">Urządzenie</div>
+          <div class="device-type">Typ</div>
+          <div class="control-row">
+            <button class="c-btn c-btn-sm">ON</button>
+            <button class="c-btn c-btn-sm">OFF</button>
+          </div>
+        </article>
       </div>
     </section>
 
@@ -59,6 +233,75 @@
         <p class="c-hint">Card content goes here.</p>
       </article>
     </div>
+
+    <!-- Legend (navigation/view) -->
+    <div class="c-legend cluster u-mt-xl">
+      <span class="c-legend__item">
+        <i class="c-legend__dot cpu"></i>
+        <span>CPU%</span>
+      </span>
+      <span class="c-legend__item">
+        <i class="c-legend__dot mem"></i>
+        <span>MEM%</span>
+      </span>
+    </div>
+
+    <!-- Log panel (system/control) -->
+    <section class="log-panel surface u-mt-xl">
+      <header class="log-header l-cluster">
+        <h2>Log Systemowy</h2>
+        <div class="u-spacer"></div>
+        <button class="c-btn c-btn-sm">Wyczyść</button>
+      </header>
+      <div class="log-terminal" aria-live="polite">
+        <div class="log-entry log-info">
+          <span class="log-timestamp">[12:00:00]</span>
+          <span class="log-level">INFO</span>
+          Uruchomiono usługę.
+        </div>
+      </div>
+    </section>
+
+    <!-- Issues grid (project.html) -->
+    <section class="issues-grid u-mt-xl">
+      <article class="issue-card c-card">
+        <header class="issue-head l-row">
+          <h3>#1234 Refactor CSS</h3>
+          <span class="c-pill is-warn">In Progress</span>
+        </header>
+        <p class="muted">Opis zadania...</p>
+      </article>
+    </section>
+
+    <!-- Services grid (system/control) -->
+    <section class="location-block u-mt-xl">
+      <h2 class="location-title">Usługi</h2>
+      <div class="services-grid">
+        <article class="service-node">
+          <h3>svc-core</h3>
+          <span class="status-pill status-running">Running</span>
+          <p class="desc">Opis usługi.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- Chat board + composer (chat.html) -->
+    <section class="c-card u-mt-xl">
+      <div class="board">
+        <div class="msg bot">Przykładowa wiadomość od bota.</div>
+        <div class="msg you">Odpowiedź użytkownika.</div>
+      </div>
+      <div class="l-row compose-row u-mt-lg">
+        <textarea placeholder="Napisz wiadomość…"></textarea>
+        <div class="stack">
+          <button class="c-btn">Wyślij</button>
+          <label class="cluster">
+            <input type="checkbox" />
+            <span>Odtwarzaj TTS</span>
+          </label>
+        </div>
+      </div>
+    </section>
 
     <!-- Two-column panel layout -->
     <div class="panel-row u-mt-xl">
@@ -93,6 +336,27 @@
       <p>Second paragraph with consistent spacing.</p>
     </div>
 
+    <!-- Table (models/project) -->
+    <div class="c-card u-mt-xl">
+      <h2 class="c-card__title">Tabela</h2>
+      <table class="installed-models-table">
+        <thead>
+          <tr>
+            <th>Nazwa</th>
+            <th>Kategoria</th>
+            <th>Akcje</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>model.bin</td>
+            <td>Vision</td>
+            <td><button class="c-btn c-btn-sm">Aktywuj</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
     <!-- Form grid example -->
     <form class="form-grid u-mt-xl">
       <div class="c-form-group">
@@ -116,6 +380,9 @@
       <button class="c-btn">Secondary Action</button>
       <button class="c-btn c-btn-sm">Small Button</button>
     </div>
+
+    <!-- Toast container placeholder (system.html) -->
+    <div id="toast-container"></div>
   </main>
 
   <!-- Footer placeholder - loaded dynamically -->
@@ -134,6 +401,56 @@
     document.addEventListener('DOMContentLoaded', () => {
       // Your page logic here
     });
+  </script>
+  <script>
+    // Example histogram data for ROI block
+    (function drawExampleHistogram() {
+      const canvas = document.getElementById('roiHistogramExample');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const bins = [0.05, 0.1, 0.3, 0.65, 0.42, 0.2, 0.08, 0.04];
+      const low = 0.15;
+      const high = 0.72;
+      const padL = 28, padT = 10, padR = 10, padB = 16;
+      const W = canvas.width - padL - padR;
+      const H = canvas.height - padT - padB;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = '#1d3548';
+      ctx.strokeRect(padL, padT, W, H);
+      ctx.fillStyle = '#8aa';
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'right';
+      [0, 0.5, 1].forEach((v) => {
+        const y = padT + H - v * H;
+        ctx.beginPath();
+        ctx.moveTo(padL - 4, y);
+        ctx.lineTo(padL, y);
+        ctx.stroke();
+        ctx.fillText(String(Math.round(v * 100)), padL - 6, y + 3);
+      });
+      const drawThreshold = (value, color) => {
+        const clamped = Math.max(0, Math.min(1, value));
+        const y = padT + H - clamped * H;
+        ctx.strokeStyle = color;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(padL, y);
+        ctx.lineTo(padL + W, y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      };
+      drawThreshold(low, '#2b8a3e');
+      drawThreshold(high, '#d89d2b');
+      const gap = 2;
+      const barW = (W - gap * (bins.length - 1)) / bins.length;
+      ctx.fillStyle = '#6db3ff';
+      bins.forEach((value, i) => {
+        const val = Math.max(0, Math.min(1, value));
+        const x = padL + i * (barW + gap);
+        const h = H * val;
+        ctx.fillRect(x, padT + H - h, Math.max(1, barW), h);
+      });
+    })();
   </script>
 </body>
 </html>

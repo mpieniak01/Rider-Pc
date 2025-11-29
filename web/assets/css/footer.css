@@ -14,7 +14,7 @@
   width: 100%;
   background: linear-gradient(180deg, rgba(5, 11, 24, 0.95), rgba(5, 11, 24, 0.98));
   border-top: 1px solid rgba(255, 255, 255, 0.05);
-  box-shadow: 0 -12px 34px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-footer);
 }
 
 [data-dashboard-footer-target] .c-statusbar {

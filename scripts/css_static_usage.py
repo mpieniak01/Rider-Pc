@@ -11,6 +11,7 @@ CLASS_RE = re.compile(r'class="([^"]+)"')
 ID_RE = re.compile(r'id="([^"]+)"')
 SELECTOR_CLASS_RE = re.compile(r'\.[A-Za-z0-9_-]+')
 SELECTOR_ID_RE = re.compile(r'#[A-Za-z0-9_-]+')
+WHITELIST_FILE = Path('config/css_dynamic_whitelist.json')
 
 used_classes = set()
 used_ids = set()
@@ -23,6 +24,19 @@ for html in HTML_FILES:
     for _id in ID_RE.findall(text):
         if _id:
             used_ids.add(_id)
+
+if WHITELIST_FILE.exists():
+    try:
+        whitelist = json.loads(WHITELIST_FILE.read_text())
+        for cls in whitelist.get('classes', []):
+            for part in cls.split():
+                if part:
+                    used_classes.add(part)
+        for ident in whitelist.get('ids', []):
+            if ident:
+                used_ids.add(ident)
+    except json.JSONDecodeError:
+        print(f"[css_static_usage] warning: could not parse {WHITELIST_FILE}")
 
 summary = []
 for css in CSS_FILES:

@@ -6,21 +6,9 @@
 
 /* Page token overrides */
 .page-google {
-  --page-max-width: 1100px;
   --page-padding: 26px var(--space-xl) 60px;
-  --card-bg: #0f2030;
-  --card-border: #1e3a56;
   --card-radius: var(--radius-xxl);
   --card-padding: var(--space-xl);
-}
-
-.page-google h1 {
-  font-size: var(--font-size-xxl);
-  margin: 0 0 var(--space-xl);
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-lg);
-  align-items: center;
 }
 
 /* Auth button styling */
@@ -31,7 +19,6 @@
   background: #1a73e8;
   border: 1px solid #1a73e8;
   color: #fff;
-  cursor: pointer;
   transition: transform var(--transition-fast), background var(--transition-fast);
 }
 
@@ -47,15 +34,12 @@
 /* Device grid */
 .page-google .device-grid {
   --grid-min: 280px;
-  gap: var(--gap);
+  --grid-gap: var(--space-xl);
   margin: var(--space-lg) 0;
 }
 
 .page-google .device-card {
-  background: var(--color-bg-elevated);
-  border: 1px solid #1c3349;
-  border-radius: var(--space-md);
-  padding: var(--space-md);
+  --card-padding: var(--space-md);
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
@@ -124,5 +108,9 @@
 }
 
 .page-google .hidden {
+  display: none !important;
+}
+
+.page-google .coverage-probe {
   display: none !important;
 }

@@ -18,69 +18,69 @@
   <!-- Main content -->
   <main class="layout-main layout-main--wide">
   <header>
-    <h1 class="page-title"><span class="brand-accent">Rider-PC</span>: <span>Modele AI</span></h1>
+    <h1 class="page-title"><span class="brand-accent">Rider-PC</span>: <span class="page-title-text">Modele AI</span></h1>
     <p class="page-subtitle">Zarządzanie modelami sztucznej inteligencji</p>
   </header>
 
-<p id="status-line" class="status-line">Ładowanie danych modeli...</p>
+<p id="status-line" class="status-line c-statusbar">Ładowanie danych modeli...</p>
 
   <!-- Active Models Section -->
-  <section class="models-section">
+  <section class="models-section c-card">
     <h2 class="section-title">📊 Aktywne Modele</h2>
-    <div class="models-grid" id="active-models-grid">
+    <div class="models-grid l-grid" id="active-models-grid">
       <!-- Active model cards will be dynamically inserted -->
     </div>
   </section>
 
   <!-- Provider State -->
-  <section class="models-section">
+  <section class="models-section c-card">
     <h2 class="section-title">🛰️ Stan Rider-Pi</h2>
     <p class="section-desc">Informacje z rejestru providera Rider-Pi: gdzie wykonywane są obecnie zadania Vision / Voice / Text.</p>
-    <div class="provider-grid" id="provider-state-grid">
-      <div class="loading-placeholder">Oczekiwanie na dane z Rider-Pi...</div>
+    <div class="provider-grid l-grid" id="provider-state-grid">
+      <div class="loading-placeholder c-status-msg">Oczekiwanie na dane z Rider-Pi...</div>
     </div>
     <p class="provider-note" id="provider-note"></p>
   </section>
 
   <!-- Vision Models -->
-  <section class="models-section">
+  <section class="models-section c-card">
     <h2 class="section-title">👁️ Wizja (Vision)</h2>
     <p class="section-desc">Modele detekcji obiektów i analizy obrazu</p>
-    <div class="model-category" id="vision-models">
-      <div class="loading-placeholder">Skanowanie modeli wizji...</div>
+    <div class="model-category l-grid" id="vision-models">
+      <div class="loading-placeholder c-status-msg">Skanowanie modeli wizji...</div>
     </div>
   </section>
 
   <!-- Voice Models -->
-  <section class="models-section">
+  <section class="models-section c-card">
     <h2 class="section-title">🗣️ Mowa (Audio)</h2>
-    <div class="voice-subsections">
+    <div class="voice-subsections l-grid">
       <div class="voice-subsection">
         <h3 class="subsection-title">🎤 ASR (Rozpoznawanie mowy)</h3>
-        <div class="model-category" id="voice-asr-models">
-          <div class="loading-placeholder">Skanowanie modeli ASR...</div>
+        <div class="model-category l-grid" id="voice-asr-models">
+          <div class="loading-placeholder c-status-msg">Skanowanie modeli ASR...</div>
         </div>
       </div>
       <div class="voice-subsection">
         <h3 class="subsection-title">🔊 TTS (Synteza mowy)</h3>
-        <div class="model-category" id="voice-tts-models">
-          <div class="loading-placeholder">Skanowanie modeli TTS...</div>
+        <div class="model-category l-grid" id="voice-tts-models">
+          <div class="loading-placeholder c-status-msg">Skanowanie modeli TTS...</div>
         </div>
       </div>
     </div>
   </section>
 
   <!-- Text/LLM Models -->
-  <section class="models-section">
+  <section class="models-section c-card">
     <h2 class="section-title">💬 Tekst (LLM)</h2>
     <p class="section-desc">Modele językowe do generowania tekstu i NLU</p>
-    <div class="model-category" id="text-models">
-      <div class="loading-placeholder">Skanowanie modeli LLM...</div>
+    <div class="model-category l-grid" id="text-models">
+      <div class="loading-placeholder c-status-msg">Skanowanie modeli LLM...</div>
     </div>
   </section>
 
   <!-- Installed Files -->
-  <section class="models-section">
+  <section class="models-section c-card">
     <h2 class="section-title">📁 Zainstalowane Pliki Modeli</h2>
     <p class="section-desc">Pliki modeli wykryte w katalogu <code>data/models/</code></p>
     <div class="installed-columns">
@@ -217,7 +217,7 @@ const domainLabels = {
 
 function createProviderCard(domain, state) {
   const card = document.createElement('div');
-  card.className = 'provider-card';
+  card.className = 'provider-card c-card';
   const mode = (state.mode || 'local').toLowerCase() === 'pc' ? 'pc' : 'local';
   const status = (state.status || 'unknown').replace('_', ' ');
   const modeLabel = mode === 'pc' ? 'PC (offload)' : 'Lokalny';
@@ -242,13 +242,13 @@ function createProviderCard(domain, state) {
   `;
   const providerModeEl = card.querySelector('.provider-mode');
   providerModeEl.textContent = modeLabel;
-  providerModeEl.classList.add(modeClass);
+  providerModeEl.className = `c-pill provider-mode ${modeClass}`;
   return card;
 }
 
 function renderProviderState(payload) {
   if (!payload || !payload.domains) {
-    providerStateGrid.innerHTML = '<div class="no-models">Brak danych z Rider-Pi.</div>';
+    providerStateGrid.innerHTML = '<div class="no-models c-status-msg">Brak danych z Rider-Pi.</div>';
     providerNote.textContent = '';
     return;
   }
@@ -266,18 +266,18 @@ function renderProviderState(payload) {
 
 function createActiveModelCard(category, config) {
   const card = document.createElement('div');
-  card.className = 'active-model-card';
+  card.className = 'active-model-card c-card';
   
   const enabled = config.enabled !== false;
   const useMock = config.use_mock === true;
   
-  let statusClass = 'status-inactive';
+  let statusClass = 'is-off';
   let statusText = 'Wyłączony';
   if (useMock) {
-    statusClass = 'status-mock';
+    statusClass = 'is-warn';
     statusText = 'Mock';
   } else if (enabled) {
-    statusClass = 'status-active';
+    statusClass = 'is-ok';
     statusText = 'Aktywny';
   }
   
@@ -289,16 +289,16 @@ function createActiveModelCard(category, config) {
     <div class="active-model-header">
       <span class="active-model-icon">${categoryIcons[category] || '🤖'}</span>
       <span class="active-model-category">${safeCategory}</span>
-      <span class="active-model-status ${statusClass}">${escapeHtml(statusText)}</span>
+      <span class="c-pill active-model-status ${statusClass}">${escapeHtml(statusText)}</span>
     </div>
-    <div class="active-model-info">
-      <div class="info-row">
-        <span class="info-label">Model:</span>
-        <span class="info-value model-name">${safeModel}</span>
+    <div class="c-data-list">
+      <div class="c-data-list__item">
+        <span class="c-data-list__label">Model</span>
+        <span class="c-data-list__value model-name-mono">${safeModel}</span>
       </div>
-      <div class="info-row">
-        <span class="info-label">Provider:</span>
-        <span class="info-value">${safeProvider}</span>
+      <div class="c-data-list__item">
+        <span class="c-data-list__label">Provider</span>
+        <span class="c-data-list__value">${safeProvider}</span>
       </div>
     </div>
   `;
@@ -308,7 +308,7 @@ function createActiveModelCard(category, config) {
 
 function createOllamaModelCard(model) {
   const card = document.createElement('div');
-  card.className = 'model-card ollama-model';
+  card.className = 'model-card c-card ollama-model';
   
   const name = model.name || model.model || 'Unknown';
   const size = model.size ? formatSize(model.size) : 'N/A';
@@ -321,16 +321,21 @@ function createOllamaModelCard(model) {
   card.innerHTML = `
     <div class="model-card-header">
       <span class="model-name">${safeName}</span>
-      <span class="model-provider ollama">Ollama</span>
+      <span class="model-provider c-pill">Ollama</span>
     </div>
-    <div class="model-card-body">
-      <div class="model-meta">
-        <span class="meta-item">📦 ${safeSize}</span>
-        ${safeModified ? `<span class="meta-item">📅 ${safeModified}</span>` : ''}
+    <div class="c-data-list">
+      <div class="c-data-list__item">
+        <span class="c-data-list__label">Rozmiar</span>
+        <span class="c-data-list__value">${safeSize}</span>
       </div>
+      ${
+        safeModified
+          ? `<div class="c-data-list__item"><span class="c-data-list__label">Zmodyfikowano</span><span class="c-data-list__value">${safeModified}</span></div>`
+          : ''
+      }
     </div>
-    <div class="model-card-actions">
-      <button class="btn-activate" data-origin="pc" data-model="${safeName}" data-provider="ollama" data-slot="text">
+    <div class="l-row l-row--start">
+      <button class="c-btn c-btn-sm btn-activate" data-origin="pc" data-model="${safeName}" data-provider="ollama" data-slot="text">
         Aktywuj
       </button>
     </div>
@@ -341,7 +346,7 @@ function createOllamaModelCard(model) {
 
 function createLocalModelCard(model) {
   const card = document.createElement('div');
-  card.className = 'model-card local-model';
+  card.className = 'model-card c-card local-model';
   
   const safeName = escapeHtml(model.name);
   const safeFormat = escapeHtml(model.format);
@@ -355,14 +360,18 @@ function createLocalModelCard(model) {
       <span class="model-name">${safeName}</span>
       <span class="model-format">.${safeFormat}</span>
     </div>
-    <div class="model-card-body">
-      <div class="model-meta">
-        <span class="meta-item">📦 ${safeSize} MB</span>
-        <span class="meta-item">📁 ${safePath}</span>
+    <div class="c-data-list">
+      <div class="c-data-list__item">
+        <span class="c-data-list__label">Ścieżka</span>
+        <span class="c-data-list__value">${safePath}</span>
+      </div>
+      <div class="c-data-list__item">
+        <span class="c-data-list__label">Rozmiar</span>
+        <span class="c-data-list__value">${safeSize} MB</span>
       </div>
     </div>
-    <div class="model-card-actions">
-      <button class="btn-activate" data-origin="pc" data-model="${safeName}" data-provider="${safeType}" data-slot="${safeCategory}">
+    <div class="l-row l-row--start">
+      <button class="c-btn c-btn-sm btn-activate" data-origin="pc" data-model="${safeName}" data-provider="${safeType}" data-slot="${safeCategory}">
         Aktywuj
       </button>
     </div>
@@ -418,12 +427,12 @@ function renderInstalledModels(local, ollama, remote) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><span class="model-name-cell">${safeName}</span></td>
-      <td><span class="category-badge ${safeCategoryClass}">${safeCategory}</span></td>
+      <td><span class="c-pill category-badge ${safeCategoryClass}">${safeCategory}</span></td>
       <td>${safeType}</td>
       <td><code>.${safeFormat}</code></td>
       <td>${safeSize} MB</td>
       <td>
-        <button class="btn-sm btn-activate" data-origin="pc" data-model="${safeName}" data-slot="${safeCategoryClass}">
+        <button class="c-btn c-btn-sm btn-activate" data-origin="pc" data-model="${safeName}" data-slot="${safeCategoryClass}">
           Aktywuj
         </button>
       </td>
@@ -443,12 +452,12 @@ function renderInstalledModels(local, ollama, remote) {
     tr.classList.add('ollama-row');
     tr.innerHTML = `
       <td><span class="model-name-cell">${safeName}</span></td>
-      <td><span class="category-badge text">LLM</span></td>
+      <td><span class="c-pill category-badge text">LLM</span></td>
       <td>ollama</td>
       <td><code>gguf</code></td>
       <td>${safeSize}</td>
       <td>
-        <button class="btn-sm btn-activate" data-origin="pc" data-model="${safeName}" data-provider="ollama" data-slot="text">
+        <button class="c-btn c-btn-sm btn-activate" data-origin="pc" data-model="${safeName}" data-provider="ollama" data-slot="text">
           Aktywuj
         </button>
       </td>
@@ -484,12 +493,12 @@ function renderRemoteModels(remote) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><span class="model-name-cell">${safeName}</span></td>
-      <td><span class="category-badge ${slot}">${escapeHtml(categoryNames[model.category] || model.category || '---')}</span></td>
+      <td><span class="c-pill category-badge ${slot}">${escapeHtml(categoryNames[model.category] || model.category || '---')}</span></td>
       <td>${safeType}</td>
       <td><code>.${safeFormat}</code></td>
       <td>${sizeValue}</td>
       <td>
-        <button class="btn-sm btn-activate" data-origin="rider-pi" data-slot="${slot}" data-model="${safeName}">
+        <button class="c-btn c-btn-sm btn-activate" data-origin="rider-pi" data-slot="${slot}" data-model="${safeName}">
           Ustaw lokalnie
         </button>
       </td>
@@ -507,7 +516,7 @@ function renderCategoryModels(local, ollama) {
       visionModels.appendChild(createLocalModelCard(m));
     });
   } else {
-    visionModels.innerHTML = '<div class="no-models">Brak lokalnych modeli wizji. Konfiguracja z providers.toml.</div>';
+    visionModels.innerHTML = '<div class="no-models c-status-msg">Brak lokalnych modeli wizji. Konfiguracja z providers.toml.</div>';
   }
   
   // Voice ASR models
@@ -518,7 +527,7 @@ function renderCategoryModels(local, ollama) {
       voiceAsrModels.appendChild(createLocalModelCard(m));
     });
   } else {
-    voiceAsrModels.innerHTML = '<div class="no-models">Brak lokalnych modeli ASR. Konfiguracja z providers.toml.</div>';
+    voiceAsrModels.innerHTML = '<div class="no-models c-status-msg">Brak lokalnych modeli ASR. Konfiguracja z providers.toml.</div>';
   }
   
   // Voice TTS models
@@ -529,7 +538,7 @@ function renderCategoryModels(local, ollama) {
       voiceTtsModels.appendChild(createLocalModelCard(m));
     });
   } else {
-    voiceTtsModels.innerHTML = '<div class="no-models">Brak lokalnych modeli TTS. Konfiguracja z providers.toml.</div>';
+    voiceTtsModels.innerHTML = '<div class="no-models c-status-msg">Brak lokalnych modeli TTS. Konfiguracja z providers.toml.</div>';
   }
   
   // Text/LLM models (Ollama)
@@ -546,7 +555,7 @@ function renderCategoryModels(local, ollama) {
         textModels.appendChild(createLocalModelCard(m));
       });
     } else {
-      textModels.innerHTML = '<div class="no-models">Brak modeli LLM. Ollama niedostępna lub brak modeli lokalnych.</div>';
+    textModels.innerHTML = '<div class="no-models c-status-msg">Brak modeli LLM. Ollama niedostępna lub brak modeli lokalnych.</div>';
     }
   }
 }
@@ -556,7 +565,7 @@ async function activateModel(slot, provider, model) {
   const domainLabel = domainLabels[domain] || categoryNames[slot] || slot;
   try {
     statusLine.textContent = `Aktywuję model ${model} (domena ${domainLabel})...`;
-    statusLine.className = 'status-line working';
+    statusLine.className = 'status-line c-statusbar working';
     
     const response = await fetch('/api/models/bind', {
       method: 'POST',
@@ -569,20 +578,20 @@ async function activateModel(slot, provider, model) {
     if (response.ok && result.success) {
       if (result.provider_switch && result.provider_switch.error) {
         statusLine.textContent = `⚠️ Model ${model} zapisany, ale przełączenie Rider-Pi nie powiodło się: ${result.provider_switch.error}`;
-        statusLine.className = 'status-line error';
+        statusLine.className = 'status-line c-statusbar error';
       } else {
         statusLine.textContent = `✅ Model ${model} aktywowany dla ${domainLabel} (Rider-Pi przełączony na PC)`;
-        statusLine.className = 'status-line success';
+        statusLine.className = 'status-line c-statusbar success';
       }
       setTimeout(loadModelsData, 1000);
     } else {
       statusLine.textContent = `❌ Błąd: ${result.error || 'Nie udało się aktywować modelu'}`;
-      statusLine.className = 'status-line error';
+      statusLine.className = 'status-line c-statusbar error';
     }
   } catch (error) {
     console.error('Activation error:', error);
     statusLine.textContent = `❌ Błąd połączenia: ${error.message}`;
-    statusLine.className = 'status-line error';
+    statusLine.className = 'status-line c-statusbar error';
   }
 }
 
@@ -591,7 +600,7 @@ async function switchProviderToLocal(slot, model) {
   const domainLabel = domainLabels[domain] || categoryNames[slot] || slot;
   try {
     statusLine.textContent = `Przełączam Rider-Pi na lokalny model ${model} (${domainLabel})...`;
-    statusLine.className = 'status-line working';
+    statusLine.className = 'status-line c-statusbar working';
     
     const response = await fetch(`/api/providers/${domain}`, {
       method: 'PATCH',
@@ -603,17 +612,17 @@ async function switchProviderToLocal(slot, model) {
     
     if (response.ok && !result.error) {
       statusLine.textContent = `✅ Domena ${domainLabel} ustawiona na Rider-Pi (lokalnie)`;
-      statusLine.className = 'status-line success';
+      statusLine.className = 'status-line c-statusbar success';
       // Refresh data
       setTimeout(loadModelsData, 1000);
     } else {
       statusLine.textContent = `❌ Błąd przełączania Rider-Pi: ${result.error || 'Nieznany błąd'}`;
-      statusLine.className = 'status-line error';
+      statusLine.className = 'status-line c-statusbar error';
     }
   } catch (error) {
     console.error('Provider switch error:', error);
     statusLine.textContent = `❌ Błąd połączenia z Rider-Pi: ${error.message}`;
-    statusLine.className = 'status-line error';
+    statusLine.className = 'status-line c-statusbar error';
   }
 }
 
@@ -638,7 +647,7 @@ document.addEventListener('click', (e) => {
 async function loadModelsData() {
   try {
     statusLine.textContent = 'Aktualizuję dane modeli...';
-    statusLine.className = 'status-line';
+    statusLine.className = 'status-line c-statusbar';
     
     const [installedResp, activeResp, providerResp] = await Promise.all([
       fetch('/api/models/installed', { cache: 'no-store' }),
@@ -660,12 +669,12 @@ async function loadModelsData() {
     const ollamaCount = (installedData.ollama || []).length;
     const remoteCount = (installedData.remote || []).length;
     statusLine.textContent = `Ostatnia aktualizacja: ${timestamp} | PC: ${localCount} | Ollama: ${ollamaCount} | Rider-Pi: ${remoteCount}`;
-    statusLine.className = 'status-line';
+    statusLine.className = 'status-line c-statusbar';
     
   } catch (error) {
     console.error('Error loading models data:', error);
     statusLine.textContent = `❌ Błąd podczas pobierania danych: ${error.message}`;
-    statusLine.className = 'status-line error';
+    statusLine.className = 'status-line c-statusbar error';
   }
 }
 

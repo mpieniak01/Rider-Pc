@@ -120,7 +120,7 @@
   border-color: rgba(126, 196, 255, 0.55);
   background: rgba(126, 196, 255, 0.2);
   color: var(--color-accent);
-  box-shadow: 0 0 12px rgba(126, 196, 255, 0.25);
+  box-shadow: 0 6px 16px rgba(126, 196, 255, 0.25);
 }
 
 .lang-switch img {

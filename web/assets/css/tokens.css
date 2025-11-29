@@ -87,20 +87,21 @@
   --radius-pill: 999px;
 
   /* ===== Shadow Tokens ===== */
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 12px 30px rgba(0, 0, 0, 0.35);
-  --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.5);
-  --shadow-menu: 0 12px 34px rgba(0, 0, 0, 0.45);
+  --shadow-sm: 0 3px 8px rgba(0, 0, 0, 0.18);
+  --shadow-md: 0 6px 14px rgba(0, 0, 0, 0.26);
+  --shadow-lg: 0 10px 24px rgba(0, 0, 0, 0.32);
+  --shadow-xl: 0 16px 46px rgba(0, 0, 0, 0.4);
+  --shadow-menu: 0 6px 17px rgba(0, 0, 0, 0.45);
+  --shadow-footer: 0 -6px 17px rgba(0, 0, 0, 0.45);
 
   /* ===== Layout Tokens ===== */
-  --page-max-width: 1100px;
+  --page-max-width: 1180px;
   --page-padding: 24px 18px 40px;
   --menu-height: 78px;
 
   /* ===== Card Tokens ===== */
-  --card-bg: var(--color-bg-secondary);
-  --card-border: var(--color-border-primary);
+  --card-bg: #0f2030;
+  --card-border: #1e3a56;
   --card-radius: var(--radius-xxl);
   --card-padding: var(--space-lg);
   --card-shadow: var(--shadow-lg);

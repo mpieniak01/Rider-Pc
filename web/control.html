@@ -16,12 +16,11 @@
   <header class="layout-header" data-dashboard-menu-target></header>
 
   <!-- Main content -->
-  <main class="layout-main layout-main--wide">
+  <main class="layout-main">
     <!-- Page header -->
     <header class="l-cluster u-mb-lg">
-      <h1 class="control-title">
-        <span class="brand-accent">Rider-PC</span>
-        <span class="page-title-text">: Sterowanie ruchem (REST /api)</span>
+      <h1 class="page-title control-title">
+        <span class="brand-accent">Rider-PC</span>: <span class="page-title-text">Sterowanie ruchem (REST /api)</span>
       </h1>
       <span
         id="apiStatus"
@@ -36,9 +35,9 @@
       >Obstacle: n/a</span>
     </header>
 
-    <div class="panel-row l-row">
+    <div class="panel-row">
       <!-- 1) KAMERA -->
-      <div class="c-card cam-card">
+      <div class="c-card cam-card control-section is-camera">
         <h2 class="c-card__title" data-i18n="camera.title">Podgląd kamery</h2>
 
         <div class="cam-actions cluster">
@@ -62,7 +61,7 @@
     </div>
 
     <!-- 2) STEROWANIE -->
-    <div class="c-card control-card">
+    <div class="c-card control-card control-section is-motion">
       <h2 class="c-card__title" data-i18n="motion.title">Sterowanie ruchem</h2>
 
       <div class="l-row control-range-row">
@@ -134,7 +133,7 @@
 
   <!-- FUNKCJE + ZASOBY -->
   <div class="panel-row feature-resource">
-    <div class="c-card feature-card">
+    <div class="c-card feature-card control-section is-features">
       <h2 class="c-card__title" data-i18n="motion.features_title">Funkcje</h2>
       <div class="feature-list" id="featureList">
         <div class="feature-row" data-feature="zero">
@@ -247,7 +246,7 @@
       </div>
     </div>
 
-    <div class="c-card resource-card">
+    <div class="c-card resource-card control-section is-resources">
       <h2 class="c-card__title" data-i18n="resources.title">Diagnostyka zasobów</h2>
       <div id="resInfo" class="muted" data-i18n="meta.loading">Ładowanie…</div>
       <table class="svc-table" id="resTable">
@@ -262,7 +261,7 @@
         <tbody id="resBody">
         <tr data-res="mic">
           <td data-i18n="resources.mic">Mikrofon</td>
-          <td class="res-status">n/a</td>
+          <td><span class="res-status c-pill is-off">n/a</span></td>
           <td class="res-holders">-</td>
           <td class="svc-actions">
             <button class="c-btn c-btn-sm" data-res="mic" data-res-action="refresh">⟳</button>
@@ -282,7 +281,7 @@
         </tr>
         <tr data-res="speaker">
           <td data-i18n="resources.speaker">Głośnik</td>
-          <td class="res-status">n/a</td>
+          <td><span class="res-status c-pill is-off">n/a</span></td>
           <td class="res-holders">-</td>
           <td class="svc-actions">
             <button class="c-btn c-btn-sm" data-res="speaker" data-res-action="refresh">⟳</button>
@@ -302,7 +301,7 @@
         </tr>
         <tr data-res="camera">
           <td data-i18n="resources.camera">Kamera</td>
-          <td class="res-status">n/a</td>
+          <td><span class="res-status c-pill is-off">n/a</span></td>
           <td class="res-holders">-</td>
           <td class="svc-actions">
             <button class="c-btn c-btn-sm" data-res="camera" data-res-action="refresh">⟳</button>
@@ -322,7 +321,7 @@
         </tr>
         <tr data-res="lcd">
           <td data-i18n="resources.lcd">Ekran LCD 2"</td>
-          <td class="res-status">n/a</td>
+          <td><span class="res-status c-pill is-off">n/a</span></td>
           <td class="res-holders">-</td>
           <td class="svc-actions">
             <button class="c-btn c-btn-sm" data-res="lcd" data-res-action="refresh">⟳</button>
@@ -346,7 +345,7 @@
   </div>
 
   <div class="panel-row scenario-panel">
-    <div class="c-card scenario-card">
+    <div class="c-card scenario-card control-section is-scenarios">
       <h2 class="c-card__title">Scenariusze / targety</h2>
       <div class="feature-list scenario-list" id="scenarioList">
         <div class="muted" data-i18n="meta.loading">Ładowanie…</div>
@@ -355,7 +354,7 @@
     </div>
   </div>
 
-  <div class="c-card service-card">
+  <div class="c-card service-card control-section is-services">
     <details class="svc-diagnostics" open>
       <summary class="c-card__title svc-summary">
         <span data-i18n="services.title">Usługi (systemd)</span>
@@ -404,12 +403,12 @@
   </div>
 
   <!-- LOG -->
-  <div class="c-card log-card">
+  <div class="c-card log-card control-section is-log">
     <h2 class="c-card__title" data-i18n="events.title">Zdarzenia (SSE /events)</h2>
     <div id="log"></div>
   </div>
 
-  <div class="c-card motion-queue-card">
+  <div class="c-card motion-queue-card control-section is-queue">
     <h2 class="c-card__title">
       <span data-i18n="motion_queue.title">Kolejka ruchu</span>
       <button
@@ -1696,22 +1695,34 @@
     });
   }
 
+  const RES_STATUS_CLASSES = ["is-ok", "is-warn", "is-err", "is-off"];
+  function setResourceStatus(el, state, text) {
+    if (!el) return;
+    el.textContent = text;
+    RES_STATUS_CLASSES.forEach((cls) => el.classList.remove(cls));
+    if (state) el.classList.add(state);
+  }
+
   // === RESOURCES DIAG ===
   async function updateResourceRow(resName) {
     const tr = document.querySelector(`tr[data-res="${resName}"]`);
     if (!tr) return;
     const statusEl = tr.querySelector(".res-status");
     const holdersEl = tr.querySelector(".res-holders");
-    if (statusEl) statusEl.textContent = t("meta.loading");
+    setResourceStatus(statusEl, "is-off", t("meta.loading"));
     try {
       const data = await fetchJson(`/api/resource/${encodeURIComponent(resName)}`);
       const free = !!data.free;
-      if (statusEl) {
-        statusEl.textContent = data.error
-          ? `${t("resources.status_error")}: ${data.error}`
-          : free
-            ? t("resources.status_free")
-            : t("resources.status_busy");
+      if (data.error) {
+        setResourceStatus(
+          statusEl,
+          "is-err",
+          `${t("resources.status_error")}: ${data.error}`,
+        );
+      } else if (free) {
+        setResourceStatus(statusEl, "is-ok", t("resources.status_free"));
+      } else {
+        setResourceStatus(statusEl, "is-warn", t("resources.status_busy"));
       }
       if (holdersEl) {
         const holders = (data.holders || []).map((holder) => {
@@ -1721,7 +1732,7 @@
         holdersEl.textContent = holders.length ? holders.join(", ") : t("resources.holders_none");
       }
     } catch (e) {
-      if (statusEl) statusEl.textContent = e.message || String(e);
+      setResourceStatus(statusEl, "is-err", e.message || String(e));
       if (holdersEl) holdersEl.textContent = "-";
     }
   }

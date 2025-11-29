@@ -16,14 +16,13 @@
   <header class="layout-header" data-dashboard-menu-target></header>
 
   <!-- Main content -->
-  <main class="layout-main">
+  <main class="layout-main layout-main--wide">
   
-  <header class="project-header">
-    <h1>
-      <span class="brand-accent">Rider-PC</span>
-      <span>: Projekt</span>
+  <header class="project-header l-row l-row--between">
+    <h1 class="page-title">
+      <span class="brand-accent">Rider-PC</span>: <span class="page-title-text">Projekt</span>
     </h1>
-    <div class="project-actions">
+    <div class="project-actions l-row">
       <button id="new-task-btn" class="c-btn c-btn-sm c-btn-primary" title="Utwórz nowe zadanie">
         <span>+</span>
         <span data-i18n="project.new_task">Nowe Zadanie</span>
@@ -35,21 +34,21 @@
     </div>
   </header>
 
-  <p id="status-line" class="status-line">Ładowanie zgłoszeń...</p>
+  <p id="status-line" class="status-line c-statusbar">Ładowanie zgłoszeń...</p>
 
   <!-- Error/Warning Banner -->
-  <div id="error-banner" class="error-banner" style="display: none;">
+  <div id="error-banner" class="error-banner c-status-msg is-err" hidden>
     <span class="error-icon">⚠️</span>
     <span id="error-message"></span>
   </div>
 
   <!-- Issues Grid -->
-  <section id="issues-container" class="issues-grid">
+  <section id="issues-container" class="issues-grid l-grid">
     <!-- Issue cards will be dynamically inserted here -->
   </section>
 
   <!-- Empty State -->
-  <div id="empty-state" class="empty-state" style="display: none;">
+  <div id="empty-state" class="empty-state c-status-msg" hidden>
     <div class="empty-icon">📋</div>
     <h2 data-i18n="project.no_issues">Brak otwartych zgłoszeń</h2>
     <p class="muted" data-i18n="project.no_issues_desc">Wszystkie zadania zostały ukończone lub nie ma aktywnych zgłoszeń.</p>
@@ -58,8 +57,6 @@
 
   <!-- Footer -->
   <footer class="layout-footer" data-dashboard-footer-target></footer>
-
-  <div id="toast-container"></div>
 
 <!-- New Task Modal -->
 <div id="task-modal" class="modal-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="task-modal-title">
@@ -154,7 +151,6 @@
   const errorMessage = document.getElementById('error-message');
   const emptyState = document.getElementById('empty-state');
   const refreshBtn = document.getElementById('refresh-btn');
-  const toastContainer = document.getElementById('toast-container');
 
   // i18n helper - get translation from DOM or use fallback
   function getI18nText(key, fallback) {
@@ -164,21 +160,54 @@
     return fallback;
   }
 
+  function ensureToastHost() {
+    let host = document.querySelector('[data-toast-host]');
+    if (!host) {
+      host = document.createElement('div');
+      host.dataset.toastHost = 'true';
+      host.style.position = 'fixed';
+      host.style.bottom = 'var(--space-xl)';
+      host.style.right = 'var(--space-xl)';
+      host.style.display = 'flex';
+      host.style.flexDirection = 'column';
+      host.style.gap = 'var(--space-md)';
+      host.style.zIndex = '1000';
+      document.body.appendChild(host);
+    }
+    return host;
+  }
+
   function showToast(message, type = 'success') {
+    const host = ensureToastHost();
     const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
+    toast.className = 'c-status-msg';
     toast.textContent = message;
-    toastContainer.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
+    toast.style.minWidth = '240px';
+    toast.style.maxWidth = '360px';
+    toast.style.cursor = 'pointer';
+    if (type === 'error') {
+      toast.style.borderColor = 'var(--color-error-border)';
+      toast.style.color = 'var(--color-error)';
+    } else if (type === 'warn') {
+      toast.style.borderColor = 'var(--color-warn-border)';
+      toast.style.color = 'var(--color-warn)';
+    } else {
+      toast.style.borderColor = 'var(--color-ok-border)';
+      toast.style.color = 'var(--color-ok)';
+    }
+    host.appendChild(toast);
+    const remove = () => toast.remove();
+    setTimeout(remove, 3200);
+    toast.addEventListener('click', remove);
   }
 
   function showError(message) {
-    errorBanner.style.display = 'flex';
+    errorBanner.hidden = false;
     errorMessage.textContent = message;
   }
 
   function hideError() {
-    errorBanner.style.display = 'none';
+    errorBanner.hidden = true;
   }
 
   function formatTimestamp(ts) {
@@ -202,7 +231,7 @@
 
   function createIssueCard(issue) {
     const card = document.createElement('article');
-    card.className = 'issue-card';
+    card.className = 'issue-card c-card';
     card.setAttribute('data-issue', issue.number);
     
     // Make entire card clickable to open GitHub
@@ -215,7 +244,7 @@
     header.className = 'issue-header';
     
     const number = document.createElement('span');
-    number.className = 'issue-number';
+    number.className = 'issue-number c-pill';
     number.textContent = `#${issue.number}`;
     header.appendChild(number);
     
@@ -308,12 +337,12 @@
     
     if (!issues || issues.length === 0) {
       issuesContainer.style.display = 'none';
-      emptyState.style.display = 'block';
+      emptyState.hidden = false;
       return;
     }
     
-    issuesContainer.style.display = 'grid';
-    emptyState.style.display = 'none';
+    issuesContainer.style.display = 'block';
+    emptyState.hidden = true;
     
     issues.forEach(issue => {
       issuesContainer.appendChild(createIssueCard(issue));
@@ -342,7 +371,7 @@
       if (!data.configured) {
         showError(data.error || getI18nText('project.config_error', 'Konfiguracja GitHub niekompletna'));
         issuesContainer.style.display = 'none';
-        emptyState.style.display = 'none';
+        emptyState.hidden = true;
         statusLine.textContent = getI18nText('project.not_configured', 'GitHub nie skonfigurowany');
         return;
       }

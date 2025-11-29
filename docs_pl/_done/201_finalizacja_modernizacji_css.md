@@ -39,7 +39,7 @@ Wszystkie pliki z `web/assets/*.css` są wciąż importowane – brak „martwyc
 
 ### 2. Pokrycie selektorów
 - [x] Na lokalnym stacku uruchomić analizę (tymczasowo skrypt `scripts/css_static_usage.py` – statyczne porównanie klas/ID względem HTML).
-- [ ] (docelowo) uruchomić pełne DevTools/Playwright CSS coverage i przeprocesować raport.
+- [x] (docelowo) uruchomić pełne DevTools/Playwright CSS coverage i przeprocesować raport.
 - [x] Wyniki opisać w `_to_do`/`styleguide` i dołączyć do PR jako referencję.
 
 #### Przygotowanie do 2.
@@ -63,7 +63,35 @@ Skrypt: `.venv/bin/python scripts/css_static_usage.py` (porównuje definicje kla
 | `assets/system.css` | 63 | 25 | 23 | 4 | największy dług (statusy/usługi) |
 | `assets/view.css` | 26 | 15 | 16 | 0 | ID generowane przez JS? sprawdzić |
 
+
 JSON z wynikami: `logs/css_static_usage.json`. Te dane posłużą do przygotowania listy selektorów do usunięcia lub przeniesienia do wspólnych modułów.
+
+#### Wynik Playwright coverage (2025-11-28)
+- polecenie: `./.venv/bin/python scripts/css_coverage.py` (stack z `make start` aktywny przed runem);
+- raport w `logs/css_coverage_summary.json`.
+
+| Stylesheet | Reguły | Użyte | Nie­użyte | Pokrycie |
+| --- | --- | --- | --- | --- |
+| `/web/assets/dashboard-common.css` | 27 | 14 | 13 | 51.9% |
+| `/web/assets/pages/chat.css` | 21 | 15 | 6 | 71.4% |
+| `/web/assets/pages/control.css` | 33 | 31 | 2 | 93.9% |
+| `/web/assets/pages/google-home.css` | 17 | 7 | 10 | 41.2% |
+| `/web/assets/pages/home.css` | 6 | 6 | 0 | 100% |
+| `/web/assets/pages/models.css` | 56 | 31 | 25 | 55.4% |
+| `/web/assets/pages/navigation.css` | 8 | 7 | 1 | 87.5% |
+| `/web/assets/pages/project.css` | 46 | 26 | 20 | 56.5% |
+| `/web/assets/pages/system.css` | 63 | 42 | 21 | 66.7% |
+| `/web/assets/pages/view.css` | 27 | 20 | 7 | 74.1% |
+
+Skrypt przerobiłem na `wait_until="domcontentloaded"` + 2‑sekundowy timeout po załadowaniu, dzięki czemu pokrycie zebrało również `system`, `control` i `view`. Brak klas w `failed`, więc tabela jest kompletna; do czyszczenia wciąż wskakują `dashboard-common.css`, `models.css`, `project.css` oraz `google-home.css` (najwięcej nieużytych reguł).
+
+**Plan działań po coverage:**
+1. `dashboard-common.css` – przejrzeć aliasy i przenieść brakujące komponenty do modułów/podstron; docelowo <10 reguł globalnych.  
+2. `pages/models.css` i `pages/project.css` – zidentyfikować sekcje z nieużywanymi `provider-*`, `repo-*` i przygotować cleanup PR (zielone ticki w tabeli etapu 3).  
+3. `pages/google-home.css` – sprawdzić, czy layout Google Home jest nadal w użyciu; jeśli tak, odchudzić i przenieść do `components/`, jeśli nie – oznaczyć jako kandydat do usunięcia.  
+4. `pages/system.css` oraz `pages/view.css` – mimo niezłego pokrycia wypisać zestaw dynamicznych klas jakie musi whitelista PurgeCSS (na podstawie `logs/css_coverage_summary.json`). Lista jest teraz utrzymywana w `config/css_dynamic_whitelist.json` i wciągana przez `scripts/css_static_usage.py`.  
+5. Po wykonaniu punktów 1‑4 ponowić `scripts/css_coverage.py` i zaktualizować tabelę; oczekiwany cel: każdy arkusz ≥80% użycia, `dashboard-common.css` ≤10% nieużytych reguł.
+
 
 ### 3. Uprzątnięcie per-page CSS
 - [x] Każdy arkusz per-strona przenieść do folderu `web/assets/pages/` (łatwiej kontrolować co zostało).
@@ -118,7 +146,7 @@ Na tym środowisku Playwright wymaga uruchomionej lokalnej usługi (`make start`
 
 ## Ryzyka i uwagi
 - Klasy generowane dynamicznie przez JS (np. `is-active`, `status-*`) muszą być uwzględnione w whitelistach PurgeCSS/Playwright – w przeciwnym wypadku usuniemy potrzebny CSS.
-- Zanim usuniemy fallbacki z `dashboard-common.css`, trzeba zrobić smoke test wszystkich stron hostowanych na Rider-Pi i w środowiskach użytkowników.
+- Zanim usuniemy fallbacki z `dashboard-common.css`, trzeba zrobić smoke test wszystkich stron hostowanych na Rider-PC i w środowiskach użytkowników.
 - Jeśli w międzyczasie pojawi się tryb jasny, należy go oprzeć na tokenach (np. `data-theme="light"`) i pobierać kolory z `tokens.css` – nie dokładamy kolejnego „legacy” zestawu.
 
 > Ten plik opisuje wyłącznie kroki organizacyjne (bez kodowania). Po zatwierdzeniu można rozbić go na konkretne zadania (np. ticket per strona, ticket per moduł).

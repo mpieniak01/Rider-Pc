@@ -18,15 +18,13 @@
   <!-- Main content -->
   <main class="layout-main">
     <header class="l-row chat-head">
-      <h1><span class="brand-accent">Rider-PC</span>: <span>Chat</span></h1>
+      <h1 class="page-title"><span class="brand-accent">Rider-PC</span>: <span class="page-title-text">Chat</span></h1>
       <div class="links">
         <a href="/view">dashboard</a>
         <span class="u-sep">·</span>
         <a href="/home">Google&nbsp;Home</a>
       </div>
     </header>
-
-    <div class="status c-status-msg" id="status">Gotowy</div>
 
     <div class="board c-card" id="board" aria-live="polite"></div>
 
@@ -42,12 +40,12 @@
           <label for="ttsProvider">Provider TTS</label>
           <select id="ttsProvider"></select>
         </div>
-        <div class="c-hint" id="providerHint">Ładuję listę providerów…</div>
         <div class="c-hint">Chat API: <code>/api/chat/send</code> · TTS: <code>/api/voice/tts</code></div>
       </div>
     </div>
+    <div id="providerHint" class="provider-hint c-status-msg" hidden>Ładuję listę providerów…</div>
 
-    <section class="providers-card c-card" aria-labelledby="providerTitle">
+    <section class="providers-card c-card l-stack" aria-labelledby="providerTitle">
       <div class="providers-head l-row">
         <h2 id="providerTitle">Providerzy TTS</h2>
         <div class="u-spacer"></div>
@@ -57,7 +55,7 @@
         </div>
       </div>
       <div id="providerList" class="provider-list" aria-live="polite">
-        <div class="provider-empty">Ładowanie…</div>
+        <div class="provider-empty c-status-msg">Ładowanie…</div>
       </div>
       <div class="c-hint">Kliknij „Test”, by wykonać próbę TTS i sprawdzić działanie usług.</div>
     </section>
@@ -99,9 +97,16 @@
     sessionStorage.setItem('chat_history', JSON.stringify(history));
   }
 
-  function setStatus(text, cls){
+  const statusVariants = {
+    ok: 'is-ok',
+    warn: 'is-warn',
+    err: 'is-err'
+  };
+
+  function setStatus(text, state){
     status.textContent = text;
-    status.className = 'status c-status-msg' + (cls ? ' ' + cls : '');
+    const variant = statusVariants[state] || '';
+    status.className = `status c-status-msg ${variant}`.trim();
   }
 
   function appendMessage(role, text, isError){
@@ -147,9 +152,9 @@
   }
 
   function providerStateClass(state){
-    if (state === 'ok') return 'c-pill ok';
-    if (state === 'error') return 'c-pill err';
-    return 'c-pill warn';
+    if (state === 'ok') return 'c-pill is-ok';
+    if (state === 'error') return 'c-pill is-err';
+    return 'c-pill is-warn';
   }
 
   function serviceStateSummary(provider){
@@ -176,6 +181,7 @@
   function setProviderHint(provider){
     if (!provider){
       providerHint.textContent = 'Brak providerów TTS – używam trybu domyślnego.';
+      providerHint.hidden = false;
       return;
     }
     const state = provider.status?.state || 'unknown';
@@ -189,6 +195,7 @@
       parts.push(`Usługa ${provider.service}: ${serviceStateSummary(provider)}`);
     }
     providerHint.textContent = parts.join(' • ');
+    providerHint.hidden = false;
   }
 
   function renderProviderSelect(){
@@ -218,15 +225,15 @@
   function renderProviderList(){
     providerListEl.innerHTML = '';
     if (!providerCatalog.length){
-      const empty = document.createElement('div');
-      empty.className = 'provider-empty';
+    const empty = document.createElement('div');
+    empty.className = 'provider-empty c-status-msg';
       empty.textContent = 'Brak danych o providerach.';
       providerListEl.appendChild(empty);
       return;
     }
     for (const provider of providerCatalog){
       const row = document.createElement('div');
-      row.className = 'provider-row';
+      row.className = 'provider-row c-card';
 
       const info = document.createElement('div');
       info.className = 'provider-info';

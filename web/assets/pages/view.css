@@ -3,7 +3,6 @@
 .page-view {
   --muted: #9fb7ce;
   --accent: #87b7ff;
-  --page-max-width: 1180px;
   --page-padding: 28px var(--space-xl) var(--space-xxxl);
   --card-bg: #0f2233;
   --card-border: #1d3548;
@@ -16,29 +15,34 @@
   --value-color: #d7e2ee;
 }
 
-.page-view h1 {
-  font-size: 28px;
-  margin: 0 0 var(--space-sm);
-}
-
 .page-view .c-hint {
   margin-bottom: var(--space-xl);
   opacity: 0.65;
 }
 
-/* 4-column grid on larger screens */
-.page-view .l-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+.page-view .view-row {
+  --view-row-color: #5b7ab3;
+}
+
+.page-view .view-row .c-card h3 {
+  position: relative;
+  padding-left: var(--space-lg);
+}
+
+.page-view .view-row .c-card h3::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 60%;
+  border-radius: var(--radius-xs);
+  background: var(--view-row-color);
 }
 
 .page-view .l-grid + .l-grid {
   margin-top: var(--space-xl);
-}
-
-@media (max-width: 1100px) {
-  .page-view .l-grid {
-    grid-template-columns: repeat(auto-fit, minmax(var(--grid-min), 1fr));
-  }
 }
 
 /* Card title color */
@@ -91,30 +95,6 @@
   color: #9be3b0;
   background: #103226;
 }
-
-/* Card spanning */
-.page-view .c-card--span2 { grid-column: span 2; }
-
-/* PC status indicator */
-.page-view .pc-status {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
-.page-view .pc-status::before {
-  content: "";
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: #4e6074;
-}
-
-.page-view .pc-status.ok::before { background: #5fe39a; }
-.page-view .pc-status.off::before { background: #4e6074; }
 
 /* PC service list */
 .page-view .pc-service-list {
