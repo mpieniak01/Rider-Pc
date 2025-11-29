@@ -39,8 +39,8 @@ export const I18N = {
 
   // ===== MINI DASHBOARD =====
   dash: {
-    page_title:     { pl: "Rider-PC — mini dashboard", en: "Rider-PC — mini dashboard" },
-    page_title_suffix: { pl: "— mini dashboard", en: "— mini dashboard" },
+    page_title:     { pl: "Przegląd", en: "Overview" },
+    page_title_suffix: { pl: ": Przegląd", en: ": Overview" },
     hint_prefix:    { pl: "Auto-refresh co ≈ 2 s.",   en: "Auto-refresh every ≈ 2 s." },
     hint_endpoints: { pl: "Endpointy:",                en: "Endpoints:" },
 

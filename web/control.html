@@ -18,21 +18,25 @@
   <!-- Main content -->
   <main class="layout-main">
     <!-- Page header -->
-    <header class="l-cluster u-mb-lg">
-      <h1 class="page-title control-title">
-        <span class="brand-accent">Rider-PC</span>: <span class="page-title-text">Sterowanie ruchem (REST /api)</span>
-      </h1>
-      <span
-        id="apiStatus"
-        class="u-muted control-status"
-        data-i18n="header.api_status_checking"
-      >(checking…)</span>
-      <span
-        id="obstBadge"
-        class="c-pill is-warn control-badge"
-        hidden
-        data-i18n="header.obstacle_na"
-      >Obstacle: n/a</span>
+    <header class="page-header">
+      <div class="page-header__titles">
+        <h1 class="page-title">
+          <span class="brand-accent">Rider-PC</span>: <span class="page-title-text">Sterowanie ruchem</span>
+        </h1>
+      </div>
+      <div class="page-header__actions page-header__actions--small text-legend">
+        <span
+          id="apiStatus"
+          class="u-muted control-status text-legend"
+          data-i18n="header.api_status_checking"
+        >(checking…)</span>
+        <span
+          id="obstBadge"
+          class="c-pill is-warn control-badge"
+          hidden
+          data-i18n="header.obstacle_na"
+        >Obstacle: n/a</span>
+      </div>
     </header>
 
     <div class="panel-row">

@@ -17,16 +17,18 @@
 
   <!-- Main content -->
   <main class="layout-main">
-    <header class="l-row chat-head">
-      <h1 class="page-title"><span class="brand-accent">Rider-PC</span>: <span class="page-title-text">Chat</span></h1>
-      <div class="links">
+    <header class="page-header">
+      <div class="page-header__titles">
+        <h1 class="page-title"><span class="brand-accent">Rider-PC</span>: <span class="page-title-text">Chat</span></h1>
+      </div>
+      <div class="page-header__actions page-header__actions--small links text-legend">
         <a href="/view">dashboard</a>
         <span class="u-sep">·</span>
         <a href="/home">Google&nbsp;Home</a>
       </div>
     </header>
 
-    <div class="status c-status-msg" id="status">Gotowy</div>
+    <p id="status-line" class="status-line c-status-msg">Gotowy</p>
 
     <div class="board c-card" id="board" aria-live="polite"></div>
 
@@ -73,14 +75,16 @@
   const board    = document.getElementById('board');
   const input    = document.getElementById('input');
   const sendBtn  = document.getElementById('sendBtn');
-  const status   = document.getElementById('status');
   const latency  = document.getElementById('latency');
+  const statusLine = document.getElementById('status-line');
   const ttsChk   = document.getElementById('tts');
   const providerSelect = document.getElementById('ttsProvider');
   const providerHint   = document.getElementById('providerHint');
   const providerListEl = document.getElementById('providerList');
   const btnTestAll     = document.getElementById('btnTestAll');
   const btnReloadProviders = document.getElementById('btnReloadProviders');
+  const urlParams = new URLSearchParams(window.location.search);
+  const auditMode = urlParams.get('audit') === '1';
 
   const FALLBACK_PROVIDERS = [
     { id: 'local',  label: 'Piper (lokalny)',         backend: 'piper',  voice: 'pl_PL-gosia-medium.onnx', description: 'Offline TTS Rider-PC.', service: 'voice-web' },
@@ -93,22 +97,29 @@
   const history = JSON.parse(sessionStorage.getItem('chat_history') || '[]');
   for (const item of history) appendMessage(item.role, item.text, item.error);
 
+  function setStatus(text, state) {
+    if (!statusLine) return;
+    statusLine.textContent = text;
+    let cls = 'status-line c-status-msg';
+    if (state === 'ok') cls += ' is-ok';
+    else if (state === 'warn') cls += ' is-warn';
+    else if (state === 'err') cls += ' is-err';
+    statusLine.className = cls;
+  }
+
+  if (auditMode && history.length === 0) {
+    appendMessage('you', 'Przykładowa wiadomość użytkownika.');
+    appendMessage('bot', 'Przykładowa odpowiedź asystenta – status i TTS włączone.');
+    appendMessage('bot', '⚠️ TTS: przykładowy komunikat o błędzie.', true);
+    appendMessage('you', 'To jest tylko tryb audytu CSS.');
+    latency.textContent = 'Czas odpowiedzi: 42 ms';
+    setStatus('Tryb audytu CSS', 'warn');
+  }
+
   function save(role, text, error){
     history.push({role, text, error: !!error});
     if (history.length > 200) history.shift();
     sessionStorage.setItem('chat_history', JSON.stringify(history));
-  }
-
-  const statusVariants = {
-    ok: 'is-ok',
-    warn: 'is-warn',
-    err: 'is-err'
-  };
-
-  function setStatus(text, state){
-    status.textContent = text;
-    const variant = statusVariants[state] || '';
-    status.className = `status c-status-msg ${variant}`.trim();
   }
 
   function appendMessage(role, text, isError){
@@ -337,6 +348,18 @@
   }
 
   async function loadProviders(){
+    if (auditMode) {
+      providerCatalog = FALLBACK_PROVIDERS.map((p, idx)=>({
+        ...p,
+        status: { state: idx === 0 ? 'ok' : 'warn', detail: idx === 0 ? 'Lokalny provider aktywny' : 'Proxy wymaga Rider-Pi' },
+        service_state: p.service ? { unit: p.service, alias: p.service, active: idx === 0 ? 'active' : 'inactive', sub: idx === 0 ? 'running' : 'stopped' } : null,
+      }));
+      providerHint.textContent = 'Tryb audytu CSS – dane przykładowe.';
+      providerHint.hidden = false;
+      renderProviderSelect();
+      renderProviderList();
+      return;
+    }
     providerHint.textContent = 'Ładuję listę providerów…';
     try{
       const res = await fetch('/api/voice/providers', { cache: 'no-store' });

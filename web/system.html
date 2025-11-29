@@ -18,18 +18,17 @@
   <!-- Main content -->
   <main class="layout-main">
     <!-- Page header -->
-    <header class="l-cluster u-mb-lg">
-      <div class="header-main">
+    <header class="page-header">
+      <div class="page-header__titles">
         <h1 class="page-title"><span class="brand-accent">Rider-PC</span>: <span class="page-title-text">System Dashboard</span></h1>
-        <div id="version-info" class="version-info" title="Informacje o wersji">
+        <div id="version-info" class="version-info text-legend" title="Informacje o wersji">
           <span class="version-loading">Wczytywanie wersji...</span>
         </div>
       </div>
-      <div class="u-spacer"></div>
-      <nav class="system-links cluster">
+      <div class="page-header__actions page-header__actions--small system-links text-legend">
         <a href="/view">Podgląd</a>
         <a href="/control">Sterowanie</a>
-      </nav>
+      </div>
     </header>
     <p id="status-line" class="status-line c-statusbar">Ładowanie danych usług…</p>
   
@@ -88,6 +87,7 @@
       <p class="desc service-node__since" data-role="since" hidden></p>
       <p class="desc service-node__edges-label" data-role="edges-label" hidden>Połączenia →</p>
       <div class="edge-list" data-role="edges" hidden></div>
+      <div class="service-node__spinner" aria-hidden="true"></div>
     </article>
   </template>
   
@@ -107,12 +107,33 @@
   <footer class="layout-footer" data-dashboard-footer-target></footer>
 
   <script>
+    const docLang = (document.documentElement.lang || 'pl').toLowerCase().startsWith('en') ? 'en' : 'pl';
+    const SERVICE_STATUS_LABELS = {
+      active:   { pl: 'aktywna',    en: 'active' },
+      inactive: { pl: 'nieaktywna', en: 'inactive' },
+      failed:   { pl: 'błąd',       en: 'failed' },
+      starting: { pl: 'uruchamianie', en: 'starting' },
+      stopping: { pl: 'zatrzymywanie', en: 'stopping' },
+      warning:  { pl: 'ostrzeżenie', en: 'warning' },
+      unknown:  { pl: 'nieznany',   en: 'unknown' }
+    };
+    const SERVICE_LABELS = {
+      unit:  { pl: 'Jednostka', en: 'Unit' },
+      group: { pl: 'Grupa',     en: 'Group' },
+      since: { pl: 'Aktywny od', en: 'Active since' },
+      edges: { pl: 'Połączenia →', en: 'Connections →' }
+    };
     const serviceCardTemplate = document.getElementById('service-card-template');
     const pcGraphEl = document.getElementById('pc-services-graph');
     const piGraphEl = document.getElementById('pi-services-graph');
     const pcBlockEl = document.getElementById('pc-services-block');
     const piBlockEl = document.getElementById('pi-services-block');
     const statusEl = document.getElementById('status-line');
+    const versionInfoEl = document.getElementById('version-info');
+    const logTerminal = document.getElementById('log-terminal');
+    const logClearBtn = document.getElementById('log-clear-btn');
+    const urlParams = new URLSearchParams(window.location.search);
+    const auditMode = urlParams.get('audit') === '1';
 
     function statusClass(status) {
       switch ((status || '').toLowerCase()) {
@@ -248,6 +269,7 @@
       } else {
         card = document.createElement('article');
         card.className = 'service-node c-card';
+        card.appendChild(document.createElement('div')).className = 'service-node__spinner';
       }
       const stateClass = nodeStateClass(node.status);
       card.classList.remove('is-active', 'is-failed', 'is-inactive');
@@ -264,20 +286,22 @@
       
       const pillEl = card.querySelector('[data-role="pill"]');
       if (pillEl) {
-        pillEl.textContent = node.status || 'unknown';
-        pillEl.className = `c-pill ${statusClass(node.status)}`;
+        const statusKey = (node.status || 'unknown').toLowerCase();
+        const pillText = SERVICE_STATUS_LABELS[statusKey]?.[docLang] || SERVICE_STATUS_LABELS.unknown[docLang];
+        pillEl.textContent = pillText;
+        pillEl.className = `status-pill ${statusClass(node.status)}`;
       }
       
       const unitEl = card.querySelector('[data-role="unit"]');
-      if (unitEl) unitEl.textContent = `Unit: ${node.unit}`;
+      if (unitEl) unitEl.textContent = `${SERVICE_LABELS.unit[docLang]}: ${node.unit}`;
       
       const groupEl = card.querySelector('[data-role="group"]');
-      if (groupEl) groupEl.textContent = `Grupa: ${labelGroup}`;
+      if (groupEl) groupEl.textContent = `${SERVICE_LABELS.group[docLang]}: ${labelGroup}`;
       
       const sinceEl = card.querySelector('[data-role="since"]');
       if (sinceEl) {
         if (node.since) {
-          sinceEl.textContent = `Aktywny od: ${formatSince(node.since)}`;
+          sinceEl.textContent = `${SERVICE_LABELS.since[docLang]}: ${formatSince(node.since)}`;
           sinceEl.hidden = false;
         } else {
           sinceEl.hidden = true;
@@ -291,7 +315,10 @@
       if (edgesEl) edgesEl.hidden = true;
       
       if (node.edges_out && node.edges_out.length && edgesEl) {
-        if (edgesLabelEl) edgesLabelEl.hidden = false;
+        if (edgesLabelEl) {
+          edgesLabelEl.textContent = SERVICE_LABELS.edges[docLang];
+          edgesLabelEl.hidden = false;
+        }
         edgesEl.hidden = false;
         node.edges_out.forEach((target) => {
           const chip = document.createElement('span');
@@ -359,6 +386,60 @@
       }
     }
 
+    function seedAuditGraph() {
+      const nodes = [
+        { unit: 'panel.service', label: 'Panel WWW', status: 'active', group: 'rider-pc', location: 'pc', edges_out: ['redis', 'grafana'], since: '00:12:32' },
+        { unit: 'redis', label: 'Redis', status: 'active', group: 'rider-pc', location: 'pc', edges_out: ['panel.service'], since: '04:20:10' },
+        { unit: 'grafana', label: 'Grafana', status: 'active', group: 'rider-pc', location: 'pc', edges_out: ['prometheus'], since: '01:02:03' },
+        { unit: 'prometheus', label: 'Prometheus', status: 'failed', group: 'rider-pc', location: 'pc', edges_out: [], since: '—' },
+        { unit: 'pi.core', label: 'Rider-Pi Core', status: 'active', group: 'rider-pi', location: 'pi', edges_out: ['pi.voice', 'pi.vision'], since: '12:34:56' },
+        { unit: 'pi.voice', label: 'Voice Provider', status: 'inactive', group: 'rider-pi', location: 'pi', edges_out: [], since: '—' },
+        { unit: 'pi.vision', label: 'Vision Provider', status: 'active', group: 'rider-pi', location: 'pi', edges_out: ['pi.voice'], since: '02:45:00' },
+        { unit: 'pi.queue', label: 'Task Queue', status: 'active', group: 'rider-pi', location: 'pi', edges_out: ['pi.core'], since: '05:15:00' },
+      ];
+      renderGraph(nodes, []);
+      const busyCard = document.querySelector('[data-unit="prometheus"]');
+      if (busyCard) {
+        busyCard.classList.add('is-busy');
+        busyCard.setAttribute('aria-busy', 'true');
+      }
+      const noServices = document.createElement('div');
+      noServices.className = 'no-services c-card';
+      noServices.textContent = 'Brak usług w tej grupie (audit)';
+      piGraphEl.appendChild(noServices);
+      setNetworkCardState('local-ip-card', '192.168.1.77', 'online', '—');
+      setNetworkCardState('rider-pi-card', '192.168.1.71', 'online', '12 ms');
+      setNetworkCardState('internet-card', '8.8.8.8', 'offline', 'n/a');
+      logTerminal.innerHTML = `
+        <div class="log-entry log-info"><span class="log-timestamp">[12:00:01]</span> <span class="log-level">INFO</span> Audit mode: sample data rendered.</div>
+        <div class="log-entry log-warn"><span class="log-timestamp">[12:00:05]</span> <span class="log-level">WARN</span> Prometheus restarted (audit).</div>
+        <div class="log-entry log-error"><span class="log-timestamp">[12:00:09]</span> <span class="log-level">ERROR</span> Voice provider offline (audit).</div>
+      `;
+      renderVersionInfo({ available: true, branch: 'audit/main', commit: 'abc1234', dirty: true, message: 'Audit seed commit' });
+      statusEl.textContent = 'Tryb audytu CSS – dane przykładowe';
+      statusEl.className = 'status-line c-statusbar is-success';
+    }
+
+    function setNetworkCardState(cardId, hostText, state, latency) {
+      const card = document.getElementById(cardId);
+      if (!card) return;
+      const indicator = card.querySelector('.network-status-indicator');
+      const host = card.querySelector('.network-host');
+      const latencyEl = card.querySelector('.network-latency');
+      const value = card.querySelector('.network-value span:first-child');
+      if (indicator) {
+        indicator.classList.toggle('is-online', state === 'online');
+        indicator.classList.toggle('is-offline', state === 'offline');
+      }
+      if (card) {
+        card.classList.toggle('is-online', state === 'online');
+        card.classList.toggle('is-offline', state === 'offline');
+      }
+      if (value) value.textContent = state === 'online' ? 'Online' : 'Offline';
+      if (latencyEl) latencyEl.textContent = latency;
+      if (host) host.textContent = hostText;
+    }
+
     async function loadGraph() {
       try {
         statusEl.textContent = 'Aktualizuję status usług…';
@@ -376,12 +457,14 @@
       }
     }
 
-    loadGraph();
-    setInterval(loadGraph, 5000);
+    if (auditMode) {
+      seedAuditGraph();
+    } else {
+      loadGraph();
+      setInterval(loadGraph, 5000);
+    }
 
     // Log Panel functionality
-    const logTerminal = document.getElementById('log-terminal');
-    const logClearBtn = document.getElementById('log-clear-btn');
     const MAX_LOG_ENTRIES = 100;
     const SSE_RECONNECT_DELAY_MS = 3000;
 
@@ -465,7 +548,9 @@
       };
     }
 
-    connectSSE();
+    if (!auditMode) {
+      connectSSE();
+    }
 
     // Cleanup on page unload
     window.addEventListener('beforeunload', function() {
@@ -475,8 +560,6 @@
     });
 
     // Version info functionality
-    const versionInfoEl = document.getElementById('version-info');
-
     function renderVersionInfo(data) {
       if (!data || !data.available) {
         versionInfoEl.innerHTML = '<span class="version-unavailable">v. Unknown</span>';

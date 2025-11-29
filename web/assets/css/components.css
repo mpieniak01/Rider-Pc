@@ -4,6 +4,48 @@
  * ------------------------------------------------------------------
  */
 
+/* ===== Page Header ===== */
+.text-secondary {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-md);
+}
+
+.text-legend {
+  color: var(--color-fg-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  margin-bottom: var(--space-xl);
+}
+
+.page-header__titles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.page-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  align-items: center;
+}
+
+.page-subtitle {
+  margin: 0;
+  font-size: var(--font-size-md);
+  color: var(--color-fg-muted);
+}
+
+
+.page-header__actions { font-size: var(--font-size-sm); color: var(--color-fg-secondary); }
+.page-header__actions--small { font-size: var(--font-size-xs); }
 /* ===== Card Component ===== */
 .c-card,
 .card {
@@ -15,6 +57,9 @@
   border-radius: var(--card-radius);
   padding: var(--card-padding);
   box-shadow: var(--card-shadow);
+  --card-title-accent-offset: var(--space-lg);
+  --card-title-accent-height: 60%;
+  --card-title-accent-color: var(--color-accent);
 }
 
 .c-card--inline,
@@ -28,6 +73,7 @@
 }
 
 .c-card__title,
+.section-title,
 .c-card h1,
 .c-card h2,
 .c-card h3,
@@ -37,6 +83,26 @@
   margin: 0 0 var(--space-xl);
   font-size: var(--font-size-lg);
   color: #9cc8ff;
+  position: relative;
+  padding-left: var(--card-title-accent-offset, 0);
+}
+
+.c-card__title::before,
+.section-title::before,
+.c-card h1::before,
+.c-card h2::before,
+.c-card h3::before,
+.c-card h4::before,
+.card h3::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: var(--card-title-accent-width, 4px);
+  height: var(--card-title-accent-height, 0);
+  border-radius: var(--card-title-accent-radius, var(--radius-xs));
+  background: var(--card-title-accent-color, transparent);
 }
 
 .c-card__subtitle {
@@ -215,6 +281,43 @@ button:disabled {
 .c-statusbar .sep,
 .statusbar .sep {
   opacity: 0.45;
+}
+
+/* Statusbar state helpers */
+.c-statusbar.working,
+.c-statusbar.is-working,
+.statusbar.working,
+.statusbar.is-working {
+  color: var(--color-warn);
+}
+
+.c-statusbar.working::before,
+.c-statusbar.is-working::before,
+.statusbar.working::before,
+.statusbar.is-working::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: c-spin 0.8s linear infinite;
+  margin-right: var(--space-sm);
+  flex-shrink: 0;
+}
+
+.c-statusbar.success,
+.c-statusbar.is-success,
+.statusbar.success,
+.statusbar.is-success {
+  color: var(--color-ok);
+}
+
+.c-statusbar.error,
+.c-statusbar.is-error,
+.statusbar.error,
+.statusbar.is-error {
+  color: var(--color-error);
 }
 
 /* ===== Status Message Component ===== */

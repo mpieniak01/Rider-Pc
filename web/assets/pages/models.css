@@ -9,12 +9,14 @@
 
 /* Status line */
 .page-models .status-line {
+  font-size: var(--font-size-md);
+  color: var(--muted);
   margin-bottom: var(--space-xl);
 }
 
-.page-models .status-line.working { color: var(--color-warn); }
-.page-models .status-line.success { color: var(--color-ok); }
-.page-models .status-line.error { color: var(--color-error); }
+.page-models .status-line.is-working { color: var(--color-warn); }
+.page-models .status-line.is-success { color: var(--color-ok); }
+.page-models .status-line.is-error { color: var(--color-error); }
 
 /* Section */
 .page-models .models-section {
@@ -87,7 +89,6 @@
 .page-models .model-card-header .model-name { font-weight: var(--font-weight-semibold); font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .page-models .model-format, .model-provider { font-size: var(--font-size-xxs); padding: 2px var(--space-xs); border-radius: var(--radius-xs); text-transform: uppercase; font-weight: var(--font-weight-medium); }
 .page-models .model-format { background: rgba(255, 255, 255, 0.1); color: var(--muted); }
-.page-models .model-provider.ollama { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
 
 /* Table */
 .page-models .installed-models-table { width: 100%; border-collapse: collapse; font-size: var(--font-size-md); }

@@ -17,12 +17,14 @@
 
   <!-- Main content -->
   <main class="layout-main layout-main--wide">
-  <header>
-    <h1 class="page-title"><span class="brand-accent">Rider-PC</span>: <span class="page-title-text">Modele AI</span></h1>
-    <p class="page-subtitle">Zarządzanie modelami sztucznej inteligencji</p>
+  <header class="page-header">
+    <div class="page-header__titles">
+      <h1 class="page-title"><span class="brand-accent">Rider-PC</span>: <span class="page-title-text">Modele AI</span></h1>
+      <p class="page-subtitle text-secondary">Zarządzanie modelami sztucznej inteligencji</p>
+    </div>
   </header>
 
-<p id="status-line" class="status-line c-statusbar">Ładowanie danych modeli...</p>
+<p id="status-line" class="status-line c-statusbar is-working">Ładowanie danych modeli...</p>
 
   <!-- Active Models Section -->
   <section class="models-section c-card">
@@ -148,6 +150,8 @@ const installedTbody = document.getElementById('installed-models-tbody');
 const remoteTbody = document.getElementById('remote-models-tbody');
 const providerStateGrid = document.getElementById('provider-state-grid');
 const providerNote = document.getElementById('provider-note');
+const urlParams = new URLSearchParams(window.location.search);
+const auditMode = urlParams.get('audit') === '1';
 
 // HTML escape function to prevent XSS
 function escapeHtml(text) {
@@ -565,7 +569,7 @@ async function activateModel(slot, provider, model) {
   const domainLabel = domainLabels[domain] || categoryNames[slot] || slot;
   try {
     statusLine.textContent = `Aktywuję model ${model} (domena ${domainLabel})...`;
-    statusLine.className = 'status-line c-statusbar working';
+    statusLine.className = 'status-line c-statusbar is-working';
     
     const response = await fetch('/api/models/bind', {
       method: 'POST',
@@ -578,20 +582,20 @@ async function activateModel(slot, provider, model) {
     if (response.ok && result.success) {
       if (result.provider_switch && result.provider_switch.error) {
         statusLine.textContent = `⚠️ Model ${model} zapisany, ale przełączenie Rider-Pi nie powiodło się: ${result.provider_switch.error}`;
-        statusLine.className = 'status-line c-statusbar error';
+        statusLine.className = 'status-line c-statusbar is-error';
       } else {
         statusLine.textContent = `✅ Model ${model} aktywowany dla ${domainLabel} (Rider-Pi przełączony na PC)`;
-        statusLine.className = 'status-line c-statusbar success';
+        statusLine.className = 'status-line c-statusbar is-success';
       }
       setTimeout(loadModelsData, 1000);
     } else {
       statusLine.textContent = `❌ Błąd: ${result.error || 'Nie udało się aktywować modelu'}`;
-      statusLine.className = 'status-line c-statusbar error';
+      statusLine.className = 'status-line c-statusbar is-error';
     }
   } catch (error) {
     console.error('Activation error:', error);
     statusLine.textContent = `❌ Błąd połączenia: ${error.message}`;
-    statusLine.className = 'status-line c-statusbar error';
+    statusLine.className = 'status-line c-statusbar is-error';
   }
 }
 
@@ -600,7 +604,7 @@ async function switchProviderToLocal(slot, model) {
   const domainLabel = domainLabels[domain] || categoryNames[slot] || slot;
   try {
     statusLine.textContent = `Przełączam Rider-Pi na lokalny model ${model} (${domainLabel})...`;
-    statusLine.className = 'status-line c-statusbar working';
+    statusLine.className = 'status-line c-statusbar is-working';
     
     const response = await fetch(`/api/providers/${domain}`, {
       method: 'PATCH',
@@ -612,17 +616,17 @@ async function switchProviderToLocal(slot, model) {
     
     if (response.ok && !result.error) {
       statusLine.textContent = `✅ Domena ${domainLabel} ustawiona na Rider-Pi (lokalnie)`;
-      statusLine.className = 'status-line c-statusbar success';
+      statusLine.className = 'status-line c-statusbar is-success';
       // Refresh data
       setTimeout(loadModelsData, 1000);
     } else {
       statusLine.textContent = `❌ Błąd przełączania Rider-Pi: ${result.error || 'Nieznany błąd'}`;
-      statusLine.className = 'status-line c-statusbar error';
+      statusLine.className = 'status-line c-statusbar is-error';
     }
   } catch (error) {
     console.error('Provider switch error:', error);
     statusLine.textContent = `❌ Błąd połączenia z Rider-Pi: ${error.message}`;
-    statusLine.className = 'status-line c-statusbar error';
+    statusLine.className = 'status-line c-statusbar is-error';
   }
 }
 
@@ -674,15 +678,54 @@ async function loadModelsData() {
   } catch (error) {
     console.error('Error loading models data:', error);
     statusLine.textContent = `❌ Błąd podczas pobierania danych: ${error.message}`;
-    statusLine.className = 'status-line c-statusbar error';
+    statusLine.className = 'status-line c-statusbar is-error';
   }
 }
 
-// Initial load
-loadModelsData();
+function seedAuditModels() {
+  const localModels = [
+    { name: 'vision-demo.onnx', category: 'vision', type: 'onnx', format: 'onnx', size_mb: 18.4, path: 'data/models/vision-demo.onnx' },
+    { name: 'whisper-small', category: 'voice_asr', type: 'whisper', format: 'en', size_mb: 75.2, path: 'data/models/whisper-small.en' },
+    { name: 'piper-pl', category: 'voice_tts', type: 'piper', format: 'onnx', size_mb: 48.7, path: 'data/models/piper-pl.onnx' },
+    { name: 'embeddings-large', category: 'text', type: 'hf', format: 'gguf', size_mb: 220.1, path: 'data/models/embeddings-large.gguf' },
+  ];
+  const ollamaModels = [
+    { name: 'llama3.2:1b', size: 4_000_000_000, modified_at: Date.now() - 86400000 },
+  ];
+  const remoteModels = [
+    { name: 'pi-vision-prod', category: 'vision', type: 'onnx', format: 'onnx', size_mb: 32.1 },
+    { name: 'pi-asr-lo', category: 'voice_asr', type: 'whisper', format: 'en', size_mb: 42.4 },
+  ];
+  const activeConfig = {
+    vision: { model: 'vision-demo.onnx', provider: 'yolo', enabled: true },
+    voice_asr: { model: 'whisper-small', provider: 'whisper', enabled: true },
+    voice_tts: { model: 'piper-pl', provider: 'piper', enabled: true },
+    text: { model: 'llama3.2', provider: 'ollama', enabled: true },
+  };
+  const providerState = {
+    domains: {
+      vision: { mode: 'pc', status: 'active', changed_ts: Math.floor(Date.now() / 1000) - 120, reason: 'audit' },
+      voice: { mode: 'local', status: 'active', changed_ts: Math.floor(Date.now() / 1000) - 300, reason: 'audit' },
+      text: { mode: 'pc', status: 'active', changed_ts: Math.floor(Date.now() / 1000) - 30, reason: 'audit' },
+    },
+    pc_health: { reachable: true, latency_ms: 12.5, status: 'ok' },
+  };
+  renderActiveModels(activeConfig);
+  renderCategoryModels(localModels, ollamaModels);
+  renderInstalledModels(localModels, ollamaModels, remoteModels);
+  renderProviderState(providerState);
+  statusLine.textContent = 'Tryb audytu CSS – przykładowe dane modeli';
+  statusLine.className = 'status-line c-statusbar';
+}
 
-// Auto-refresh every 60 seconds (model data doesn't change frequently)
-setInterval(loadModelsData, 60000);
+if (auditMode) {
+  seedAuditModels();
+} else {
+  // Initial load
+  loadModelsData();
+  // Auto-refresh every 60 seconds (model data doesn't change często)
+  setInterval(loadModelsData, 60000);
+}
 </script>
 
 <script type="module" src="/web/assets/menu.js"></script>

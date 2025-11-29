@@ -7,7 +7,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Rider-PC: mini dashboard</title>
+<title>Rider-PC: Przegląd</title>
 <link rel="stylesheet" href="/web/assets/dashboard-common.css">
   <link rel="stylesheet" href="/web/assets/pages/view.css">
 </head>
@@ -17,8 +17,12 @@
 
   <!-- Main content -->
   <main class="layout-main">
-  <h1 class="page-title"><span class="brand-accent">Rider-PC</span>: <span class="page-title-text">mini dashboard</span></h1>
-  <div class="c-hint">
+  <header class="page-header">
+    <div class="page-header__titles">
+      <h1 class="page-title"><span class="brand-accent">Rider-PC</span>: <span class="page-title-text" data-i18n="dash.page_title">Przegląd</span></h1>
+    </div>
+  </header>
+  <div class="c-hint text-legend">
     <span data-i18n="dash.hint_prefix">Auto-refresh co ≈ 2 s.</span>
     <span data-i18n="dash.hint_endpoints">Endpointy:</span>
     <a href="/healthz">/healthz</a>, <a href="/state">/state</a>, <a href="/sysinfo">/sysinfo</a>, <a href="/vision/snap-info">/vision/snap-info</a>
@@ -55,8 +59,8 @@
       <h3 data-i18n="dash.history.title">Historia (60 s) — CPU / MEM</h3>
       <canvas id="chart" width="300" height="140"></canvas>
       <div class="c-legend">
-        <span><i class="c-legend__dot cpu"></i><span data-i18n="dash.history.cpu">cpu%</span></span>
-        <span><i class="c-legend__dot mem"></i><span data-i18n="dash.history.mem">mem%</span></span>
+        <span><i class="c-legend__dot cpu"></i><span class="text-legend" data-i18n="dash.history.cpu">cpu%</span></span>
+        <span><i class="c-legend__dot mem"></i><span class="text-legend" data-i18n="dash.history.mem">mem%</span></span>
       </div>
     </div>
 
@@ -69,7 +73,7 @@
         <img id="img_cam" class="cam-img" src="/camera/placeholder" alt="kamera" decoding="async" loading="lazy">
       </div>
       <div class="c-legend">
-        <span><i class="c-legend__dot raw"></i><span id="leg_cam_txt">RAW • age: —</span></span>
+        <span><i class="c-legend__dot raw"></i><span class="text-legend" id="leg_cam_txt">RAW • age: —</span></span>
       </div>
     </div>
   </div>
@@ -109,7 +113,7 @@
         <img id="img_proc" class="cam-img" src="/camera/placeholder" alt="processed camera" decoding="async" loading="lazy">
       </div>
       <div class="c-legend">
-        <span><i class="c-legend__dot proc"></i><span id="leg_proc_txt">PROC • age: —</span></span>
+        <span><i class="c-legend__dot proc"></i><span class="text-legend" id="leg_proc_txt">PROC • age: —</span></span>
       </div>
     </div>
   </div>
@@ -153,7 +157,7 @@
         <img id="img_obst" class="cam-img" src="/camera/placeholder" alt="obstacle annotated" decoding="async" loading="lazy">
       </div>
       <div class="c-legend">
-        <span><i class="c-legend__dot obst"></i><span id="leg_obst_txt">OBST • ROI overlay</span></span>
+        <span><i class="c-legend__dot obst"></i><span class="text-legend" id="leg_obst_txt">OBST • ROI overlay</span></span>
       </div>
     </div>
   </div>
@@ -198,7 +202,7 @@
         <img id="img_tracker" class="cam-img" src="/camera/placeholder" alt="tracker with FPS and detection" decoding="async" loading="lazy">
       </div>
       <div class="c-legend">
-        <span><i class="c-legend__dot raw"></i><span id="leg_tracker_txt">TRACKER • FPS + detection circle</span></span>
+        <span><i class="c-legend__dot raw"></i><span class="text-legend" id="leg_tracker_txt">TRACKER • FPS + detection circle</span></span>
       </div>
     </div>
   </div>
@@ -261,7 +265,7 @@ if(urlLang) localStorage.setItem('lang',lang);
 await initI18n(lang); applyDom();
 function syncLangMeta(code){
   document.documentElement.setAttribute('lang',code);
-  document.title=t('dash.page_title');
+  document.title=`Rider-PC: ${t('dash.page_title')}`;
 }
 syncLangMeta(lang);
 const hostWithPort = window.location.host || '—';

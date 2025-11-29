@@ -22,23 +22,9 @@
 
 .page-view .view-row {
   --view-row-color: #5b7ab3;
-}
-
-.page-view .view-row .c-card h3 {
-  position: relative;
-  padding-left: var(--space-lg);
-}
-
-.page-view .view-row .c-card h3::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 4px;
-  height: 60%;
-  border-radius: var(--radius-xs);
-  background: var(--view-row-color);
+  --card-title-accent-color: var(--view-row-color);
+  --card-title-accent-offset: var(--space-lg);
+  --card-title-accent-height: 60%;
 }
 
 .page-view .l-grid + .l-grid {

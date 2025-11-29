@@ -19,7 +19,20 @@
     "is-busy",
     "is-online",
     "is-offline",
-    "c-status-msg"
+    "c-status-msg",
+    "version-branch",
+    "version-commit",
+    "version-dirty",
+    "version-unavailable",
+    "log-warn",
+    "log-error",
+    "pc-service",
+    "pc-service-dot",
+    "pc-service-body",
+    "pc-service-name",
+    "pc-service-meta",
+    "blank",
+    "on"
   ],
   "ids": [],
   "data_roles": [
@@ -31,5 +44,5 @@
     "edges",
     "edges-label"
   ],
-  "notes": "Dynamiczne klasy używane głównie przez system.html (karty usług + statusy sieci)."
+  "notes": "Dynamiczne klasy używane głównie przez system.html (karty usług + statusy sieci) oraz view.html (lista usług PC, wskaźniki kamery)."
 }

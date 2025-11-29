@@ -16,6 +16,12 @@ URLS = [
 ]
 BASE = "http://localhost:8080"
 OUTPUT = Path("logs/css_coverage_summary.json")
+AUDIT_PARAMS = {
+    "/web/system.html": "?audit=1",
+    "/web/models.html": "?audit=1",
+    "/web/chat.html": "?audit=1",
+    "/web/project.html": "?audit=1",
+}
 
 EVAL_SCRIPT = """
 (() => {
@@ -73,7 +79,7 @@ def collect():
         browser = p.chromium.launch(headless=True, args=["--disable-gpu"])
         context = browser.new_context()
         for path in URLS:
-            url = BASE + path
+            url = BASE + path + AUDIT_PARAMS.get(path, "")
             page = context.new_page()
             print(f"[coverage] visiting {url}")
             try:

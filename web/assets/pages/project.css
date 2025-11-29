@@ -9,10 +9,16 @@
   --grid-min: 320px;
 }
 
-/* Project header */
-.page-project .project-header {
+/* Status line */
+.page-project .status-line {
+  font-size: var(--font-size-md);
+  color: var(--muted);
   margin-bottom: var(--space-xl);
 }
+
+.page-project .status-line.is-working { color: var(--color-warn); }
+.page-project .status-line.is-success { color: var(--color-ok); }
+.page-project .status-line.is-error { color: var(--color-error); }
 
 /* Issues grid */
 .page-project .issues-grid {

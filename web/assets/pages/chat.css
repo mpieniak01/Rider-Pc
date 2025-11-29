@@ -14,19 +14,9 @@
   --chat-err: #4a1f27;
 }
 
-/* Chat header */
-.page-chat .chat-head {
-  align-items: center;
-  gap: var(--space-md);
+/* Status line */
+.page-chat .status-line {
   margin-bottom: var(--space-md);
-}
-
-.page-chat .chat-head .links {
-  margin-left: auto;
-  font-size: var(--font-size-sm);
-  display: flex;
-  gap: var(--space-sm);
-  align-items: center;
 }
 
 /* Chat board */

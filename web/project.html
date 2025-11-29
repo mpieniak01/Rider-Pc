@@ -18,11 +18,13 @@
   <!-- Main content -->
   <main class="layout-main layout-main--wide">
   
-  <header class="project-header l-row l-row--between">
-    <h1 class="page-title">
-      <span class="brand-accent">Rider-PC</span>: <span class="page-title-text">Projekt</span>
-    </h1>
-    <div class="project-actions l-row">
+  <header class="page-header">
+    <div class="page-header__titles">
+      <h1 class="page-title">
+        <span class="brand-accent">Rider-PC</span>: <span class="page-title-text">Projekt</span>
+      </h1>
+    </div>
+    <div class="page-header__actions page-header__actions--small project-actions">
       <button id="new-task-btn" class="c-btn c-btn-sm c-btn-primary" title="Utwórz nowe zadanie">
         <span>+</span>
         <span data-i18n="project.new_task">Nowe Zadanie</span>
@@ -34,7 +36,7 @@
     </div>
   </header>
 
-  <p id="status-line" class="status-line c-statusbar">Ładowanie zgłoszeń...</p>
+  <p id="status-line" class="status-line c-statusbar is-working">Ładowanie zgłoszeń...</p>
 
   <!-- Error/Warning Banner -->
   <div id="error-banner" class="error-banner c-status-msg is-err" hidden>
@@ -151,6 +153,8 @@
   const errorMessage = document.getElementById('error-message');
   const emptyState = document.getElementById('empty-state');
   const refreshBtn = document.getElementById('refresh-btn');
+  const urlParams = new URLSearchParams(window.location.search);
+  const auditMode = urlParams.get('audit') === '1';
 
   // i18n helper - get translation from DOM or use fallback
   function getI18nText(key, fallback) {
@@ -227,6 +231,11 @@
     if (pct >= 50) return 'progress-medium';
     if (pct >= 25) return 'progress-low';
     return 'progress-minimal';
+  }
+
+  function setStatus(state, message) {
+    statusLine.textContent = message;
+    statusLine.className = `status-line c-statusbar${state ? ` is-${state}` : ''}`;
   }
 
   function createIssueCard(issue) {
@@ -349,10 +358,32 @@
     });
   }
 
+  function seedAuditIssues() {
+    const sampleIssues = [
+      { number: 201, title: 'Refaktoryzacja dashboardu projektu', tasks_total: 4, tasks_done: 1, progress_pct: 25, assignee: 'pi-dev', url: '#', state: 'open' },
+      { number: 202, title: 'Integracja API GitHub', tasks_total: 6, tasks_done: 3, progress_pct: 50, assignee: null, url: '#', state: 'open' },
+      { number: 203, title: 'Optymalizacja modala', tasks_total: 2, tasks_done: 2, progress_pct: 100, assignee: 'rider-pc', url: '#', state: 'open' },
+      { number: 204, title: 'Diagnostyka toastów', tasks_total: 3, tasks_done: 2, progress_pct: 66, assignee: 'qa-bot', url: '#', state: 'open' },
+      { number: 205, title: 'Checklisty QA', tasks_total: 0, tasks_done: 0, progress_pct: 0, assignee: null, url: '#', state: 'open' },
+    ];
+    renderIssues(sampleIssues);
+    issuesContainer.style.display = 'block';
+    emptyState.hidden = true;
+    errorBanner.hidden = false;
+    errorMessage.textContent = 'Tryb audytu CSS – dane przykładowe.';
+    setStatus('success', '5 otwartych zgłoszeń • audit/local • teraz');
+    refreshBtn.disabled = false;
+    refreshBtn.classList.remove('is-loading');
+  }
+
   async function loadIssues(forceRefresh = false) {
     refreshBtn.disabled = true;
     refreshBtn.classList.add('is-loading');
-    statusLine.textContent = getI18nText('project.loading', 'Ładowanie zgłoszeń...');
+    setStatus('working', getI18nText('project.loading', 'Ładowanie zgłoszeń...'));
+    if (auditMode) {
+      seedAuditIssues();
+      return;
+    }
     
     try {
       const url = forceRefresh 
@@ -372,14 +403,14 @@
         showError(data.error || getI18nText('project.config_error', 'Konfiguracja GitHub niekompletna'));
         issuesContainer.style.display = 'none';
         emptyState.hidden = true;
-        statusLine.textContent = getI18nText('project.not_configured', 'GitHub nie skonfigurowany');
+        setStatus('error', getI18nText('project.not_configured', 'GitHub nie skonfigurowany'));
         return;
       }
       
       // Handle API error
       if (data.error) {
         showError(data.error);
-        statusLine.textContent = getI18nText('project.connection_error', 'Błąd podczas pobierania danych');
+        setStatus('error', getI18nText('project.connection_error', 'Błąd podczas pobierania danych'));
         return;
       }
       
@@ -389,7 +420,7 @@
       const cacheInfo = data.cached ? ` (${getI18nText('project.from_cache', 'z cache')})` : '';
       const issueCount = data.issues?.length || 0;
       const openIssuesLabel = getI18nText('project.open_issues', 'otwartych zgłoszeń');
-      statusLine.textContent = `${issueCount} ${openIssuesLabel} • ${data.repo}${cacheInfo} • ${formatTimestamp(data.timestamp)}`;
+      setStatus('', `${issueCount} ${openIssuesLabel} • ${data.repo}${cacheInfo} • ${formatTimestamp(data.timestamp)}`);
       
       if (forceRefresh) {
         showToast(getI18nText('project.data_refreshed', 'Dane odświeżone'), 'success');
@@ -398,7 +429,7 @@
     } catch (err) {
       console.error('Failed to load issues:', err);
       showError(`${getI18nText('project.connection_error', 'Błąd połączenia')}: ${err.message}`);
-      statusLine.textContent = getI18nText('project.connection_error', 'Błąd podczas pobierania danych');
+      setStatus('error', getI18nText('project.connection_error', 'Błąd podczas pobierania danych'));
     } finally {
       refreshBtn.disabled = false;
       refreshBtn.classList.remove('is-loading');
