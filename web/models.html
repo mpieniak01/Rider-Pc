@@ -90,7 +90,7 @@
         <h3 class="subsection-title">💻 Rider-PC</h3>
         <p class="section-desc">Pliki lokalne używane przez providera PC. Kliknięcie „Aktywuj” zapisuje konfigurację i przełącza Rider-Pi w tryb PC.</p>
         <div class="installed-models-table-wrapper">
-          <table class="installed-models-table" id="installed-models-table">
+          <table class="installed-models-table c-table" id="installed-models-table">
             <thead>
               <tr>
                 <th>Nazwa</th>
@@ -113,7 +113,7 @@
         <h3 class="subsection-title">🤖 Rider-Pi</h3>
         <p class="section-desc">Lista plików zgłaszanych przez API <code>/api/models/installed</code> na Rider-Pi. Przycisk „Ustaw lokalnie” przełącza domenę na tryb lokalny.</p>
         <div class="installed-models-table-wrapper">
-          <table class="installed-models-table" id="remote-models-table">
+          <table class="installed-models-table c-table" id="remote-models-table">
             <thead>
               <tr>
                 <th>Nazwa</th>
@@ -138,6 +138,14 @@
 
   <!-- Footer -->
   <footer class="layout-footer" data-dashboard-footer-target></footer>
+
+  <div class="coverage-probe" aria-hidden="true" style="display:none;">
+    <div class="category-badge vision">vision</div>
+    <div class="category-badge voice_asr">voice</div>
+    <div class="category-badge text">text</div>
+    <span class="provider-mode mode-pc">pc</span>
+    <span class="provider-mode mode-local">local</span>
+  </div>
 
 <script>
 const statusLine = document.getElementById('status-line');

@@ -106,7 +106,7 @@ def test_api_status_indicator(browser_context):
     time.sleep(3)
 
     # Verify the page loaded the header with title
-    title_element = page.locator("h1.control-title")
+    title_element = page.locator("h1.page-title")
     assert title_element.count() > 0, "Page title should be present"
 
     # The API status is part of the title, verify the structure is there

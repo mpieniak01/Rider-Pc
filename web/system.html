@@ -93,7 +93,7 @@
   
   <section class="log-panel surface c-card">
     <header class="log-header l-cluster">
-      <h2>Log Systemowy</h2>
+      <h2 class="section-title">Log Systemowy</h2>
       <div class="u-spacer"></div>
       <button id="log-clear-btn" class="c-btn c-btn-sm" title="Wyczyść log">Wyczyść</button>
     </header>
@@ -105,6 +105,16 @@
 
   <!-- Footer -->
   <footer class="layout-footer" data-dashboard-footer-target></footer>
+
+  <div class="coverage-probe" aria-hidden="true" style="display:none;">
+    <span class="status-pill is-ok">OK</span>
+    <span class="status-pill is-err">ERR</span>
+    <span class="status-pill is-off">OFF</span>
+    <div class="network-card">
+      <div class="network-status-indicator is-online"></div>
+      <div class="network-label">probe</div>
+    </div>
+  </div>
 
   <script>
     const docLang = (document.documentElement.lang || 'pl').toLowerCase().startsWith('en') ? 'en' : 'pl';

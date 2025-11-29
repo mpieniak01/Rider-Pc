@@ -9,24 +9,14 @@
 
 /* Status line */
 .page-models .status-line {
-  font-size: var(--font-size-md);
-  color: var(--muted);
-  margin-bottom: var(--space-xl);
+  --status-line-spacing: var(--space-xl);
 }
-
-.page-models .status-line.is-working { color: var(--color-warn); }
-.page-models .status-line.is-success { color: var(--color-ok); }
-.page-models .status-line.is-error { color: var(--color-error); }
 
 /* Section */
 .page-models .models-section {
   --card-padding: var(--space-xl);
   margin-bottom: var(--space-xl);
 }
-
-.page-models .section-title { font-size: 1.25rem; font-weight: var(--font-weight-semibold); margin: 0 0 var(--space-sm); }
-.page-models .section-desc { color: var(--muted); font-size: var(--font-size-md); margin: 0 0 var(--space-lg); }
-.page-models .subsection-title { font-size: 1rem; font-weight: var(--font-weight-medium); margin: var(--space-lg) 0 var(--space-md); }
 
 /* Grids */
 .page-models .models-grid { --grid-min: 280px; --grid-gap: var(--space-lg); }
@@ -91,10 +81,7 @@
 .page-models .model-format { background: rgba(255, 255, 255, 0.1); color: var(--muted); }
 
 /* Table */
-.page-models .installed-models-table { width: 100%; border-collapse: collapse; font-size: var(--font-size-md); }
-.page-models .installed-models-table th { text-align: left; padding: var(--space-md) var(--space-lg); font-weight: var(--font-weight-semibold); color: var(--muted); text-transform: uppercase; font-size: var(--font-size-xxs); letter-spacing: 0.05em; border-bottom: 1px solid var(--border); }
-.page-models .installed-models-table td { padding: var(--space-md) var(--space-lg); border-bottom: 1px solid var(--color-border-subtle); }
-.page-models .installed-models-table tr:hover td { background: rgba(255, 255, 255, 0.02); }
+.page-models .installed-models-table th { color: var(--muted); }
 
 /* Category badges */
 .page-models .category-badge {

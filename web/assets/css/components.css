@@ -62,6 +62,31 @@
   --card-title-accent-color: var(--color-accent);
 }
 
+.section-title,
+.section-desc,
+.subsection-title {
+  display: block;
+  margin: 0;
+}
+
+.section-title {
+  font-size: 1.25rem;
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-sm);
+}
+
+.section-desc {
+  font-size: var(--font-size-md);
+  color: var(--color-fg-muted);
+  margin-bottom: var(--space-lg);
+}
+
+.subsection-title {
+  font-size: 1rem;
+  font-weight: var(--font-weight-medium);
+  margin: var(--space-lg) 0 var(--space-md);
+}
+
 .c-card--inline,
 .card--inline {
   padding: calc(var(--card-padding) / 2) var(--card-padding);
@@ -281,6 +306,25 @@ button:disabled {
 .c-statusbar .sep,
 .statusbar .sep {
   opacity: 0.45;
+}
+
+.status-line {
+  display: block;
+  font-size: var(--font-size-md);
+  color: var(--color-fg-muted);
+  margin-bottom: var(--status-line-spacing, var(--space-xl));
+}
+
+.status-line.is-working {
+  color: var(--color-warn);
+}
+
+.status-line.is-success {
+  color: var(--color-ok);
+}
+
+.status-line.is-error {
+  color: var(--color-error);
 }
 
 /* Statusbar state helpers */
@@ -528,6 +572,241 @@ select option {
 
 .svc-state-warn {
   color: var(--color-warn);
+}
+
+/* ===== Status Dot ===== */
+.status-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: #f59e0b;
+  transition: background-color var(--transition-normal), box-shadow var(--transition-normal);
+  display: inline-flex;
+}
+
+.status-dot.is-ok,
+.status-dot.is-connected {
+  background-color: var(--color-ok);
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+}
+
+.status-dot.is-error,
+.status-dot.is-disconnected {
+  background-color: var(--color-error);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+}
+
+/* ===== Log Panel ===== */
+.log-panel {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.log-terminal {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  background: #0a0f16;
+  color: #c8d4e0;
+  padding: var(--space-md) var(--space-lg);
+  max-height: 280px;
+  min-height: 120px;
+  overflow-y: auto;
+}
+
+.log-entry {
+  padding: 2px 0;
+  word-break: break-word;
+}
+
+.log-timestamp {
+  color: var(--color-fg-muted);
+  margin-right: var(--space-sm);
+}
+
+.log-level {
+  font-weight: var(--font-weight-semibold);
+  margin-right: var(--space-sm);
+  min-width: 48px;
+  display: inline-block;
+}
+
+.log-entry.log-info .log-level {
+  color: var(--color-ok);
+}
+
+.log-entry.log-warn .log-level {
+  color: #f59e0b;
+}
+
+.log-entry.log-error .log-level {
+  color: var(--color-error);
+}
+
+/* ===== Modal Component ===== */
+.c-modal {
+  position: fixed;
+  inset: 0;
+  background: var(--color-bg-overlay-dark);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl);
+}
+
+.c-modal[aria-hidden="false"],
+.c-modal.is-open {
+  display: flex;
+}
+
+.c-modal__container {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--shadow-xl);
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.c-modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-xl) var(--space-xxl);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.c-modal__close {
+  background: none;
+  border: none;
+  color: var(--color-fg-muted);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: var(--space-xxs) var(--space-sm);
+}
+
+.c-modal__form {
+  padding: var(--space-xxl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
+.c-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.c-form-group label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.c-form-row {
+  display: flex;
+  gap: var(--space-lg);
+}
+
+.c-form-row .c-form-group {
+  flex: 1;
+}
+
+.c-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-md);
+  margin-top: var(--space-xxl);
+  padding-top: var(--space-xl);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.c-modal__loading {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px var(--space-xxl);
+  gap: var(--space-lg);
+  color: var(--color-fg-muted);
+}
+
+.c-modal__loading .loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--color-accent-hover);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: c-spin 1s linear infinite;
+}
+/* ===== Table Component ===== */
+.c-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-md);
+}
+
+.c-table th {
+  text-align: left;
+  padding: var(--space-md) var(--space-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-fg-muted);
+  text-transform: uppercase;
+  font-size: var(--font-size-xxs);
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.c-table td {
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.c-table tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* ===== Form Controls ===== */
+.form-range {
+  width: 100%;
+  accent-color: var(--color-ok);
+}
+
+.form-number,
+.form-select,
+.form-input {
+  width: 100%;
+  background: var(--color-bg-input, var(--color-bg-elevated));
+  color: var(--color-fg-primary);
+  border: 1px solid var(--color-border-interactive, var(--card-border));
+  border-radius: var(--radius-md);
+  padding: var(--space-xs) var(--space-sm);
+  font: inherit;
+}
+
+.form-color {
+  width: 60px;
+  height: 36px;
+  border: 1px solid var(--color-off-border);
+  border-radius: var(--radius-md);
+  background: #122435;
+  cursor: pointer;
+  padding: 2px;
 }
 
 .svc-state-err {

@@ -61,9 +61,24 @@
       <div id="providerList" class="provider-list" aria-live="polite">
         <div class="provider-empty c-status-msg">Ładowanie…</div>
       </div>
+      <div class="coverage-probe" aria-hidden="true" style="display:none;">
+        <div class="provider-row c-card">
+          <div class="provider-info">
+            <div class="provider-name">Probe Provider</div>
+            <div class="provider-desc">Przykładowy opis providera.</div>
+          </div>
+          <div class="provider-actions">
+            <button class="c-btn c-btn-sm">Test</button>
+          </div>
+        </div>
+      </div>
       <div class="c-hint">Kliknij „Test”, by wykonać próbę TTS i sprawdzić działanie usług.</div>
     </section>
 
+    <div class="coverage-probe" aria-hidden="true" style="display:none;">
+      <div class="msg you">Probe user</div>
+      <div class="msg bot">Probe bot</div>
+    </div>
     <div class="meta" id="latency"></div>
   </main>
 

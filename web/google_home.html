@@ -68,6 +68,20 @@
   <!-- Footer -->
   <footer class="layout-footer" data-dashboard-footer-target></footer>
 
+  <div class="coverage-probe" aria-hidden="true" style="display:none;">
+    <div class="device-card c-card">
+      <div class="device-name">Probe lamp</div>
+      <div class="device-type">lighting</div>
+      <div class="control-row">
+        <input type="range" min="0" max="100" value="50">
+        <input type="color" value="#1a73e8">
+        <select><option>Auto</option></select>
+      </div>
+    </div>
+    <div class="c-status-msg ok">ok</div>
+    <div class="c-status-msg err">err</div>
+  </div>
+
   <!-- APP (i18n + logika) -->
 <script type="module">
 import { initI18n, applyDom, t } from '/web/assets/i18n.js';

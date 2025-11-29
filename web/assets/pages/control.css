@@ -67,8 +67,7 @@
 .page-control .feature-pill { text-transform: uppercase; letter-spacing: 0.04em; }
 
 /* Service table */
-.page-control .svc-table { width: 100%; border-collapse: collapse; margin-top: var(--space-md); font-size: var(--font-size-md); }
-
+.page-control .svc-table { margin-top: var(--space-md); }
 .page-control .svc-table th,
 .page-control .svc-table td { border-top: 1px solid #1c3349; padding: var(--space-sm) var(--space-xs); text-align: left; }
 .page-control .svc-actions { white-space: nowrap; display: flex; flex-wrap: wrap; gap: var(--space-xs); }
@@ -94,9 +93,6 @@
   min-width: 96px;
   justify-content: center;
 }
-
-/* Log panel */
-.page-control #log { height: 220px; overflow: auto; background: var(--color-bg-elevated); border: 1px solid #1c3349; border-radius: var(--radius-lg); padding: var(--space-sm); font-family: var(--font-family-mono); font-size: var(--font-size-sm); white-space: pre-wrap; }
 
 /* Card spacing */
 .page-control .motion-queue-card,

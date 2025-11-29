@@ -20,7 +20,7 @@
     <!-- Page header -->
     <header class="page-header">
       <div class="page-header__titles">
-        <h1 class="page-title">
+        <h1 class="page-title control-title">
           <span class="brand-accent">Rider-PC</span>: <span class="page-title-text">Sterowanie ruchem</span>
         </h1>
       </div>
@@ -253,7 +253,7 @@
     <div class="c-card resource-card control-section is-resources">
       <h2 class="c-card__title" data-i18n="resources.title">Diagnostyka zasobów</h2>
       <div id="resInfo" class="muted" data-i18n="meta.loading">Ładowanie…</div>
-      <table class="svc-table" id="resTable">
+      <table class="svc-table c-table" id="resTable">
         <thead>
         <tr>
           <th data-i18n="resources.column_name">Zasób</th>
@@ -391,7 +391,7 @@
         <span data-i18n="meta.loading">Ładowanie…</span>
         <span id="svcTs"></span>
       </div>
-      <table class="svc-table" id="svcTable" hidden>
+      <table class="svc-table c-table" id="svcTable" hidden>
         <thead>
         <tr>
           <th data-i18n="services.unit">Unit</th>
@@ -407,10 +407,12 @@
   </div>
 
   <!-- LOG -->
-  <div class="c-card log-card control-section is-log">
-    <h2 class="c-card__title" data-i18n="events.title">Zdarzenia (SSE /events)</h2>
-    <div id="log"></div>
-  </div>
+  <section class="log-panel c-card control-section is-log">
+    <header class="log-header l-cluster">
+      <h2 class="section-title" data-i18n="events.title">Zdarzenia (SSE /events)</h2>
+    </header>
+    <div id="log" class="log-terminal" role="log" aria-live="polite" aria-label="Zdarzenia"></div>
+  </section>
 
   <div class="c-card motion-queue-card control-section is-queue">
     <h2 class="c-card__title">
@@ -424,7 +426,7 @@
     <div id="motionQueueInfo" class="muted" data-i18n="motion_queue.loading">
       Brak danych…
     </div>
-    <table class="svc-table" id="motionQueueTable">
+    <table class="svc-table c-table" id="motionQueueTable">
       <thead>
       <tr>
         <th data-i18n="motion_queue.column_source">Źródło</th>
@@ -451,6 +453,27 @@
 
   <!-- Footer -->
   <footer class="layout-footer" data-dashboard-footer-target></footer>
+
+  <div class="coverage-probe" aria-hidden="true" style="display:none;">
+    <div class="feature-row">
+      <div class="feature-info">
+        <div class="feature-title">Probe feature</div>
+        <div class="feature-desc">Opis funkcji</div>
+      </div>
+      <div class="feature-actions">
+        <button class="c-btn c-btn-sm">Start</button>
+      </div>
+    </div>
+    <div class="pc-service">
+      <span class="pc-service-dot ok"></span>
+      <div class="pc-service-name">Probe service</div>
+      <div class="pc-service-meta">meta</div>
+    </div>
+    <div class="svc-controls">
+      <div class="svc-control">probe</div>
+      <select class="svc-select"><option>opt</option></select>
+    </div>
+  </div>
 
 <script type="module" src="/web/assets/menu.js"></script>
 <script type="module" src="/web/assets/footer.js"></script>

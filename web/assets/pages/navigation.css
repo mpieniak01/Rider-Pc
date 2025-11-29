@@ -16,25 +16,6 @@
   min-height: calc(100vh - 140px);
 }
 
-/* Status indicator */
-.nav-status-dot {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background-color: #f59e0b;
-  transition: background-color var(--transition-normal);
-}
-
-.nav-status-dot.is-connected {
-  background-color: var(--color-ok);
-  box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
-}
-
-.nav-status-dot.is-disconnected {
-  background-color: var(--color-error);
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
-}
-
 /* Canvas container - uses media-frame from layout.css */
 .page-navigation #canvas-container {
   flex-grow: 1;

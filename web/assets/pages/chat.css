@@ -16,7 +16,7 @@
 
 /* Status line */
 .page-chat .status-line {
-  margin-bottom: var(--space-md);
+  --status-line-spacing: var(--space-md);
 }
 
 /* Chat board */

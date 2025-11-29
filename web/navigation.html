@@ -23,7 +23,7 @@
                 <h1 class="page-title"><span class="brand-accent">Rider-PC</span>: <span class="page-title-text">Wizualizator Nawigacji</span></h1>
             </div>
             <div class="page-header__actions page-header__actions--small cluster text-legend">
-                <div id="status-indicator" class="nav-status-dot" title="Łączenie..."></div>
+                <div id="status-indicator" class="status-dot" title="Łączenie..."></div>
                 <span id="status-text">Łączenie...</span>
             </div>
         </header>
@@ -70,6 +70,17 @@
     <!-- Footer -->
     <footer class="layout-footer" data-dashboard-footer-target></footer>
 
+    <div class="coverage-probe" aria-hidden="true" style="display:none;">
+        <div class="status-dot is-connected"></div>
+        <div class="status-dot is-disconnected"></div>
+        <div class="c-legend">
+            <span><i class="c-legend__dot"></i><span class="text-legend">probe</span></span>
+        </div>
+        <div id="canvas-container">
+            <canvas></canvas>
+        </div>
+    </div>
+
     <script>
         const canvas = document.getElementById('mapCanvas');
         const ctx = canvas.getContext('2d');
@@ -102,7 +113,7 @@
 
             ws.onopen = () => {
                 console.log('Połączono z WebSocket /ws/navigation');
-                statusIndicator.className = 'nav-status-dot is-connected';
+                statusIndicator.className = 'status-dot is-connected';
                 statusText.textContent = 'Połączono';
             };
 
@@ -145,14 +156,14 @@
 
             ws.onclose = () => {
                 console.log('Rozłączono z WebSocket. Próba ponownego połączenia...');
-                statusIndicator.className = 'nav-status-dot is-disconnected';
+                statusIndicator.className = 'status-dot is-disconnected';
                 statusText.textContent = 'Rozłączono';
                 setTimeout(connectWebSocket, 3000); // Spróbuj połączyć ponownie po 3 sekundach
             };
 
             ws.onerror = (error) => {
                 console.error('Błąd WebSocket:', error);
-                statusIndicator.className = 'nav-status-dot is-disconnected';
+                statusIndicator.className = 'status-dot is-disconnected';
                 statusText.textContent = 'Błąd';
                 ws.close();
             };

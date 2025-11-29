@@ -13,7 +13,7 @@
 .page-system .version-dirty { background: rgba(245, 158, 11, 0.2); color: #fbbf24; padding: 2px var(--space-sm); border-radius: var(--radius-xs); }
 
 .page-system .system-links a { color: #93c5fd; text-decoration: none; margin-left: var(--space-md); font-size: 0.95rem; }
-.page-system .status-line { font-size: var(--font-size-md); color: var(--muted); margin-bottom: var(--space-md); }
+.page-system .status-line { --status-line-spacing: var(--space-md); }
 
 /* Section cards */
 .page-system .system-section {
@@ -110,17 +110,7 @@
 .page-system .edge-list span { background: rgba(59, 130, 246, 0.15); color: #bfdbfe; border-radius: var(--radius-sm); padding: 2px var(--space-xs); font-size: var(--font-size-xxs); }
 .page-system .desc { color: var(--muted); font-size: var(--font-size-sm); }
 
-/* Log panel */
-.page-system .log-panel { margin-top: var(--space-xxl); overflow: hidden; }
-.page-system .log-header { display: flex; align-items: center; justify-content: space-between; padding: var(--space-md) var(--space-lg); background: rgba(0, 0, 0, 0.2); border-bottom: 1px solid var(--border); }
-.page-system .log-header h2 { font-size: 0.95rem; margin: 0; }
-.page-system .log-terminal { font-family: var(--font-family-mono); font-size: var(--font-size-sm); line-height: var(--line-height-normal); background: #0a0f16; color: #c8d4e0; padding: var(--space-md) var(--space-lg); max-height: 280px; min-height: 120px; overflow-y: auto; }
-.page-system .log-entry { padding: 2px 0; word-break: break-word; }
-.page-system .log-timestamp { color: var(--muted); margin-right: var(--space-sm); }
-.page-system .log-level { font-weight: var(--font-weight-semibold); margin-right: var(--space-sm); min-width: 48px; display: inline-block; }
-.page-system .log-entry.log-info .log-level { color: var(--color-ok); }
-.page-system .log-entry.log-warn .log-level { color: #f59e0b; }
-.page-system .log-entry.log-error .log-level { color: var(--color-error); }
+.page-system .log-panel { margin-top: var(--space-xxl); }
 
 /* Network status */
 .page-system .network-status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-md); }
