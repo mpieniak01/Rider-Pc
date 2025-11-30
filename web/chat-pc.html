@@ -456,6 +456,7 @@
       console.error('Voice status error:', err);
       voiceStatus.textContent = 'błąd';
       voiceProviderReady = false;
+      recordBtn.disabled = true;
     }
   }
 
