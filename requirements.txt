@@ -9,7 +9,7 @@ uvicorn[standard]==0.32.1
 httpx==0.27.2
 
 # ZMQ
-pyzmq==26.2.0
+pyzmq==26.4.0
 
 # Task Queue
 redis==5.0.1
