@@ -17,7 +17,6 @@ from pc_client.adapters import RestAdapter
 from pc_client.services.google_home import (
     GoogleHomeService,
     get_google_home_service,
-    reset_google_home_service,
 )
 
 router = APIRouter()

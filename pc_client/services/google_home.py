@@ -7,11 +7,13 @@ act as a standalone Google Home controller without proxying through Rider-Pi.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import logging
 import os
 import secrets
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -213,9 +215,6 @@ class GoogleHomeService:
     def _generate_code_challenge(self, verifier: str) -> str:
         """Generate a code challenge from verifier using S256."""
         digest = hashlib.sha256(verifier.encode("ascii")).digest()
-        # Base64url encoding
-        import base64
-
         return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
 
     def start_auth_session(self, redirect_uri: Optional[str] = None) -> Dict[str, Any]:
@@ -314,7 +313,14 @@ class GoogleHomeService:
             )
 
             if response.status_code != 200:
-                error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
+                # Bezpieczna obsługa JSON decode w odpowiedzi błędnej
+                if response.headers.get("content-type", "").startswith("application/json"):
+                    try:
+                        error_data = response.json()
+                    except json.JSONDecodeError:
+                        error_data = {}
+                else:
+                    error_data = {}
                 return {
                     "ok": False,
                     "error": "token_exchange_failed",
@@ -323,12 +329,21 @@ class GoogleHomeService:
 
             token_data = response.json()
 
+            # Sprawdź obecność access_token
+            access_token = token_data.get("access_token")
+            if not access_token:
+                return {
+                    "ok": False,
+                    "error": "missing_access_token",
+                    "message": "Brak access_token w odpowiedzi Google OAuth.",
+                }
+
             # Calculate expiration time
             expires_in = token_data.get("expires_in", 3600)
             expires_at = time.time() + expires_in
 
             self._tokens = TokenData(
-                access_token=token_data["access_token"],
+                access_token=access_token,
                 refresh_token=token_data.get("refresh_token"),
                 token_type=token_data.get("token_type", "Bearer"),
                 expires_at=expires_at,
@@ -410,7 +425,13 @@ class GoogleHomeService:
             token_data = response.json()
             expires_in = token_data.get("expires_in", 3600)
 
-            self._tokens.access_token = token_data["access_token"]
+            # Sprawdź obecność access_token
+            access_token = token_data.get("access_token")
+            if not access_token:
+                logger.error("Token refresh response missing access_token: %s", token_data)
+                return False
+
+            self._tokens.access_token = access_token
             self._tokens.expires_at = time.time() + expires_in
             if "scope" in token_data:
                 self._tokens.scopes = token_data["scope"].split()
@@ -682,6 +703,7 @@ class GoogleHomeService:
 
 # Singleton instance for the service
 _google_home_service: Optional[GoogleHomeService] = None
+_google_home_service_lock = threading.Lock()
 
 
 def get_google_home_service(
@@ -694,6 +716,8 @@ def get_google_home_service(
     reset: bool = False,
 ) -> GoogleHomeService:
     """Get or create the Google Home service singleton.
+
+    Thread-safe singleton pattern using Lock.
 
     Args:
         client_id: Google OAuth Client ID
@@ -709,15 +733,16 @@ def get_google_home_service(
     """
     global _google_home_service
 
-    if reset or _google_home_service is None:
-        _google_home_service = GoogleHomeService(
-            client_id=client_id,
-            client_secret=client_secret,
-            project_id=project_id,
-            redirect_uri=redirect_uri,
-            tokens_path=tokens_path,
-            test_mode=test_mode,
-        )
+    with _google_home_service_lock:
+        if reset or _google_home_service is None:
+            _google_home_service = GoogleHomeService(
+                client_id=client_id,
+                client_secret=client_secret,
+                project_id=project_id,
+                redirect_uri=redirect_uri,
+                tokens_path=tokens_path,
+                test_mode=test_mode,
+            )
 
     return _google_home_service
 

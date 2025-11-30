@@ -153,9 +153,12 @@ import { initI18n, applyDom, t } from '/web/assets/i18n.js';
           authDescription.innerHTML = `
             <strong>${t('home.config_required') || 'Configuration required'}</strong><br>
             ${t('home.config_missing') || 'Missing environment variables'}:<br>
-            <code>${missing.join(', ')}</code><br>
+            <code></code><br>
             <a href="/web/assets/docs/google-home-setup.html" target="_blank">${t('home.config_docs') || 'See documentation'}</a>
           `;
+          // Wstaw bezpiecznie listę brakujących zmiennych środowiskowych
+          const codeElem = authDescription.querySelector('code');
+          if (codeElem) codeElem.textContent = missing.join(', ');
         }
       } else {
         authBadge.textContent = t('home.auth_required');

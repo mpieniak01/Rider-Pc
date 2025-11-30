@@ -1,4 +1,9 @@
 # Google Home / Smart Device Management Configuration
+# 
+# UWAGA: Ten plik jest tylko dokumentacją/przykładem.
+# Rider-PC używa wyłącznie konfiguracji przez zmienne środowiskowe.
+# Szczegóły: docs_pl/google-home-integration.md
+#
 # To customize, copy to config/local/google_home.toml and modify as needed
 # 
 # Documentation: docs_pl/google-home-integration.md

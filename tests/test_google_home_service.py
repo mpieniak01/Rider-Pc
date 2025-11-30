@@ -2,8 +2,6 @@
 
 import pytest
 import time
-from unittest.mock import AsyncMock, patch, MagicMock
-from pathlib import Path
 
 from pc_client.services.google_home import (
     GoogleHomeService,
