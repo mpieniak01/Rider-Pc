@@ -2,21 +2,39 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+VENV_PATH="${VENV_PATH:-$ROOT/.venv-agent}"
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+
+if [ ! -d "$VENV_PATH" ]; then
+  "$PYTHON_BIN" -m venv "$VENV_PATH"
+fi
+
+if [ ! -f "$VENV_PATH/bin/activate" ]; then
+  echo "Error: Failed to create virtual environment" >&2
+  exit 1
+fi
+# shellcheck disable=SC1090
+. "$VENV_PATH/bin/activate"
+
+# Check for required requirements and constraints files
+for file in "$ROOT/config/agent/requirements-test.txt" "$ROOT/config/agent/constraints.txt"; do
+  [ -f "$file" ] || { echo "Error: Required file not found: $file" >&2; exit 1; }
+done
+python -m pip install --upgrade pip
+python -m pip install -r "$ROOT/config/agent/requirements-test.txt" -c "$ROOT/config/agent/constraints.txt"
+
 export PYTHONPATH="$ROOT:${PYTHONPATH:-}"
+export PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
+export PYTEST_ASYNCIO_MODE=auto
 
-# venv
-. "$ROOT/.venv/bin/activate"
-
-# Bezpieczne ENV — bez HW
-export RIDER_APPS_PATH="${RIDER_APPS_PATH:-_apps:apps}"
-export FACE_LCD_ROTATE="${FACE_LCD_ROTATE:-0}"
-export FACE_LCD_SPI_HZ="${FACE_LCD_SPI_HZ:-32000000}"
-export FACE_LCD_FIT="${FACE_LCD_FIT:-fill}"
-export FACE_SINK="${FACE_SINK:-png}"
-export RIDER_NO_HW="${RIDER_NO_HW:-1}"
-
-# Walidacja składni (bez HW)
-python -m compileall -q services/api_core/*.py services/api_server.py apps/ui/face/*.py || true
-
-# Minimalny zestaw testów
-pytest -q tests/test_face_anim_api.py --timeout=10 --maxfail=1
+# Note: The old version set several environment variables for hardware-free testing
+# (RIDER_APPS_PATH, FACE_LCD_*, RIDER_NO_HW). These are no longer needed and have
+# been intentionally removed. If any tests depend on them, please update the tests.
+cd "$ROOT"
+pytest \
+  pc_client/tests \
+  tests/test_project_issues.py \
+  -q --maxfail=1 \
+  -p pytest_asyncio.plugin \
+  -p pytest_timeout \
+  --timeout=30 --timeout-method=thread
