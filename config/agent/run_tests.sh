@@ -19,6 +19,9 @@ export PYTHONPATH="$ROOT:${PYTHONPATH:-}"
 export PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
 export PYTEST_ASYNCIO_MODE=auto
 
+# Note: The old version set several environment variables for hardware-free testing
+# (RIDER_APPS_PATH, FACE_LCD_*, RIDER_NO_HW). These are no longer needed and have
+# been intentionally removed. If any tests depend on them, please update the tests.
 cd "$ROOT"
 pytest \
   pc_client/tests \
