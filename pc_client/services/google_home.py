@@ -32,6 +32,14 @@ SDM_SCOPES = [
     "https://www.googleapis.com/auth/sdm.service",
 ]
 
+# Constants for OAuth and caching
+TOKEN_EXPIRY_BUFFER_SECONDS = 300  # 5 minutes before expiry to trigger refresh
+DEVICE_CACHE_TTL_SECONDS = 300  # 5 minutes cache for device list
+AUTH_SESSION_TTL_SECONDS = 600  # 10 minutes for OAuth session validity
+PKCE_STATE_LENGTH = 32  # Length of state token for CSRF protection
+PKCE_VERIFIER_RAW_LENGTH = 64  # Length of random bytes for code verifier
+PKCE_VERIFIER_MAX_LENGTH = 128  # Max length of code verifier string
+
 
 @dataclass
 class GoogleHomeConfig:
@@ -81,10 +89,10 @@ class AuthSession:
     expires_at: float = 0.0
 
     @classmethod
-    def create(cls, ttl_seconds: int = 600) -> "AuthSession":
+    def create(cls, ttl_seconds: int = AUTH_SESSION_TTL_SECONDS) -> "AuthSession":
         """Create a new auth session with PKCE parameters."""
-        state = secrets.token_urlsafe(32)
-        code_verifier = secrets.token_urlsafe(64)[:128]
+        state = secrets.token_urlsafe(PKCE_STATE_LENGTH)
+        code_verifier = secrets.token_urlsafe(PKCE_VERIFIER_RAW_LENGTH)[:PKCE_VERIFIER_MAX_LENGTH]
 
         # Create code_challenge using S256 method (base64url encoding without padding)
         digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
@@ -116,8 +124,8 @@ class TokenData:
     profile_email: str = ""
 
     def is_expired(self) -> bool:
-        """Check if access token is expired (with 5 minute buffer)."""
-        return time.time() > (self.expires_at - 300)
+        """Check if access token is expired (with buffer before expiry)."""
+        return time.time() > (self.expires_at - TOKEN_EXPIRY_BUFFER_SECONDS)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -418,9 +426,8 @@ class GoogleHomeService:
         if not self.is_authenticated():
             return {"ok": False, "error": "not_authenticated"}
 
-        # Check cache (5 minute TTL)
-        cache_ttl = 300
-        if use_cache and self._devices_cache and (time.time() - self._cache_timestamp) < cache_ttl:
+        # Check cache using defined TTL
+        if use_cache and self._devices_cache and (time.time() - self._cache_timestamp) < DEVICE_CACHE_TTL_SECONDS:
             return {"ok": True, "devices": self._devices_cache, "from_cache": True}
 
         try:

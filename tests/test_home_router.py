@@ -6,6 +6,12 @@ from pc_client.api.server import create_app
 from pc_client.cache import CacheManager
 from pc_client.config import Settings
 
+# Test configuration constants
+TEST_CLIENT_ID = "test-client-id"
+TEST_CLIENT_SECRET = "test-client-secret"
+TEST_PROJECT_ID = "test-project-id"
+TEST_REDIRECT_URI = "http://localhost:8000/api/home/auth/callback"
+
 
 def make_client(tmp_path) -> TestClient:
     settings = Settings()
@@ -58,10 +64,10 @@ def make_client_with_google_home(tmp_path) -> TestClient:
     settings = Settings()
     settings.test_mode = True
     settings.google_home_local_enabled = True
-    settings.google_home_client_id = "test-client-id"
-    settings.google_home_client_secret = "test-client-secret"
-    settings.google_home_project_id = "test-project-id"
-    settings.google_home_redirect_uri = "http://localhost:8000/api/home/auth/callback"
+    settings.google_home_client_id = TEST_CLIENT_ID
+    settings.google_home_client_secret = TEST_CLIENT_SECRET
+    settings.google_home_project_id = TEST_PROJECT_ID
+    settings.google_home_redirect_uri = TEST_REDIRECT_URI
     settings.google_home_test_mode = True
     settings.google_home_tokens_path = str(tmp_path / "tokens.json")
     cache = CacheManager(db_path=str(tmp_path / "cache.db"))

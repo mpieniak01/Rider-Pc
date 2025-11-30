@@ -12,16 +12,23 @@ from pc_client.services.google_home import (
     reset_google_home_service,
 )
 
+# Test configuration constants
+TEST_CLIENT_ID = "test-client-id"
+TEST_CLIENT_SECRET = "test-client-secret"
+TEST_PROJECT_ID = "test-project-id"
+TEST_REDIRECT_URI = "http://localhost:8000/api/home/auth/callback"
+TEST_TOKENS_PATH = "/tmp/test_tokens.json"
+
 
 @pytest.fixture
 def config():
     """Create test configuration."""
     return GoogleHomeConfig(
-        client_id="test-client-id",
-        client_secret="test-client-secret",
-        project_id="test-project-id",
-        redirect_uri="http://localhost:8000/api/home/auth/callback",
-        tokens_path="/tmp/test_tokens.json",
+        client_id=TEST_CLIENT_ID,
+        client_secret=TEST_CLIENT_SECRET,
+        project_id=TEST_PROJECT_ID,
+        redirect_uri=TEST_REDIRECT_URI,
+        tokens_path=TEST_TOKENS_PATH,
         test_mode=False,
     )
 
@@ -30,11 +37,11 @@ def config():
 def test_mode_config():
     """Create test mode configuration."""
     return GoogleHomeConfig(
-        client_id="test-client-id",
-        client_secret="test-client-secret",
-        project_id="test-project-id",
-        redirect_uri="http://localhost:8000/api/home/auth/callback",
-        tokens_path="/tmp/test_tokens.json",
+        client_id=TEST_CLIENT_ID,
+        client_secret=TEST_CLIENT_SECRET,
+        project_id=TEST_PROJECT_ID,
+        redirect_uri=TEST_REDIRECT_URI,
+        tokens_path=TEST_TOKENS_PATH,
         test_mode=True,
     )
 
