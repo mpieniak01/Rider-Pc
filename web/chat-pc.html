@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="/web/assets/dashboard-common.css">
 <link rel="stylesheet" href="/web/assets/pages/chat-pc.css">
 </head>
-<body data-page="chat-pc" class="page page-chat-pc">
+<body data-page="chat-pc" class="page page-chat page-chat-pc">
   <!-- Header with Menu -->
   <header class="layout-header" data-dashboard-menu-target></header>
 
@@ -32,22 +32,29 @@
     </header>
 
     <!-- Provider status card -->
-    <div class="provider-status-card" id="provider-status">
-      <div class="provider-status-info">
+    <div class="c-card chat-pc-status" id="provider-status">
+      <div class="chat-pc-status__info">
         <h3>Status providera tekstowego</h3>
-        <div id="provider-details" class="c-kv">
-          <div>Status</div><div id="prov-status">Ładowanie...</div>
-          <div>Model</div><div id="prov-model">—</div>
-          <div>Silnik</div><div id="prov-engine">—</div>
-        </div>
+        <dl id="provider-details" class="chat-pc-status__grid">
+          <div>
+            <dt>Status</dt>
+            <dd id="prov-status">Ładowanie...</dd>
+          </div>
+          <div>
+            <dt>Model</dt>
+            <dd id="prov-model">—</dd>
+          </div>
+          <div>
+            <dt>Silnik</dt>
+            <dd id="prov-engine">—</dd>
+          </div>
+        </dl>
       </div>
-      <div class="provider-status-actions">
-        <span id="source-badge" class="source-indicator is-offline">Offline</span>
+      <div class="chat-pc-status__actions">
+        <span id="source-badge" class="chat-pc-pill chat-pc-pill--offline">Offline</span>
         <button class="c-btn c-btn-sm" id="btnRefreshStatus">Odśwież status</button>
       </div>
     </div>
-
-    <p id="status-line" class="status-line c-status-msg">Gotowy</p>
 
     <!-- Chat board -->
     <div class="board c-card" id="board" aria-live="polite"></div>
@@ -55,25 +62,21 @@
     <!-- Compose area -->
     <div class="l-row compose-row">
       <textarea id="input" placeholder="Napisz wiadomość… (Enter = wyślij, Shift+Enter = nowa linia)"></textarea>
-      <div class="side">
-        <button class="c-btn" id="sendBtn">Wyślij</button>
-        <button class="c-btn c-btn-sm record-btn" id="recordBtn" title="Nagrywaj mowę (ASR)">🎤 Mów</button>
-
-        <!-- Mode selector -->
-        <div class="mode-selector" role="group" aria-label="Wybór trybu czatu">
-          <button type="button" id="modePC" class="active" title="Tylko lokalny model">PC</button>
-          <button type="button" id="modeAuto" title="Automatyczny wybór">Auto</button>
-          <button type="button" id="modeProxy" title="Przez Rider-Pi">Proxy</button>
-        </div>
-
-        <div class="controls">
-          <input type="checkbox" id="tts" />
-          <label for="tts">Czytaj odpowiedzi (TTS)</label>
-        </div>
-
-        <div class="c-hint">
-          Chat API: <code>/api/chat/pc/send</code><br>
-          Status: <code>/api/providers/text</code>
+      <div class="side chat-pc-sidebar">
+        <div class="chat-pc-actions">
+          <button class="c-btn chat-pc-send" id="sendBtn">Wyślij</button>
+          <div class="chat-pc-controls">
+            <button class="c-btn c-btn-sm record-btn chat-pc-record" id="recordBtn" title="Nagrywaj mowę (ASR)">🎤 Mów</button>
+            <div class="chat-pc-mode" role="group" aria-label="Wybór trybu czatu">
+              <button type="button" id="modePC" class="chat-pc-mode__btn active" title="Tylko lokalny model">PC</button>
+              <button type="button" id="modeAuto" class="chat-pc-mode__btn" title="Automatyczny wybór">Auto</button>
+              <button type="button" id="modeProxy" class="chat-pc-mode__btn" title="Przez Rider-Pi">Proxy</button>
+            </div>
+            <label class="chat-pc-toggle">
+              <input type="checkbox" id="tts" />
+              <span>Czytaj odpowiedzi (TTS)</span>
+            </label>
+          </div>
         </div>
       </div>
     </div>
@@ -82,7 +85,7 @@
     <div class="meta" id="latency"></div>
 
     <!-- Voice Provider status card (collapsible) -->
-    <section class="c-card u-mt-md" id="voice-status-section">
+    <section class="c-card chat-pc-card u-mt-md" id="voice-status-section">
       <div class="l-row">
         <h3 class="c-card__title">Status providera głosowego (ASR/TTS)</h3>
         <div class="u-spacer"></div>
@@ -101,7 +104,7 @@
     </section>
 
     <!-- PR Assistant section -->
-    <section class="c-card u-mt-xl" id="pr-assistant-section">
+    <section class="c-card chat-pc-card u-mt-xl" id="pr-assistant-section">
       <div class="l-row">
         <h2 class="c-card__title">Asystent PR</h2>
         <div class="u-spacer"></div>
@@ -116,7 +119,7 @@
         <!-- Knowledge base selection -->
         <div class="c-form-group u-mt-md">
           <label for="prKnowledgeBase">Baza wiedzy / dokumenty referencyjne</label>
-          <select id="pr-knowledge-base" multiple size="3">
+          <select id="pr-knowledge-base" class="chat-pc-knowledge" multiple size="3">
             <option value="">Ładowanie dokumentów...</option>
           </select>
           <p class="c-hint">Wybierz dokumenty, które posłużą jako kontekst (Ctrl+klik dla wielokrotnego wyboru)</p>
@@ -141,7 +144,7 @@
           <button class="c-btn" id="btnGeneratePr">Generuj PR</button>
         </div>
         <!-- Preview section -->
-        <div id="pr-preview" class="u-mt-lg" hidden>
+        <div id="pr-preview" class="chat-pc-card u-mt-lg" hidden>
           <h3>Podgląd sugerowanych zmian</h3>
           <div id="pr-suggestions" class="c-card u-mb-md"></div>
           <div class="l-row u-gap-sm">
@@ -149,7 +152,7 @@
             <button class="c-btn c-btn-sm" id="btnDiscardPreview">Odrzuć</button>
           </div>
         </div>
-        <div id="pr-result" class="u-mt-lg" hidden>
+        <div id="pr-result" class="chat-pc-card u-mt-lg" hidden>
           <h3>Wygenerowana treść PR</h3>
           <div class="c-kv u-mb-md">
             <div>Tytuł</div><div id="pr-title">—</div>
@@ -168,7 +171,7 @@
     </section>
 
     <!-- Benchmark section -->
-    <section class="c-card u-mt-xl" id="benchmark-section">
+    <section class="c-card chat-pc-card u-mt-xl" id="benchmark-section">
       <div class="l-row">
         <h2 class="c-card__title">Benchmark modeli</h2>
         <div class="u-spacer"></div>
@@ -309,15 +312,15 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
 
   function setSourceBadge(source, isReady) {
     if (!sourceBadge) return;
-    sourceBadge.className = 'source-indicator';
+    sourceBadge.className = 'chat-pc-pill';
     if (source === 'pc' && isReady) {
-      sourceBadge.classList.add('is-pc');
+      sourceBadge.classList.add('chat-pc-pill--pc');
       sourceBadge.textContent = '🖥️ PC (lokalny)';
     } else if (source === 'proxy') {
-      sourceBadge.classList.add('is-proxy');
+      sourceBadge.classList.add('chat-pc-pill--proxy');
       sourceBadge.textContent = '🔗 Proxy (Rider-Pi)';
     } else {
-      sourceBadge.classList.add('is-offline');
+      sourceBadge.classList.add('chat-pc-pill--offline');
       sourceBadge.textContent = '⚠️ Offline';
     }
   }
@@ -654,12 +657,12 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
       // Wypełnij szczegóły
       let detailsHtml = '';
       for (const result of data.results) {
-        detailsHtml += `<div class="benchmark-item">
+        detailsHtml += `<div class="chat-pc-card chat-pc-benchmark-item">
           <strong>Prompt:</strong> ${result.prompt}<br>
-          <div class="benchmark-runs">`;
+          <div class="chat-pc-benchmark-runs">`;
         for (const run of result.runs) {
-          const statusClass = run.status === 'completed' ? 'is-ok' : 'is-err';
-          detailsHtml += `<span class="benchmark-run ${statusClass}">
+          const statusClass = run.status === 'completed' ? 'chat-pc-benchmark-run--ok' : 'chat-pc-benchmark-run--err';
+          detailsHtml += `<span class="chat-pc-benchmark-run ${statusClass}">
             #${run.iteration}: ${run.latency_ms}ms, ${run.tokens || 0} tok
           </span>`;
         }
