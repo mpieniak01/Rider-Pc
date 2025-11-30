@@ -12,7 +12,7 @@ Ten dokument zbiera praktyczne wskazówki dla osób (i agentów) pracujących na
 ## Checklist przed PR
 
 1. `pre-commit run --all-files` – uruchomi `ruff` i `ruff-format` z automatycznymi poprawkami.
-2. `./config/agent/run_tests.sh` – replikuje to, co uruchamiany w Copilot coding agent (pytest dla `pc_client/tests` + `tests/test_project_issues.py`).
+2. `./config/agent/run_tests.sh` – replikuje to, co uruchamiane jest przez Copilot coding agent (pytest dla `pc_client/tests` + `tests/test_project_issues.py`).
 3. Jeżeli dotykasz frontendu:
    ```bash
    npm ci
