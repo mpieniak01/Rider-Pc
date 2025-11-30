@@ -16,6 +16,10 @@ fi
 # shellcheck disable=SC1090
 . "$VENV_PATH/bin/activate"
 
+# Check for required requirements and constraints files
+for file in "$ROOT/config/agent/requirements-test.txt" "$ROOT/config/agent/constraints.txt"; do
+  [ -f "$file" ] || { echo "Error: Required file not found: $file" >&2; exit 1; }
+done
 python -m pip install --upgrade pip
 python -m pip install -r "$ROOT/config/agent/requirements-test.txt" -c "$ROOT/config/agent/constraints.txt"
 
