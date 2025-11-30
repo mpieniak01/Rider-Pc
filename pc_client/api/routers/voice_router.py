@@ -9,7 +9,7 @@ from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse
 
 from pc_client.adapters import RestAdapter
-from pc_client.api.task_utils import build_voice_tts_task
+from pc_client.api.task_utils import build_voice_asr_task, build_voice_tts_task
 from pc_client.providers import VoiceProvider
 from pc_client.providers.base import TaskStatus
 
@@ -222,3 +222,122 @@ async def voice_tts(request: Request, payload: Optional[Dict[str, Any]] = None) 
             return _fallback_tts_response(str(exc) or "voice tts proxy failed")
 
     return _fallback_tts_response("voice provider unavailable")
+
+
+@router.post("/api/voice/asr")
+async def voice_asr(request: Request, payload: Optional[Dict[str, Any]] = None) -> JSONResponse:
+    """Transcribe speech to text locally or proxy to Rider-PI.
+
+    Parametry w payload:
+    - audio_data: dane audio w formacie base64 (wymagane)
+    - format: format audio (opcjonalne, domyślnie "wav")
+    - sample_rate: częstotliwość próbkowania (opcjonalne)
+    - language: język do rozpoznawania (opcjonalne)
+
+    Odpowiedź:
+    - text: rozpoznany tekst
+    - confidence: poziom pewności (0.0-1.0)
+    - language: wykryty język
+    - source: "pc" lub "proxy"
+    """
+    provider = _get_voice_provider(request)
+    if provider and provider.get_telemetry().get("initialized"):
+        task_payload = payload or {}
+        if not task_payload.get("audio_data"):
+            return JSONResponse(
+                {"ok": False, "error": "Brak danych audio (audio_data)"}, status_code=400
+            )
+
+        priority = getattr(request.app.state, "voice_asr_priority", 5)
+        envelope = build_voice_asr_task(task_payload, priority)
+        if not envelope:
+            return JSONResponse(
+                {"ok": False, "error": "Nie udało się zbudować zadania ASR"}, status_code=400
+            )
+
+        start_time = time.time()
+        result = await provider.process_task(envelope)
+        latency_ms = int((time.time() - start_time) * 1000)
+
+        if result.status != TaskStatus.COMPLETED or not result.result:
+            return JSONResponse(
+                {"ok": False, "error": result.error or "ASR processing failed", "source": "pc"},
+                status_code=502,
+            )
+
+        return JSONResponse(
+            {
+                "ok": True,
+                "text": result.result.get("text", ""),
+                "confidence": result.result.get("confidence", 0.0),
+                "language": result.result.get("language", "en"),
+                "source": "pc",
+                "latency_ms": latency_ms,
+                "meta": {
+                    "model": (result.meta or {}).get("model"),
+                    "engine": (result.meta or {}).get("engine"),
+                },
+            }
+        )
+
+    # Try proxy to Rider-PI
+    adapter: Optional[RestAdapter] = request.app.state.rest_adapter
+    if adapter:
+        try:
+            remote = await adapter.post_voice_asr(payload or {})
+            if isinstance(remote, dict) and not remote.get("error"):
+                remote["source"] = "proxy"
+                return JSONResponse(remote)
+            logger.warning("ASR proxy failed: %s", remote.get("error") if remote else "unknown")
+        except Exception as exc:  # pragma: no cover - network failure
+            logger.error("Voice ASR proxy failed: %s", exc)
+
+    return JSONResponse(
+        {
+            "ok": False,
+            "error": "Voice provider unavailable",
+            "hint": "Sprawdź czy ENABLE_PROVIDERS=true i ENABLE_VOICE_OFFLOAD=true",
+        },
+        status_code=503,
+    )
+
+
+@router.get("/api/providers/voice")
+async def providers_voice_status(request: Request) -> JSONResponse:
+    """Zwróć status providera głosowego (ASR/TTS).
+
+    Odpowiedź zawiera:
+    - initialized: czy provider jest zainicjalizowany
+    - status: "ready", "initializing" lub "not_configured"
+    - asr_model: nazwa modelu ASR
+    - tts_model: nazwa modelu TTS
+    - asr_available: czy ASR jest dostępne
+    - tts_available: czy TTS jest dostępne
+    - mode: tryb pracy (real/mock)
+    """
+    provider = _get_voice_provider(request)
+
+    if not provider:
+        return JSONResponse(
+            {
+                "initialized": False,
+                "status": "not_configured",
+                "hint": "VoiceProvider nie jest skonfigurowany. Ustaw ENABLE_PROVIDERS=true i ENABLE_VOICE_OFFLOAD=true",
+            }
+        )
+
+    telemetry = provider.get_telemetry()
+    initialized = telemetry.get("initialized", False)
+
+    return JSONResponse(
+        {
+            "initialized": initialized,
+            "status": "ready" if initialized else "initializing",
+            "asr_model": telemetry.get("asr_model"),
+            "tts_model": telemetry.get("tts_model"),
+            "asr_available": telemetry.get("asr_available", False),
+            "tts_available": telemetry.get("tts_available", False),
+            "sample_rate": telemetry.get("sample_rate"),
+            "mode": telemetry.get("mode", "unknown"),
+        }
+    )

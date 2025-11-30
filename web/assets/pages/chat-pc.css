@@ -181,3 +181,24 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Recording button */
+.page-chat-pc .record-btn {
+  transition: all 0.2s ease;
+}
+
+.page-chat-pc .record-btn.is-recording {
+  background: #c53030;
+  color: white;
+  animation: pulse-recording 1s infinite;
+}
+
+@keyframes pulse-recording {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Voice status section */
+.page-chat-pc #voice-status-section {
+  background: var(--color-bg-surface);
+}
