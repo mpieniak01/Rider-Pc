@@ -1,7 +1,7 @@
 # Zadanie #151: Nowa Funkcja X
 
 **Status:** :hourglass_flowing_sand: W trakcie
-**Link:** https://github.com/mpieniak01/rider-pc/issues/151
+**Link:** https://github.com/mock/repo/issues/151
 **Autor:** Nieprzypisane
 
 ## Cel
