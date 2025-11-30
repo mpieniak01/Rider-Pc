@@ -33,6 +33,7 @@ export const I18N = {
     home:          { pl: "Statusy", en: "Status" },
     google_home:   { pl: "Google Home", en: "Google Home" },
     chat:          { pl: "Chat", en: "Chat" },
+    chat_pc:       { pl: "Chat PC", en: "Chat PC" },
     lang_pl_title: { pl: "Przełącz na polski", en: "Switch to Polish" },
     lang_en_title: { pl: "Przełącz na angielski", en: "Switch to English" },
   },

@@ -1,0 +1,78 @@
+# Konfiguracja lokalnego providera tekstowego dla Chat PC Standalone
+# Ten plik definiuje ustawienia dla lokalnego modelu LLM (Ollama) używanego
+# w trybie standalone, gdy Rider-Pi jest niedostępny.
+#
+# Użycie:
+#   1. Ustaw zmienne środowiskowe:
+#      ENABLE_PROVIDERS=true
+#      ENABLE_TEXT_OFFLOAD=true
+#      TEXT_PROVIDER_CONFIG=config/providers_text_local.toml
+#   2. Uruchom Ollamę: ollama serve
+#   3. Pobierz model: ollama pull llama3.2:1b
+#   4. Uruchom Rider-PC: python -m pc_client.main
+
+[text]
+# Model Ollama do użycia (musi być pobrany przez `ollama pull`)
+# Zalecane modele dla Chat PC:
+#   - llama3.2:1b  - szybki, lekki (domyślny)
+#   - llama3.2:3b  - lepszy bilans jakości/szybkości
+#   - mistral:7b   - wyższa jakość, wolniejszy
+#   - codellama:7b - specjalizowany dla kodu
+model = "llama3.2:1b"
+
+# Maksymalna liczba tokenów w odpowiedzi
+max_tokens = 512
+
+# Temperatura generowania (0.0 - deterministyczne, 1.0 - kreatywne)
+temperature = 0.7
+
+# Parametry próbkowania
+top_p = 0.9
+top_k = 40
+
+# Adres serwera Ollama
+ollama_host = "http://localhost:11434"
+
+# Tryb mock (true = symulacja bez Ollama)
+use_mock = false
+
+# Włączony provider
+enabled = true
+
+# Priorytet w kolejce zadań
+priority = 3
+
+# Maksymalna liczba równoległych zadań
+max_concurrent_tasks = 2
+
+# Timeout dla zadań (sekundy)
+timeout_seconds = 60
+
+# Cache odpowiedzi
+enable_cache = true
+cache_ttl_seconds = 7200
+cache_max_size = 1000
+
+# NLU (Natural Language Understanding)
+nlu_enabled = true
+nlu_tasks = ["intent", "entities", "sentiment"]
+
+# Prompty systemowe dla różnych trybów
+[text.system_prompts]
+default = """Jesteś pomocnym asystentem AI działającym lokalnie na komputerze użytkownika.
+Odpowiadaj zwięźle i rzeczowo po polsku, chyba że użytkownik poprosi o inny język."""
+
+chat = """Jesteś przyjaznym asystentem konwersacyjnym. Odpowiadaj naturalnie i pomocnie.
+Pamiętaj kontekst rozmowy i dostosuj się do stylu użytkownika."""
+
+pr_generation = """Jesteś ekspertem od pisania opisów Pull Requestów i dokumentacji technicznej.
+Generuj profesjonalne, zwięzłe i jasne opisy zmian w kodzie.
+Używaj markdown dla formatowania. Odpowiadaj w języku podanym przez użytkownika."""
+
+code_review = """Jesteś doświadczonym programistą przeprowadzającym code review.
+Zwracaj uwagę na: czytelność kodu, potencjalne błędy, bezpieczeństwo i wydajność.
+Podawaj konkretne sugestie ulepszeń."""
+
+navigation = """Jesteś asystentem AI pomagającym w nawigacji robota.
+Podawaj jasne, zwięzłe instrukcje kierunkowe. Używaj określeń typu:
+przód, tył, lewo, prawo, obróć, stop."""
