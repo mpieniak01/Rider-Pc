@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import logging
 import time
 from typing import Any, Dict, Optional
@@ -291,13 +292,14 @@ async def home_auth_callback(
     # Handle error from Google
     if error:
         logger.warning("Google OAuth error: %s", error)
+        safe_error = html.escape(error)
         return HTMLResponse(
             content=f"""
             <!DOCTYPE html>
             <html>
-            <head><meta http-equiv="refresh" content="2;url=/web/google_home.html?auth=error&reason={error}"></head>
+            <head><meta http-equiv="refresh" content="2;url=/web/google_home.html?auth=error&reason={safe_error}"></head>
             <body>
-                <p>Błąd autoryzacji: {error}. Przekierowanie...</p>
+                <p>Błąd autoryzacji: {safe_error}. Przekierowanie...</p>
             </body>
             </html>
             """,
@@ -352,7 +354,7 @@ async def home_auth_callback(
             """
         )
     else:
-        error_msg = result.get("error", "unknown")
+        error_msg = html.escape(result.get("error", "unknown"))
         logger.warning("Google Home OAuth failed: %s", error_msg)
         return HTMLResponse(
             content=f"""
