@@ -244,16 +244,12 @@ async def voice_asr(request: Request, payload: Optional[Dict[str, Any]] = None) 
     if provider and provider.get_telemetry().get("initialized"):
         task_payload = payload or {}
         if not task_payload.get("audio_data"):
-            return JSONResponse(
-                {"ok": False, "error": "Brak danych audio (audio_data)"}, status_code=400
-            )
+            return JSONResponse({"ok": False, "error": "Brak danych audio (audio_data)"}, status_code=400)
 
         priority = getattr(request.app.state, "voice_asr_priority", 5)
         envelope = build_voice_asr_task(task_payload, priority)
         if not envelope:
-            return JSONResponse(
-                {"ok": False, "error": "Nie udało się zbudować zadania ASR"}, status_code=400
-            )
+            return JSONResponse({"ok": False, "error": "Nie udało się zbudować zadania ASR"}, status_code=400)
 
         start_time = time.time()
         result = await provider.process_task(envelope)

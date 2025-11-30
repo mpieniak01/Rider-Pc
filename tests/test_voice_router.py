@@ -88,12 +88,8 @@ class TestVoiceAsrEndpoint:
     @pytest.mark.asyncio
     async def test_voice_asr_without_provider(self, app):
         """Test ASR without provider returns 503."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
-            response = await client.post(
-                "/api/voice/asr", json={"audio_data": "dGVzdCBhdWRpbyBkYXRh"}
-            )
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/api/voice/asr", json={"audio_data": "dGVzdCBhdWRpbyBkYXRh"})
             assert response.status_code == 503
             data = response.json()
             assert data["ok"] is False
@@ -104,9 +100,7 @@ class TestVoiceAsrEndpoint:
         """Test ASR with missing audio data returns 400."""
         app.state.providers["voice"] = mock_voice_provider
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.post("/api/voice/asr", json={})
             assert response.status_code == 400
             data = response.json()
@@ -118,9 +112,7 @@ class TestVoiceAsrEndpoint:
         """Test ASR works with provider."""
         app.state.providers["voice"] = mock_voice_provider
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.post(
                 "/api/voice/asr",
                 json={
@@ -143,9 +135,7 @@ class TestProvidersVoiceEndpoint:
     @pytest.mark.asyncio
     async def test_providers_voice_no_provider(self, app):
         """Test status endpoint without provider returns not_configured."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.get("/api/providers/voice")
             assert response.status_code == 200
             data = response.json()
@@ -157,9 +147,7 @@ class TestProvidersVoiceEndpoint:
         """Test status endpoint returns provider info."""
         app.state.providers["voice"] = mock_voice_provider
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.get("/api/providers/voice")
             assert response.status_code == 200
             data = response.json()

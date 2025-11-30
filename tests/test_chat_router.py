@@ -79,9 +79,7 @@ class TestChatSendEndpoint:
     @pytest.mark.asyncio
     async def test_chat_send_missing_prompt(self, app):
         """Test chat send with missing prompt returns 400."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.post("/api/chat/send", json={})
             assert response.status_code == 400
             data = response.json()
@@ -91,9 +89,7 @@ class TestChatSendEndpoint:
     @pytest.mark.asyncio
     async def test_chat_send_no_provider_no_adapter(self, app):
         """Test chat send without provider or adapter returns 503."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.post("/api/chat/send", json={"msg": "Hello"})
             assert response.status_code == 503
             data = response.json()
@@ -105,9 +101,7 @@ class TestChatSendEndpoint:
         """Test chat send uses local provider when available."""
         app.state.text_provider = mock_text_provider
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.post("/api/chat/send", json={"msg": "Hello world"})
             assert response.status_code == 200
             data = response.json()
@@ -118,12 +112,8 @@ class TestChatSendEndpoint:
     @pytest.mark.asyncio
     async def test_chat_send_mode_pc_without_provider(self, app):
         """Test chat send with mode=pc but no provider returns 503."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
-            response = await client.post(
-                "/api/chat/send", json={"msg": "Hello", "mode": "pc"}
-            )
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/api/chat/send", json={"msg": "Hello", "mode": "pc"})
             assert response.status_code == 503
             data = response.json()
             assert data["ok"] is False
@@ -134,12 +124,8 @@ class TestChatSendEndpoint:
         """Test chat send with mode=proxy uses adapter."""
         app.state.rest_adapter = mock_rest_adapter
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
-            response = await client.post(
-                "/api/chat/send", json={"msg": "Hello", "mode": "proxy"}
-            )
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/api/chat/send", json={"msg": "Hello", "mode": "proxy"})
             assert response.status_code == 200
             data = response.json()
             assert data["ok"] is True
@@ -148,12 +134,8 @@ class TestChatSendEndpoint:
     @pytest.mark.asyncio
     async def test_chat_send_mode_proxy_without_adapter(self, app):
         """Test chat send with mode=proxy but no adapter returns 503."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
-            response = await client.post(
-                "/api/chat/send", json={"msg": "Hello", "mode": "proxy"}
-            )
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/api/chat/send", json={"msg": "Hello", "mode": "proxy"})
             assert response.status_code == 503
             data = response.json()
             assert data["ok"] is False
@@ -165,12 +147,8 @@ class TestChatSendEndpoint:
         app.state.text_provider = mock_text_provider
         app.state.rest_adapter = mock_rest_adapter
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
-            response = await client.post(
-                "/api/chat/send", json={"msg": "Hello", "mode": "auto"}
-            )
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/api/chat/send", json={"msg": "Hello", "mode": "auto"})
             assert response.status_code == 200
             data = response.json()
             assert data["ok"] is True
@@ -181,9 +159,7 @@ class TestChatSendEndpoint:
         """Test chat send falls back to proxy when no local provider."""
         app.state.rest_adapter = mock_rest_adapter
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.post("/api/chat/send", json={"msg": "Hello"})
             assert response.status_code == 200
             data = response.json()
@@ -197,9 +173,7 @@ class TestChatPcSendEndpoint:
     @pytest.mark.asyncio
     async def test_chat_pc_send_without_provider(self, app):
         """Test PC-only endpoint without provider returns 503."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.post("/api/chat/pc/send", json={"msg": "Hello"})
             assert response.status_code == 503
             data = response.json()
@@ -211,12 +185,8 @@ class TestChatPcSendEndpoint:
         """Test PC-only endpoint works with provider."""
         app.state.text_provider = mock_text_provider
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
-            response = await client.post(
-                "/api/chat/pc/send", json={"msg": "Test message"}
-            )
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/api/chat/pc/send", json={"msg": "Test message"})
             assert response.status_code == 200
             data = response.json()
             assert data["ok"] is True
@@ -228,9 +198,7 @@ class TestChatPcSendEndpoint:
         """Test PC-only endpoint with missing prompt returns 400."""
         app.state.text_provider = mock_text_provider
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.post("/api/chat/pc/send", json={})
             assert response.status_code == 400
             data = response.json()
@@ -244,9 +212,7 @@ class TestProvidersTextEndpoint:
     @pytest.mark.asyncio
     async def test_providers_text_no_provider(self, app):
         """Test status endpoint without provider returns not_configured."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.get("/api/providers/text")
             assert response.status_code == 200
             data = response.json()
@@ -258,9 +224,7 @@ class TestProvidersTextEndpoint:
         """Test status endpoint returns provider info."""
         app.state.text_provider = mock_text_provider
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.get("/api/providers/text")
             assert response.status_code == 200
             data = response.json()
@@ -276,12 +240,8 @@ class TestGeneratePrContentEndpoint:
     @pytest.mark.asyncio
     async def test_generate_pr_content_without_provider(self, app):
         """Test PR content generation without provider returns 503."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
-            response = await client.post(
-                "/api/chat/pc/generate-pr-content", json={"draft": "Test changes"}
-            )
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/api/chat/pc/generate-pr-content", json={"draft": "Test changes"})
             assert response.status_code == 503
             data = response.json()
             assert data["ok"] is False
@@ -291,12 +251,8 @@ class TestGeneratePrContentEndpoint:
         """Test PR content generation with missing draft returns 400."""
         app.state.text_provider = mock_text_provider
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
-            response = await client.post(
-                "/api/chat/pc/generate-pr-content", json={}
-            )
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/api/chat/pc/generate-pr-content", json={})
             assert response.status_code == 400
             data = response.json()
             assert data["ok"] is False
@@ -305,6 +261,7 @@ class TestGeneratePrContentEndpoint:
     @pytest.mark.asyncio
     async def test_generate_pr_content_success(self, app, mock_text_provider):
         """Test PR content generation with valid draft."""
+
         # Mock provider to return structured PR content
         async def mock_pr_task(task):
             return TaskResult(
@@ -322,9 +279,7 @@ PODSUMOWANIE: Nowa funkcja zwiększająca wydajność."""
         mock_text_provider.process_task = mock_pr_task
         app.state.text_provider = mock_text_provider
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.post(
                 "/api/chat/pc/generate-pr-content",
                 json={
@@ -419,13 +374,8 @@ class TestBenchmarkModelsEndpoint:
     @pytest.mark.asyncio
     async def test_benchmark_without_provider(self, app):
         """Test benchmark without provider returns 503."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
-            response = await client.post(
-                "/api/benchmark/models",
-                json={"prompt": "Test prompt"}
-            )
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/api/benchmark/models", json={"prompt": "Test prompt"})
             assert response.status_code == 503
             data = response.json()
             assert data["ok"] is False
@@ -435,9 +385,7 @@ class TestBenchmarkModelsEndpoint:
         """Test benchmark with missing prompts returns 400."""
         app.state.text_provider = mock_text_provider
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.post("/api/benchmark/models", json={})
             assert response.status_code == 400
             data = response.json()
@@ -449,12 +397,9 @@ class TestBenchmarkModelsEndpoint:
         """Test benchmark with single prompt succeeds."""
         app.state.text_provider = mock_text_provider
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.post(
-                "/api/benchmark/models",
-                json={"prompt": "Test benchmark prompt", "iterations": 1}
+                "/api/benchmark/models", json={"prompt": "Test benchmark prompt", "iterations": 1}
             )
             assert response.status_code == 200
             data = response.json()
@@ -469,15 +414,9 @@ class TestBenchmarkModelsEndpoint:
         """Test benchmark with multiple prompts succeeds."""
         app.state.text_provider = mock_text_provider
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.post(
-                "/api/benchmark/models",
-                json={
-                    "prompts": ["Prompt 1", "Prompt 2", "Prompt 3"],
-                    "iterations": 2
-                }
+                "/api/benchmark/models", json={"prompts": ["Prompt 1", "Prompt 2", "Prompt 3"], "iterations": 2}
             )
             assert response.status_code == 200
             data = response.json()
@@ -493,9 +432,7 @@ class TestKnowledgeDocumentsEndpoint:
     @pytest.mark.asyncio
     async def test_knowledge_documents_returns_list(self, app):
         """Test knowledge documents endpoint returns list."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.get("/api/knowledge/documents")
             assert response.status_code == 200
             data = response.json()
@@ -511,13 +448,8 @@ class TestPreviewPrChangesEndpoint:
     @pytest.mark.asyncio
     async def test_preview_without_provider(self, app):
         """Test preview without provider returns 503."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
-            response = await client.post(
-                "/api/chat/pc/preview-pr-changes",
-                json={"draft": "Test draft"}
-            )
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/api/chat/pc/preview-pr-changes", json={"draft": "Test draft"})
             assert response.status_code == 503
             data = response.json()
             assert data["ok"] is False
@@ -527,12 +459,8 @@ class TestPreviewPrChangesEndpoint:
         """Test preview with missing draft returns 400."""
         app.state.text_provider = mock_text_provider
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
-            response = await client.post(
-                "/api/chat/pc/preview-pr-changes", json={}
-            )
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/api/chat/pc/preview-pr-changes", json={})
             assert response.status_code == 400
             data = response.json()
             assert data["ok"] is False
@@ -541,6 +469,7 @@ class TestPreviewPrChangesEndpoint:
     @pytest.mark.asyncio
     async def test_preview_success(self, app, mock_text_provider):
         """Test preview with valid draft succeeds."""
+
         # Mock provider to return structured content
         async def mock_preview_task(task):
             return TaskResult(
@@ -560,16 +489,14 @@ SUGESTIE:
         mock_text_provider.process_task = mock_preview_task
         app.state.text_provider = mock_text_provider
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.post(
                 "/api/chat/pc/preview-pr-changes",
                 json={
                     "draft": "Test draft for preview",
                     "style": "detailed",
                     "language": "pl",
-                }
+                },
             )
             assert response.status_code == 200
             data = response.json()

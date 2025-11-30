@@ -218,9 +218,7 @@ async def initialize_text_provider(app: FastAPI) -> None:
             settings.enable_providers,
             settings.enable_text_offload,
         )
-        app.state.text_provider_status["hint"] = (
-            "Włącz ENABLE_PROVIDERS=true i ENABLE_TEXT_OFFLOAD=true w .env"
-        )
+        app.state.text_provider_status["hint"] = "Włącz ENABLE_PROVIDERS=true i ENABLE_TEXT_OFFLOAD=true w .env"
         return
 
     text_config = load_provider_config(settings.text_provider_config_path, "text")

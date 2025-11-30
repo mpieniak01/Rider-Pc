@@ -64,9 +64,7 @@ def _is_provider_ready(provider: Optional[TextProvider]) -> bool:
     return bool(telemetry.get("initialized"))
 
 
-async def _process_local_chat(
-    provider: TextProvider, prompt: str, payload: Dict[str, Any]
-) -> JSONResponse:
+async def _process_local_chat(provider: TextProvider, prompt: str, payload: Dict[str, Any]) -> JSONResponse:
     """Przetwórz żądanie czatu lokalnie przez TextProvider."""
     # Walidacja max_tokens
     max_tokens = payload.get("max_tokens")
@@ -131,9 +129,7 @@ async def _process_local_chat(
     )
 
 
-async def _process_proxy_chat(
-    adapter: RestAdapter, payload: Dict[str, Any]
-) -> JSONResponse:
+async def _process_proxy_chat(adapter: RestAdapter, payload: Dict[str, Any]) -> JSONResponse:
     """Prześlij żądanie czatu do Rider-PI przez proxy."""
     start_time = time.time()
     remote = await adapter.post_chat_send(payload or {})
@@ -487,7 +483,9 @@ def _parse_pr_content(generated_text: str, fallback_draft: str) -> Dict[str, str
 
     if not result["summary"]:
         # Użyj pierwszych 150 znaków opisu
-        result["summary"] = result["description"][:150] + "..." if len(result["description"]) > 150 else result["description"]
+        result["summary"] = (
+            result["description"][:150] + "..." if len(result["description"]) > 150 else result["description"]
+        )
 
     return result
 
@@ -587,10 +585,12 @@ async def benchmark_models(request: Request, payload: Dict[str, Any]) -> JSONRes
 
             prompt_results.append(run_result)
 
-        results.append({
-            "prompt": prompt[:100] + "..." if len(prompt) > 100 else prompt,
-            "runs": prompt_results,
-        })
+        results.append(
+            {
+                "prompt": prompt[:100] + "..." if len(prompt) > 100 else prompt,
+                "runs": prompt_results,
+            }
+        )
 
     # Oblicz podsumowanie
     telemetry = provider.get_telemetry()  # type: ignore
@@ -607,14 +607,18 @@ async def benchmark_models(request: Request, payload: Dict[str, Any]) -> JSONRes
 
     logger.info(
         "Benchmark completed: %d prompts, %d successful runs, avg latency: %dms",
-        len(prompts), successful_runs, summary["avg_latency_ms"]
+        len(prompts),
+        successful_runs,
+        summary["avg_latency_ms"],
     )
 
-    return JSONResponse({
-        "ok": True,
-        "results": results,
-        "summary": summary,
-    })
+    return JSONResponse(
+        {
+            "ok": True,
+            "results": results,
+            "summary": summary,
+        }
+    )
 
 
 @router.get("/api/knowledge/documents")
@@ -649,23 +653,27 @@ async def list_knowledge_documents(request: Request) -> JSONResponse:
                     filepath = os.path.join(root, file)
                     try:
                         stat = os.stat(filepath)
-                        documents.append({
-                            "name": file,
-                            "path": filepath,
-                            "size_bytes": stat.st_size,
-                            "category": os.path.basename(root),
-                        })
+                        documents.append(
+                            {
+                                "name": file,
+                                "path": filepath,
+                                "size_bytes": stat.st_size,
+                                "category": os.path.basename(root),
+                            }
+                        )
                     except OSError:
                         continue
 
     # Sortuj po kategorii i nazwie
     documents.sort(key=lambda d: (d["category"], d["name"]))
 
-    return JSONResponse({
-        "ok": True,
-        "documents": documents,
-        "total": len(documents),
-    })
+    return JSONResponse(
+        {
+            "ok": True,
+            "documents": documents,
+            "total": len(documents),
+        }
+    )
 
 
 @router.post("/api/chat/pc/preview-pr-changes")
@@ -716,6 +724,7 @@ async def preview_pr_changes(request: Request, payload: Dict[str, Any]) -> JSONR
     knowledge_context = []
     if knowledge_docs:
         import os
+
         for doc_path in knowledge_docs[:5]:  # Limit do 5 dokumentów
             if os.path.exists(doc_path) and os.path.isfile(doc_path):
                 try:
