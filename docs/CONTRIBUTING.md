@@ -1,31 +1,38 @@
-# Wkład w Rider-PC
+# Contributing to Rider-PC
 
-Ten dokument zbiera praktyczne wskazówki dla osób (i agentów) pracujących nad repozytorium.
+This reference collects the rules we follow when working on the repository (including Copilot coding agents).
 
-## Narzędzia i środowisko
+## Tooling & Environment
 
-- **Python 3.11** – instaluj dependencies z `requirements-ci.txt`, ciężkie modele są opcjonalne.
-- **pre-commit** – `pip install -r requirements-ci.txt && pre-commit install`.
-- **Copilot / agenty** – workflow `.github/workflows/copilot-setup-steps.yml` oraz skrypt `./config/agent/run_tests.sh` odtwarzają minimalne środowisko testowe.
-- **Pliki `.env`** są prywatne. Jeżeli potrzebujesz nowej zmiennej, zaktualizuj `/.env.example`, nie commituj realnych wartości.
+- **Python 3.11** – install dependencies from `requirements-ci.txt`; heavy ML packages stay optional.
+- **pre-commit** – run `pip install -r requirements-ci.txt && pre-commit install`.
+- **Copilot / agents** – `.github/workflows/copilot-setup-steps.yml` together with `./config/agent/run_tests.sh` reproduce the minimal test setup used by Copilot coding agent.
+- **`.env` files** remain local. If you need a new key, update `/.env.example` instead of committing secrets.
 
-## Checklist przed PR
+## Pull Request Checklist
 
-1. `pre-commit run --all-files` – uruchomi `ruff` i `ruff-format` z automatycznymi poprawkami.
-2. `./config/agent/run_tests.sh` – replikuje to, co uruchamiane jest przez Copilot coding agent (pytest dla `pc_client/tests` + `tests/test_project_issues.py`).
-3. Jeżeli dotykasz frontendu:
+1. `pre-commit run --all-files` (runs `ruff` + `ruff-format` with auto-fixes).
+2. `./config/agent/run_tests.sh` (executes pytest for `pc_client/tests` + `tests/test_project_issues.py`, just like Copilot).
+3. When touching frontend assets:
    ```bash
    npm ci
    npm run lint:css
    npm run css:size
    ```
-   (opcjonalnie `npm run css:audit`, gdy zmieniasz layout/menu).
-4. Ręcznie opisz w PR wszystkie kroki manualne (np. test wizualny, watchdog, integracje).
+   optionally `npm run css:audit` for layout changes.
+4. Describe manual verification steps (visual checks, watchdog runs, etc.) inside the PR.
 
-## Dokumentacja i odniesienia
+## Documentation & References
 
-- Szczegółowe wytyczne dla Copilot coding agent znajdują się w `.github/copilot-instructions.md`.
-- README posiada sekcję “Development Workflow” z najważniejszymi komendami Make (`make lint`, `make test`, itd.).
-- W przypadku dodania nowych endpointów/configów dopisz krótką notkę w odpowiednim pliku `docs/*.md`.
+- Copilot-specific tips live in `.github/copilot-instructions.md`.
+- The README “Development Workflow” section highlights the key Make targets (`make lint`, `make test`, …).
+- Whenever you introduce new endpoints/configs, mention them in the appropriate `docs/*.md`.
 
-Zastosowanie checklisty pozwala utrzymać spójność z CI oraz ułatwia współpracę z agentami Copilot.
+## CI Pipelines
+
+- **Quick Checks** – triggered on every push to `main`; include `ruff check` and a short `pytest pc_client/tests`. Even doc-only commits keep formatting enforced.
+- **CI Pipeline (PR)** – the full suite (`unit-tests`, `e2e-tests`, `css-ui-audit`) now runs only for pull requests. Both humans and Copilot agents go through this path.
+- **Copilot Setup Steps** – the agent-specific workflow is also PR-only, keeping merges to `main` quick.
+- **Quality / ruff** – linting jobs run in both Quick Checks and the PR pipeline, so code style is enforced everywhere.
+
+Sticking to this checklist keeps CI predictable and collaboration with Copilot agents smooth.
