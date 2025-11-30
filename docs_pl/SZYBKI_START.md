@@ -247,6 +247,97 @@ Gdy wybierzesz opcję "Utwórz nowy branch" + "Zainicjuj automatycznie":
 - **Błąd przy tworzeniu brancha**: Upewnij się, że token ma uprawnienia `repo` lub `Contents: Read and write`
 - **Konflikt przy przełączaniu brancha**: Zapisz lokalne zmiany przed utworzeniem nowego zadania
 
+## Chat PC Standalone
+
+Rider-PC oferuje tryb Chat PC Standalone, który umożliwia korzystanie z lokalnych modeli AI (Ollama) bez połączenia z Rider-Pi. Jest to idealne rozwiązanie do:
+- Pracy offline
+- Testowania lokalnych modeli LLM
+- Przetwarzania wrażliwych danych bez wysyłania ich na zewnętrzne serwery
+
+### Wymagania
+
+1. **Ollama** - lokalny serwer modeli LLM
+   ```bash
+   # Instalacja Ollama (Linux)
+   curl -fsSL https://ollama.com/install.sh | sh
+   
+   # Uruchom serwer
+   ollama serve
+   
+   # Pobierz model (zalecany dla szybkiego działania)
+   ollama pull llama3.2:1b
+   ```
+
+2. **Konfiguracja środowiska**
+   ```bash
+   export ENABLE_PROVIDERS=true
+   export ENABLE_TEXT_OFFLOAD=true
+   # Opcjonalnie: użyj dedykowanej konfiguracji
+   export TEXT_PROVIDER_CONFIG=config/providers_text_local.toml
+   ```
+
+### Uruchomienie
+
+```bash
+# Standardowe uruchomienie z obsługą Chat PC
+ENABLE_PROVIDERS=true ENABLE_TEXT_OFFLOAD=true python -m pc_client.main
+```
+
+### Interfejs Chat PC
+
+1. Otwórz przeglądarkę: `http://localhost:8000/chat-pc`
+2. Wybierz tryb:
+   - **PC** - wymuszony tryb lokalny (tylko Ollama)
+   - **Auto** - automatyczny wybór (preferuje lokalny, fallback na proxy)
+   - **Proxy** - wymuszony tryb przez Rider-Pi
+3. Status providera wyświetla się na górze strony:
+   - Model (np. `llama3.2:1b`)
+   - Silnik (`ollama` lub `mock`)
+   - Dostępność
+
+### API Endpointy
+
+| Endpoint | Metoda | Opis |
+|----------|--------|------|
+| `/api/chat/pc/send` | POST | Czat wyłącznie lokalny (503 jeśli brak providera) |
+| `/api/chat/send` | POST | Czat z automatycznym wyborem trybu (parametr `mode`) |
+| `/api/providers/text` | GET | Status providera tekstowego |
+| `/api/chat/pc/generate-pr-content` | POST | Generowanie treści PR z AI |
+
+### Asystent PR
+
+Chat PC zawiera wbudowaną funkcję generowania treści Pull Requestów:
+
+1. Rozwiń sekcję "Asystent PR" na stronie `/chat-pc`
+2. Wprowadź szkic zmian
+3. Wybierz styl (Szczegółowy/Zwięzły/Techniczny) i język
+4. Kliknij "Generuj PR"
+
+API:
+```bash
+curl -X POST http://localhost:8000/api/chat/pc/generate-pr-content \
+  -H "Content-Type: application/json" \
+  -d '{
+    "draft": "Dodaję nową funkcję X do modułu Y",
+    "style": "detailed",
+    "language": "pl"
+  }'
+```
+
+### Rozwiązywanie Problemów (Chat PC)
+
+**Provider niedostępny (status 503)**
+- Sprawdź czy Ollama działa: `curl http://localhost:11434/api/tags`
+- Upewnij się że model jest pobrany: `ollama list`
+- Sprawdź zmienne środowiskowe: `ENABLE_PROVIDERS=true`, `ENABLE_TEXT_OFFLOAD=true`
+
+**Wolne odpowiedzi**
+- Użyj mniejszego modelu: `ollama pull llama3.2:1b`
+- Sprawdź obciążenie GPU/CPU
+
+**Brak odpowiedzi w trybie proxy**
+- Sprawdź połączenie z Rider-Pi: `curl http://<RIDER_PI_HOST>:8080/healthz`
+
 ## Następne Kroki
 
 Przyszłe usprawnienia planowane:

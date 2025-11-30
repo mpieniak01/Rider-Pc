@@ -1,0 +1,183 @@
+/**
+ * Chat PC (Standalone) Page Styles - Rider-PC Dashboard
+ * Styles specific to standalone local chat interface (~130 lines)
+ * ------------------------------------------------------------------
+ */
+
+/* Page token overrides */
+.page-chat-pc {
+  --page-padding: var(--space-xl) var(--space-lg) 60px;
+  --card-radius: var(--radius-xl);
+  --card-padding: var(--space-lg);
+  --chat-mine: #1f3a57;
+  --chat-bot: #173149;
+  --chat-err: #4a1f27;
+  --chat-pc: #1a4d2e;
+}
+
+/* Status line */
+.page-chat-pc .status-line {
+  --status-line-spacing: var(--space-md);
+}
+
+/* Source indicator */
+.page-chat-pc .source-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.page-chat-pc .source-indicator.is-pc {
+  background: var(--chat-pc);
+  color: #a8e6cf;
+}
+
+.page-chat-pc .source-indicator.is-proxy {
+  background: #3d3d5c;
+  color: #b8b8d8;
+}
+
+.page-chat-pc .source-indicator.is-offline {
+  background: var(--chat-err);
+  color: #e8a8a8;
+}
+
+/* Provider status card */
+.page-chat-pc .provider-status-card {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--card-border);
+  margin-bottom: var(--space-lg);
+}
+
+.page-chat-pc .provider-status-info {
+  flex: 1;
+  min-width: 200px;
+}
+
+.page-chat-pc .provider-status-info h3 {
+  margin: 0 0 var(--space-xs);
+  font-size: var(--font-size-base);
+}
+
+.page-chat-pc .provider-status-actions {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+/* Chat board */
+.page-chat-pc .board {
+  min-height: 52vh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* Chat messages */
+.page-chat-pc .msg {
+  max-width: 78%;
+  padding: var(--space-lg) var(--space-md);
+  border-radius: var(--radius-lg);
+  line-height: var(--line-height-normal);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.page-chat-pc .msg.you {
+  align-self: flex-end;
+  background: var(--chat-mine);
+  border-top-right-radius: var(--radius-xxs);
+}
+
+.page-chat-pc .msg.bot {
+  align-self: flex-start;
+  background: var(--chat-bot);
+  border-top-left-radius: var(--radius-xxs);
+}
+
+.page-chat-pc .msg.bot.pc-source {
+  background: var(--chat-pc);
+}
+
+.page-chat-pc .msg.err {
+  background: var(--chat-err);
+}
+
+.page-chat-pc .msg-meta {
+  font-size: var(--font-size-xs);
+  color: var(--color-fg-hint);
+  margin-top: var(--space-xs);
+}
+
+/* Compose area */
+.page-chat-pc .compose-row {
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+  align-items: flex-start;
+}
+
+.page-chat-pc textarea {
+  flex: 1;
+  min-height: 64px;
+  max-height: 220px;
+  resize: vertical;
+  background: var(--color-bg-input);
+  color: inherit;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  font: inherit;
+}
+
+.page-chat-pc .side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 260px;
+  max-width: 360px;
+}
+
+/* Mode selector */
+.page-chat-pc .mode-selector {
+  display: flex;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  background: var(--color-bg-input);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--card-border);
+}
+
+.page-chat-pc .mode-selector button {
+  flex: 1;
+  padding: var(--space-sm) var(--space-md);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-fg-muted);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium);
+  transition: all 0.2s ease;
+}
+
+.page-chat-pc .mode-selector button:hover {
+  background: var(--color-bg-hover);
+}
+
+.page-chat-pc .mode-selector button.active {
+  background: var(--color-accent);
+  color: var(--color-fg-base);
+}
+
+.page-chat-pc .mode-selector button[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -234,6 +234,7 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
             "home": "home.html",
             "google_home": "google_home.html",
             "chat": "chat.html",
+            "chat-pc": "chat-pc.html",
             "providers": "providers.html",
             "project": "project.html",
             "models": "models.html",
