@@ -93,7 +93,8 @@ def test_home_auth_url_enabled(tmp_path):
     body = resp.json()
     assert body["ok"] is True
     assert "auth_url" in body
-    assert "accounts.google.com" in body["auth_url"]
+    # Verify the auth URL starts with Google's OAuth endpoint
+    assert body["auth_url"].startswith("https://accounts.google.com/o/oauth2/")
     assert "state" in body
     assert "expires_at" in body
 

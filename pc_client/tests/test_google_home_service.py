@@ -217,7 +217,8 @@ class TestGoogleHomeService:
 
         assert result["ok"] is True
         assert "auth_url" in result
-        assert "accounts.google.com" in result["auth_url"]
+        # Verify the auth URL starts with Google's OAuth endpoint
+        assert result["auth_url"].startswith("https://accounts.google.com/o/oauth2/")
         assert "state" in result
         assert "expires_at" in result
 
