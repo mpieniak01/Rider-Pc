@@ -87,3 +87,6 @@ Przygotować plan przebudowy, który pozwoli:
 ## Mapowanie faz rozwoju modeli tekstowych
 - **Faza I – lokalne modele (ten plan)**: docelowy tryb działania – uruchamiamy `TextProvider`, nowy ekran `chat-pc.html` i wspólną instancję LLM ładowaną lokalnie.
 - **Faza II – modele Gemini/OpenAI (opcja B)**: kanał komunikacji ze światem zewnętrznym, gdy chcemy porównać wyniki lub świadomie użyć chmury. Kod Rider-Pi obsługuje Gemini/OpenAI (`pc_client/api/routers/voice_router.py:107-137` – placeholdery w Rider-PC). Jeśli będzie potrzeba, dobudujemy mostek z Chat PC do istniejących usług chmurowych, ale nie jest to priorytet tej rundy.
+
+## Proponowany opis PR
+„Dodajemy plan i wizję Chat PC (Standalone) dla Rider-PC. Dokument `docs_pl/_to_do/205_chat_pc_standalone.md` zawiera zakres backendu, UI, telemetrii i polityki testowej (w tym benchmark modeli i integrację z Project/PR editor). `docs_pl/_to_do/wizja_domen_Rider-PC.md` został uzupełniony o sekcję "Nowe inicjatywy (2025)" w domenie Modele Lokalnie – opisuje Chat PC Standalone, wspólną instancję LLM i benchmark. Ten PR dostarcza dokumentację planu; szczegóły implementacyjne są w powyższych plikach, brak zmian w kodzie.”
