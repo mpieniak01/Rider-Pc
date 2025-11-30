@@ -106,7 +106,7 @@ class TestGoogleHomeService:
         assert result["ok"] is True
         assert "auth_url" in result
         assert "state" in result
-        assert "accounts.google.com" in result["auth_url"]
+        assert result["auth_url"].startswith("https://accounts.google.com/")
         assert "code_challenge" in result["auth_url"]
 
     def test_start_auth_session_pkce_params(self):

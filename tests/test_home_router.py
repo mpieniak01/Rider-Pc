@@ -90,7 +90,7 @@ def test_home_auth_url_endpoint_configured(tmp_path):
     body = resp.json()
     assert body["ok"] is True
     assert "auth_url" in body
-    assert "accounts.google.com" in body["auth_url"]
+    assert body["auth_url"].startswith("https://accounts.google.com/")
     assert "state" in body
 
 
