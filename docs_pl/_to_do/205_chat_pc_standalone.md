@@ -40,7 +40,7 @@
 - [x] Testy API (pytest) dla nowych ścieżek: lokalny sukces, brak promptu, brak providerów, tryb proxy.
 - [x] Scenariusz manualny „Rider-Pi offline" w `docs_pl/SZYBKI_START.md` (jak uruchomić Chat PC standalone).
 - [x] Zaktualizować `wizja_domen_Rider-PC.md` o rozdział „Chat PC (Standalone)" po implementacji.
-- [ ] Wbudować funkcję benchmarkową (UI + API) do przełączania modeli, wysyłania próbek testowych, mierzenia latencji i oceny odpowiedzi; wyniki zapisujemy w telemetry/logach.
+- [x] Wbudować funkcję benchmarkową (UI + API) do przełączania modeli, wysyłania próbek testowych, mierzenia latencji i oceny odpowiedzi; wyniki zapisujemy w telemetry/logach.
 
 ### 5. Integracja z modułem Project/PR editor
 Integracja Chat PC z edytorem projektów i PR to kluczowa funkcjonalność łącząca możliwości lokalnych modeli AI z przepływem pracy nad kodem i dokumentacją.
@@ -52,9 +52,9 @@ Integracja Chat PC z edytorem projektów i PR to kluczowa funkcjonalność łąc
 - [x] Dodać endpoint `/api/chat/pc/generate-pr-content` przyjmujący szkic PR i kontekst (powiązane issues, historia zmian, baza wiedzy).
 - [x] Rozbudować UI Chat PC o sekcję „Asystent PR" z możliwością:
   - [x] Wczytania szkicu PR (tekst lub link do issue/draftu).
-  - [ ] Podglądu sugerowanych zmian przed zatwierdzeniem.
-  - [ ] Wyboru bazy wiedzy/dokumentów referencyjnych do kontekstu.
-- [ ] Zaimplementować logikę łączenia szkiców z bazą wiedzy (RAG lub prompt engineering) w `TextProvider`.
+  - [x] Podglądu sugerowanych zmian przed zatwierdzeniem.
+  - [x] Wyboru bazy wiedzy/dokumentów referencyjnych do kontekstu.
+- [x] Zaimplementować logikę łączenia szkiców z bazą wiedzy (RAG lub prompt engineering) w `TextProvider`.
 - [x] Dodać testy jednostkowe i integracyjne dla nowych endpointów i logiki generowania treści PR.
 - [x] Opisać przepływ pracy „AI-assisted PR editing" w dokumentacji (`docs_pl/SZYBKI_START.md` lub dedykowany plik).
 

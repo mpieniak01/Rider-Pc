@@ -202,3 +202,68 @@
 .page-chat-pc #voice-status-section {
   background: var(--color-bg-surface);
 }
+
+/* Benchmark section */
+.page-chat-pc .benchmark-details {
+  margin-top: var(--space-md);
+}
+
+.page-chat-pc .benchmark-item {
+  padding: var(--space-md);
+  margin-bottom: var(--space-md);
+  background: var(--color-bg-input);
+  border-radius: var(--radius-md);
+}
+
+.page-chat-pc .benchmark-runs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.page-chat-pc .benchmark-run {
+  display: inline-block;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  background: var(--color-bg-surface);
+}
+
+.page-chat-pc .benchmark-run.is-ok {
+  background: var(--chat-pc);
+  color: #a8e6cf;
+}
+
+.page-chat-pc .benchmark-run.is-err {
+  background: var(--chat-err);
+  color: #e8a8a8;
+}
+
+/* PR Preview section */
+.page-chat-pc #pr-preview {
+  padding: var(--space-md);
+  background: var(--color-bg-input);
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--card-border);
+}
+
+.page-chat-pc #pr-suggestions ul {
+  margin: var(--space-sm) 0;
+  padding-left: var(--space-lg);
+}
+
+.page-chat-pc #pr-suggestions li {
+  margin-bottom: var(--space-xs);
+}
+
+/* Knowledge base selector */
+.page-chat-pc #pr-knowledge-base {
+  width: 100%;
+  min-height: 60px;
+  background: var(--color-bg-input);
+  color: inherit;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
+}

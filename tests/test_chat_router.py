@@ -411,3 +411,209 @@ class TestChatMode:
 
         assert _parse_chat_mode({"mode": "invalid"}) == ChatMode.AUTO
         assert _parse_chat_mode({}) == ChatMode.AUTO
+
+
+class TestBenchmarkModelsEndpoint:
+    """Tests for /api/benchmark/models endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_benchmark_without_provider(self, app):
+        """Test benchmark without provider returns 503."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/api/benchmark/models",
+                json={"prompt": "Test prompt"}
+            )
+            assert response.status_code == 503
+            data = response.json()
+            assert data["ok"] is False
+
+    @pytest.mark.asyncio
+    async def test_benchmark_missing_prompts(self, app, mock_text_provider):
+        """Test benchmark with missing prompts returns 400."""
+        app.state.text_provider = mock_text_provider
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post("/api/benchmark/models", json={})
+            assert response.status_code == 400
+            data = response.json()
+            assert data["ok"] is False
+            assert "prompts" in data["error"] or "prompt" in data["error"]
+
+    @pytest.mark.asyncio
+    async def test_benchmark_success_single_prompt(self, app, mock_text_provider):
+        """Test benchmark with single prompt succeeds."""
+        app.state.text_provider = mock_text_provider
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/api/benchmark/models",
+                json={"prompt": "Test benchmark prompt", "iterations": 1}
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert data["ok"] is True
+            assert "results" in data
+            assert "summary" in data
+            assert data["summary"]["total_prompts"] == 1
+            assert data["summary"]["total_iterations"] == 1
+
+    @pytest.mark.asyncio
+    async def test_benchmark_success_multiple_prompts(self, app, mock_text_provider):
+        """Test benchmark with multiple prompts succeeds."""
+        app.state.text_provider = mock_text_provider
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/api/benchmark/models",
+                json={
+                    "prompts": ["Prompt 1", "Prompt 2", "Prompt 3"],
+                    "iterations": 2
+                }
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert data["ok"] is True
+            assert len(data["results"]) == 3
+            assert data["summary"]["total_prompts"] == 3
+            assert data["summary"]["total_iterations"] == 6
+
+
+class TestKnowledgeDocumentsEndpoint:
+    """Tests for /api/knowledge/documents endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_knowledge_documents_returns_list(self, app):
+        """Test knowledge documents endpoint returns list."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.get("/api/knowledge/documents")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["ok"] is True
+            assert "documents" in data
+            assert "total" in data
+            assert isinstance(data["documents"], list)
+
+
+class TestPreviewPrChangesEndpoint:
+    """Tests for /api/chat/pc/preview-pr-changes endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_preview_without_provider(self, app):
+        """Test preview without provider returns 503."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/api/chat/pc/preview-pr-changes",
+                json={"draft": "Test draft"}
+            )
+            assert response.status_code == 503
+            data = response.json()
+            assert data["ok"] is False
+
+    @pytest.mark.asyncio
+    async def test_preview_missing_draft(self, app, mock_text_provider):
+        """Test preview with missing draft returns 400."""
+        app.state.text_provider = mock_text_provider
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/api/chat/pc/preview-pr-changes", json={}
+            )
+            assert response.status_code == 400
+            data = response.json()
+            assert data["ok"] is False
+            assert "draft" in data["error"]
+
+    @pytest.mark.asyncio
+    async def test_preview_success(self, app, mock_text_provider):
+        """Test preview with valid draft succeeds."""
+        # Mock provider to return structured content
+        async def mock_preview_task(task):
+            return TaskResult(
+                task_id=task.task_id,
+                status=TaskStatus.COMPLETED,
+                result={
+                    "text": """TYTUŁ: Test Preview
+OPIS: Preview description here.
+PODSUMOWANIE: Short preview summary.
+SUGESTIE:
+- Add more details
+- Include references"""
+                },
+                meta={},
+            )
+
+        mock_text_provider.process_task = mock_preview_task
+        app.state.text_provider = mock_text_provider
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/api/chat/pc/preview-pr-changes",
+                json={
+                    "draft": "Test draft for preview",
+                    "style": "detailed",
+                    "language": "pl",
+                }
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert data["ok"] is True
+            assert "preview" in data
+            assert "suggestions" in data
+            assert data["preview"]["title"] == "Test Preview"
+
+
+class TestParsePrSuggestions:
+    """Tests for PR suggestions parsing helper function."""
+
+    def test_parse_suggestions_with_items(self):
+        """Test parsing PR suggestions with items."""
+        from pc_client.api.routers.chat_router import _parse_pr_suggestions
+
+        text = """TYTUŁ: Test
+OPIS: Description
+SUGESTIE:
+- First suggestion
+- Second suggestion
+- Third suggestion"""
+
+        result = _parse_pr_suggestions(text)
+        assert len(result) == 3
+        assert "First suggestion" in result[0]
+        assert "Second suggestion" in result[1]
+
+    def test_parse_suggestions_empty(self):
+        """Test parsing PR suggestions when none present."""
+        from pc_client.api.routers.chat_router import _parse_pr_suggestions
+
+        text = "Just some text without suggestions."
+        result = _parse_pr_suggestions(text)
+        assert len(result) == 0
+
+    def test_parse_suggestions_english_label(self):
+        """Test parsing PR suggestions with English label."""
+        from pc_client.api.routers.chat_router import _parse_pr_suggestions
+
+        text = """TITLE: Test
+SUGGESTIONS:
+- Suggestion A
+* Suggestion B"""
+
+        result = _parse_pr_suggestions(text)
+        assert len(result) == 2

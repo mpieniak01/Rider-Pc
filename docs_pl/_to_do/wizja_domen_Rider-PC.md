@@ -58,6 +58,9 @@ Warstwa wykonywania dużych modeli lokalnie (LM Studio, Ollama, pythonowe silnik
   * `/api/voice/asr` – endpoint rozpoznawania mowy (speech-to-text)
   * `/api/voice/tts` – synteza mowy (text-to-speech)
   * `/api/chat/pc/generate-pr-content` – generowanie treści PR z pomocą AI
+  * `/api/chat/pc/preview-pr-changes` – podgląd sugerowanych zmian PR przed zatwierdzeniem
+  * `/api/benchmark/models` – benchmark modeli (latencja, tokeny, wyniki)
+  * `/api/knowledge/documents` – lista dokumentów bazy wiedzy do kontekstu
 
 **Frontend (`web/chat-pc.html`):**
   * Przełącznik trybu: PC / Auto / Proxy z zapisem preferencji
@@ -65,6 +68,9 @@ Warstwa wykonywania dużych modeli lokalnie (LM Studio, Ollama, pythonowe silnik
   * Nagrywanie mowy (ASR) z przyciskiem „🎤 Mów"
   * Odczytywanie odpowiedzi (TTS) z checkbox
   * Sekcja „Asystent PR" do generowania treści PR na podstawie szkiców
+  * Podgląd sugerowanych zmian PR przed zatwierdzeniem
+  * Wybór dokumentów bazy wiedzy jako kontekst dla generowania
+  * Sekcja „Benchmark modeli" do testowania wydajności AI
   * Oddzielna historia wiadomości w sessionStorage (izolacja od klasycznego czatu)
 
 **Diagnostyka i fallback:**
