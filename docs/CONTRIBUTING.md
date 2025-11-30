@@ -16,7 +16,7 @@ Ten dokument zbiera praktyczne wskazówki dla osób (i agentów) pracujących na
 3. Jeżeli dotykasz frontendu:
    ```bash
    npm ci
-    npm run lint:css
+   npm run lint:css
    npm run css:size
    ```
    (opcjonalnie `npm run css:audit`, gdy zmieniasz layout/menu).
