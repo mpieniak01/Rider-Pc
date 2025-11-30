@@ -32,7 +32,6 @@ Przygotować plan przebudowy, który pozwoli:
 
 ### 2. Backend FastAPI (Rider-PC)
 - [ ] Rozszerzyć router `chat_router.py`: jawny parametr `mode=pc|proxy`, walidacja i komunikaty błędów (np. 503 gdy brak providerów lokalnych).
-- [ ] Dodać nowy endpoint `/api/chat/pc/send` (alias) z wymuszeniem lokalnego `TextProvider`, bez odwołań do `RestAdapter`.
 - [ ] Zapewnić health endpoint (np. `/api/providers/text`) zwracający `initialized`, model, engine — do wykorzystania przez UI.
 - [ ] Ujednolicić kanały przetwarzania: dodać/lokalizować endpointy dla ASR (`/api/voice/asr`), TTS (`/api/voice/tts`) i tekst→tekst tak, by Chat PC mógł działać w 100% lokalnie.
 
@@ -61,7 +60,7 @@ Przygotować plan przebudowy, który pozwoli:
 - **Testy manualne**: checklisty w `docs_pl/SZYBKI_START.md` uzupełnione o scenariusz „Rider-Pi offline” i „przełączenie modelu lokalny ↔ chmurowy”.
 - **Testy regresji CSS**: nowe strony dopisujemy do `scripts/css_audit.py` i `scripts/css_coverage.py`.
 - **Benchmark modeli**: funkcja benchmarkowa ma swoje testy jednostkowe/integracyjne + scenariusz e2e klikający benchmark i sprawdzający logowanie metryk.
-- **Minimalizacja kosztu testów modeli**: scenariusze dotykające realnych modeli uruchamiamy tylko na najmniejszej konfiguracji (np. `llama3.2:1b`); pozostałe modele mockujemy.
+- **Minimalizacja kosztu testów modeli**: scenariusze dotykające realnych modeli uruchamiamy tylko na najmniejszej konfiguracji (np. `llama3`); pozostałe modele mockujemy.
 - **Polityka udoskonalania modeli**: przygotowujemy prompt „systemowy” i bazę wiedzy (notatki, dokumenty) – benchmark powinien pozwalać wybrać prompt/kontekst, a logi muszą zapisywać, z czym test był wykonywany.
 
 ## Plan realizacji (kolejność lead PR)
