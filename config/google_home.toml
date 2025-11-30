@@ -1,0 +1,75 @@
+# Google Home / Smart Device Management Configuration
+# To customize, copy to config/local/google_home.toml and modify as needed
+# 
+# Documentation: docs_pl/google-home-integration.md
+
+# -----------------------------------------------------------------------------
+# Google Home Configuration for Rider-PC
+# -----------------------------------------------------------------------------
+[google_home]
+# Enable native OAuth 2.0 flow (instead of proxying to Rider-Pi)
+# When true, Rider-PC handles authentication and SDM API communication directly
+# When false (default), requests are proxied to Rider-Pi
+enabled = false
+
+# Enable test mode for development (uses mock devices)
+# Useful for UI development without real Google credentials
+test_mode = false
+
+# -----------------------------------------------------------------------------
+# OAuth 2.0 Configuration
+# -----------------------------------------------------------------------------
+# These values should be set via environment variables for security:
+# - GOOGLE_CLIENT_ID
+# - GOOGLE_CLIENT_SECRET
+# - GOOGLE_DEVICE_ACCESS_PROJECT_ID
+#
+# Create credentials at: https://console.cloud.google.com/apis/credentials
+# Select "Web application" as the application type
+
+[google_home.oauth]
+# OAuth redirect URI - must match Authorized redirect URIs in Google Cloud Console
+redirect_uri = "http://localhost:8000/api/home/auth/callback"
+
+# OAuth scopes requested (do not modify unless you know what you're doing)
+scopes = [
+    "https://www.googleapis.com/auth/sdm.service",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile"
+]
+
+# -----------------------------------------------------------------------------
+# Token Storage
+# -----------------------------------------------------------------------------
+[google_home.storage]
+# Path to store OAuth tokens (relative to project root)
+# This file contains sensitive data - ensure it's in .gitignore
+tokens_path = "config/local/google_tokens_pc.json"
+
+# -----------------------------------------------------------------------------
+# Device Cache
+# -----------------------------------------------------------------------------
+[google_home.cache]
+# How long to cache device list (seconds)
+# Lower values mean more API calls, higher values mean staler data
+devices_ttl_seconds = 30
+
+# -----------------------------------------------------------------------------
+# API Endpoints (do not modify unless Google changes their API)
+# -----------------------------------------------------------------------------
+[google_home.api]
+sdm_base_url = "https://smartdevicemanagement.googleapis.com/v1"
+oauth_auth_url = "https://accounts.google.com/o/oauth2/v2/auth"
+oauth_token_url = "https://oauth2.googleapis.com/token"
+userinfo_url = "https://www.googleapis.com/oauth2/v3/userinfo"
+
+# -----------------------------------------------------------------------------
+# Logging
+# -----------------------------------------------------------------------------
+[google_home.logging]
+# Log level for Google Home operations
+# Options: DEBUG, INFO, WARNING, ERROR
+level = "INFO"
+
+# Log commands sent to devices (useful for debugging)
+log_commands = true
