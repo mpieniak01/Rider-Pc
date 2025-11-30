@@ -313,7 +313,7 @@ class GoogleHomeService:
             )
 
             if response.status_code != 200:
-                # Bezpieczna obsługa JSON decode w odpowiedzi błędnej
+                # Safe JSON decode handling for error response
                 if response.headers.get("content-type", "").startswith("application/json"):
                     try:
                         error_data = response.json()
@@ -329,13 +329,13 @@ class GoogleHomeService:
 
             token_data = response.json()
 
-            # Sprawdź obecność access_token
+            # Verify access_token is present
             access_token = token_data.get("access_token")
             if not access_token:
                 return {
                     "ok": False,
                     "error": "missing_access_token",
-                    "message": "Brak access_token w odpowiedzi Google OAuth.",
+                    "message": "Missing access_token in Google OAuth response.",
                 }
 
             # Calculate expiration time
@@ -425,7 +425,7 @@ class GoogleHomeService:
             token_data = response.json()
             expires_in = token_data.get("expires_in", 3600)
 
-            # Sprawdź obecność access_token
+            # Verify access_token is present
             access_token = token_data.get("access_token")
             if not access_token:
                 logger.error("Token refresh response missing access_token: %s", token_data)

@@ -150,7 +150,7 @@ import { initI18n, applyDom, t } from '/web/assets/i18n.js';
         // Update description with configuration info
         const missing = result.configuration_missing || [];
         if(missing.length > 0 && authDescription){
-          // Bezpieczne tworzenie elementów DOM bez innerHTML
+          // Safe DOM element creation without innerHTML
           authDescription.textContent = '';
           
           const strong = document.createElement('strong');
