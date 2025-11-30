@@ -1,0 +1,864 @@
+<!doctype html>
+<!--
+  Chat PC (Standalone) - Rider-PC
+  ================================
+  Ekran czatu działający w 100% lokalnie, niezależnie od Rider-Pi.
+  Obsługuje tryby: PC (wymuszony lokalny), Proxy (wymuszony Rider-Pi), Auto.
+-->
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Rider-PC: Chat PC (Standalone)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/web/assets/dashboard-common.css">
+<link rel="stylesheet" href="/web/assets/pages/chat-pc.css">
+</head>
+<body data-page="chat-pc" class="page page-chat page-chat-pc">
+  <!-- Header with Menu -->
+  <header class="layout-header" data-dashboard-menu-target></header>
+
+  <!-- Main content -->
+  <main class="layout-main">
+    <header class="page-header">
+      <div class="page-header__titles">
+        <h1 class="page-title"><span class="brand-accent">Rider-PC</span>: <span class="page-title-text">Chat PC (Standalone)</span></h1>
+        <p class="c-hint">Czat działający lokalnie z modelami AI na Twoim PC</p>
+      </div>
+      <div class="page-header__actions page-header__actions--small links text-legend">
+        <a href="/chat">Chat (klasyczny)</a>
+        <span class="u-sep">·</span>
+        <a href="/view">dashboard</a>
+      </div>
+    </header>
+
+    <!-- Provider status card -->
+    <div class="c-card chat-pc-status" id="provider-status">
+      <div class="chat-pc-status__info">
+        <h3>Status providera tekstowego</h3>
+        <dl id="provider-details" class="chat-pc-status__grid">
+          <div>
+            <dt>Status</dt>
+            <dd id="prov-status">Ładowanie...</dd>
+          </div>
+          <div>
+            <dt>Model</dt>
+            <dd id="prov-model">—</dd>
+          </div>
+          <div>
+            <dt>Silnik</dt>
+            <dd id="prov-engine">—</dd>
+          </div>
+        </dl>
+      </div>
+      <div class="chat-pc-status__actions">
+        <span id="source-badge" class="chat-pc-pill chat-pc-pill--offline">Offline</span>
+        <button class="c-btn c-btn-sm" id="btnRefreshStatus">Odśwież status</button>
+      </div>
+    </div>
+
+    <!-- Chat board -->
+    <div class="board c-card" id="board" aria-live="polite"></div>
+
+    <!-- Compose area -->
+    <div class="l-row compose-row">
+      <textarea id="input" placeholder="Napisz wiadomość… (Enter = wyślij, Shift+Enter = nowa linia)"></textarea>
+      <div class="side chat-pc-sidebar">
+        <div class="chat-pc-actions">
+          <button class="c-btn chat-pc-send" id="sendBtn">Wyślij</button>
+          <div class="chat-pc-controls">
+            <button class="c-btn c-btn-sm record-btn chat-pc-record" id="recordBtn" title="Nagrywaj mowę (ASR)">🎤 Mów</button>
+            <div class="chat-pc-mode" role="group" aria-label="Wybór trybu czatu">
+              <button type="button" id="modePC" class="chat-pc-mode__btn active" title="Tylko lokalny model">PC</button>
+              <button type="button" id="modeAuto" class="chat-pc-mode__btn" title="Automatyczny wybór">Auto</button>
+              <button type="button" id="modeProxy" class="chat-pc-mode__btn" title="Przez Rider-Pi">Proxy</button>
+            </div>
+            <label class="chat-pc-toggle">
+              <input type="checkbox" id="tts" />
+              <span>Czytaj odpowiedzi (TTS)</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Latency info -->
+    <div class="meta" id="latency"></div>
+
+    <!-- Voice Provider status card (collapsible) -->
+    <section class="c-card chat-pc-card u-mt-md" id="voice-status-section">
+      <div class="l-row">
+        <h3 class="c-card__title">Status providera głosowego (ASR/TTS)</h3>
+        <div class="u-spacer"></div>
+        <button class="c-btn c-btn-sm" id="btnToggleVoiceStatus">Rozwiń</button>
+      </div>
+      <div id="voice-status-content" hidden>
+        <div class="c-kv u-mb-md">
+          <div>Status</div><div id="voice-status">Ładowanie...</div>
+          <div>ASR Model</div><div id="voice-asr-model">—</div>
+          <div>TTS Model</div><div id="voice-tts-model">—</div>
+          <div>ASR dostępne</div><div id="voice-asr-available">—</div>
+          <div>TTS dostępne</div><div id="voice-tts-available">—</div>
+        </div>
+        <button class="c-btn c-btn-sm" id="btnRefreshVoiceStatus">Odśwież status głosu</button>
+      </div>
+    </section>
+
+    <!-- PR Assistant section -->
+    <section class="c-card chat-pc-card u-mt-xl" id="pr-assistant-section">
+      <div class="l-row">
+        <h2 class="c-card__title">Asystent PR</h2>
+        <div class="u-spacer"></div>
+        <button class="c-btn c-btn-sm" id="btnTogglePrAssistant">Rozwiń</button>
+      </div>
+      <div id="pr-assistant-content" hidden>
+        <p class="c-hint u-mb-md">Generuj treść PR na podstawie szkicu z pomocą lokalnego AI.</p>
+        <div class="c-form-group">
+          <label for="prDraft">Szkic PR / opis zmian</label>
+          <textarea id="prDraft" rows="4" placeholder="Opisz wprowadzone zmiany…"></textarea>
+        </div>
+        <!-- Knowledge base selection -->
+        <div class="c-form-group u-mt-md">
+          <label for="prKnowledgeBase">Baza wiedzy / dokumenty referencyjne</label>
+          <select id="pr-knowledge-base" class="chat-pc-knowledge" multiple size="3">
+            <option value="">Ładowanie dokumentów...</option>
+          </select>
+          <p class="c-hint">Wybierz dokumenty, które posłużą jako kontekst (Ctrl+klik dla wielokrotnego wyboru)</p>
+        </div>
+        <div class="l-row u-gap-md u-mt-md">
+          <div class="c-form-group">
+            <label for="prStyle">Styl</label>
+            <select id="prStyle">
+              <option value="detailed">Szczegółowy</option>
+              <option value="concise">Zwięzły</option>
+              <option value="technical">Techniczny</option>
+            </select>
+          </div>
+          <div class="c-form-group">
+            <label for="prLang">Język</label>
+            <select id="prLang">
+              <option value="pl">Polski</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+          <button class="c-btn c-btn-sm" id="btnPreviewPr" title="Podgląd sugestii przed zatwierdzeniem">Podgląd</button>
+          <button class="c-btn" id="btnGeneratePr">Generuj PR</button>
+        </div>
+        <!-- Preview section -->
+        <div id="pr-preview" class="chat-pc-card u-mt-lg" hidden>
+          <h3>Podgląd sugerowanych zmian</h3>
+          <div id="pr-suggestions" class="c-card u-mb-md"></div>
+          <div class="l-row u-gap-sm">
+            <button class="c-btn c-btn-sm" id="btnApplyPreview">Zastosuj sugestie</button>
+            <button class="c-btn c-btn-sm" id="btnDiscardPreview">Odrzuć</button>
+          </div>
+        </div>
+        <div id="pr-result" class="chat-pc-card u-mt-lg" hidden>
+          <h3>Wygenerowana treść PR</h3>
+          <div class="c-kv u-mb-md">
+            <div>Tytuł</div><div id="pr-title">—</div>
+          </div>
+          <div class="c-form-group">
+            <label>Opis</label>
+            <textarea id="pr-description" rows="6" readonly></textarea>
+          </div>
+          <div class="c-form-group">
+            <label>Podsumowanie</label>
+            <textarea id="pr-summary" rows="2" readonly></textarea>
+          </div>
+          <button class="c-btn c-btn-sm" id="btnCopyPr">Kopiuj do schowka</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Benchmark section -->
+    <section class="c-card chat-pc-card u-mt-xl" id="benchmark-section">
+      <div class="l-row">
+        <h2 class="c-card__title">Benchmark modeli</h2>
+        <div class="u-spacer"></div>
+        <button class="c-btn c-btn-sm" id="btnToggleBenchmark">Rozwiń</button>
+      </div>
+      <div id="benchmark-content" hidden>
+        <p class="c-hint u-mb-md">Testuj wydajność modeli AI przez wysyłanie próbek i mierzenie latencji.</p>
+        <div class="c-form-group">
+          <label for="benchmarkPrompts">Prompty testowe (jeden na linię)</label>
+          <textarea id="benchmarkPrompts" rows="4" placeholder="Wprowadź prompty testowe...
+Przykład: Wyjaśnij czym jest FastAPI
+Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
+        </div>
+        <div class="l-row u-gap-md u-mt-md">
+          <div class="c-form-group">
+            <label for="benchmarkIterations">Iteracje</label>
+            <select id="benchmarkIterations">
+              <option value="1">1</option>
+              <option value="3">3</option>
+              <option value="5">5</option>
+              <option value="10">10</option>
+            </select>
+          </div>
+          <div class="c-form-group">
+            <label for="benchmarkMaxTokens">Max tokenów</label>
+            <input type="number" id="benchmarkMaxTokens" value="256" min="32" max="2048">
+          </div>
+          <button class="c-btn" id="btnRunBenchmark">Uruchom benchmark</button>
+        </div>
+        <div id="benchmark-results" class="u-mt-lg" hidden>
+          <h3>Wyniki benchmarku</h3>
+          <div class="c-kv u-mb-md" id="benchmark-summary">
+            <div>Model</div><div id="bench-model">—</div>
+            <div>Silnik</div><div id="bench-engine">—</div>
+            <div>Średnia latencja</div><div id="bench-avg-latency">— ms</div>
+            <div>Udane / Wszystkie</div><div id="bench-success-rate">— / —</div>
+            <div>Łącznie tokenów</div><div id="bench-total-tokens">—</div>
+          </div>
+          <div id="benchmark-details" class="benchmark-details"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="layout-footer" data-dashboard-footer-target></footer>
+
+<script>
+(function(){
+  // DOM elements
+  const board = document.getElementById('board');
+  const input = document.getElementById('input');
+  const sendBtn = document.getElementById('sendBtn');
+  const recordBtn = document.getElementById('recordBtn');
+  const latency = document.getElementById('latency');
+  const statusLine = document.getElementById('status-line');
+  const sourceBadge = document.getElementById('source-badge');
+  const btnRefreshStatus = document.getElementById('btnRefreshStatus');
+  const modePCBtn = document.getElementById('modePC');
+  const modeAutoBtn = document.getElementById('modeAuto');
+  const modeProxyBtn = document.getElementById('modeProxy');
+  const ttsChk = document.getElementById('tts');
+
+  // PR Assistant elements
+  const btnTogglePrAssistant = document.getElementById('btnTogglePrAssistant');
+  const prAssistantContent = document.getElementById('pr-assistant-content');
+  const prDraft = document.getElementById('prDraft');
+  const prStyle = document.getElementById('prStyle');
+  const prLang = document.getElementById('prLang');
+  const btnGeneratePr = document.getElementById('btnGeneratePr');
+  const prResult = document.getElementById('pr-result');
+  const prTitle = document.getElementById('pr-title');
+  const prDescription = document.getElementById('pr-description');
+  const prSummary = document.getElementById('pr-summary');
+  const btnCopyPr = document.getElementById('btnCopyPr');
+  const prKnowledgeBase = document.getElementById('pr-knowledge-base');
+  const btnPreviewPr = document.getElementById('btnPreviewPr');
+  const prPreview = document.getElementById('pr-preview');
+  const prSuggestions = document.getElementById('pr-suggestions');
+  const btnApplyPreview = document.getElementById('btnApplyPreview');
+  const btnDiscardPreview = document.getElementById('btnDiscardPreview');
+
+  // Benchmark elements
+  const btnToggleBenchmark = document.getElementById('btnToggleBenchmark');
+  const benchmarkContent = document.getElementById('benchmark-content');
+  const benchmarkPrompts = document.getElementById('benchmarkPrompts');
+  const benchmarkIterations = document.getElementById('benchmarkIterations');
+  const benchmarkMaxTokens = document.getElementById('benchmarkMaxTokens');
+  const btnRunBenchmark = document.getElementById('btnRunBenchmark');
+  const benchmarkResults = document.getElementById('benchmark-results');
+  const benchModel = document.getElementById('bench-model');
+  const benchEngine = document.getElementById('bench-engine');
+  const benchAvgLatency = document.getElementById('bench-avg-latency');
+  const benchSuccessRate = document.getElementById('bench-success-rate');
+  const benchTotalTokens = document.getElementById('bench-total-tokens');
+  const benchmarkDetails = document.getElementById('benchmark-details');
+
+  // Voice status elements
+  const btnToggleVoiceStatus = document.getElementById('btnToggleVoiceStatus');
+  const voiceStatusContent = document.getElementById('voice-status-content');
+  const voiceStatus = document.getElementById('voice-status');
+  const voiceAsrModel = document.getElementById('voice-asr-model');
+  const voiceTtsModel = document.getElementById('voice-tts-model');
+  const voiceAsrAvailable = document.getElementById('voice-asr-available');
+  const voiceTtsAvailable = document.getElementById('voice-tts-available');
+  const btnRefreshVoiceStatus = document.getElementById('btnRefreshVoiceStatus');
+
+  // Provider status elements
+  const provStatus = document.getElementById('prov-status');
+  const provModel = document.getElementById('prov-model');
+  const provEngine = document.getElementById('prov-engine');
+
+  // State
+  let currentMode = 'pc';
+  let providerReady = false;
+  let voiceProviderReady = false;
+  let isRecording = false;
+  let mediaRecorder = null;
+  let audioChunks = [];
+  const urlParams = new URLSearchParams(window.location.search);
+  const auditMode = urlParams.get('audit') === '1';
+
+  // History storage (separate from classic chat)
+  const STORAGE_KEY = 'chat_pc_history';
+  const history = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '[]');
+  for (const item of history) appendMessage(item.role, item.text, item.error, item.source);
+
+  // Helpers
+  function setStatus(text, state) {
+    if (!statusLine) return;
+    statusLine.textContent = text;
+    let cls = 'status-line c-status-msg';
+    if (state === 'ok') cls += ' is-ok';
+    else if (state === 'warn') cls += ' is-warn';
+    else if (state === 'err') cls += ' is-err';
+    statusLine.className = cls;
+  }
+
+  function setSourceBadge(source, isReady) {
+    if (!sourceBadge) return;
+    sourceBadge.className = 'chat-pc-pill';
+    if (source === 'pc' && isReady) {
+      sourceBadge.classList.add('chat-pc-pill--pc');
+      sourceBadge.textContent = '🖥️ PC (lokalny)';
+    } else if (source === 'proxy') {
+      sourceBadge.classList.add('chat-pc-pill--proxy');
+      sourceBadge.textContent = '🔗 Proxy (Rider-Pi)';
+    } else {
+      sourceBadge.classList.add('chat-pc-pill--offline');
+      sourceBadge.textContent = '⚠️ Offline';
+    }
+  }
+
+  let saveTimeout;
+  function save(role, text, error, source) {
+    history.push({ role, text, error: !!error, source });
+    if (history.length > 200) history.shift();
+    // Debounce zapisu do sessionStorage: zapis po 500ms od ostatniej zmiany
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+    }, 500);
+  }
+
+  function appendMessage(role, text, isError, source) {
+    const el = document.createElement('div');
+    let cls = 'msg ' + (role === 'you' ? 'you' : 'bot');
+    if (isError) cls += ' err';
+    if (source === 'pc' && role === 'bot') cls += ' pc-source';
+    el.className = cls;
+    el.textContent = text;
+    if (source && role === 'bot') {
+      const meta = document.createElement('div');
+      meta.className = 'msg-meta';
+      meta.textContent = `Źródło: ${source === 'pc' ? 'lokalny model' : 'Rider-Pi proxy'}`;
+      el.appendChild(meta);
+    }
+    board.appendChild(el);
+    board.scrollTop = board.scrollHeight;
+  }
+
+  // Mode selection
+  function setMode(mode) {
+    currentMode = mode;
+    [modePCBtn, modeAutoBtn, modeProxyBtn].forEach(btn => btn.classList.remove('active'));
+    if (mode === 'pc') modePCBtn.classList.add('active');
+    else if (mode === 'auto') modeAutoBtn.classList.add('active');
+    else if (mode === 'proxy') modeProxyBtn.classList.add('active');
+    localStorage.setItem('chat_pc_mode', mode);
+  }
+
+  // Provider status
+  async function refreshProviderStatus() {
+    if (auditMode) {
+      provStatus.textContent = 'ready';
+      provModel.textContent = 'llama3.2:1b (mock)';
+      provEngine.textContent = 'mock';
+      providerReady = true;
+      setSourceBadge('pc', true);
+      return;
+    }
+    try {
+      const res = await fetch('/api/providers/text', { cache: 'no-store' });
+      const data = await res.json();
+      providerReady = data.initialized === true;
+      provStatus.textContent = data.status || (providerReady ? 'ready' : 'offline');
+      provModel.textContent = data.model || '—';
+      provEngine.textContent = data.engine || '—';
+      setSourceBadge(currentMode === 'proxy' ? 'proxy' : 'pc', providerReady);
+
+      // Disable PC mode if provider not ready
+      if (!providerReady && currentMode === 'pc') {
+        modePCBtn.disabled = true;
+        setMode('auto');
+      } else {
+        modePCBtn.disabled = false;
+      }
+    } catch (err) {
+      console.error('Provider status error:', err);
+      provStatus.textContent = 'błąd';
+      providerReady = false;
+      setSourceBadge('offline', false);
+    }
+  }
+
+  // Chat API
+  async function callChat(promptText) {
+    const endpoint = currentMode === 'pc' ? '/api/chat/pc/send' : '/api/chat/send';
+    const payload = { msg: promptText, user: 'web-pc' };
+    if (currentMode !== 'pc') payload.mode = currentMode;
+
+    const t0 = performance.now();
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const t1 = performance.now();
+    latency.textContent = `Czas odpowiedzi: ${(t1 - t0).toFixed(0)} ms`;
+
+    if (!res.ok) {
+      const errData = await res.json().catch((parseErr) => {
+        console.warn('Nie udało się sparsować odpowiedzi błędu:', parseErr);
+        return { error: `HTTP ${res.status}: ${res.statusText}` };
+      });
+      throw new Error(errData.error || errData.hint || `HTTP ${res.status}`);
+    }
+    return res.json();
+  }
+
+  async function speak(text) {
+    const res = await fetch('/api/voice/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, backend: 'piper' }),
+    });
+    if (!res.ok) throw new Error(`TTS HTTP ${res.status}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    await audio.play().catch(() => {});
+    setTimeout(() => URL.revokeObjectURL(url), 15000);
+  }
+
+  async function send() {
+    const text = (input.value || '').trim();
+    if (!text) return;
+    input.value = '';
+    setStatus('Wysyłam…', 'warn');
+    sendBtn.disabled = true;
+
+    appendMessage('you', text, false, null);
+    save('you', text, false, null);
+
+    try {
+      const data = await callChat(text);
+      const reply = data.reply || data.text || data.message || JSON.stringify(data);
+      const source = data.source || 'unknown';
+      appendMessage('bot', reply, false, source);
+      save('bot', reply, false, source);
+      setStatus('OK', 'ok');
+      setSourceBadge(source, providerReady);
+
+      if (ttsChk.checked) {
+        try {
+          await speak(reply);
+        } catch (e) {
+          appendMessage('bot', '⚠️ TTS: ' + (e.message || e), true, null);
+        }
+      }
+    } catch (e) {
+      const msg = e.message || String(e);
+      appendMessage('bot', 'Błąd: ' + msg, true, null);
+      save('bot', 'Błąd: ' + msg, true, null);
+      setStatus('Błąd', 'err');
+    } finally {
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  }
+
+  // PR Assistant
+  async function generatePrContent() {
+    const draft = (prDraft.value || '').trim();
+    if (!draft) {
+      alert('Wprowadź szkic PR');
+      return;
+    }
+    btnGeneratePr.disabled = true;
+    btnGeneratePr.textContent = 'Generuję…';
+
+    try {
+      const res = await fetch('/api/chat/pc/generate-pr-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          draft,
+          style: prStyle.value,
+          language: prLang.value,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      prTitle.textContent = data.title || '—';
+      prDescription.value = data.description || '';
+      prSummary.value = data.summary || '';
+      prResult.hidden = false;
+    } catch (e) {
+      alert('Błąd generowania: ' + (e.message || e));
+    } finally {
+      btnGeneratePr.disabled = false;
+      btnGeneratePr.textContent = 'Generuj PR';
+    }
+  }
+
+  function copyPrToClipboard() {
+    const text = `# ${prTitle.textContent}\n\n${prDescription.value}\n\n## Podsumowanie\n${prSummary.value}`;
+    navigator.clipboard.writeText(text).then(
+      () => { btnCopyPr.textContent = '✓ Skopiowano!'; setTimeout(() => { btnCopyPr.textContent = 'Kopiuj do schowka'; }, 2000); },
+      () => alert('Nie udało się skopiować')
+    );
+  }
+
+  // Knowledge base loading
+  let knowledgeDocuments = [];
+  async function loadKnowledgeDocuments() {
+    if (auditMode) {
+      prKnowledgeBase.innerHTML = `
+        <option value="docs_pl/SZYBKI_START.md">SZYBKI_START.md (mock)</option>
+        <option value="docs_pl/styleguide.md">styleguide.md (mock)</option>
+      `;
+      return;
+    }
+    try {
+      const res = await fetch('/api/knowledge/documents', { cache: 'no-store' });
+      const data = await res.json();
+      if (data.ok && data.documents.length > 0) {
+        knowledgeDocuments = data.documents;
+        prKnowledgeBase.innerHTML = data.documents.map(doc =>
+          `<option value="${doc.path}">${doc.name} (${doc.category})</option>`
+        ).join('');
+      } else {
+        prKnowledgeBase.innerHTML = '<option value="">Brak dokumentów</option>';
+      }
+    } catch (err) {
+      console.error('Knowledge documents error:', err);
+      prKnowledgeBase.innerHTML = '<option value="">Błąd ładowania</option>';
+    }
+  }
+
+  // PR Preview
+  let previewData = null;
+  async function previewPrChanges() {
+    const draft = (prDraft.value || '').trim();
+    if (!draft) {
+      alert('Wprowadź szkic PR');
+      return;
+    }
+    btnPreviewPr.disabled = true;
+    btnPreviewPr.textContent = 'Ładuję…';
+
+    // Pobierz wybrane dokumenty
+    const selectedDocs = Array.from(prKnowledgeBase.selectedOptions).map(opt => opt.value).filter(v => v);
+
+    try {
+      const res = await fetch('/api/chat/pc/preview-pr-changes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          draft,
+          current_content: prDescription.value || '',
+          knowledge_documents: selectedDocs,
+          style: prStyle.value,
+          language: prLang.value,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      previewData = data;
+
+      // Wyświetl sugestie
+      if (data.suggestions && data.suggestions.length > 0) {
+        prSuggestions.innerHTML = `
+          <h4>Sugestie ulepszeń:</h4>
+          <ul>${data.suggestions.map(s => `<li>${s}</li>`).join('')}</ul>
+          <p class="c-hint">Znalezione dokumenty kontekstu: ${data.knowledge_used || 0}</p>
+        `;
+      } else {
+        prSuggestions.innerHTML = '<p class="c-hint">Brak dodatkowych sugestii.</p>';
+      }
+      prPreview.hidden = false;
+      prResult.hidden = true;
+    } catch (e) {
+      alert('Błąd podglądu: ' + (e.message || e));
+    } finally {
+      btnPreviewPr.disabled = false;
+      btnPreviewPr.textContent = 'Podgląd';
+    }
+  }
+
+  function applyPreviewChanges() {
+    if (!previewData || !previewData.preview) return;
+    prTitle.textContent = previewData.preview.title || '—';
+    prDescription.value = previewData.preview.description || '';
+    prSummary.value = previewData.preview.summary || '';
+    prPreview.hidden = true;
+    prResult.hidden = false;
+    previewData = null;
+  }
+
+  function discardPreview() {
+    prPreview.hidden = true;
+    previewData = null;
+  }
+
+  // Benchmark
+  async function runBenchmark() {
+    const promptsText = (benchmarkPrompts.value || '').trim();
+    if (!promptsText) {
+      alert('Wprowadź co najmniej jeden prompt testowy');
+      return;
+    }
+
+    const prompts = promptsText.split('\n').map(p => p.trim()).filter(p => p);
+    if (prompts.length === 0) {
+      alert('Wprowadź co najmniej jeden prompt testowy');
+      return;
+    }
+
+    btnRunBenchmark.disabled = true;
+    btnRunBenchmark.textContent = 'Trwa benchmark…';
+    benchmarkResults.hidden = true;
+
+    try {
+      const res = await fetch('/api/benchmark/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompts,
+          iterations: parseInt(benchmarkIterations.value, 10),
+          max_tokens: parseInt(benchmarkMaxTokens.value, 10) || 256,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+
+      // Wypełnij podsumowanie
+      benchModel.textContent = data.summary.model || '—';
+      benchEngine.textContent = data.summary.engine || '—';
+      benchAvgLatency.textContent = `${data.summary.avg_latency_ms} ms`;
+      benchSuccessRate.textContent = `${data.summary.successful_runs} / ${data.summary.total_iterations}`;
+      benchTotalTokens.textContent = data.summary.total_tokens;
+
+      // Wypełnij szczegóły
+      let detailsHtml = '';
+      for (const result of data.results) {
+        detailsHtml += `<div class="chat-pc-card chat-pc-benchmark-item">
+          <strong>Prompt:</strong> ${result.prompt}<br>
+          <div class="chat-pc-benchmark-runs">`;
+        for (const run of result.runs) {
+          const statusClass = run.status === 'completed' ? 'chat-pc-benchmark-run--ok' : 'chat-pc-benchmark-run--err';
+          detailsHtml += `<span class="chat-pc-benchmark-run ${statusClass}">
+            #${run.iteration}: ${run.latency_ms}ms, ${run.tokens || 0} tok
+          </span>`;
+        }
+        detailsHtml += '</div></div>';
+      }
+      benchmarkDetails.innerHTML = detailsHtml;
+      benchmarkResults.hidden = false;
+
+    } catch (e) {
+      alert('Błąd benchmarku: ' + (e.message || e));
+    } finally {
+      btnRunBenchmark.disabled = false;
+      btnRunBenchmark.textContent = 'Uruchom benchmark';
+    }
+  }
+
+  // Voice provider status
+  async function refreshVoiceStatus() {
+    if (auditMode) {
+      voiceStatus.textContent = 'ready (mock)';
+      voiceAsrModel.textContent = 'base (mock)';
+      voiceTtsModel.textContent = 'en_US-lessac-medium (mock)';
+      voiceAsrAvailable.textContent = '✓ Tak';
+      voiceTtsAvailable.textContent = '✓ Tak';
+      voiceProviderReady = true;
+      return;
+    }
+    try {
+      const res = await fetch('/api/providers/voice', { cache: 'no-store' });
+      const data = await res.json();
+      voiceProviderReady = data.initialized === true;
+      voiceStatus.textContent = data.status || (voiceProviderReady ? 'ready' : 'offline');
+      voiceAsrModel.textContent = data.asr_model || '—';
+      voiceTtsModel.textContent = data.tts_model || '—';
+      voiceAsrAvailable.textContent = data.asr_available ? '✓ Tak' : '✗ Nie';
+      voiceTtsAvailable.textContent = data.tts_available ? '✓ Tak' : '✗ Nie';
+      recordBtn.disabled = !voiceProviderReady;
+    } catch (err) {
+      console.error('Voice status error:', err);
+      voiceStatus.textContent = 'błąd';
+      voiceProviderReady = false;
+      recordBtn.disabled = true;
+    }
+  }
+
+  // ASR (Speech-to-Text) - nagrywanie mowy
+  async function startRecording() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert('Twoja przeglądarka nie obsługuje nagrywania dźwięku.');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      audioChunks = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(track => track.stop());
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        await transcribeAudio(audioBlob);
+      };
+
+      mediaRecorder.start();
+      isRecording = true;
+      recordBtn.textContent = '⏹️ Stop';
+      recordBtn.classList.add('is-recording');
+      setStatus('Nagrywanie...', 'warn');
+    } catch (err) {
+      console.error('Recording error:', err);
+      alert('Nie udało się uzyskać dostępu do mikrofonu: ' + err.message);
+    }
+  }
+
+  function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+    }
+    isRecording = false;
+    recordBtn.textContent = '🎤 Mów';
+    recordBtn.classList.remove('is-recording');
+    setStatus('Przetwarzanie mowy...', 'warn');
+  }
+
+  async function transcribeAudio(audioBlob) {
+    try {
+      // Convert blob to base64
+      const reader = new FileReader();
+      reader.readAsDataURL(audioBlob);
+      const base64Audio = await new Promise((resolve) => {
+        reader.onloadend = () => resolve(reader.result.split(',')[1]);
+      });
+
+      const res = await fetch('/api/voice/asr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audio_data: base64Audio,
+          format: 'webm',
+        }),
+      });
+      const data = await res.json();
+      if (data.ok && data.text) {
+        input.value = (input.value ? input.value + ' ' : '') + data.text;
+        setStatus('Rozpoznano mowę', 'ok');
+        latency.textContent = `ASR: ${data.latency_ms || 0} ms`;
+      } else {
+        setStatus('Nie rozpoznano mowy: ' + (data.error || 'nieznany błąd'), 'err');
+      }
+    } catch (err) {
+      console.error('ASR error:', err);
+      setStatus('Błąd ASR: ' + err.message, 'err');
+    }
+  }
+
+  function toggleRecording() {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  }
+
+  // Event listeners
+  sendBtn.addEventListener('click', send);
+  input.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter' && !ev.shiftKey) {
+      ev.preventDefault();
+      send();
+    }
+  });
+
+  recordBtn.addEventListener('click', toggleRecording);
+
+  modePCBtn.addEventListener('click', () => setMode('pc'));
+  modeAutoBtn.addEventListener('click', () => setMode('auto'));
+  modeProxyBtn.addEventListener('click', () => setMode('proxy'));
+
+  btnRefreshStatus.addEventListener('click', refreshProviderStatus);
+
+  btnToggleVoiceStatus.addEventListener('click', () => {
+    const isHidden = voiceStatusContent.hidden;
+    voiceStatusContent.hidden = !isHidden;
+    btnToggleVoiceStatus.textContent = isHidden ? 'Zwiń' : 'Rozwiń';
+    if (isHidden) refreshVoiceStatus();
+  });
+
+  btnRefreshVoiceStatus.addEventListener('click', refreshVoiceStatus);
+
+  btnTogglePrAssistant.addEventListener('click', () => {
+    const isHidden = prAssistantContent.hidden;
+    prAssistantContent.hidden = !isHidden;
+    btnTogglePrAssistant.textContent = isHidden ? 'Zwiń' : 'Rozwiń';
+    if (isHidden) loadKnowledgeDocuments();
+  });
+
+  btnGeneratePr.addEventListener('click', generatePrContent);
+  btnCopyPr.addEventListener('click', copyPrToClipboard);
+  btnPreviewPr.addEventListener('click', previewPrChanges);
+  btnApplyPreview.addEventListener('click', applyPreviewChanges);
+  btnDiscardPreview.addEventListener('click', discardPreview);
+
+  // Benchmark event listeners
+  btnToggleBenchmark.addEventListener('click', () => {
+    const isHidden = benchmarkContent.hidden;
+    benchmarkContent.hidden = !isHidden;
+    btnToggleBenchmark.textContent = isHidden ? 'Zwiń' : 'Rozwiń';
+  });
+  btnRunBenchmark.addEventListener('click', runBenchmark);
+
+  // Audit mode placeholders
+  if (auditMode && history.length === 0) {
+    appendMessage('you', 'Przykładowa wiadomość użytkownika w trybie PC.', false, null);
+    appendMessage('bot', 'Odpowiedź z lokalnego modelu AI (llama3.2:1b).', false, 'pc');
+    appendMessage('bot', '⚠️ Przykładowy błąd połączenia.', true, null);
+    latency.textContent = 'Czas odpowiedzi: 127 ms';
+    setStatus('Tryb audytu CSS', 'warn');
+  }
+
+  // Initialize
+  const storedMode = localStorage.getItem('chat_pc_mode');
+  if (storedMode && ['pc', 'auto', 'proxy'].includes(storedMode)) {
+    setMode(storedMode);
+  } else {
+    setMode('pc');
+  }
+  setStatus('Gotowy', 'ok');
+  input.focus();
+  refreshProviderStatus();
+  refreshVoiceStatus();
+})();
+</script>
+<script type="module" src="/web/assets/menu.js"></script>
+<script type="module" src="/web/assets/footer.js"></script>
+</body>
+</html>

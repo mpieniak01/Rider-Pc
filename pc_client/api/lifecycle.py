@@ -105,8 +105,22 @@ async def initialize_vision_pipeline(app: FastAPI) -> None:
 
 
 async def initialize_voice_pipeline(app: FastAPI) -> None:
-    """Enable TaskQueue + VoiceProvider for ASR/TTS offload."""
+    """Enable TaskQueue + VoiceProvider for ASR/TTS offload.
+
+    Rozszerzona diagnostyka:
+    - Loguje przyczyny braku inicjalizacji
+    - Proponuje akcje naprawcze
+    - Ustawia flagi diagnostyczne w app.state
+    """
     settings: Settings = app.state.settings
+
+    # Diagnostyka: zapisz status dla UI
+    app.state.voice_provider_status = {
+        "requested": voice_offload_requested(settings),
+        "initialized": False,
+        "error": None,
+        "hint": None,
+    }
 
     if not voice_offload_requested(settings):
         logger.info(
@@ -114,6 +128,9 @@ async def initialize_voice_pipeline(app: FastAPI) -> None:
             settings.enable_providers,
             settings.enable_task_queue,
             settings.enable_voice_offload,
+        )
+        app.state.voice_provider_status["hint"] = (
+            "Włącz ENABLE_PROVIDERS=true, ENABLE_TASK_QUEUE=true i ENABLE_VOICE_OFFLOAD=true w .env"
         )
         return
 
@@ -128,12 +145,45 @@ async def initialize_voice_pipeline(app: FastAPI) -> None:
     try:
         await provider.initialize()
     except Exception as exc:  # pragma: no cover
-        logger.error(f"Failed to initialize VoiceProvider: {exc}")
+        error_msg = str(exc)
+        logger.error(f"Failed to initialize VoiceProvider: {error_msg}")
+        app.state.voice_provider_status["error"] = error_msg
+
+        # Diagnostyka: proponowane akcje
+        if "whisper" in error_msg.lower():
+            hint = "Whisper ASR niedostępny. Zainstaluj: pip install openai-whisper"
+            logger.warning(f"VoiceProvider diagnostic hint: {hint}")
+            app.state.voice_provider_status["hint"] = hint
+        elif "piper" in error_msg.lower():
+            hint = "Piper TTS niedostępny. Zainstaluj piper-tts."
+            logger.warning(f"VoiceProvider diagnostic hint: {hint}")
+            app.state.voice_provider_status["hint"] = hint
+        else:
+            hint = "Sprawdź konfigurację w config/providers.toml"
+            app.state.voice_provider_status["hint"] = hint
+
         await provider.shutdown()
+        # Fallback do trybu mock
+        logger.info("Attempting fallback to mock VoiceProvider...")
+        voice_config["use_mock"] = True
+        fallback_provider = VoiceProvider(voice_config)
+        try:
+            await fallback_provider.initialize()
+            app.state.providers["voice"] = fallback_provider
+            app.state.voice_offload_enabled = True
+            app.state.voice_provider_status["initialized"] = True
+            app.state.voice_provider_status["error"] = f"Fallback to mock (original error: {error_msg})"
+            app.state.voice_asr_priority = int(voice_config.get("asr_priority") or 5)
+            app.state.voice_tts_priority = int(voice_config.get("tts_priority") or 6)
+            logger.warning("VoiceProvider running in MOCK mode due to initialization failure")
+        except Exception as fallback_exc:
+            logger.error(f"Mock VoiceProvider also failed: {fallback_exc}")
+            await fallback_provider.shutdown()
         return
 
     app.state.providers["voice"] = provider
     app.state.voice_offload_enabled = True
+    app.state.voice_provider_status["initialized"] = True
     app.state.voice_asr_priority = int(voice_config.get("asr_priority") or voice_config.get("priority") or 5)
     app.state.voice_tts_priority = int(voice_config.get("tts_priority") or (app.state.voice_asr_priority + 1))
 
@@ -145,8 +195,22 @@ async def initialize_voice_pipeline(app: FastAPI) -> None:
 
 
 async def initialize_text_provider(app: FastAPI) -> None:
-    """Initialize TextProvider for chat/NLU offload."""
+    """Initialize TextProvider for chat/NLU offload.
+
+    Rozszerzona diagnostyka:
+    - Loguje przyczyny braku inicjalizacji
+    - Proponuje akcje naprawcze
+    - Ustawia flagi diagnostyczne w app.state
+    """
     settings: Settings = app.state.settings
+
+    # Diagnostyka: zapisz status dla UI
+    app.state.text_provider_status = {
+        "requested": text_offload_requested(settings),
+        "initialized": False,
+        "error": None,
+        "hint": None,
+    }
 
     if not text_offload_requested(settings):
         logger.info(
@@ -154,6 +218,7 @@ async def initialize_text_provider(app: FastAPI) -> None:
             settings.enable_providers,
             settings.enable_text_offload,
         )
+        app.state.text_provider_status["hint"] = "Włącz ENABLE_PROVIDERS=true i ENABLE_TEXT_OFFLOAD=true w .env"
         return
 
     text_config = load_provider_config(settings.text_provider_config_path, "text")
@@ -165,11 +230,37 @@ async def initialize_text_provider(app: FastAPI) -> None:
     try:
         await provider.initialize()
     except Exception as exc:  # pragma: no cover
-        logger.error(f"Failed to initialize TextProvider: {exc}")
+        error_msg = str(exc)
+        logger.error(f"Failed to initialize TextProvider: {error_msg}")
+        app.state.text_provider_status["error"] = error_msg
+
+        # Diagnostyka: proponowane akcje
+        if "ollama" in error_msg.lower() or "connection" in error_msg.lower():
+            hint = "Ollama może być niedostępna. Uruchom: ollama serve"
+            logger.warning(f"TextProvider diagnostic hint: {hint}")
+            app.state.text_provider_status["hint"] = hint
+        else:
+            hint = "Sprawdź konfigurację w config/providers_text_local.toml"
+            app.state.text_provider_status["hint"] = hint
+
         await provider.shutdown()
+        # Fallback do trybu mock jeśli inicjalizacja nie powiodła się
+        logger.info("Attempting fallback to mock TextProvider...")
+        text_config["use_mock"] = True
+        fallback_provider = TextProvider(text_config)
+        try:
+            await fallback_provider.initialize()
+            app.state.text_provider = fallback_provider
+            app.state.text_provider_status["initialized"] = True
+            app.state.text_provider_status["error"] = f"Fallback to mock (original error: {error_msg})"
+            logger.warning("TextProvider running in MOCK mode due to initialization failure")
+        except Exception as fallback_exc:
+            logger.error(f"Mock TextProvider also failed: {fallback_exc}")
+            await fallback_provider.shutdown()
         return
 
     app.state.text_provider = provider
+    app.state.text_provider_status["initialized"] = True
     logger.info("Text offload enabled (model=%s)", text_config.get("model", settings.text_model))
 
 

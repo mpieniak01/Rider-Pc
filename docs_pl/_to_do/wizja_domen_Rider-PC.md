@@ -44,6 +44,44 @@ Warstwa wykonywania dużych modeli lokalnie (LM Studio, Ollama, pythonowe silnik
 * Wszystkie długie procesy AI wykonują się na Twoim PC lokalnie i bez limitów.
 * Zero kosztów operacyjnych poza energią.
 
+### **Nowe inicjatywy (2025)**
+
+* **Chat PC (Standalone)** – osobny ekran `chat-pc.html` z pełną obsługą kanałów mowa↔tekst↔mowa, działający nawet przy wyłączonym Rider-Pi. Backend Rider-PC udostępnia `/api/chat/pc/send`, lokalne ASR/TTS i health-checki providerów.
+
+#### Zaimplementowane funkcjonalności Chat PC (Standalone):
+
+**Backend (FastAPI):**
+  * `/api/chat/pc/send` – endpoint czatu działający wyłącznie lokalnie (bez proxy)
+  * `/api/chat/send` z parametrem `mode=pc|proxy|auto` – elastyczny wybór źródła
+  * `/api/providers/text` – status providera tekstowego (model, silnik, dostępność)
+  * `/api/providers/voice` – status providera głosowego (ASR/TTS, dostępność)
+  * `/api/voice/asr` – endpoint rozpoznawania mowy (speech-to-text)
+  * `/api/voice/tts` – synteza mowy (text-to-speech)
+  * `/api/chat/pc/generate-pr-content` – generowanie treści PR z pomocą AI
+  * `/api/chat/pc/preview-pr-changes` – podgląd sugerowanych zmian PR przed zatwierdzeniem
+  * `/api/benchmark/models` – benchmark modeli (latencja, tokeny, wyniki)
+  * `/api/knowledge/documents` – lista dokumentów bazy wiedzy do kontekstu
+
+**Frontend (`web/chat-pc.html`):**
+  * Przełącznik trybu: PC / Auto / Proxy z zapisem preferencji
+  * Status providera tekstowego i głosowego z wizualnymi wskaźnikami
+  * Nagrywanie mowy (ASR) z przyciskiem „🎤 Mów"
+  * Odczytywanie odpowiedzi (TTS) z checkbox
+  * Sekcja „Asystent PR" do generowania treści PR na podstawie szkiców
+  * Podgląd sugerowanych zmian PR przed zatwierdzeniem
+  * Wybór dokumentów bazy wiedzy jako kontekst dla generowania
+  * Sekcja „Benchmark modeli" do testowania wydajności AI
+  * Oddzielna historia wiadomości w sessionStorage (izolacja od klasycznego czatu)
+
+**Diagnostyka i fallback:**
+  * Rozszerzone logowanie inicjalizacji providerów
+  * Automatyczny fallback do trybu mock przy błędzie Ollama/Whisper/Piper
+  * Komunikaty diagnostyczne dla UI (hint do naprawy problemu)
+
+* **Wspólna instancja LLM** – Rider-PC i Rider-Pi korzystają z jednego załadowanego modelu Ollama; przełączanie modeli (benchmark, wybór w UI) jest kontrolowane przez Rider-PC i czytelnie sygnalizowane wszystkim klientom.
+* **Benchmark + baza wiedzy** – wbudowane narzędzia do porównywania modeli, logowania latencji i jakości odpowiedzi, z opcją podania promptów pozycjonujących i kontekstu z modułu Knowledge/Project.
+* **Integracja z modułem Project/PR editor** – Chat PC potrafi czytać szkice PR, łączyć je z bazą wiedzy i generować finalną treść bezpośrednio w procesie tworzenia PR.
+
 ---
 
 ## **3. Domena – Przetwarzanie i Trenowanie Modeli (AI-FORGE)**
