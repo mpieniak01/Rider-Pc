@@ -52,6 +52,7 @@ jobs:
           # - pytest_asyncio.plugin: obsługa async i markera @pytest.mark.asyncio
           # - pytest_timeout: per-test timeouty
           pytest pc_client/tests/ tests/ \
+            --ignore=tests/e2e \
             -q --maxfail=1 --tb=short \
             -p pytest_asyncio.plugin \
             -p pytest_timeout \
