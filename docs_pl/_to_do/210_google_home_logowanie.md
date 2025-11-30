@@ -1,5 +1,59 @@
 # Plan: Rider-PC – natywne logowanie i integracja Google Home
 
+## Status: W TRAKCIE REALIZACJI
+
+## Zrealizowane (PR #106)
+
+### ✅ 1. Architektura i zależności
+- [x] Moduł `pc_client/services/google_home.py` z OAuth 2.0 + PKCE
+- [x] Konfiguracja przez zmienne środowiskowe w Settings
+- [x] Używamy czystego `httpx` dla komunikacji z SDM API (bez dodatkowych zależności google-auth)
+
+### ✅ 2. Przepływ OAuth na Rider-PC
+- [x] Endpoint `GET /api/home/auth/url` buduje adres logowania Google (PKCE, state)
+- [x] Endpoint `GET /api/home/auth/callback` obsługuje redirect z Google
+- [x] Endpoint `POST /api/home/auth/logout` do wylogowania
+- [x] Weryfikacja `state` (CSRF protection) w pamięci serwera
+
+### ✅ 3. Serwis Google Home
+- [x] Metody: `is_configured()`, `is_authenticated()`, `start_auth_session()`, `complete_auth(code)`, `list_devices()`, `send_command()`, `get_status()`
+- [x] Zapisywanie tokenów w `config/local/google_tokens_pc.json`
+- [x] Odświeżanie tokenów na 401
+- [x] Cachowanie listy urządzeń (5 minut TTL)
+- [x] Tryb testowy (`GOOGLE_HOME_TEST_MODE=true`) dla developmentu
+
+### ✅ 4. API FastAPI
+- [x] Refaktoryzacja `home_router.py` - najpierw lokalny serwis, potem RestAdapter jako fallback
+- [x] Rozróżnianie stanów: `not_configured`, `not_authenticated`, `authenticated`
+- [x] `/api/home/status` zwraca szczegółowy stan konfiguracji
+
+### ✅ 7. Konfiguracja i dokumentacja
+- [x] Nowy rozdział `docs_pl/google-home-integration.md`
+- [x] Zaktualizowany `.env.example` z instrukcjami konfiguracji
+
+### ✅ 8. Testy
+- [x] Testy jednostkowe dla GoogleHomeService (21 testów)
+- [x] Testy integracyjne dla endpointów OAuth (7 nowych testów)
+
+## Do zrobienia (przyszłe PR)
+
+### 5. UX w `web/google_home.html`
+- [ ] Przycisk „Zaloguj przez Google" z przekierowaniem na `auth_url`
+- [ ] Sekcja konfiguracji gdy brak Client ID/Secret/Project ID
+- [ ] Stany `logowanie trwa` i `logowanie zakończone`
+- [ ] Widok profilu użytkownika po zalogowaniu
+
+### 6. Realna integracja SDM
+- [ ] Testy manualne na fizycznym domu
+- [ ] Weryfikacja mapowania komend OnOff, Brightness, Thermostat, StartStop, Dock
+- [ ] Logi akcji do `logs/google_home/actions.log`
+
+### 9. Sprzątanie
+- [ ] Oznaczenie `RestAdapter.post_home_*` jako legacy
+- [ ] Aktualizacja `config/google_bridge.toml`
+
+---
+
 ## Cel
 Zapewnić, aby użytkownik mógł w całości z poziomu przeglądarki Rider-PC:
 - przejść pełny przepływ OAuth 2.0 (bez tunelowania do Rider-Pi),
