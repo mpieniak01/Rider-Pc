@@ -31,7 +31,8 @@ def test_home_status_returns_authenticated(tmp_path):
     assert resp.status_code == 200
     body = resp.json()
     assert body["authenticated"] is True or body.get("authenticated") is False
-    assert "profile" in body or body.get("error") is not None
+    assert "profile" in body
+    assert isinstance(body["profile"], dict)
 
 
 def test_home_devices_and_command(tmp_path):
