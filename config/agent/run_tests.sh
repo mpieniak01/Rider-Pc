@@ -9,6 +9,10 @@ if [ ! -d "$VENV_PATH" ]; then
   "$PYTHON_BIN" -m venv "$VENV_PATH"
 fi
 
+if [ ! -f "$VENV_PATH/bin/activate" ]; then
+  echo "Error: Failed to create virtual environment" >&2
+  exit 1
+fi
 # shellcheck disable=SC1090
 . "$VENV_PATH/bin/activate"
 
