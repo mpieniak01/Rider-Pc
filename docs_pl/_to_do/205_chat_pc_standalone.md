@@ -34,6 +34,7 @@ Przygotować plan przebudowy, który pozwoli:
 - [ ] Rozszerzyć router `chat_router.py`: jawny parametr `mode=pc|proxy`, walidacja i komunikaty błędów (np. 503 gdy brak providerów lokalnych).
 - [ ] Zapewnić health endpoint (np. `/api/providers/text`) zwracający `initialized`, model, engine — do wykorzystania przez UI.
 - [ ] Ujednolicić kanały przetwarzania: dodać/lokalizować endpointy dla ASR (`/api/voice/asr`), TTS (`/api/voice/tts`) i tekst→tekst tak, by Chat PC mógł działać w 100% lokalnie.
+- [ ] jeśli Rider-Pi jest offline, RestAdapter powinien zwrócić błąd, a logika biznesowa w endpoint'cie API powinna ten błąd obsłużyć. 
 
 ### 3. Inicjalizacja i konfiguracja
 - [ ] W `Settings` ustawić sensowne defaulty (`ENABLE_PROVIDERS=true`, `ENABLE_TEXT_OFFLOAD=true` w trybie dev/standalone).
@@ -79,7 +80,6 @@ Przygotować plan przebudowy, który pozwoli:
 - Ze względu na rozmiar modeli utrzymujemy pojedynczą instancję LLM współdzieloną między Rider-Pi i Rider-PC.
 - W pamięci może być aktywny tylko jeden model – przełączanie oznacza przeładowanie i chwilową niedostępność (UX musi to pokazać).
 - Ostatni klient „narzuca” model pozostałym; potrzebne komunikaty takeover i reset kontekstu.
-- Czy `RestAdapter` powinien znać tryb PC (żeby nie logować błędów, gdy Pi jest offline)?
 - Czy chcemy już teraz wspierać wiele modeli (różne instancje Ollama) – na razie zakładamy pojedynczy provider.
 - Zachowujemy obecny stos technologiczny (FastAPI + Ollama + Piper/Whisper + dashboard HTML/CSS/JS); każdą nową bibliotekę/API opisujemy w tym dokumencie przed wdrożeniem.
 
