@@ -13,11 +13,11 @@ Repozytorium Rider-PC ma rozbudowany backend FastAPI oraz pakiet testów jednost
 - W zadaniach front-endowych wymagamy Node.js 20 i komend `npm ci`, `npm run lint:css`, `npm run css:size`, `npm run css:audit`.
 - Plik `.env` nigdy nie trafia do repo – jeśli trzeba dopisać nowy klucz, zmodyfikuj `/.env.example` i zostaw instrukcję w opisie zmiany, a prywatne wartości trzymaj lokalnie.
 
-## Testy obowiązkowe
-1. `./config/agent/run_tests.sh` – buduje dedykowaną wirtualkę, instaluje zależności i uruchamia `pytest pc_client/tests tests/test_project_issues.py`.
-2. Jeśli modyfikujesz frontend/CSS, uruchom `npm run lint:css` oraz `npm run css:size`. E2E (`tests/e2e`) jest opcjonalne i wykonujemy je tylko przy zmianach Playwrighta.
-3. Każda zmiana w kodzie Pythona wymaga **`ruff check .`** (np. `make lint`) – oddawanie niesformatowanego kodu blokuje merge, bo CI zatrzyma się na lintach.
-4. W przypadku zmian w docs/web możesz ograniczyć się do lintów, ale backend zawsze trzeba zweryfikować testami + `ruff`.
+## Testy obowiązkowe (z optymalizacją czasu)
+1. Preferuj szybkie, ukierunkowane testy. Pełne `./config/agent/run_tests.sh` (instalacja + `pytest pc_client/tests tests/test_project_issues.py`) odpalaj tylko wtedy, gdy faktycznie modyfikujesz backend lub kluczową logikę. Przy zadaniach dokumentacyjnych/planistycznych czy drobnych poprawkach frontu wystarczy `ruff check` + odpowiednie linty.
+2. Jeśli modyfikujesz frontend/CSS, uruchom `npm run lint:css` oraz `npm run css:size`. `npm ci` i testy E2E (`tests/e2e`) odpalamy wyłącznie, gdy dotykamy Playwrighta albo kluczowych layoutów wymagających screenshotów.
+3. Każda zmiana w kodzie Pythona nadal wymaga **`ruff check .`**. Gdy zakres jest mały, możesz uruchomić tylko powiązane moduły `pytest` (np. `pytest tests/test_chat_router.py`) zamiast całego pakietu – ważne, by pokryć zmodyfikowaną logikę i zmieścić się w limitach czasowych.
+4. W zmianach dotyczących dokumentów (`docs_pl`, `README`, plany) unikaj instalowania całego stosu – wystarczy formatowanie (`ruff`, `markdownlint`). Dzięki temu agent nie traci czasu na instalacje, a główne prace developerskie nie są przerywane przez timeouty.
 
 ## Dobre praktyki
 - Resetuj singletony/adapters w testach (tak jak robią to istniejące testy) aby unikać przecieków stanu.

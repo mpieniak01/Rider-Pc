@@ -81,6 +81,9 @@ Integracja Chat PC z edytorem projektów i PR to kluczowa funkcjonalność łąc
 4. **Integracja z Project/PR editor** – implementacja API i UI dla asystenta PR zgodnie z sekcją 5 zakresu.
 5. **Iteracja wizji** – po zamknięciu PR dopisać rozdział w wizji i przenieść dokument do `_done`.
 
+## Otwarte działania (blokery zamknięcia)
+- **Instalacja lokalnych paczek i modeli** – w środowisku PC nadal brakuje kompletu zależności (Ollama + modele, Piper/Whisper, paczki Python do TTS/ASR). Chat PC w trybie standalone nie wystartuje, dopóki nie przygotujemy instrukcji/skryptu instalacyjnego i nie zweryfikujemy, że potrzebne usługi (Ollama daemon, modele, binarki głosowe) uruchamiają się automatycznie. Zadanie 205 pozostaje **niezrealizowane**, dopóki ta instalacja nie zostanie potwierdzona i udokumentowana (np. w `docs_pl/SZYBKI_START.md` + README sekcji Chat PC).
+
 ## Definition of Done
 - Lokalny czat działa przy wyłączonym Rider-Pi (manualny test: `python -m pc_client.main`).
 - UI potwierdza aktywnego providera lokalnego i jasno komunikuje przełączenie na Rider-Pi.
