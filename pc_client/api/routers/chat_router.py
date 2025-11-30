@@ -337,15 +337,9 @@ async def generate_pr_content(request: Request, payload: Dict[str, Any]) -> JSON
     VALID_STYLES = {"concise", "detailed", "technical"}
     VALID_LANGUAGES = {"pl", "en"}
     style = payload.get("style", "detailed")
-    context = payload.get("context", {})
-    VALID_STYLES = {"concise", "detailed", "technical"}
-    VALID_LANGUAGES = {"pl", "en"}
-    style = payload.get("style", "detailed")
     if style not in VALID_STYLES:
         style = "detailed"
     language = payload.get("language", "pl")
-    if language not in VALID_LANGUAGES:
-        language = "pl"
     if language not in VALID_LANGUAGES:
         language = "pl"
 
@@ -496,3 +490,366 @@ def _parse_pr_content(generated_text: str, fallback_draft: str) -> Dict[str, str
         result["summary"] = result["description"][:150] + "..." if len(result["description"]) > 150 else result["description"]
 
     return result
+
+
+@router.post("/api/benchmark/models")
+async def benchmark_models(request: Request, payload: Dict[str, Any]) -> JSONResponse:
+    """Benchmark modeli tekstowych.
+
+    Ten endpoint pozwala na benchmarkowanie modeli poprzez wysyłanie próbek
+    testowych i mierzenie latencji oraz jakości odpowiedzi.
+
+    Parametry w payload:
+    - prompts: lista próbek testowych (wymagane, jeśli brak prompt)
+    - prompt: pojedyncza próbka (alternatywa dla prompts)
+    - iterations: liczba iteracji dla każdego prompta (domyślnie 1)
+    - system_prompt: prompt systemowy (opcjonalnie)
+    - max_tokens: maksymalna liczba tokenów (opcjonalnie)
+    - temperature: temperatura generowania (opcjonalnie)
+
+    Odpowiedź:
+    - ok: czy benchmark się powiódł
+    - results: lista wyników dla każdego prompta
+    - summary: podsumowanie benchmarku (średnia latencja, tokeny, itp.)
+    """
+    provider = _get_text_provider(request)
+
+    if not _is_provider_ready(provider):
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": "local text provider not initialized",
+                "hint": "Sprawdź czy ENABLE_PROVIDERS=true i ENABLE_TEXT_OFFLOAD=true",
+            },
+            status_code=503,
+        )
+
+    # Parsuj prompty z payloadu
+    prompts = payload.get("prompts", [])
+    if not prompts:
+        single_prompt = payload.get("prompt", "").strip()
+        if single_prompt:
+            prompts = [single_prompt]
+
+    if not prompts:
+        return JSONResponse(
+            {"ok": False, "error": "missing 'prompts' or 'prompt' field"},
+            status_code=400,
+        )
+
+    iterations = min(max(int(payload.get("iterations", 1)), 1), 10)  # 1-10
+    system_prompt = payload.get("system_prompt", "")
+    max_tokens = payload.get("max_tokens", 256)
+    temperature = payload.get("temperature", 0.7)
+
+    results = []
+    total_latency_ms = 0
+    total_tokens = 0
+    successful_runs = 0
+
+    for prompt in prompts:
+        prompt_results = []
+
+        for i in range(iterations):
+            task = TaskEnvelope(
+                task_id=f"benchmark-{uuid.uuid4()}",
+                task_type=TaskType.TEXT_GENERATE,
+                payload={
+                    "prompt": prompt,
+                    "system_prompt": system_prompt,
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                },
+                meta={"mode": "benchmark", "iteration": i + 1},
+            )
+
+            start_time = time.time()
+            result = await provider.process_task(task)  # type: ignore
+            latency_ms = int((time.time() - start_time) * 1000)
+
+            run_result = {
+                "iteration": i + 1,
+                "latency_ms": latency_ms,
+                "status": result.status.value,
+            }
+
+            if result.status == TaskStatus.COMPLETED and result.result:
+                text = result.result.get("text", "")
+                tokens = result.result.get("tokens_used", len(text.split()))
+                run_result["tokens"] = tokens
+                run_result["response_length"] = len(text)
+                run_result["response_preview"] = text[:200] + "..." if len(text) > 200 else text
+                total_latency_ms += latency_ms
+                total_tokens += tokens
+                successful_runs += 1
+            else:
+                run_result["error"] = result.error or "generation failed"
+
+            prompt_results.append(run_result)
+
+        results.append({
+            "prompt": prompt[:100] + "..." if len(prompt) > 100 else prompt,
+            "runs": prompt_results,
+        })
+
+    # Oblicz podsumowanie
+    telemetry = provider.get_telemetry()  # type: ignore
+    summary = {
+        "total_prompts": len(prompts),
+        "total_iterations": len(prompts) * iterations,
+        "successful_runs": successful_runs,
+        "failed_runs": (len(prompts) * iterations) - successful_runs,
+        "avg_latency_ms": round(total_latency_ms / successful_runs, 2) if successful_runs else 0,
+        "total_tokens": total_tokens,
+        "model": telemetry.get("model"),
+        "engine": "ollama" if telemetry.get("ollama_available") else "mock",
+    }
+
+    logger.info(
+        "Benchmark completed: %d prompts, %d successful runs, avg latency: %dms",
+        len(prompts), successful_runs, summary["avg_latency_ms"]
+    )
+
+    return JSONResponse({
+        "ok": True,
+        "results": results,
+        "summary": summary,
+    })
+
+
+@router.get("/api/knowledge/documents")
+async def list_knowledge_documents(request: Request) -> JSONResponse:
+    """Lista dostępnych dokumentów bazy wiedzy.
+
+    Ten endpoint zwraca listę dokumentów które mogą być użyte jako kontekst
+    przy generowaniu treści PR.
+
+    Odpowiedź:
+    - ok: czy operacja się powiodła
+    - documents: lista dokumentów z nazwą, ścieżką i rozmiarem
+    """
+    import os
+
+    # Ścieżki do przeszukania dla dokumentów bazy wiedzy
+    knowledge_paths = [
+        "docs_pl",
+        "docs",
+        "data/knowledge",
+    ]
+
+    documents = []
+
+    for base_path in knowledge_paths:
+        if not os.path.exists(base_path):
+            continue
+
+        for root, _, files in os.walk(base_path):
+            for file in files:
+                if file.endswith((".md", ".txt", ".rst")):
+                    filepath = os.path.join(root, file)
+                    try:
+                        stat = os.stat(filepath)
+                        documents.append({
+                            "name": file,
+                            "path": filepath,
+                            "size_bytes": stat.st_size,
+                            "category": os.path.basename(root),
+                        })
+                    except OSError:
+                        continue
+
+    # Sortuj po kategorii i nazwie
+    documents.sort(key=lambda d: (d["category"], d["name"]))
+
+    return JSONResponse({
+        "ok": True,
+        "documents": documents,
+        "total": len(documents),
+    })
+
+
+@router.post("/api/chat/pc/preview-pr-changes")
+async def preview_pr_changes(request: Request, payload: Dict[str, Any]) -> JSONResponse:
+    """Podgląd sugerowanych zmian PR przed zatwierdzeniem.
+
+    Ten endpoint generuje sugestie zmian dla treści PR bez ich zatwierdzania,
+    pozwalając użytkownikowi na przegląd przed akceptacją.
+
+    Parametry w payload:
+    - draft: szkic PR lub opis zmian (wymagane)
+    - current_content: aktualna treść PR do porównania (opcjonalne)
+    - knowledge_documents: lista ścieżek do dokumentów kontekstu (opcjonalne)
+    - style: styl generowania ("concise", "detailed", "technical")
+    - language: język wyjściowy ("pl", "en")
+
+    Odpowiedź:
+    - ok: czy operacja się powiodła
+    - suggestions: lista sugerowanych zmian
+    - preview: podgląd wygenerowanej treści
+    - diff: porównanie z aktualną treścią (jeśli podano current_content)
+    """
+    provider = _get_text_provider(request)
+
+    if not _is_provider_ready(provider):
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": "local text provider not initialized",
+                "hint": "Endpoint wymaga aktywnego TextProvider",
+            },
+            status_code=503,
+        )
+
+    draft = payload.get("draft", "").strip()
+    if not draft:
+        return JSONResponse(
+            {"ok": False, "error": "missing 'draft' field"},
+            status_code=400,
+        )
+
+    current_content = payload.get("current_content", "").strip()
+    knowledge_docs = payload.get("knowledge_documents", [])
+    style = payload.get("style", "detailed")
+    language = payload.get("language", "pl")
+
+    # Załaduj kontekst z dokumentów bazy wiedzy
+    knowledge_context = []
+    if knowledge_docs:
+        import os
+        for doc_path in knowledge_docs[:5]:  # Limit do 5 dokumentów
+            if os.path.exists(doc_path) and os.path.isfile(doc_path):
+                try:
+                    with open(doc_path, "r", encoding="utf-8") as f:
+                        content = f.read()[:2000]  # Limit do 2000 znaków per dokument
+                        knowledge_context.append(f"[{os.path.basename(doc_path)}]\n{content}")
+                except OSError:
+                    continue
+
+    # Buduj prompt dla podglądu zmian
+    system_prompt = _build_preview_system_prompt(style, language, bool(current_content))
+    user_prompt = _build_preview_user_prompt(draft, current_content, knowledge_context)
+
+    task = TaskEnvelope(
+        task_id=f"preview-pr-{uuid.uuid4()}",
+        task_type=TaskType.TEXT_GENERATE,
+        payload={
+            "prompt": user_prompt,
+            "system_prompt": system_prompt,
+            "max_tokens": payload.get("max_tokens", 1024),
+            "temperature": payload.get("temperature", 0.5),
+        },
+        meta={
+            "mode": "pr_preview",
+            "style": style,
+            "language": language,
+        },
+    )
+
+    start_time = time.time()
+    result = await provider.process_task(task)  # type: ignore
+    latency_ms = int((time.time() - start_time) * 1000)
+
+    if result.status != TaskStatus.COMPLETED or not result.result:
+        return JSONResponse(
+            {"ok": False, "error": result.error or "PR preview generation failed"},
+            status_code=502,
+        )
+
+    generated_text = (result.result or {}).get("text", "")
+
+    # Parsuj sugestie z wygenerowanego tekstu
+    suggestions = _parse_pr_suggestions(generated_text)
+    pr_content = _parse_pr_content(generated_text, draft)
+
+    response_data = {
+        "ok": True,
+        "preview": {
+            "title": pr_content.get("title", ""),
+            "description": pr_content.get("description", ""),
+            "summary": pr_content.get("summary", ""),
+        },
+        "suggestions": suggestions,
+        "raw_output": generated_text,
+        "latency_ms": latency_ms,
+        "task_id": result.task_id,
+        "knowledge_used": len(knowledge_context),
+    }
+
+    # Dodaj diff jeśli podano aktualną treść
+    if current_content:
+        response_data["has_changes"] = pr_content.get("description", "") != current_content
+
+    return JSONResponse(response_data)
+
+
+def _build_preview_system_prompt(style: str, language: str, has_current: bool) -> str:
+    """Buduj prompt systemowy dla podglądu zmian PR."""
+    lang_instruction = "Odpowiadaj po polsku." if language == "pl" else "Respond in English."
+
+    style_instructions = {
+        "concise": "Bądź zwięzły i rzeczowy.",
+        "detailed": "Podaj szczegółowy opis zmian.",
+        "technical": "Skup się na aspektach technicznych.",
+    }
+    style_text = style_instructions.get(style, style_instructions["detailed"])
+
+    compare_instruction = ""
+    if has_current:
+        compare_instruction = "\nPorównaj z aktualną treścią i zasugeruj konkretne ulepszenia."
+
+    return f"""Jesteś asystentem AI pomagającym w tworzeniu opisów Pull Requestów.
+{lang_instruction}
+{style_text}
+{compare_instruction}
+
+Generuj treść w formacie:
+TYTUŁ: [krótki, opisowy tytuł PR]
+OPIS: [szczegółowy opis zmian]
+PODSUMOWANIE: [1-2 zdania podsumowania]
+
+SUGESTIE:
+- [sugestia 1]
+- [sugestia 2]
+- ...
+
+Używaj markdown dla formatowania."""
+
+
+def _build_preview_user_prompt(draft: str, current_content: str, knowledge_context: list) -> str:
+    """Buduj prompt użytkownika dla podglądu zmian PR."""
+    parts = [f"Szkic PR:\n{draft}"]
+
+    if current_content:
+        parts.append(f"\nAktualna treść PR:\n{current_content}")
+
+    if knowledge_context:
+        kb_text = "\n---\n".join(knowledge_context)
+        parts.append(f"\nKontekst z bazy wiedzy:\n{kb_text}")
+
+    parts.append("\nWygeneruj profesjonalny opis PR z sugestiami ulepszeń.")
+
+    return "\n".join(parts)
+
+
+def _parse_pr_suggestions(generated_text: str) -> list:
+    """Parsuj sugestie z wygenerowanego tekstu."""
+    suggestions = []
+    in_suggestions = False
+
+    for line in generated_text.strip().split("\n"):
+        line_stripped = line.strip()
+
+        if line_stripped.upper().startswith("SUGESTIE:") or line_stripped.upper().startswith("SUGGESTIONS:"):
+            in_suggestions = True
+            continue
+
+        if in_suggestions:
+            if line_stripped.startswith("- ") or line_stripped.startswith("* "):
+                suggestion = line_stripped[2:].strip()
+                if suggestion:
+                    suggestions.append(suggestion)
+            elif line_stripped and not line_stripped.startswith(("-", "*")):
+                # Koniec sekcji sugestii
+                break
+
+    return suggestions

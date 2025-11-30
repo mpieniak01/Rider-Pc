@@ -113,6 +113,14 @@
           <label for="prDraft">Szkic PR / opis zmian</label>
           <textarea id="prDraft" rows="4" placeholder="Opisz wprowadzone zmiany…"></textarea>
         </div>
+        <!-- Knowledge base selection -->
+        <div class="c-form-group u-mt-md">
+          <label for="prKnowledgeBase">Baza wiedzy / dokumenty referencyjne</label>
+          <select id="pr-knowledge-base" multiple size="3">
+            <option value="">Ładowanie dokumentów...</option>
+          </select>
+          <p class="c-hint">Wybierz dokumenty, które posłużą jako kontekst (Ctrl+klik dla wielokrotnego wyboru)</p>
+        </div>
         <div class="l-row u-gap-md u-mt-md">
           <div class="c-form-group">
             <label for="prStyle">Styl</label>
@@ -129,7 +137,17 @@
               <option value="en">English</option>
             </select>
           </div>
+          <button class="c-btn c-btn-sm" id="btnPreviewPr" title="Podgląd sugestii przed zatwierdzeniem">Podgląd</button>
           <button class="c-btn" id="btnGeneratePr">Generuj PR</button>
+        </div>
+        <!-- Preview section -->
+        <div id="pr-preview" class="u-mt-lg" hidden>
+          <h3>Podgląd sugerowanych zmian</h3>
+          <div id="pr-suggestions" class="c-card u-mb-md"></div>
+          <div class="l-row u-gap-sm">
+            <button class="c-btn c-btn-sm" id="btnApplyPreview">Zastosuj sugestie</button>
+            <button class="c-btn c-btn-sm" id="btnDiscardPreview">Odrzuć</button>
+          </div>
         </div>
         <div id="pr-result" class="u-mt-lg" hidden>
           <h3>Wygenerowana treść PR</h3>
@@ -145,6 +163,51 @@
             <textarea id="pr-summary" rows="2" readonly></textarea>
           </div>
           <button class="c-btn c-btn-sm" id="btnCopyPr">Kopiuj do schowka</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Benchmark section -->
+    <section class="c-card u-mt-xl" id="benchmark-section">
+      <div class="l-row">
+        <h2 class="c-card__title">Benchmark modeli</h2>
+        <div class="u-spacer"></div>
+        <button class="c-btn c-btn-sm" id="btnToggleBenchmark">Rozwiń</button>
+      </div>
+      <div id="benchmark-content" hidden>
+        <p class="c-hint u-mb-md">Testuj wydajność modeli AI przez wysyłanie próbek i mierzenie latencji.</p>
+        <div class="c-form-group">
+          <label for="benchmarkPrompts">Prompty testowe (jeden na linię)</label>
+          <textarea id="benchmarkPrompts" rows="4" placeholder="Wprowadź prompty testowe...
+Przykład: Wyjaśnij czym jest FastAPI
+Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
+        </div>
+        <div class="l-row u-gap-md u-mt-md">
+          <div class="c-form-group">
+            <label for="benchmarkIterations">Iteracje</label>
+            <select id="benchmarkIterations">
+              <option value="1">1</option>
+              <option value="3">3</option>
+              <option value="5">5</option>
+              <option value="10">10</option>
+            </select>
+          </div>
+          <div class="c-form-group">
+            <label for="benchmarkMaxTokens">Max tokenów</label>
+            <input type="number" id="benchmarkMaxTokens" value="256" min="32" max="2048">
+          </div>
+          <button class="c-btn" id="btnRunBenchmark">Uruchom benchmark</button>
+        </div>
+        <div id="benchmark-results" class="u-mt-lg" hidden>
+          <h3>Wyniki benchmarku</h3>
+          <div class="c-kv u-mb-md" id="benchmark-summary">
+            <div>Model</div><div id="bench-model">—</div>
+            <div>Silnik</div><div id="bench-engine">—</div>
+            <div>Średnia latencja</div><div id="bench-avg-latency">— ms</div>
+            <div>Udane / Wszystkie</div><div id="bench-success-rate">— / —</div>
+            <div>Łącznie tokenów</div><div id="bench-total-tokens">—</div>
+          </div>
+          <div id="benchmark-details" class="benchmark-details"></div>
         </div>
       </div>
     </section>
@@ -181,6 +244,27 @@
   const prDescription = document.getElementById('pr-description');
   const prSummary = document.getElementById('pr-summary');
   const btnCopyPr = document.getElementById('btnCopyPr');
+  const prKnowledgeBase = document.getElementById('pr-knowledge-base');
+  const btnPreviewPr = document.getElementById('btnPreviewPr');
+  const prPreview = document.getElementById('pr-preview');
+  const prSuggestions = document.getElementById('pr-suggestions');
+  const btnApplyPreview = document.getElementById('btnApplyPreview');
+  const btnDiscardPreview = document.getElementById('btnDiscardPreview');
+
+  // Benchmark elements
+  const btnToggleBenchmark = document.getElementById('btnToggleBenchmark');
+  const benchmarkContent = document.getElementById('benchmark-content');
+  const benchmarkPrompts = document.getElementById('benchmarkPrompts');
+  const benchmarkIterations = document.getElementById('benchmarkIterations');
+  const benchmarkMaxTokens = document.getElementById('benchmarkMaxTokens');
+  const btnRunBenchmark = document.getElementById('btnRunBenchmark');
+  const benchmarkResults = document.getElementById('benchmark-results');
+  const benchModel = document.getElementById('bench-model');
+  const benchEngine = document.getElementById('bench-engine');
+  const benchAvgLatency = document.getElementById('bench-avg-latency');
+  const benchSuccessRate = document.getElementById('bench-success-rate');
+  const benchTotalTokens = document.getElementById('bench-total-tokens');
+  const benchmarkDetails = document.getElementById('benchmark-details');
 
   // Voice status elements
   const btnToggleVoiceStatus = document.getElementById('btnToggleVoiceStatus');
@@ -431,6 +515,167 @@
     );
   }
 
+  // Knowledge base loading
+  let knowledgeDocuments = [];
+  async function loadKnowledgeDocuments() {
+    if (auditMode) {
+      prKnowledgeBase.innerHTML = `
+        <option value="docs_pl/SZYBKI_START.md">SZYBKI_START.md (mock)</option>
+        <option value="docs_pl/styleguide.md">styleguide.md (mock)</option>
+      `;
+      return;
+    }
+    try {
+      const res = await fetch('/api/knowledge/documents', { cache: 'no-store' });
+      const data = await res.json();
+      if (data.ok && data.documents.length > 0) {
+        knowledgeDocuments = data.documents;
+        prKnowledgeBase.innerHTML = data.documents.map(doc =>
+          `<option value="${doc.path}">${doc.name} (${doc.category})</option>`
+        ).join('');
+      } else {
+        prKnowledgeBase.innerHTML = '<option value="">Brak dokumentów</option>';
+      }
+    } catch (err) {
+      console.error('Knowledge documents error:', err);
+      prKnowledgeBase.innerHTML = '<option value="">Błąd ładowania</option>';
+    }
+  }
+
+  // PR Preview
+  let previewData = null;
+  async function previewPrChanges() {
+    const draft = (prDraft.value || '').trim();
+    if (!draft) {
+      alert('Wprowadź szkic PR');
+      return;
+    }
+    btnPreviewPr.disabled = true;
+    btnPreviewPr.textContent = 'Ładuję…';
+
+    // Pobierz wybrane dokumenty
+    const selectedDocs = Array.from(prKnowledgeBase.selectedOptions).map(opt => opt.value).filter(v => v);
+
+    try {
+      const res = await fetch('/api/chat/pc/preview-pr-changes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          draft,
+          current_content: prDescription.value || '',
+          knowledge_documents: selectedDocs,
+          style: prStyle.value,
+          language: prLang.value,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      previewData = data;
+
+      // Wyświetl sugestie
+      if (data.suggestions && data.suggestions.length > 0) {
+        prSuggestions.innerHTML = `
+          <h4>Sugestie ulepszeń:</h4>
+          <ul>${data.suggestions.map(s => `<li>${s}</li>`).join('')}</ul>
+          <p class="c-hint">Znalezione dokumenty kontekstu: ${data.knowledge_used || 0}</p>
+        `;
+      } else {
+        prSuggestions.innerHTML = '<p class="c-hint">Brak dodatkowych sugestii.</p>';
+      }
+      prPreview.hidden = false;
+      prResult.hidden = true;
+    } catch (e) {
+      alert('Błąd podglądu: ' + (e.message || e));
+    } finally {
+      btnPreviewPr.disabled = false;
+      btnPreviewPr.textContent = 'Podgląd';
+    }
+  }
+
+  function applyPreviewChanges() {
+    if (!previewData || !previewData.preview) return;
+    prTitle.textContent = previewData.preview.title || '—';
+    prDescription.value = previewData.preview.description || '';
+    prSummary.value = previewData.preview.summary || '';
+    prPreview.hidden = true;
+    prResult.hidden = false;
+    previewData = null;
+  }
+
+  function discardPreview() {
+    prPreview.hidden = true;
+    previewData = null;
+  }
+
+  // Benchmark
+  async function runBenchmark() {
+    const promptsText = (benchmarkPrompts.value || '').trim();
+    if (!promptsText) {
+      alert('Wprowadź co najmniej jeden prompt testowy');
+      return;
+    }
+
+    const prompts = promptsText.split('\n').map(p => p.trim()).filter(p => p);
+    if (prompts.length === 0) {
+      alert('Wprowadź co najmniej jeden prompt testowy');
+      return;
+    }
+
+    btnRunBenchmark.disabled = true;
+    btnRunBenchmark.textContent = 'Trwa benchmark…';
+    benchmarkResults.hidden = true;
+
+    try {
+      const res = await fetch('/api/benchmark/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompts,
+          iterations: parseInt(benchmarkIterations.value, 10),
+          max_tokens: parseInt(benchmarkMaxTokens.value, 10) || 256,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+
+      // Wypełnij podsumowanie
+      benchModel.textContent = data.summary.model || '—';
+      benchEngine.textContent = data.summary.engine || '—';
+      benchAvgLatency.textContent = `${data.summary.avg_latency_ms} ms`;
+      benchSuccessRate.textContent = `${data.summary.successful_runs} / ${data.summary.total_iterations}`;
+      benchTotalTokens.textContent = data.summary.total_tokens;
+
+      // Wypełnij szczegóły
+      let detailsHtml = '';
+      for (const result of data.results) {
+        detailsHtml += `<div class="benchmark-item">
+          <strong>Prompt:</strong> ${result.prompt}<br>
+          <div class="benchmark-runs">`;
+        for (const run of result.runs) {
+          const statusClass = run.status === 'completed' ? 'is-ok' : 'is-err';
+          detailsHtml += `<span class="benchmark-run ${statusClass}">
+            #${run.iteration}: ${run.latency_ms}ms, ${run.tokens || 0} tok
+          </span>`;
+        }
+        detailsHtml += '</div></div>';
+      }
+      benchmarkDetails.innerHTML = detailsHtml;
+      benchmarkResults.hidden = false;
+
+    } catch (e) {
+      alert('Błąd benchmarku: ' + (e.message || e));
+    } finally {
+      btnRunBenchmark.disabled = false;
+      btnRunBenchmark.textContent = 'Uruchom benchmark';
+    }
+  }
+
   // Voice provider status
   async function refreshVoiceStatus() {
     if (auditMode) {
@@ -571,10 +816,22 @@
     const isHidden = prAssistantContent.hidden;
     prAssistantContent.hidden = !isHidden;
     btnTogglePrAssistant.textContent = isHidden ? 'Zwiń' : 'Rozwiń';
+    if (isHidden) loadKnowledgeDocuments();
   });
 
   btnGeneratePr.addEventListener('click', generatePrContent);
   btnCopyPr.addEventListener('click', copyPrToClipboard);
+  btnPreviewPr.addEventListener('click', previewPrChanges);
+  btnApplyPreview.addEventListener('click', applyPreviewChanges);
+  btnDiscardPreview.addEventListener('click', discardPreview);
+
+  // Benchmark event listeners
+  btnToggleBenchmark.addEventListener('click', () => {
+    const isHidden = benchmarkContent.hidden;
+    benchmarkContent.hidden = !isHidden;
+    btnToggleBenchmark.textContent = isHidden ? 'Zwiń' : 'Rozwiń';
+  });
+  btnRunBenchmark.addEventListener('click', runBenchmark);
 
   // Audit mode placeholders
   if (auditMode && history.length === 0) {
