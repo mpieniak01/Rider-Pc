@@ -26,4 +26,4 @@ pytest \
   -q --maxfail=1 \
   -p pytest_asyncio.plugin \
   -p pytest_timeout \
-  --timeout=60 --timeout-method=thread
+  --timeout=30 --timeout-method=thread
