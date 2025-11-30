@@ -6,7 +6,7 @@ Ten katalog zawiera artefakty wymagane do współpracy z agentami Copilot opisan
 
 | Plik | Cel |
 | --- | --- |
-| `constraints.txt` | Zbiór ograniczeń wersji instalowanych pakietów Pythona dla runbooków agenta. |
+| `constraints.txt` | Zbiór ograniczeń wersji instalowanych pakietów Pythona dla konfiguracji agenta. |
 | `requirements-test.txt` | Lekki zestaw zależności, który wskazuje na `requirements-ci.txt`. Instalowany jest przed uruchomieniem testów. |
 | `run_tests.sh` | Scentralizowany skrypt (wykorzystywany również przez Copilot) tworzący środowisko `.venv-agent`, instalujący zależności i uruchamiający podstawowe testy `pytest`. |
 
