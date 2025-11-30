@@ -26,7 +26,7 @@ Zapewnić, aby użytkownik mógł w całości z poziomu przeglądarki Rider-PC:
 4. **Konfiguracja (Client ID/Secret, Device Access Project ID) nie jest opisana dla Rider-PC.** `config/google_bridge.toml` jest jedynie kopią z Rider-Pi i nie jest używany.
 5. **Brak testów/regresji.** Nie da się zweryfikować poprawności przepływu OAuth i wywołań SDM bez nowego serwisu + mocków.
 
-## Plan działania
+## Plan działania - PR
 ### 1. Architektura i zależności
 - Dodać do Rider-PC zależności `google-auth`, `google-auth-oauthlib`, `google-api-python-client` (lub czysty `httpx` dla SDM) w `requirements.txt`.
 - Zaprojektować moduł `pc_client/services/google_home.py` inspirowany `Rider-Pi/services/api_core/google_home_api.py`, ale dostosowany do web-app flow (Authorization Code + PKCE).
