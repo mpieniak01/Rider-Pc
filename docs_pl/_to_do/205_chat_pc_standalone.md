@@ -22,24 +22,24 @@
 - [x] Wyświetlać status modeli lokalnych (telemetria `TextProvider`, ikony health) + komunikat gdy Rider-Pi jest odłączony.
 - [x] Pokazywać nazwę/wersję aktualnego modelu tekstowego oraz wysyłać powiadomienia przy przełączeniu instancji (żeby użytkownik widział zmianę kontekstu).
 - [x] Uporządkować lokalne storage historii, żeby tryb PC nie mieszał wiadomości z trybem proxy.
-- [ ] Zapewnić komplet kanałów przetwarzania jak w obecnym czacie: wejście mowa→tekst (ASR), odpowiedź tekst→tekst, wyjście tekst→mowa (TTS) z przełącznikiem TTS i listą providerów lokalnych.
+- [x] Zapewnić komplet kanałów przetwarzania jak w obecnym czacie: wejście mowa→tekst (ASR), odpowiedź tekst→tekst, wyjście tekst→mowa (TTS) z przełącznikiem TTS i listą providerów lokalnych.
 
 ### 2. Backend FastAPI (Rider-PC)
 - [x] Rozszerzyć router `chat_router.py`: jawny parametr `mode=pc|proxy`, walidacja i komunikaty błędów (np. 503 gdy brak providerów lokalnych).
 - [x] Zapewnić health endpoint (np. `/api/providers/text`) zwracający `initialized`, model, engine — do wykorzystania przez UI.
-- [ ] Ujednolicić kanały przetwarzania: dodać/lokalizować endpointy dla ASR (`/api/voice/asr`), TTS (`/api/voice/tts`) i tekst→tekst tak, by Chat PC mógł działać w 100% lokalnie.
+- [x] Ujednolicić kanały przetwarzania: dodać/lokalizować endpointy dla ASR (`/api/voice/asr`), TTS (`/api/voice/tts`) i tekst→tekst tak, by Chat PC mógł działać w 100% lokalnie.
 - [x] jeśli Rider-Pi jest offline, RestAdapter powinien zwrócić błąd, a logika biznesowa w endpoint'cie API powinna ten błąd obsłużyć. 
 
 ### 3. Inicjalizacja i konfiguracja
 - [x] W `Settings` ustawić sensowne defaulty (`ENABLE_PROVIDERS=true`, `ENABLE_TEXT_OFFLOAD=true` w trybie dev/standalone).
 - [x] Dodać osobny plik konfiguracyjny `config/providers_text_local.toml` (model, temperatura, host) + opis w `KONFIGURACJA_MODELI_AI.md`.
-- [ ] Rozszerzyć lifecycle o logi kiedy provider lokalny się nie startuje + proponowane akcje (np. brak Ollama → fallback mock + ostrzeżenie do UI).
-- [ ] Zaprojektować mechanizm diagnostyki: logi startu/ładowania modeli (Ollama, Piper), endpointy health (`/api/providers/text/status`, `/api/providers/voice/status`) i komunikaty błędów zrozumiałe dla UI (np. „Ollama offline”, „brak modelu głosowego”).
+- [x] Rozszerzyć lifecycle o logi kiedy provider lokalny się nie startuje + proponowane akcje (np. brak Ollama → fallback mock + ostrzeżenie do UI).
+- [x] Zaprojektować mechanizm diagnostyki: logi startu/ładowania modeli (Ollama, Piper), endpointy health (`/api/providers/text/status`, `/api/providers/voice/status`) i komunikaty błędów zrozumiałe dla UI (np. „Ollama offline”, „brak modelu głosowego”).
 
 ### 4. Telemetria/testy/dokumentacja
 - [x] Testy API (pytest) dla nowych ścieżek: lokalny sukces, brak promptu, brak providerów, tryb proxy.
 - [x] Scenariusz manualny „Rider-Pi offline" w `docs_pl/SZYBKI_START.md` (jak uruchomić Chat PC standalone).
-- [ ] Zaktualizować `wizja_domen_Rider-PC.md` o rozdział „Chat PC (Standalone)" po implementacji.
+- [x] Zaktualizować `wizja_domen_Rider-PC.md` o rozdział „Chat PC (Standalone)" po implementacji.
 - [ ] Wbudować funkcję benchmarkową (UI + API) do przełączania modeli, wysyłania próbek testowych, mierzenia latencji i oceny odpowiedzi; wyniki zapisujemy w telemetry/logach.
 
 ### 5. Integracja z modułem Project/PR editor

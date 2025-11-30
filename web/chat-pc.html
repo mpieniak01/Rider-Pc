@@ -57,6 +57,7 @@
       <textarea id="input" placeholder="Napisz wiadomość… (Enter = wyślij, Shift+Enter = nowa linia)"></textarea>
       <div class="side">
         <button class="c-btn" id="sendBtn">Wyślij</button>
+        <button class="c-btn c-btn-sm record-btn" id="recordBtn" title="Nagrywaj mowę (ASR)">🎤 Mów</button>
 
         <!-- Mode selector -->
         <div class="mode-selector" role="group" aria-label="Wybór trybu czatu">
@@ -79,6 +80,25 @@
 
     <!-- Latency info -->
     <div class="meta" id="latency"></div>
+
+    <!-- Voice Provider status card (collapsible) -->
+    <section class="c-card u-mt-md" id="voice-status-section">
+      <div class="l-row">
+        <h3 class="c-card__title">Status providera głosowego (ASR/TTS)</h3>
+        <div class="u-spacer"></div>
+        <button class="c-btn c-btn-sm" id="btnToggleVoiceStatus">Rozwiń</button>
+      </div>
+      <div id="voice-status-content" hidden>
+        <div class="c-kv u-mb-md">
+          <div>Status</div><div id="voice-status">Ładowanie...</div>
+          <div>ASR Model</div><div id="voice-asr-model">—</div>
+          <div>TTS Model</div><div id="voice-tts-model">—</div>
+          <div>ASR dostępne</div><div id="voice-asr-available">—</div>
+          <div>TTS dostępne</div><div id="voice-tts-available">—</div>
+        </div>
+        <button class="c-btn c-btn-sm" id="btnRefreshVoiceStatus">Odśwież status głosu</button>
+      </div>
+    </section>
 
     <!-- PR Assistant section -->
     <section class="c-card u-mt-xl" id="pr-assistant-section">
@@ -139,6 +159,7 @@
   const board = document.getElementById('board');
   const input = document.getElementById('input');
   const sendBtn = document.getElementById('sendBtn');
+  const recordBtn = document.getElementById('recordBtn');
   const latency = document.getElementById('latency');
   const statusLine = document.getElementById('status-line');
   const sourceBadge = document.getElementById('source-badge');
@@ -161,6 +182,16 @@
   const prSummary = document.getElementById('pr-summary');
   const btnCopyPr = document.getElementById('btnCopyPr');
 
+  // Voice status elements
+  const btnToggleVoiceStatus = document.getElementById('btnToggleVoiceStatus');
+  const voiceStatusContent = document.getElementById('voice-status-content');
+  const voiceStatus = document.getElementById('voice-status');
+  const voiceAsrModel = document.getElementById('voice-asr-model');
+  const voiceTtsModel = document.getElementById('voice-tts-model');
+  const voiceAsrAvailable = document.getElementById('voice-asr-available');
+  const voiceTtsAvailable = document.getElementById('voice-tts-available');
+  const btnRefreshVoiceStatus = document.getElementById('btnRefreshVoiceStatus');
+
   // Provider status elements
   const provStatus = document.getElementById('prov-status');
   const provModel = document.getElementById('prov-model');
@@ -169,6 +200,10 @@
   // State
   let currentMode = 'pc';
   let providerReady = false;
+  let voiceProviderReady = false;
+  let isRecording = false;
+  let mediaRecorder = null;
+  let audioChunks = [];
   const urlParams = new URLSearchParams(window.location.search);
   const auditMode = urlParams.get('audit') === '1';
 
@@ -396,6 +431,115 @@
     );
   }
 
+  // Voice provider status
+  async function refreshVoiceStatus() {
+    if (auditMode) {
+      voiceStatus.textContent = 'ready (mock)';
+      voiceAsrModel.textContent = 'base (mock)';
+      voiceTtsModel.textContent = 'en_US-lessac-medium (mock)';
+      voiceAsrAvailable.textContent = '✓ Tak';
+      voiceTtsAvailable.textContent = '✓ Tak';
+      voiceProviderReady = true;
+      return;
+    }
+    try {
+      const res = await fetch('/api/providers/voice', { cache: 'no-store' });
+      const data = await res.json();
+      voiceProviderReady = data.initialized === true;
+      voiceStatus.textContent = data.status || (voiceProviderReady ? 'ready' : 'offline');
+      voiceAsrModel.textContent = data.asr_model || '—';
+      voiceTtsModel.textContent = data.tts_model || '—';
+      voiceAsrAvailable.textContent = data.asr_available ? '✓ Tak' : '✗ Nie';
+      voiceTtsAvailable.textContent = data.tts_available ? '✓ Tak' : '✗ Nie';
+      recordBtn.disabled = !voiceProviderReady;
+    } catch (err) {
+      console.error('Voice status error:', err);
+      voiceStatus.textContent = 'błąd';
+      voiceProviderReady = false;
+    }
+  }
+
+  // ASR (Speech-to-Text) - nagrywanie mowy
+  async function startRecording() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert('Twoja przeglądarka nie obsługuje nagrywania dźwięku.');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      audioChunks = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(track => track.stop());
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        await transcribeAudio(audioBlob);
+      };
+
+      mediaRecorder.start();
+      isRecording = true;
+      recordBtn.textContent = '⏹️ Stop';
+      recordBtn.classList.add('is-recording');
+      setStatus('Nagrywanie...', 'warn');
+    } catch (err) {
+      console.error('Recording error:', err);
+      alert('Nie udało się uzyskać dostępu do mikrofonu: ' + err.message);
+    }
+  }
+
+  function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+    }
+    isRecording = false;
+    recordBtn.textContent = '🎤 Mów';
+    recordBtn.classList.remove('is-recording');
+    setStatus('Przetwarzanie mowy...', 'warn');
+  }
+
+  async function transcribeAudio(audioBlob) {
+    try {
+      // Convert blob to base64
+      const reader = new FileReader();
+      reader.readAsDataURL(audioBlob);
+      const base64Audio = await new Promise((resolve) => {
+        reader.onloadend = () => resolve(reader.result.split(',')[1]);
+      });
+
+      const res = await fetch('/api/voice/asr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audio_data: base64Audio,
+          format: 'webm',
+        }),
+      });
+      const data = await res.json();
+      if (data.ok && data.text) {
+        input.value = (input.value ? input.value + ' ' : '') + data.text;
+        setStatus('Rozpoznano mowę', 'ok');
+        latency.textContent = `ASR: ${data.latency_ms || 0} ms`;
+      } else {
+        setStatus('Nie rozpoznano mowy: ' + (data.error || 'nieznany błąd'), 'err');
+      }
+    } catch (err) {
+      console.error('ASR error:', err);
+      setStatus('Błąd ASR: ' + err.message, 'err');
+    }
+  }
+
+  function toggleRecording() {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  }
+
   // Event listeners
   sendBtn.addEventListener('click', send);
   input.addEventListener('keydown', (ev) => {
@@ -405,11 +549,22 @@
     }
   });
 
+  recordBtn.addEventListener('click', toggleRecording);
+
   modePCBtn.addEventListener('click', () => setMode('pc'));
   modeAutoBtn.addEventListener('click', () => setMode('auto'));
   modeProxyBtn.addEventListener('click', () => setMode('proxy'));
 
   btnRefreshStatus.addEventListener('click', refreshProviderStatus);
+
+  btnToggleVoiceStatus.addEventListener('click', () => {
+    const isHidden = voiceStatusContent.hidden;
+    voiceStatusContent.hidden = !isHidden;
+    btnToggleVoiceStatus.textContent = isHidden ? 'Zwiń' : 'Rozwiń';
+    if (isHidden) refreshVoiceStatus();
+  });
+
+  btnRefreshVoiceStatus.addEventListener('click', refreshVoiceStatus);
 
   btnTogglePrAssistant.addEventListener('click', () => {
     const isHidden = prAssistantContent.hidden;
@@ -439,6 +594,7 @@
   setStatus('Gotowy', 'ok');
   input.focus();
   refreshProviderStatus();
+  refreshVoiceStatus();
 })();
 </script>
 <script type="module" src="/web/assets/menu.js"></script>

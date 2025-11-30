@@ -251,6 +251,16 @@ class RestAdapter:
             logger.error(f"Error posting /api/voice/tts: {e}")
             raise
 
+    async def post_voice_asr(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Proxy ASR (speech-to-text) request to Rider-PI."""
+        try:
+            response = await self.client.post(f"{self.base_url}/api/voice/asr", json=payload)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error posting /api/voice/asr: {e}")
+            return {"error": str(e)}
+
     async def post_chat_send(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Forward chat requests to Rider-PI."""
         try:
