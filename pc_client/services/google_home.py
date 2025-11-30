@@ -303,7 +303,11 @@ class GoogleHomeService:
                     logger.error("Token refresh failed: %s", response.status_code)
                     return False
 
-                token_data = response.json()
+                try:
+                    token_data = response.json()
+                except json.JSONDecodeError:
+                    logger.error("Invalid JSON response during token refresh")
+                    return False
 
             except httpx.RequestError as e:
                 logger.error("Network error during token refresh: %s", e)

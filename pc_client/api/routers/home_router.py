@@ -7,6 +7,7 @@ through Rider-Pi.
 
 from __future__ import annotations
 
+import html
 import logging
 import time
 from typing import Any, Dict, Optional
@@ -242,16 +243,19 @@ async def home_auth_callback(
 
 def _auth_result_html(success: bool, error: Optional[str] = None) -> str:
     """Generate HTML page for OAuth result with auto-redirect."""
+    # Validate status_class to prevent CSS injection - only allow known values
+    status_class = "success" if success else "error"
+    color = "#4caf50" if success else "#f44336"
+
     if success:
         message = "Logowanie zakończone pomyślnie!"
         redirect_url = "/google_home?auth=success"
-        status_class = "success"
     else:
-        # Sanitize error message for display and URL encode for redirect
+        # Sanitize error message: escape HTML and URL encode for redirect
         safe_error = error if error else "unknown"
-        message = f"Błąd logowania: {safe_error}"
+        escaped_error = html.escape(safe_error)
+        message = f"Błąd logowania: {escaped_error}"
         redirect_url = f"/google_home?auth=error&error={quote(safe_error, safe='')}"
-        status_class = "error"
 
     return f"""<!DOCTYPE html>
 <html lang="pl">
@@ -277,7 +281,7 @@ def _auth_result_html(success: bool, error: Optional[str] = None) -> str:
             border-radius: 12px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
         }}
-        .{status_class} {{ color: {'#4caf50' if success else '#f44336'}; }}
+        .{status_class} {{ color: {color}; }}
         .spinner {{
             border: 3px solid #333;
             border-top: 3px solid #4caf50;
