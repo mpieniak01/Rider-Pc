@@ -44,10 +44,25 @@ Przygotować plan przebudowy, który pozwoli:
 
 ### 4. Telemetria/testy/dokumentacja
 - [ ] Testy API (pytest) dla nowych ścieżek: lokalny sukces, brak promptu, brak providerów, tryb proxy.
-- [ ] Scenariusz manualny „Rider-Pi offline” w `docs_pl/SZYBKI_START.md` (jak uruchomić Chat PC standalone).
-- [ ] Zaktualizować `wizja_domen_Rider-PC.md` o rozdział „Chat PC (Standalone)” po implementacji.
+- [ ] Scenariusz manualny „Rider-Pi offline" w `docs_pl/SZYBKI_START.md` (jak uruchomić Chat PC standalone).
+- [ ] Zaktualizować `wizja_domen_Rider-PC.md` o rozdział „Chat PC (Standalone)" po implementacji.
 - [ ] Wbudować funkcję benchmarkową (UI + API) do przełączania modeli, wysyłania próbek testowych, mierzenia latencji i oceny odpowiedzi; wyniki zapisujemy w telemetry/logach.
-- [ ] Wpiąć Chat PC w moduł Project/PR editor: AI ma czytać szkice PR, łączyć je z bazą wiedzy i generować finalną treść (komentarze, sekcje) z poziomu nowego ekranu.
+
+### 5. Integracja z modułem Project/PR editor
+Integracja Chat PC z edytorem projektów i PR to kluczowa funkcjonalność łącząca możliwości lokalnych modeli AI z przepływem pracy nad kodem i dokumentacją.
+
+**Cel**: umożliwić AI (przez Chat PC) automatyczne generowanie i ulepszanie treści PR, komentarzy oraz dokumentacji na podstawie szkiców, bazy wiedzy i kontekstu projektu.
+
+**Zakres zadań**:
+- [ ] Zaprojektować interfejs komunikacji między Chat PC a modułem Project/PR editor (API, eventy, współdzielone dane).
+- [ ] Dodać endpoint `/api/chat/pc/generate-pr-content` przyjmujący szkic PR i kontekst (powiązane issues, historia zmian, baza wiedzy).
+- [ ] Rozbudować UI Chat PC o sekcję „Asystent PR" z możliwością:
+  - [ ] Wczytania szkicu PR (tekst lub link do issue/draftu).
+  - [ ] Podglądu sugerowanych zmian przed zatwierdzeniem.
+  - [ ] Wyboru bazy wiedzy/dokumentów referencyjnych do kontekstu.
+- [ ] Zaimplementować logikę łączenia szkiców z bazą wiedzy (RAG lub prompt engineering) w `TextProvider`.
+- [ ] Dodać testy jednostkowe i integracyjne dla nowych endpointów i logiki generowania treści PR.
+- [ ] Opisać przepływ pracy „AI-assisted PR editing" w dokumentacji (`docs_pl/SZYBKI_START.md` lub dedykowany plik).
 
 ## Wytyczne UI / JS / CSS
 - Szablon: korzystamy z `web/templates/dashboard_base.html` (strukturę `.layout-*`) i komponentów opisanych w `docs_pl/styleguide.md` + `web/assets/dashboard-common.css`.
@@ -69,7 +84,8 @@ Przygotować plan przebudowy, który pozwoli:
 1. **Backend foundation** – ustawienia + health endpoint + nowe ścieżki `/api/chat/pc/send`.
 2. **UI** – nowy ekran `chat-pc.html` + aktualizacja `models.html` (sekcje PC/Pi, status wspólnego LLM, przełączniki) korzystające z endpointów z pkt 1.
 3. **Testy + dokumentacja** – pytesty, manual checklist, update docs.
-4. **Iteracja wizji** – po zamknięciu PR dopisać rozdział w wizji i przenieść dokument do `_done`.
+4. **Integracja z Project/PR editor** – implementacja API i UI dla asystenta PR zgodnie z sekcją 5 zakresu.
+5. **Iteracja wizji** – po zamknięciu PR dopisać rozdział w wizji i przenieść dokument do `_done`.
 
 ## Definition of Done
 - Lokalny czat działa przy wyłączonym Rider-Pi (manualny test: `python -m pc_client.main`).
