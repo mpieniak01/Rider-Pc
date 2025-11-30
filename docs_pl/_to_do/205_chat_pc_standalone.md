@@ -5,12 +5,6 @@
 - W wizji (`wizja_domen_Rider-PC.md`) zakładamy autonomię Rider-PC, ale brak osobnej ścieżki UX/API powoduje, że przy wyłączonym Rider-Pi czat nie działa i użytkownik traci dostęp do lokalnych modeli (Ollama/mock).
 - Chcemy zacząć od stworzenia jednoznacznej historii produktowej: „Chat PC” jako ekran i zestaw API działający w 100% lokalnie, niezależnie od Rider-Pi.
 
-## Cel PR
-Przygotować plan przebudowy, który pozwoli:
-1. Uruchomić nowy ekran/tryb „Chat PC” z jasnym komunikatem o źródle odpowiedzi (lokalne modele) oraz możliwością przełączania z trybem proxy.
-2. Uporządkować backend tak, by lokalny `TextProvider` miał własny endpoint/flagę i nie blokował się, gdy Rider-Pi jest offline.
-3. Włączyć lokalny czat domyślnie w dev/test (ustawienia, zdrowie providerów, telemetry) oraz opisać to w dokumentacji.
-
 ## Stos techniczny – stan obecny
 - **Backend FastAPI** (`pc_client/api/server.py`) – serwuje API + pliki statyczne, lifecycle w `pc_client/api/lifecycle.py` startuje adaptery/providery.
 - **Chat API** (`pc_client/api/routers/chat_router.py`) – jeśli `TextProvider` aktywny, obsługuje zapytanie lokalnie; w innym razie proxy przez `RestAdapter` (`pc_client/adapters/rest_adapter.py`).
