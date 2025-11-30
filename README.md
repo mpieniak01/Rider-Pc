@@ -54,6 +54,7 @@ python -m pc_client.main
   - `make lint` → `ruff check .`
   - `make format` → `ruff format .`
   - `make test` → pytest suite with async/timeouts configured like GitHub Actions.
+- **CI split**: każdy `push` na `main` przechodzi przez workflow *Quick Checks* (ruff + skrócone unit testy). Pełen pipeline (`unit-tests`, `e2e-tests`, `css-ui-audit`, Copilot setup) odpalany jest w pull requestach.
 - **Copilot / agent flow**: uruchom `./config/agent/run_tests.sh`, aby odtworzyć środowisko wykorzystywane przez GitHub Copilot coding agent.
   - Skrypt instaluje zależności z `config/agent/constraints.txt` i odpala pytest.
   - Szczegółowa checklista PR-ów: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).

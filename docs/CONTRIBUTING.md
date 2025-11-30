@@ -28,4 +28,11 @@ Ten dokument zbiera praktyczne wskazówki dla osób (i agentów) pracujących na
 - README posiada sekcję “Development Workflow” z najważniejszymi komendami Make (`make lint`, `make test`, itd.).
 - W przypadku dodania nowych endpointów/configów dopisz krótką notkę w odpowiednim pliku `docs/*.md`.
 
+## Przepływy CI
+
+- **Quick Checks** – uruchamiane przy każdym `push` na `main`. Zawierają `ruff check` oraz skrócony pakiet testów (`pytest pc_client/tests` z limitem czasu). Dzięki temu nawet drobne commity dokumentacyjne nie wpuszczą regresji formatowania.
+- **CI Pipeline (PR)** – pełny zestaw (`unit-tests`, `e2e-tests`, `css-ui-audit`) od teraz odpala się tylko dla pull requestów. To tutaj trafiają wszystkie zmiany tworzone przez ludzi i Copilot coding agent.
+- **Copilot Setup Steps** – workflow przygotowujący środowisko agenta również działa tylko dla PR-ów, więc nie spowalnia prostych merge’y do `main`.
+- **Quality / ruff** – niezależny job lintujący działa zarówno w Quick Checks (push), jak i w CI Pipeline (PR), więc format kodu jest pilnowany w obu scenariuszach.
+
 Zastosowanie checklisty pozwala utrzymać spójność z CI oraz ułatwia współpracę z agentami Copilot.
