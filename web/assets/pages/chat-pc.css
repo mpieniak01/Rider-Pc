@@ -1,91 +1,76 @@
 /**
- * Chat PC (Standalone) Page Styles - Rider-PC Dashboard
- * Styles specific to standalone local chat interface (~130 lines)
- * ------------------------------------------------------------------
+ * Chat PC (Standalone) page tweaks.
+ * Bazuje na globalnym layoutcie dashboardu – tu tylko drobne dopasowania UI.
  */
 
-/* Page token overrides */
 .page-chat-pc {
-  --page-padding: var(--space-xl) var(--space-lg) 60px;
-  --card-radius: var(--radius-xl);
-  --card-padding: var(--space-lg);
-  --chat-mine: #1f3a57;
-  --chat-bot: #173149;
-  --chat-err: #4a1f27;
-  --chat-pc: #1a4d2e;
+  --chat-bg-user: #1f3a57;
+  --chat-bg-bot: #173149;
+  --chat-bg-pc: #1a4d2e;
+  --chat-bg-err: #4a1f27;
 }
 
-/* Status line */
 .page-chat-pc .status-line {
-  --status-line-spacing: var(--space-md);
+  margin-bottom: var(--space-lg);
 }
 
-/* Source indicator */
-.page-chat-pc .source-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-xs) var(--space-md);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-}
-
-.page-chat-pc .source-indicator.is-pc {
-  background: var(--chat-pc);
-  color: #a8e6cf;
-}
-
-.page-chat-pc .source-indicator.is-proxy {
-  background: #3d3d5c;
-  color: #b8b8d8;
-}
-
-.page-chat-pc .source-indicator.is-offline {
-  background: var(--chat-err);
-  color: #e8a8a8;
-}
-
-/* Provider status card */
 .page-chat-pc .provider-status-card {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-md);
-  padding: var(--space-md);
+  gap: var(--space-lg);
+  padding: var(--space-lg);
   border-radius: var(--radius-lg);
-  background: var(--color-bg-surface);
   border: 1px solid var(--card-border);
-  margin-bottom: var(--space-lg);
+  background: var(--color-bg-surface);
 }
 
 .page-chat-pc .provider-status-info {
   flex: 1;
-  min-width: 200px;
-}
-
-.page-chat-pc .provider-status-info h3 {
-  margin: 0 0 var(--space-xs);
-  font-size: var(--font-size-base);
+  min-width: 220px;
 }
 
 .page-chat-pc .provider-status-actions {
   display: flex;
-  gap: var(--space-sm);
   align-items: center;
+  gap: var(--space-sm);
 }
 
-/* Chat board */
+.page-chat-pc .source-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xxs);
+  padding: var(--space-xxs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  background: var(--color-bg-input);
+}
+
+.page-chat-pc .source-indicator.is-pc {
+  background: var(--chat-bg-pc);
+  color: #b4f2d8;
+}
+
+.page-chat-pc .source-indicator.is-proxy {
+  background: #2f3550;
+  color: #c5cbea;
+}
+
+.page-chat-pc .source-indicator.is-offline {
+  background: var(--chat-bg-err);
+  color: #ffcece;
+}
+
 .page-chat-pc .board {
-  min-height: 52vh;
   display: flex;
   flex-direction: column;
+  min-height: 52vh;
   gap: var(--space-md);
 }
 
-/* Chat messages */
 .page-chat-pc .msg {
   max-width: 78%;
-  padding: var(--space-lg) var(--space-md);
+  padding: var(--space-md) var(--space-lg);
   border-radius: var(--radius-lg);
   line-height: var(--line-height-normal);
   white-space: pre-wrap;
@@ -94,48 +79,35 @@
 
 .page-chat-pc .msg.you {
   align-self: flex-end;
-  background: var(--chat-mine);
+  background: var(--chat-bg-user);
   border-top-right-radius: var(--radius-xxs);
 }
 
 .page-chat-pc .msg.bot {
   align-self: flex-start;
-  background: var(--chat-bot);
+  background: var(--chat-bg-bot);
   border-top-left-radius: var(--radius-xxs);
 }
 
 .page-chat-pc .msg.bot.pc-source {
-  background: var(--chat-pc);
+  background: var(--chat-bg-pc);
 }
 
 .page-chat-pc .msg.err {
-  background: var(--chat-err);
+  background: var(--chat-bg-err);
 }
 
-.page-chat-pc .msg-meta {
-  font-size: var(--font-size-xs);
-  color: var(--color-fg-hint);
-  margin-top: var(--space-xs);
-}
-
-/* Compose area */
 .page-chat-pc .compose-row {
-  gap: var(--space-md);
-  margin-top: var(--space-lg);
+  gap: var(--space-lg);
   align-items: flex-start;
+  margin-top: var(--space-xl);
 }
 
 .page-chat-pc textarea {
   flex: 1;
-  min-height: 64px;
-  max-height: 220px;
+  min-height: 72px;
+  max-height: 240px;
   resize: vertical;
-  background: var(--color-bg-input);
-  color: inherit;
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-lg);
-  font: inherit;
 }
 
 .page-chat-pc .side {
@@ -146,11 +118,14 @@
   max-width: 360px;
 }
 
-/* Mode selector */
+.page-chat-pc .side .c-btn {
+  width: 100%;
+}
+
 .page-chat-pc .mode-selector {
   display: flex;
-  gap: var(--space-sm);
-  padding: var(--space-sm);
+  gap: var(--space-xs);
+  padding: var(--space-xs);
   background: var(--color-bg-input);
   border-radius: var(--radius-md);
   border: 1px solid var(--card-border);
@@ -158,14 +133,13 @@
 
 .page-chat-pc .mode-selector button {
   flex: 1;
-  padding: var(--space-sm) var(--space-md);
-  background: transparent;
-  border: none;
+  padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
   color: var(--color-fg-muted);
   cursor: pointer;
-  font-weight: var(--font-weight-medium);
-  transition: all 0.2s ease;
+  transition: background 0.2s ease;
 }
 
 .page-chat-pc .mode-selector button:hover {
@@ -178,92 +152,68 @@
 }
 
 .page-chat-pc .mode-selector button[disabled] {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
-}
-
-/* Recording button */
-.page-chat-pc .record-btn {
-  transition: all 0.2s ease;
 }
 
 .page-chat-pc .record-btn.is-recording {
   background: #c53030;
-  color: white;
-  animation: pulse-recording 1s infinite;
+  color: #fff;
+  animation: chat-pc-record 1s infinite;
 }
 
-@keyframes pulse-recording {
-  0%, 100% { opacity: 1; }
+@keyframes chat-pc-record {
+  0%,100% { opacity: 1; }
   50% { opacity: 0.7; }
 }
 
-/* Voice status section */
-.page-chat-pc #voice-status-section {
-  background: var(--color-bg-surface);
+.page-chat-pc #voice-status-section,
+.page-chat-pc #pr-assistant-section,
+.page-chat-pc #benchmark-section {
+  margin-top: var(--space-xl);
 }
 
-/* Benchmark section */
-.page-chat-pc .benchmark-details {
+.page-chat-pc #voice-status-content,
+.page-chat-pc #pr-assistant-content,
+.page-chat-pc #benchmark-content {
   margin-top: var(--space-md);
 }
 
+.page-chat-pc #pr-knowledge-base {
+  width: 100%;
+  min-height: 70px;
+  resize: vertical;
+}
+
+.page-chat-pc #pr-preview,
+.page-chat-pc #pr-result,
 .page-chat-pc .benchmark-item {
-  padding: var(--space-md);
-  margin-bottom: var(--space-md);
-  background: var(--color-bg-input);
+  border: 1px solid var(--card-border);
   border-radius: var(--radius-md);
+  padding: var(--space-md);
+  background: var(--color-bg-input);
 }
 
 .page-chat-pc .benchmark-runs {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-sm);
+  gap: var(--space-xs);
   margin-top: var(--space-sm);
 }
 
 .page-chat-pc .benchmark-run {
-  display: inline-block;
-  padding: var(--space-xs) var(--space-sm);
+  padding: var(--space-xxs) var(--space-sm);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
   background: var(--color-bg-surface);
 }
 
 .page-chat-pc .benchmark-run.is-ok {
-  background: var(--chat-pc);
-  color: #a8e6cf;
+  background: var(--chat-bg-pc);
+  color: #b4f2d8;
 }
 
 .page-chat-pc .benchmark-run.is-err {
-  background: var(--chat-err);
-  color: #e8a8a8;
-}
-
-/* PR Preview section */
-.page-chat-pc #pr-preview {
-  padding: var(--space-md);
-  background: var(--color-bg-input);
-  border-radius: var(--radius-md);
-  border: 1px dashed var(--card-border);
-}
-
-.page-chat-pc #pr-suggestions ul {
-  margin: var(--space-sm) 0;
-  padding-left: var(--space-lg);
-}
-
-.page-chat-pc #pr-suggestions li {
-  margin-bottom: var(--space-xs);
-}
-
-/* Knowledge base selector */
-.page-chat-pc #pr-knowledge-base {
-  width: 100%;
-  min-height: 60px;
-  background: var(--color-bg-input);
-  color: inherit;
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-sm);
+  background: var(--chat-bg-err);
+  color: #ffcece;
 }
