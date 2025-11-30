@@ -750,4 +750,5 @@ def get_google_home_service(
 def reset_google_home_service() -> None:
     """Reset the Google Home service singleton (useful for testing)."""
     global _google_home_service
-    _google_home_service = None
+    with _google_home_service_lock:
+        _google_home_service = None
