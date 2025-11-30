@@ -154,6 +154,25 @@ class Settings:
     rag_chunk_overlap: int = field(default_factory=lambda: _safe_int("RAG_CHUNK_OVERLAP", "100"))
     rag_persist_path: str = field(default_factory=lambda: os.getenv("RAG_PERSIST_PATH", "data/chroma_db"))
 
+    # Google Home / SDM Configuration
+    google_home_local_enabled: bool = field(
+        default_factory=lambda: os.getenv("GOOGLE_HOME_LOCAL_ENABLED", "false").lower() == "true"
+    )
+    google_client_id: Optional[str] = field(default_factory=lambda: os.getenv("GOOGLE_CLIENT_ID"))
+    google_client_secret: Optional[str] = field(default_factory=lambda: os.getenv("GOOGLE_CLIENT_SECRET"))
+    google_device_access_project_id: Optional[str] = field(
+        default_factory=lambda: os.getenv("GOOGLE_DEVICE_ACCESS_PROJECT_ID")
+    )
+    google_redirect_uri: str = field(
+        default_factory=lambda: os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8000/api/home/auth/callback")
+    )
+    google_tokens_path: str = field(
+        default_factory=lambda: os.getenv("GOOGLE_TOKENS_PATH", "config/local/google_tokens_pc.json")
+    )
+    google_home_test_mode: bool = field(
+        default_factory=lambda: os.getenv("GOOGLE_HOME_TEST_MODE", "false").lower() == "true"
+    )
+
     @property
     def rider_pi_base_url(self) -> str:
         """Get the base URL for Rider-PI API."""
@@ -182,6 +201,20 @@ class Settings:
             True if all required GitHub fields (token, owner, repo) are set (not None and not empty), False otherwise.
         """
         return bool(self.github_token and self.github_repo_owner and self.github_repo_name)
+
+    @property
+    def is_google_home_configured(self) -> bool:
+        """Check if Google Home integration is properly configured.
+
+        Returns:
+            True if all required Google Home fields are set (client_id, client_secret, project_id),
+            False otherwise.
+        """
+        return bool(
+            self.google_client_id
+            and self.google_client_secret
+            and self.google_device_access_project_id
+        )
 
 
 # Global settings instance
