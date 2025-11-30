@@ -1,7 +1,7 @@
 fastapi==0.115.5
 uvicorn==0.32.1
 httpx==0.27.2
-pyzmq==26.2.0
+pyzmq==26.4.0
 redis==5.0.1
 celery==5.3.4
 prometheus-client==0.21.0
