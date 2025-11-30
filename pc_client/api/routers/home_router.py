@@ -23,32 +23,43 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+import asyncio
+
 def _get_service(request: Request) -> GoogleHomeService:
-    """Get or create GoogleHomeService instance from app state."""
+    """Get or create GoogleHomeService instance from app state (thread-safe)."""
     settings = request.app.state.settings
+
+    # Ensure lock exists in app state
+    if not hasattr(request.app.state, "google_home_service_lock"):
+        request.app.state.google_home_service_lock = asyncio.Lock()
 
     # Check if service exists in app state
     service = getattr(request.app.state, "google_home_service", None)
     if service is not None:
         return service
 
-    # Create service based on settings
-    test_mode = settings.test_mode or settings.google_home_test_mode
+    # Thread-safe singleton initialization
+    async def create_service():
+        async with request.app.state.google_home_service_lock:
+            # Double-check after acquiring lock
+            service = getattr(request.app.state, "google_home_service", None)
+            if service is not None:
+                return service
+            test_mode = settings.test_mode or settings.google_home_test_mode
+            service = get_google_home_service(
+                client_id=settings.google_client_id,
+                client_secret=settings.google_client_secret,
+                project_id=settings.google_device_access_project_id,
+                redirect_uri=settings.google_home_redirect_uri,
+                tokens_path=settings.google_home_tokens_path,
+                test_mode=test_mode,
+            )
+            request.app.state.google_home_service = service
+            return service
 
-    service = get_google_home_service(
-        client_id=settings.google_client_id,
-        client_secret=settings.google_client_secret,
-        project_id=settings.google_device_access_project_id,
-        redirect_uri=settings.google_home_redirect_uri,
-        tokens_path=settings.google_home_tokens_path,
-        test_mode=test_mode,
-    )
-
-    # Store in app state for reuse
-    request.app.state.google_home_service = service
-    return service
-
-
+    # If called from a sync context, run the async function
+    import asyncio
+    return asyncio.run(create_service())
 def _home_state(app) -> Dict[str, Any]:
     """Get fallback home state (legacy mock mode)."""
     state = getattr(app.state, "home_state", None)
