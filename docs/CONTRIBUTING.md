@@ -30,9 +30,9 @@ This reference collects the rules we follow when working on the repository (incl
 
 ## CI Pipelines
 
-- **Quick Checks** – triggered on every push to `main`; include `ruff check` and a short `pytest pc_client/tests`. Even doc-only commits keep formatting enforced.
+- **Quick Checks** – triggered on every push to `main`; include `ruff check` and a short `pytest pc_client/tests` run (without `tests/test_project_issues.py`). Contract/issue tests stay reserved for the PR pipeline and the Copilot agent script.
 - **CI Pipeline (PR)** – the full suite (`unit-tests`, `e2e-tests`, `css-ui-audit`) now runs only for pull requests. Both humans and Copilot agents go through this path.
 - **Copilot Setup Steps** – the agent-specific workflow is also PR-only, keeping merges to `main` quick.
-- **Quality / ruff** – linting jobs run in both Quick Checks and the PR pipeline, so code style is enforced everywhere.
+- **Quality / ruff** – linting runs twice: Quick Checks cover push-to-main, while the Quality workflow handles pull requests, so code style is enforced everywhere.
 
 Sticking to this checklist keeps CI predictable and collaboration with Copilot agents smooth.
