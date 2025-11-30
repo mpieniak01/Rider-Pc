@@ -104,6 +104,7 @@ def perform_page_actions(page: Page, path: str) -> None:
             page.click("#sendBtn", timeout=1000)
             page.wait_for_timeout(200)
     except Exception:
+        # Page actions are optional enhancements; ignore failures from missing elements or timeouts
         pass
 
 

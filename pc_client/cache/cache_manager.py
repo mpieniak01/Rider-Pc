@@ -230,7 +230,7 @@ class CacheManager:
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
-                before_changes = conn.total_changes
+                changes_before = conn.total_changes
                 # Find and delete expired entries
                 cursor.execute(
                     """
@@ -240,7 +240,7 @@ class CacheManager:
                     (current_time,),
                 )
                 # rowcount is unreliable on SQLite; total_changes reflects committed deletions
-                deleted_count = conn.total_changes - before_changes
+                deleted_count = conn.total_changes - changes_before
                 conn.commit()
         except sqlite3.DatabaseError as exc:
             self._switch_to_memory_cache(exc)
