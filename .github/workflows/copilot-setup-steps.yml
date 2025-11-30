@@ -21,7 +21,6 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-    env:
 
     steps:
       - name: Checkout code
@@ -41,10 +40,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r config/agent/requirements-test.txt -c config/agent/constraints.txt
-
-      - name: Install Playwright browsers
-        run: |
-          python -m playwright install chromium --with-deps
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
