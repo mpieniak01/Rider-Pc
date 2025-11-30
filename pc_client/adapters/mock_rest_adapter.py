@@ -313,6 +313,16 @@ class MockRestAdapter:
         mock_wav = b"RIFF$\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00D\xac\x00\x00\x88X\x01\x00\x02\x00\x10\x00data\x00\x00\x00\x00"
         return mock_wav, "audio/wav"
 
+    async def post_voice_asr(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Return mock ASR (speech-to-text) response."""
+        return {
+            "ok": True,
+            "text": "Mock transcription: Hello from voice provider",
+            "confidence": 0.95,
+            "language": "en",
+            "source": "proxy",
+        }
+
     async def post_chat_send(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Return mock chat response."""
         return {
