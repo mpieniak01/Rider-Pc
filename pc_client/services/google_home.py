@@ -235,12 +235,19 @@ class GoogleHomeService:
                 )
 
                 if response.status_code != 200:
-                    error_data = response.json() if response.content else {}
+                    try:
+                        error_data = response.json() if response.content else {}
+                    except json.JSONDecodeError:
+                        error_data = {}
                     error = error_data.get("error", f"http_{response.status_code}")
                     logger.error("Token exchange failed: %s - %s", response.status_code, error)
                     return {"ok": False, "error": error}
 
-                token_data = response.json()
+                try:
+                    token_data = response.json()
+                except json.JSONDecodeError:
+                    logger.error("Invalid JSON response from token endpoint")
+                    return {"ok": False, "error": "invalid_response"}
 
             except httpx.RequestError as e:
                 logger.error("Network error during token exchange: %s", e)
@@ -376,19 +383,38 @@ class GoogleHomeService:
                     logger.error("SDM API error: %s", response.status_code)
                     return {"ok": False, "error": f"sdm_error_{response.status_code}", "devices": []}
 
-                data = response.json()
+                try:
+                    data = response.json()
+                except json.JSONDecodeError:
+                    logger.error("Invalid JSON response from SDM API")
+                    return {"ok": False, "error": "invalid_response", "devices": []}
                 devices = data.get("devices", [])
 
                 # Transform device data for UI
                 transformed = []
                 for device in devices:
+                    parent_relations = device.get("parentRelations", [])
+                    # Extract room from parent relations - typically the structure/room name
+                    room_name = ""
+                    custom_name = ""
+                    if parent_relations:
+                        first_relation = parent_relations[0] if parent_relations else {}
+                        custom_name = first_relation.get("displayName", "")
+                        # Room info may come from parent path or displayName
+                        parent = first_relation.get("parent", "")
+                        if "/rooms/" in parent:
+                            # Extract room from parent path like "enterprises/xxx/structures/yyy/rooms/zzz"
+                            room_name = custom_name
+                        else:
+                            room_name = custom_name
+
                     transformed.append(
                         {
                             "name": device.get("name", ""),
                             "type": device.get("type", ""),
                             "traits": device.get("traits", {}),
-                            "customName": device.get("parentRelations", [{}])[0].get("displayName", ""),
-                            "room": device.get("parentRelations", [{}])[0].get("displayName", ""),
+                            "customName": custom_name,
+                            "room": room_name,
                         }
                     )
 
