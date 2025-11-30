@@ -240,8 +240,6 @@ async def voice_asr(request: Request, payload: Optional[Dict[str, Any]] = None) 
     - language: wykryty język
     - source: "pc" lub "proxy"
     """
-    from pc_client.api.task_utils import build_voice_asr_task
-
     provider = _get_voice_provider(request)
     if provider and provider.get_telemetry().get("initialized"):
         task_payload = payload or {}
