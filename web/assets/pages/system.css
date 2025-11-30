@@ -13,17 +13,9 @@
 .page-system .version-dirty { background: rgba(245, 158, 11, 0.2); color: #fbbf24; padding: 2px var(--space-sm); border-radius: var(--radius-xs); }
 
 .page-system .system-links a { color: #93c5fd; text-decoration: none; margin-left: var(--space-md); font-size: 0.95rem; }
-.page-system .status-line { --status-line-spacing: var(--space-md); }
 
-/* Section cards */
-.page-system .system-section {
-  margin-bottom: var(--space-xxl);
-  --card-title-accent-offset: var(--space-lg);
-  --card-title-accent-height: 60%;
-}
-
-.page-system .system-section .c-card__title {
-  margin-bottom: var(--space-lg);
+.page-system .status-line {
+  --status-line-spacing: var(--space-md);
 }
 
 .page-system .system-section.is-network { --card-title-accent-color: #a855f7; }
@@ -34,6 +26,7 @@
 .page-system .services-grid {
   display: grid;
   gap: var(--space-lg);
+
   --grid-min: 220px;
 }
 .page-system .system-section .services-grid { margin-top: var(--space-lg); }

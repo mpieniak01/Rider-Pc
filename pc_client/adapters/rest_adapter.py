@@ -342,6 +342,46 @@ class RestAdapter:
             logger.error(f"Error fetching /api/models/installed: {e}")
             return {"error": str(e)}
 
+    async def get_home_status(self) -> Dict[str, Any]:
+        """Fetch Google Home auth state."""
+        try:
+            response = await self.client.get(f"{self.base_url}/api/home/status")
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error fetching /api/home/status: {e}")
+            return {"error": str(e)}
+
+    async def get_home_devices(self) -> Dict[str, Any]:
+        """Fetch Google Home device list."""
+        try:
+            response = await self.client.get(f"{self.base_url}/api/home/devices")
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error fetching /api/home/devices: {e}")
+            return {"error": str(e)}
+
+    async def post_home_command(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Send Google Home command."""
+        try:
+            response = await self.client.post(f"{self.base_url}/api/home/command", json=payload)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error posting /api/home/command: {e}")
+            return {"error": str(e)}
+
+    async def post_home_auth(self) -> Dict[str, Any]:
+        """Trigger Google Home auth handshake."""
+        try:
+            response = await self.client.post(f"{self.base_url}/api/home/auth")
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error posting /api/home/auth: {e}")
+            return {"error": str(e)}
+
     async def get_resource(self, resource_name: str) -> Dict[str, Any]:
         """
         Get resource status from /api/resource/{resource_name}.

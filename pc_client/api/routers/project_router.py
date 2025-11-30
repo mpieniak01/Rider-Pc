@@ -4,6 +4,7 @@ import asyncio
 import logging
 import os
 import re
+import time
 import unicodedata
 from typing import Any, Dict, List, Literal, Optional
 
@@ -11,7 +12,7 @@ from fastapi import APIRouter, Request, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from pc_client.adapters.github_adapter import GitHubAdapter
+from pc_client.adapters.github_adapter import GitHubAdapter, MockGitHubAdapter
 from pc_client.adapters.git_adapter import GitAdapter
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,8 @@ _git_adapter: Optional[GitAdapter] = None
 
 # Valid git strategies
 GitStrategy = Literal["current", "main", "existing", "new_branch"]
+FORCE_GITHUB_MOCK_ENV = "GITHUB_FORCE_MOCK"
+FORCE_GITHUB_MOCK_CONFIGURED_ENV = "GITHUB_MOCK_CONFIGURED"
 
 
 def slugify(text: str, max_length: int = 50) -> str:
@@ -57,12 +60,59 @@ def slugify(text: str, max_length: int = 50) -> str:
     return text
 
 
+def _default_mock_issues() -> List[Dict[str, Any]]:
+    now = int(time.time())
+    return [
+        {
+            "number": 101,
+            "title": "Standaryzacja kafli dashboardu",
+            "state": "open",
+            "tasks_total": 5,
+            "tasks_done": 3,
+            "progress_pct": 60,
+            "assignee": "mock-bot",
+            "url": "https://github.com/mock/repo/issues/101",
+            "created_at": now - 7200,
+        },
+        {
+            "number": 102,
+            "title": "Integracja Google Home – tryb demo",
+            "state": "open",
+            "tasks_total": 3,
+            "tasks_done": 1,
+            "progress_pct": 33,
+            "assignee": None,
+            "url": "https://github.com/mock/repo/issues/102",
+            "created_at": now - 3600,
+        },
+    ]
+
+
+def _should_use_mock_adapter(settings: Optional[Any]) -> bool:
+    """Determine if the GitHub mock adapter should be used."""
+    if os.getenv(FORCE_GITHUB_MOCK_ENV, "").lower() == "true":
+        return True
+    if not settings:
+        return False
+    return bool(settings.test_mode and not getattr(settings, "is_github_configured", False))
+
+
 def get_github_adapter(request: Request) -> GitHubAdapter:
     """Get or create the GitHub adapter singleton."""
     global _github_adapter
     if _github_adapter is None:
         settings = getattr(request.app.state, "settings", None)
-        if settings:
+        if _should_use_mock_adapter(settings):
+            configured = bool(settings and getattr(settings, "is_github_configured", False))
+            if os.getenv(FORCE_GITHUB_MOCK_CONFIGURED_ENV, "false").lower() == "true":
+                configured = True
+            _github_adapter = MockGitHubAdapter(
+                configured=configured,
+                issues=_default_mock_issues(),
+                collaborators=["mock-bot", "reviewer"],
+                labels=["bug", "feature", "ux"],
+            )
+        elif settings and getattr(settings, "is_github_configured", False):
             _github_adapter = GitHubAdapter(
                 token=settings.github_token,
                 owner=settings.github_repo_owner,

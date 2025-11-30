@@ -39,7 +39,7 @@
   max-width: 360px;
 }
 
-.page-chat #providerHint {
+.page-chat #provider-hint {
   display: block;
   word-break: break-word;
 }
@@ -103,6 +103,7 @@
 /* Provider card */
 .page-chat .providers-card {
   margin-top: var(--space-xxl);
+
   --stack-gap: var(--space-lg);
 }
 
@@ -110,6 +111,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-md);
+
   --card-padding: var(--space-md);
 }
 

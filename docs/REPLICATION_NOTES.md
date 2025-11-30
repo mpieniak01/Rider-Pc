@@ -42,6 +42,8 @@ web/
 - The UI expects data from endpoints like `/healthz`, `/state`, `/sysinfo`, `/vision/snap-info`
 - Static files are served from the `/web/` path
 - Auto-refresh mechanisms (≈2s) for live data
+- When `TEST_MODE=true`, `MockRestAdapter` now delivers full demo payloads (Google Home devices, Rider-Pi/PC/Ollama model lists, logic summary, etc.), so the UI renders every widget without HTML probes or manual tweaks.
+- GitHub Actions contains a `css-ui-audit` job (see `.github/workflows/ci-cd.yml`) that runs `npm run lint:css`, `npm run css:size`, and `npm run css:audit` using Playwright Firefox and attaches `logs/css_audit_summary.json` plus `logs/css_audit/*.png` as artifacts. Local reproduction: `npm ci && python -m playwright install firefox --with-deps && npm run css:audit`.
 
 ### 2. `config/` - Provider Configuration Files (30 files)
 Purpose: Defines provider configurations and parameters for contract negotiation between PC and Rider-PI.

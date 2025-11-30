@@ -1,13 +1,18 @@
-"""Router initialization."""
+"""Router initialization.
 
-from .status_router import router as status_router
-from .provider_router import router as provider_router
-from .control_router import router as control_router
-from .voice_router import router as voice_router
-from .chat_router import router as chat_router
-from .project_router import router as project_router
-from .model_router import router as model_router
-from .knowledge_router import router as knowledge_router
+This module re-exports router modules so they can be imported both as FastAPI
+routers (via the ``router`` attribute) and as modules for testing/monkeypatching.
+"""
+
+from . import status_router
+from . import provider_router
+from . import control_router
+from . import voice_router
+from . import chat_router
+from . import project_router
+from . import model_router
+from . import knowledge_router
+from . import home_router
 
 __all__ = [
     "status_router",
@@ -18,4 +23,5 @@ __all__ = [
     "project_router",
     "model_router",
     "knowledge_router",
+    "home_router",
 ]

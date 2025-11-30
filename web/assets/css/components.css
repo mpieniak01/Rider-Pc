@@ -35,6 +35,8 @@
   flex-wrap: wrap;
   gap: var(--space-md);
   align-items: center;
+  font-size: var(--font-size-sm);
+  color: var(--color-fg-secondary);
 }
 
 .page-subtitle {
@@ -43,8 +45,17 @@
   color: var(--color-fg-muted);
 }
 
+.c-section {
+  margin-bottom: var(--space-xxl);
 
-.page-header__actions { font-size: var(--font-size-sm); color: var(--color-fg-secondary); }
+  --card-title-accent-offset: var(--space-lg);
+  --card-title-accent-height: 60%;
+}
+
+.c-section .c-card__title,
+.c-section .section-title {
+  margin-bottom: var(--space-lg);
+}
 .page-header__actions--small { font-size: var(--font-size-xs); }
 /* ===== Card Component ===== */
 .c-card,
@@ -57,6 +68,7 @@
   border-radius: var(--card-radius);
   padding: var(--card-padding);
   box-shadow: var(--card-shadow);
+
   --card-title-accent-offset: var(--space-lg);
   --card-title-accent-height: 60%;
   --card-title-accent-color: var(--color-accent);
@@ -343,7 +355,7 @@ button:disabled {
   width: 16px;
   height: 16px;
   border: 2px solid rgba(255, 255, 255, 0.2);
-  border-top-color: currentColor;
+  border-top-color: currentcolor;
   border-radius: 50%;
   animation: c-spin 0.8s linear infinite;
   margin-right: var(--space-sm);
@@ -501,28 +513,6 @@ select option {
   color: var(--color-fg-primary);
 }
 
-/* ===== Table Component ===== */
-.c-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--font-size-md);
-}
-
-.c-table th,
-.c-table td {
-  border-top: 1px solid #1c3349;
-  padding: var(--space-sm) var(--space-xs);
-  text-align: left;
-}
-
-.c-table th {
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-fg-muted);
-  text-transform: uppercase;
-  font-size: var(--font-size-xs);
-  letter-spacing: 0.05em;
-}
-
 /* ===== Code Block Component ===== */
 .c-code-block {
   background: var(--color-bg-elevated);
@@ -543,7 +533,7 @@ select option {
   width: 14px;
   height: 14px;
   border: 2px solid var(--color-off-border);
-  border-top-color: var(--color-ok);
+  border-top-color: currentcolor;
   border-radius: 50%;
   animation: c-spin 0.8s linear infinite;
 }
@@ -775,6 +765,7 @@ select option {
 .c-table td {
   padding: var(--space-md) var(--space-lg);
   border-bottom: 1px solid var(--color-border-subtle);
+  text-align: left;
 }
 
 .c-table tr:hover td {

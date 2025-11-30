@@ -51,7 +51,7 @@ jobs:
           # Jawne pluginy (autoload wyłączony):
           # - pytest_asyncio.plugin: obsługa async i markera @pytest.mark.asyncio
           # - pytest_timeout: per-test timeouty
-          pytest pc_client/tests/ \
+          pytest pc_client/tests/ tests/ \
             -q --maxfail=1 --tb=short \
             -p pytest_asyncio.plugin \
             -p pytest_timeout \
@@ -84,6 +84,8 @@ jobs:
       PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
       # Tryb dla pytest-asyncio (zamiast flagi CLI)
       PYTEST_ASYNCIO_MODE: "auto"
+      # Playwright ma instalować przeglądarki w katalogu roboczym (cache działa w obrębie joba)
+      PLAYWRIGHT_BROWSERS_PATH: "0"
 
     steps:
       - name: Checkout
@@ -122,3 +124,60 @@ jobs:
         if: success()
         run: |
           echo "E2E tests successfully executed and confirmed."
+
+  css-ui-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+
+    env:
+      TEST_MODE: "true"
+      PLAYWRIGHT_BROWSERS_PATH: "0"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-ci.txt
+
+      - name: Install Playwright browsers
+        run: |
+          python -m playwright install firefox --with-deps
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: CSS lint
+        run: npm run lint:css
+
+      - name: CSS size check
+        run: npm run css:size
+
+      - name: CSS audit (screenshots + coverage)
+        run: npm run css:audit
+
+      - name: Upload CSS audit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: css-audit-artifacts
+          path: |
+            logs/css_audit_summary.json
+            logs/css_audit

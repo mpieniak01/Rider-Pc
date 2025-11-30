@@ -47,7 +47,7 @@
         <div class="c-hint">Chat API: <code>/api/chat/send</code> · TTS: <code>/api/voice/tts</code></div>
       </div>
     </div>
-    <div id="providerHint" class="provider-hint c-status-msg" hidden>Ładuję listę providerów…</div>
+    <div id="provider-hint" class="provider-hint c-status-msg" hidden>Ładuję listę providerów…</div>
 
     <section class="providers-card c-card l-stack" aria-labelledby="providerTitle">
       <div class="providers-head l-row">
@@ -61,24 +61,9 @@
       <div id="providerList" class="provider-list" aria-live="polite">
         <div class="provider-empty c-status-msg">Ładowanie…</div>
       </div>
-      <div class="coverage-probe" aria-hidden="true" style="display:none;">
-        <div class="provider-row c-card">
-          <div class="provider-info">
-            <div class="provider-name">Probe Provider</div>
-            <div class="provider-desc">Przykładowy opis providera.</div>
-          </div>
-          <div class="provider-actions">
-            <button class="c-btn c-btn-sm">Test</button>
-          </div>
-        </div>
-      </div>
       <div class="c-hint">Kliknij „Test”, by wykonać próbę TTS i sprawdzić działanie usług.</div>
     </section>
 
-    <div class="coverage-probe" aria-hidden="true" style="display:none;">
-      <div class="msg you">Probe user</div>
-      <div class="msg bot">Probe bot</div>
-    </div>
     <div class="meta" id="latency"></div>
   </main>
 
@@ -94,7 +79,7 @@
   const statusLine = document.getElementById('status-line');
   const ttsChk   = document.getElementById('tts');
   const providerSelect = document.getElementById('ttsProvider');
-  const providerHint   = document.getElementById('providerHint');
+  const providerHint   = document.getElementById('provider-hint');
   const providerListEl = document.getElementById('providerList');
   const btnTestAll     = document.getElementById('btnTestAll');
   const btnReloadProviders = document.getElementById('btnReloadProviders');

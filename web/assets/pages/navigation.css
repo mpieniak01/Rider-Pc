@@ -10,14 +10,14 @@
   --page-padding: var(--space-lg);
 }
 
-.page-navigation .layout-main {
+.navigation-main {
   display: flex;
   flex-direction: column;
   min-height: calc(100vh - 140px);
 }
 
 /* Canvas container - uses media-frame from layout.css */
-.page-navigation #canvas-container {
+.navigation-canvas {
   flex-grow: 1;
   position: relative;
   width: 100%;
@@ -25,7 +25,7 @@
   padding: 0;
 }
 
-.page-navigation #canvas-container canvas {
+.navigation-canvas canvas {
   position: absolute;
   top: 0;
   left: 0;

@@ -149,3 +149,163 @@ def test_chat_critical_elements_present(browser_context):
     # Check TTS checkbox
     tts_checkbox = page.locator("#tts")
     assert tts_checkbox.count() > 0, "TTS checkbox should exist"
+
+
+def test_view_system_card_displays_host(browser_context):
+    """Ensure the main dashboard view loads and shows mock host data."""
+    page, base_url = browser_context
+
+    response = page.goto(f"{base_url}/web/view.html")
+    assert response.status == 200, "View page should load successfully"
+
+    page.wait_for_load_state("load")
+    page.wait_for_function(
+        """
+        () => {
+            const el = document.getElementById('ci_host');
+            return el && el.textContent.trim() !== '—';
+        }
+        """,
+        timeout=5000,
+    )
+
+    host_text = page.locator("#ci_host").inner_text().strip()
+    assert host_text not in {"", "—"}, "System card should display detected host name"
+
+
+def test_view_system_card_structure(browser_context):
+    """Verify that key rows of the system card stay in the DOM."""
+    page, base_url = browser_context
+
+    page.goto(f"{base_url}/web/view.html")
+    page.wait_for_load_state("load")
+
+    labels = [
+        "dash.system.host",
+        "dash.system.cpu_est",
+        "dash.system.load",
+        "dash.system.mem",
+        "dash.system.disk",
+        "dash.system.os",
+        "dash.system.fw",
+    ]
+    value_ids = ["ci_host", "ci_cpu", "ci_load", "ci_mem", "ci_disk", "ci_os", "ci_fw"]
+
+    for data_i18n in labels:
+        locator = page.locator(f"div[data-i18n='{data_i18n}']")
+        assert locator.count() > 0, f"Etykieta {data_i18n} powinna istnieć"
+
+    for element_id in value_ids:
+        locator = page.locator(f"#{element_id}")
+        assert locator.count() > 0, f"Wartość dla {element_id} powinna istnieć"
+
+
+def test_system_network_cards_update(browser_context):
+    """Verify system dashboard populates network cards with data."""
+    page, base_url = browser_context
+
+    response = page.goto(f"{base_url}/web/system.html")
+    assert response.status == 200, "System page should load successfully"
+
+    page.wait_for_load_state("load")
+    page.wait_for_function(
+        """
+        () => {
+            const host = document.getElementById('rider-pi-host');
+            const localIp = document.getElementById('local-ip-value');
+            if (!host || !localIp) return false;
+            const hasHost = host.textContent.trim().length > 0;
+            const hasIp = localIp.textContent.trim() !== '---.---.---.---';
+            return hasHost && hasIp;
+        }
+        """,
+        timeout=7000,
+    )
+
+    local_ip = page.locator("#local-ip-value").inner_text().strip()
+    rider_pi_host = page.locator("#rider-pi-host").inner_text().strip()
+
+    assert local_ip != '---.---.---.---', "Local IP card should display the detected host IP"
+    assert rider_pi_host != '', "Rider-Pi card should display configured host address"
+
+
+def test_system_page_sections_present(browser_context):
+    """Ensure that the main sections of system.html are rendered."""
+    page, base_url = browser_context
+
+    page.goto(f"{base_url}/web/system.html")
+    page.wait_for_load_state("load")
+
+    selectors = [
+        "#status-line",
+        "#network-status-block",
+        "#pc-services-block",
+        "#pc-services-graph",
+        "#pi-services-block",
+        "#pi-services-graph",
+        ".log-panel",
+        "#log-terminal",
+        "#log-clear-btn",
+    ]
+
+    for selector in selectors:
+        locator = page.locator(selector)
+        assert locator.count() > 0, f"Element {selector} powinien istnieć"
+        assert locator.first.is_visible(), f"Element {selector} powinien być widoczny"
+
+
+def test_control_page_core_widgets_present(browser_context):
+    """Validate that control.html renders camera, motion and feature panels."""
+    page, base_url = browser_context
+
+    page.goto(f"{base_url}/web/control.html")
+    page.wait_for_load_state("load")
+
+    basic_selectors = [
+        "#camPrev",
+        ".motion-grid",
+        "#featureList",
+        ".feature-card",
+        "#scenarioList",
+        "#resTable",
+        "#svcTable",
+        "#motionQueueTable",
+        "#log",
+    ]
+    for selector in basic_selectors:
+        locator = page.locator(selector)
+        assert locator.count() > 0, f"Element {selector} powinien istnieć"
+
+    # Wait for data-driven sections to populate
+    page.wait_for_selector("#motionQueueBody tr", timeout=7000)
+    assert page.locator("#motionQueueBody tr").count() > 0, "Tabela kolejki ruchu powinna mieć wiersze"
+    page.wait_for_selector("#scenarioList .scenario-row", timeout=7000)
+
+
+def test_models_page_sections_render(browser_context):
+    """Smoke test for models.html ensuring main grids show seeded data."""
+    page, base_url = browser_context
+
+    page.goto(f"{base_url}/web/models.html")
+    page.wait_for_load_state("load")
+
+    page.wait_for_selector(".active-model-card", timeout=7000)
+    assert page.locator(".active-model-card").count() > 0, "Powinna istnieć co najmniej jedna karta aktywnego modelu"
+
+    page.wait_for_selector(".provider-card", timeout=7000)
+    assert page.locator(".provider-card").count() > 0, "Powinna istnieć karta stanu providera Rider-Pi"
+
+    page.wait_for_selector("#installed-models-tbody tr", timeout=7000)
+    assert page.locator("#installed-models-tbody tr").count() > 0, "Tabela lokalnych modeli powinna zawierać wiersze"
+
+
+def test_project_page_lists_mock_issues(browser_context):
+    """Ensure that project.html renders issues from the mock GitHub adapter."""
+    page, base_url = browser_context
+
+    page.goto(f"{base_url}/web/project.html")
+    page.wait_for_load_state("load")
+
+    page.wait_for_selector("article.issue-card", timeout=7000)
+    issue_cards = page.locator("article.issue-card")
+    assert issue_cards.count() > 0, "Powinna zostać wyrenderowana co najmniej jedna karta zgłoszenia"

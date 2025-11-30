@@ -25,6 +25,7 @@ from pc_client.api.routers import (
     project_router,
     model_router,
     knowledge_router,
+    home_router,
 )
 from pc_client.api.sse_manager import SseManager
 
@@ -139,6 +140,42 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
     app.state.provider_heartbeat_task = None
     app.state.camera_sync_task = None
     app.state.last_lcd_poweroff_ts = 0.0
+    app.state.home_state = {
+        "authenticated": True,
+        "profile": {"email": "mock-user@rider.ai", "name": "Mock User"},
+        "scopes": ["homegraph", "cloud-control"],
+    }
+    app.state.home_devices = [
+        {
+            "name": "devices/light/workbench",
+            "type": "action.devices.types.LIGHT",
+            "traits": {
+                "sdm.devices.traits.OnOff": {"on": True},
+                "sdm.devices.traits.Brightness": {"brightness": 80},
+                "sdm.devices.traits.ColorSetting": {"color": {"temperatureK": 3000, "spectrumRgb": 0x33DDFF}},
+            },
+        },
+        {
+            "name": "devices/thermostat/studio",
+            "type": "action.devices.types.THERMOSTAT",
+            "traits": {
+                "sdm.devices.traits.ThermostatMode": {
+                    "mode": "heatcool",
+                    "availableModes": ["heat", "cool", "heatcool"],
+                },
+                "sdm.devices.traits.ThermostatTemperatureSetpoint": {"heatCelsius": 20.0, "coolCelsius": 24.0},
+                "sdm.devices.traits.Temperature": {"ambientTemperatureCelsius": 21.2},
+            },
+        },
+        {
+            "name": "devices/vacuum/dusty",
+            "type": "action.devices.types.VACUUM",
+            "traits": {
+                "sdm.devices.traits.StartStop": {"isRunning": False, "isPaused": False},
+                "sdm.devices.traits.Dock": {"available": True},
+            },
+        },
+    ]
 
     # Register lifecycle events
     @app.on_event("startup")
@@ -150,14 +187,15 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
         await lifecycle.shutdown_event(app)
 
     # Include routers
-    app.include_router(status_router)
-    app.include_router(provider_router)
-    app.include_router(control_router)
-    app.include_router(voice_router)
-    app.include_router(chat_router)
-    app.include_router(project_router)
-    app.include_router(model_router)
-    app.include_router(knowledge_router)
+    app.include_router(status_router.router)
+    app.include_router(provider_router.router)
+    app.include_router(control_router.router)
+    app.include_router(voice_router.router)
+    app.include_router(chat_router.router)
+    app.include_router(project_router.router)
+    app.include_router(model_router.router)
+    app.include_router(knowledge_router.router)
+    app.include_router(home_router.router)
 
     class NoCacheStaticFiles(StaticFiles):
         """StaticFiles variant that disables conditional caching."""

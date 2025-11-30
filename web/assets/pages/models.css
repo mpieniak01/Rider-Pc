@@ -5,7 +5,11 @@
  */
 
 /* Page container */
-.page-models .page-subtitle { color: var(--muted); font-size: 1rem; margin: 0 0 var(--space-xl); }
+.page-models .page-subtitle {
+  color: var(--muted);
+  font-size: 1rem;
+  margin: 0 0 var(--space-xl);
+}
 
 /* Status line */
 .page-models .status-line {
@@ -15,14 +19,28 @@
 /* Section */
 .page-models .models-section {
   --card-padding: var(--space-xl);
-  margin-bottom: var(--space-xl);
 }
 
 /* Grids */
-.page-models .models-grid { --grid-min: 280px; --grid-gap: var(--space-lg); }
-.page-models .provider-grid { --grid-min: 240px; --grid-gap: var(--space-lg); }
-.page-models .model-category { --grid-min: 260px; --grid-gap: var(--space-lg); }
-.page-models .voice-subsections { --grid-min: 300px; --grid-gap: var(--space-xl); }
+.page-models .models-grid {
+  --grid-min: 280px;
+  --grid-gap: var(--space-lg);
+}
+
+.page-models .provider-grid {
+  --grid-min: 240px;
+  --grid-gap: var(--space-lg);
+}
+
+.page-models .model-category {
+  --grid-min: 260px;
+  --grid-gap: var(--space-lg);
+}
+
+.page-models .voice-subsections {
+  --grid-min: 300px;
+  --grid-gap: var(--space-xl);
+}
 
 /* Provider card */
 .page-models .provider-card {
@@ -31,6 +49,7 @@
 
 .page-models .provider-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-lg); }
 .page-models .provider-domain { font-size: 1rem; font-weight: var(--font-weight-semibold); }
+
 .page-models .provider-mode {
   font-size: var(--font-size-xs);
   letter-spacing: 0.05em;
@@ -56,6 +75,7 @@
 .page-models .active-model-header { display: flex; align-items: center; gap: var(--space-md); margin-bottom: var(--space-lg); }
 .page-models .active-model-icon { font-size: 1.5rem; }
 .page-models .active-model-category { font-weight: var(--font-weight-semibold); font-size: 1rem; flex: 1; }
+
 .page-models .active-model-status {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
@@ -91,6 +111,7 @@
 }
 
 .page-models .category-badge.vision { border-color: #a855f7; color: #a855f7; }
+
 .page-models .category-badge.voice_asr,
 .page-models .category-badge.voice_tts { border-color: #ec4899; color: #ec4899; }
 .page-models .category-badge.text { border-color: var(--color-accent-border); color: var(--color-accent); }

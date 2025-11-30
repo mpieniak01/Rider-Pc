@@ -31,6 +31,12 @@
   transform: scale(0.98);
 }
 
+.page-google .btn-auth.btn-auth--ghost {
+  padding: var(--space-xs) var(--space-lg);
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-lg);
+}
+
 /* Device grid */
 .page-google .device-grid {
   --grid-min: 280px;
@@ -108,9 +114,5 @@
 }
 
 .page-google .hidden {
-  display: none !important;
-}
-
-.page-google .coverage-probe {
   display: none !important;
 }

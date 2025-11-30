@@ -51,6 +51,10 @@ class ActiveModels:
         }
 
 
+def _is_test_mode() -> bool:
+    return os.getenv("TEST_MODE", "false").lower() == "true"
+
+
 class ModelManager:
     """
     Manager for AI model inventory and configuration.
@@ -72,6 +76,45 @@ class ModelManager:
         "text": ["llama", "gpt", "mistral", "phi", "gemma", "qwen"],
     }
 
+    DEMO_LOCAL_MODELS = (
+        {
+            "name": "vision-demo.onnx",
+            "path": "vision-demo.onnx",
+            "type": "yolo",
+            "category": "vision",
+            "size_mb": 18.4,
+            "format": "onnx",
+        },
+        {
+            "name": "whisper-small.en",
+            "path": "whisper-small.en",
+            "type": "whisper",
+            "category": "voice_asr",
+            "size_mb": 75.2,
+            "format": "en",
+        },
+        {
+            "name": "piper-pl",
+            "path": "piper-pl.onnx",
+            "type": "piper",
+            "category": "voice_tts",
+            "size_mb": 48.7,
+            "format": "onnx",
+        },
+        {
+            "name": "llama3.2-text",
+            "path": "llama3.2.gguf",
+            "type": "llm",
+            "category": "text",
+            "size_mb": 220.1,
+            "format": "gguf",
+        },
+    )
+    DEMO_OLLAMA_MODELS = (
+        {"name": "llama3.2:1b", "size": 4_000_000_000, "details": {"format": "gguf"}},
+        {"name": "mistral:7b", "size": 13_000_000_000, "details": {"format": "gguf"}},
+    )
+
     def __init__(
         self,
         models_dir: Optional[str] = None,
@@ -84,6 +127,7 @@ class ModelManager:
             models_dir: Path to the models directory (default: data/models)
             providers_config_path: Path to providers.toml (default: config/providers.toml)
         """
+        self._using_default_models_dir = models_dir is None
         self.models_dir = Path(models_dir) if models_dir else Path("data/models")
         self.providers_config_path = (
             Path(providers_config_path) if providers_config_path else Path("config/providers.toml")
@@ -110,6 +154,8 @@ class ModelManager:
 
         if not self.models_dir.exists():
             logger.warning("Models directory does not exist: %s", self.models_dir)
+            if self._should_seed_demo_models():
+                self._seed_demo_models()
             return self._installed_models
 
         for root, _, files in os.walk(self.models_dir):
@@ -121,8 +167,30 @@ class ModelManager:
                     self._installed_models.append(model_info)
                     logger.debug("Found model: %s (%s)", model_info.name, model_info.category)
 
+        if not self._installed_models and self._should_seed_demo_models():
+            self._seed_demo_models()
+
         logger.info("Scanned %d local models", len(self._installed_models))
         return self._installed_models
+
+    def _should_seed_demo_models(self) -> bool:
+        """Return True when demo models should be injected."""
+        return self._using_default_models_dir and _is_test_mode()
+
+    def _seed_demo_models(self) -> None:
+        """Populate deterministic demo models used in TEST_MODE."""
+        self._installed_models = [
+            ModelInfo(
+                name=entry["name"],
+                path=entry["path"],
+                type=entry["type"],
+                category=entry["category"],
+                size_mb=entry["size_mb"],
+                format=entry["format"],
+            )
+            for entry in self.DEMO_LOCAL_MODELS
+        ]
+        logger.info("Seeded %d demo models for TEST_MODE", len(self._installed_models))
 
     def _create_model_info(self, file_path: Path) -> ModelInfo:
         """Create ModelInfo from a file path."""
@@ -251,6 +319,10 @@ class ModelManager:
                     logger.warning("Ollama API returned status %d", response.status_code)
         except Exception as e:
             logger.debug("Could not connect to Ollama: %s", e)
+
+        if not self._ollama_models and _is_test_mode():
+            self._ollama_models = [dict(entry) for entry in self.DEMO_OLLAMA_MODELS]
+            logger.info("Seeded %d demo Ollama models for TEST_MODE", len(self._ollama_models))
 
         return self._ollama_models
 

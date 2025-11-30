@@ -3,10 +3,10 @@
 Provides session-scoped test server and function-scoped browser contexts.
 """
 
+import multiprocessing
 import os
 import socket
 import sys
-import threading
 import time
 import urllib.request
 
@@ -15,15 +15,13 @@ import uvicorn
 from playwright.sync_api import sync_playwright
 
 
-def run_server_thread():
-    """Run FastAPI server in a background thread."""
-    # Get port from environment
-    port = int(os.environ.get('TEST_SERVER_PORT', 18765))
-
-    # Enable TEST_MODE for mock backend
+def run_server_process(port: int) -> None:
+    """Run FastAPI server in a separate process with TEST_MODE enabled."""
     os.environ['TEST_MODE'] = 'true'
+    os.environ['GITHUB_FORCE_MOCK'] = 'true'
+    os.environ['GITHUB_MOCK_CONFIGURED'] = 'true'
+    os.environ['TEST_SERVER_PORT'] = str(port)
 
-    # Add project root to path (go up 3 levels from tests/e2e/conftest.py)
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     if project_root not in sys.path:
         sys.path.insert(0, project_root)
@@ -31,6 +29,13 @@ def run_server_thread():
     from pc_client.api.server import create_app
     from pc_client.cache import CacheManager
     from pc_client.config import Settings
+    import pc_client.api.routers.project_router as project_router_module
+    import pc_client.api.routers.status_router as status_router_module
+
+    # Reset module-level singletons so forked process does not inherit parent's state
+    project_router_module._github_adapter = None
+    project_router_module._git_adapter = None
+    status_router_module._git_adapter = None
 
     settings = Settings()
     cache = CacheManager()
@@ -54,11 +59,8 @@ def test_server():
         s.bind(('127.0.0.1', 0))
         port = s.getsockname()[1]
 
-    # Store port for server function
-    os.environ['TEST_SERVER_PORT'] = str(port)
-
-    thread = threading.Thread(target=run_server_thread, daemon=True)
-    thread.start()
+    server_process = multiprocessing.Process(target=run_server_process, args=(port,), daemon=True)
+    server_process.start()
 
     # Wait for server to be ready with robust health check loop
     base_url = f"http://127.0.0.1:{port}"
@@ -76,8 +78,11 @@ def test_server():
                 raise Exception(f"Server failed to start after {max_retries} attempts: {e}")
             time.sleep(retry_delay)
 
-    yield base_url
-    # Thread will be cleaned up automatically as it's daemonic
+    try:
+        yield base_url
+    finally:
+        server_process.terminate()
+        server_process.join(timeout=5)
 
 
 @pytest.fixture
