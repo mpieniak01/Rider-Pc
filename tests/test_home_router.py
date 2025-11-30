@@ -30,7 +30,7 @@ def test_home_status_returns_authenticated(tmp_path):
     resp = client.get("/api/home/status")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["authenticated"] is True or body.get("authenticated") is False
+    assert body["authenticated"] is True  # Sprawdzamy, że w trybie testowym endpoint zwraca authenticated=True
     assert "profile" in body
     assert isinstance(body["profile"], dict)
 
