@@ -713,4 +713,14 @@ async def shutdown_event(app: FastAPI):
 
     await cleanup_github_adapter()
 
+    # Close Google Home service
+    from pc_client.services.google_home import get_google_home_service
+
+    try:
+        service = get_google_home_service()
+        if service._http_client:
+            await service.close()
+    except Exception:
+        pass
+
     logger.info("Shutdown complete")

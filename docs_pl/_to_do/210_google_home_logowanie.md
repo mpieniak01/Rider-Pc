@@ -1,5 +1,49 @@
 # Plan: Rider-PC – natywne logowanie i integracja Google Home
 
+**Status:** ✅ Zaimplementowano w PR
+**PR:** mpieniak01/Rider-Pc#104
+
+## Zrealizowane
+
+### Architektura i zależności ✅
+- Dodano zależności `google-auth`, `google-auth-oauthlib` do `requirements.txt` i `requirements-ci.txt`
+- Utworzono moduł `pc_client/services/google_home.py` z OAuth 2.0 PKCE flow
+- Utworzono `config/google_home.toml` z dokumentacją konfiguracji
+- Dodano konfigurację w `pc_client/config/settings.py` (zmienne środowiskowe)
+
+### Przepływ OAuth na Rider-PC ✅
+- Endpoint `GET /api/home/auth/url` - buduje adres logowania Google z PKCE
+- Endpoint `GET /api/home/auth/callback` - obsługuje redirect z Google, wymienia code na tokeny
+- Endpoint `POST /api/home/auth/clear` - czyści tokeny
+- Endpoint `GET /api/home/profile` - pobiera profil użytkownika
+- Thread-safe singleton pattern z Lock dla GoogleHomeService
+- Tokeny zapisywane w `config/local/google_tokens_pc.json`
+
+### Serwis Google Home ✅
+- Metody: `is_configured()`, `is_authenticated()`, `start_auth_session()`, `complete_auth()`, `list_devices()`, `send_command()`, `get_profile()`, `clear_auth()`
+- Automatyczne odświeżanie tokenów na 401
+- Cachowanie listy urządzeń (30 sekund)
+- Tryb testowy z mockowymi urządzeniami
+
+### API FastAPI ✅
+- `home_router.py` zrefaktoryzowany: najpierw próbuje lokalnego serwisu, fallback do RestAdapter
+- Rozróżnianie błędów: `auth_env_missing`, `invalid_state`, `session_expired`, `token_exchange_failed`
+- `/api/home/status` zwraca `configured`, `authenticated`, `auth_url_available`, `profile`
+
+### UX w `web/google_home.html` ✅
+- Przycisk „Sign in with Google" przekierowuje na `auth_url`
+- Obsługa callback z `?auth=success` lub `?auth=error`
+- Stany: brak konfiguracji, gotowy do logowania, zalogowany
+- Bezpieczna obsługa XSS (textContent zamiast innerHTML)
+
+### Dokumentacja ✅
+- Utworzono `docs_pl/google-home-integration.md` z pełną instrukcją konfiguracji
+- Zaktualizowano `.env.example` z nowymi zmiennymi
+
+### Testy ✅
+- 32 testy jednostkowe dla `GoogleHomeService`
+- 13 testów dla endpointów w `home_router.py`
+
 ## Cel
 Zapewnić, aby użytkownik mógł w całości z poziomu przeglądarki Rider-PC:
 - przejść pełny przepływ OAuth 2.0 (bez tunelowania do Rider-Pi),

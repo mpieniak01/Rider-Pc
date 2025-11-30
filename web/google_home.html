@@ -121,17 +121,59 @@ import { initI18n, applyDom, t } from '/web/assets/i18n.js';
     try{
       const result = await httpGet('/api/home/status');
       const isAuth = result.authenticated;
+      const isConfigured = result.configured !== false; // Default to true for backward compatibility
       
       const authBadge = qs('#authBadge');
       const authSection = qs('#authSection');
       const devicesSection = qs('#devicesSection');
+      const authDescription = qs('#authSection p');
       
       if(isAuth){
         authBadge.textContent = t('home.auth_ok');
         authBadge.className = 'c-pill ok';
         authSection.classList.add('hidden');
         devicesSection.classList.remove('hidden');
+        
+        // Show profile info if available
+        if(result.profile && result.profile.email){
+          authBadge.title = result.profile.email;
+        }
+        
         loadDevices();
+      } else if(!isConfigured){
+        // Not configured - show configuration instructions
+        authBadge.textContent = t('home.auth_not_configured') || 'Not Configured';
+        authBadge.className = 'c-pill warn';
+        authSection.classList.remove('hidden');
+        devicesSection.classList.add('hidden');
+        
+        // Update description with configuration info
+        const missing = result.configuration_missing || [];
+        if(missing.length > 0 && authDescription){
+          // Bezpieczne tworzenie elementów DOM bez innerHTML
+          authDescription.textContent = '';
+          
+          const strong = document.createElement('strong');
+          strong.textContent = t('home.config_required') || 'Configuration required';
+          authDescription.appendChild(strong);
+          authDescription.appendChild(document.createElement('br'));
+          
+          const span = document.createTextNode(t('home.config_missing') || 'Missing environment variables');
+          authDescription.appendChild(span);
+          authDescription.appendChild(document.createTextNode(':'));
+          authDescription.appendChild(document.createElement('br'));
+          
+          const code = document.createElement('code');
+          code.textContent = missing.join(', ');
+          authDescription.appendChild(code);
+          authDescription.appendChild(document.createElement('br'));
+          
+          const link = document.createElement('a');
+          link.href = '/web/assets/docs/google-home-setup.html';
+          link.target = '_blank';
+          link.textContent = t('home.config_docs') || 'See documentation';
+          authDescription.appendChild(link);
+        }
       } else {
         authBadge.textContent = t('home.auth_required');
         authBadge.className = 'c-pill warn';
@@ -473,6 +515,22 @@ import { initI18n, applyDom, t } from '/web/assets/i18n.js';
       button.disabled = true;
       button.textContent = `${t('meta.loading')}...`;
 
+      // First, try to get OAuth URL for redirect flow
+      const urlResponse = await fetch('/api/home/auth/url', {
+        method: 'GET',
+        headers: {'Accept': 'application/json'},
+      });
+      
+      const urlResult = await urlResponse.json().catch(() => ({}));
+      
+      if (urlResponse.ok && urlResult.ok && urlResult.auth_url) {
+        // Redirect to Google OAuth
+        showStatus(t('home.auth_redirecting') || 'Redirecting to Google...', 'ok');
+        window.location.href = urlResult.auth_url;
+        return;
+      }
+      
+      // Fallback to legacy POST /api/home/auth for mock/proxy mode
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 120000);
 
@@ -485,10 +543,16 @@ import { initI18n, applyDom, t } from '/web/assets/i18n.js';
       const result = await response.json().catch(() => ({}));
 
       if (response.ok && result.ok) {
+        // If result contains auth_url, redirect to it
+        if (result.auth_url) {
+          showStatus(t('home.auth_redirecting') || 'Redirecting to Google...', 'ok');
+          window.location.href = result.auth_url;
+          return;
+        }
         showStatus(t('home.auth_success'), 'ok');
         await checkAuth();
       } else {
-        throw new Error(result.error || 'Authentication failed');
+        throw new Error(result.error || result.message || 'Authentication failed');
       }
     } catch (e) {
       if (e.name === 'AbortError') {
@@ -508,12 +572,18 @@ import { initI18n, applyDom, t } from '/web/assets/i18n.js';
 
   qs('#btnRefresh').addEventListener('click', ()=> loadDevices());
 
-  // --- Check for auth success callback
+  // --- Check for auth success/error callback
   const authParam = new URLSearchParams(location.search).get('auth');
+  const errorParam = new URLSearchParams(location.search).get('error');
+  
   if(authParam === 'success'){
-    // Remove query param from URL
+    // Remove query params from URL
     window.history.replaceState({}, '', location.pathname);
     showStatus(t('home.auth_success'), 'ok');
+  } else if(authParam === 'error'){
+    window.history.replaceState({}, '', location.pathname);
+    const errorMsg = errorParam || 'unknown_error';
+    showStatus(t('home.error_auth', {msg: errorMsg}), 'err');
   }
 
   // --- Initialize
