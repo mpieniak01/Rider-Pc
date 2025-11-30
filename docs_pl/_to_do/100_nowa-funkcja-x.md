@@ -1,4 +1,4 @@
-# Zadanie #100: Nowa Funkcja X
+# Mock Task #100: Test Documentation Template
 
 **Status:** :hourglass_flowing_sand: W trakcie
 **Link:** https://github.com/mock/repo/issues/100
