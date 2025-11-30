@@ -68,13 +68,31 @@ async def _process_local_chat(
     provider: TextProvider, prompt: str, payload: Dict[str, Any]
 ) -> JSONResponse:
     """Przetwórz żądanie czatu lokalnie przez TextProvider."""
+    # Walidacja max_tokens
+    max_tokens = payload.get("max_tokens")
+    if max_tokens is not None:
+        try:
+            max_tokens = int(max_tokens)
+            if max_tokens < 1 or max_tokens > 4096:
+                max_tokens = None
+        except (ValueError, TypeError):
+            max_tokens = None
+    # Walidacja temperature
+    temperature = payload.get("temperature")
+    if temperature is not None:
+        try:
+            temperature = float(temperature)
+            if temperature < 0.0 or temperature > 2.0:
+                temperature = None
+        except (ValueError, TypeError):
+            temperature = None
     task = TaskEnvelope(
         task_id=f"text-chat-{uuid.uuid4()}",
         task_type=TaskType.TEXT_GENERATE,
         payload={
             "prompt": prompt,
-            "max_tokens": payload.get("max_tokens"),
-            "temperature": payload.get("temperature"),
+            "max_tokens": max_tokens,
+            "temperature": temperature,
             "system_prompt": payload.get("system_prompt"),
         },
         meta={
@@ -316,8 +334,14 @@ async def generate_pr_content(request: Request, payload: Dict[str, Any]) -> JSON
         )
 
     context = payload.get("context", {})
+    VALID_STYLES = {"concise", "detailed", "technical"}
+    VALID_LANGUAGES = {"pl", "en"}
     style = payload.get("style", "detailed")
+    if style not in VALID_STYLES:
+        style = "detailed"
     language = payload.get("language", "pl")
+    if language not in VALID_LANGUAGES:
+        language = "pl"
 
     # Buduj prompt systemowy dla generowania treści PR
     system_prompt = _build_pr_system_prompt(style, language)
@@ -455,7 +479,7 @@ def _parse_pr_content(generated_text: str, fallback_draft: str) -> Dict[str, str
     # Fallbacki jeśli parsowanie nie zadziałało
     if not result["title"]:
         # Użyj pierwszej linii draftu lub wygenerowanego tekstu
-        first_line = fallback_draft.split("\n")[0][:80]
+        first_line = fallback_draft.strip().split("\n")[0][:80]
         result["title"] = first_line if first_line else "Aktualizacja projektu"
 
     if not result["description"]:

@@ -203,10 +203,15 @@
     }
   }
 
+  let saveTimeout;
   function save(role, text, error, source) {
     history.push({ role, text, error: !!error, source });
     if (history.length > 200) history.shift();
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+    // Debounce zapisu do sessionStorage: zapis po 500ms od ostatniej zmiany
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+    }, 500);
   }
 
   function appendMessage(role, text, isError, source) {
@@ -286,7 +291,10 @@
     latency.textContent = `Czas odpowiedzi: ${(t1 - t0).toFixed(0)} ms`;
 
     if (!res.ok) {
-      const errData = await res.json().catch(() => ({ error: `${res.status} ${res.statusText}` }));
+      const errData = await res.json().catch((parseErr) => {
+        console.warn('Nie udało się sparsować odpowiedzi błędu:', parseErr);
+        return { error: `HTTP ${res.status}: ${res.statusText}` };
+      });
       throw new Error(errData.error || errData.hint || `HTTP ${res.status}`);
     }
     return res.json();
