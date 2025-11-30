@@ -718,8 +718,7 @@ async def shutdown_event(app: FastAPI):
 
     try:
         service = get_google_home_service()
-        if service._http_client:
-            await service.close()
+        await service.close()
     except Exception:
         pass
 
