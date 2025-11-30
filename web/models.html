@@ -27,7 +27,7 @@
 <p id="status-line" class="status-line c-statusbar is-working">Ładowanie danych modeli...</p>
 
   <!-- Active Models Section -->
-  <section class="models-section c-card">
+  <section class="models-section c-card c-section">
     <h2 class="section-title">📊 Aktywne Modele</h2>
     <div class="models-grid l-grid" id="active-models-grid">
       <!-- Active model cards will be dynamically inserted -->
@@ -35,7 +35,7 @@
   </section>
 
   <!-- Provider State -->
-  <section class="models-section c-card">
+  <section class="models-section c-card c-section">
     <h2 class="section-title">🛰️ Stan Rider-Pi</h2>
     <p class="section-desc">Informacje z rejestru providera Rider-Pi: gdzie wykonywane są obecnie zadania Vision / Voice / Text.</p>
     <div class="provider-grid l-grid" id="provider-state-grid">
@@ -45,7 +45,7 @@
   </section>
 
   <!-- Vision Models -->
-  <section class="models-section c-card">
+  <section class="models-section c-card c-section">
     <h2 class="section-title">👁️ Wizja (Vision)</h2>
     <p class="section-desc">Modele detekcji obiektów i analizy obrazu</p>
     <div class="model-category l-grid" id="vision-models">
@@ -54,7 +54,7 @@
   </section>
 
   <!-- Voice Models -->
-  <section class="models-section c-card">
+  <section class="models-section c-card c-section">
     <h2 class="section-title">🗣️ Mowa (Audio)</h2>
     <div class="voice-subsections l-grid">
       <div class="voice-subsection">
@@ -73,7 +73,7 @@
   </section>
 
   <!-- Text/LLM Models -->
-  <section class="models-section c-card">
+  <section class="models-section c-card c-section">
     <h2 class="section-title">💬 Tekst (LLM)</h2>
     <p class="section-desc">Modele językowe do generowania tekstu i NLU</p>
     <div class="model-category l-grid" id="text-models">
@@ -82,7 +82,7 @@
   </section>
 
   <!-- Installed Files -->
-  <section class="models-section c-card">
+  <section class="models-section c-card c-section">
     <h2 class="section-title">📁 Zainstalowane Pliki Modeli</h2>
     <p class="section-desc">Pliki modeli wykryte w katalogu <code>data/models/</code></p>
     <div class="installed-columns">
@@ -134,18 +134,16 @@
       </div>
     </div>
   </section>
+
+  <div class="models-style-preview" aria-hidden="true" style="display:none">
+    <div class="c-status-msg loading-placeholder">Loading…</div>
+    <div class="c-status-msg no-models">No models</div>
+  </div>
   </main>
 
   <!-- Footer -->
   <footer class="layout-footer" data-dashboard-footer-target></footer>
 
-  <div class="coverage-probe" aria-hidden="true" style="display:none;">
-    <div class="category-badge vision">vision</div>
-    <div class="category-badge voice_asr">voice</div>
-    <div class="category-badge text">text</div>
-    <span class="provider-mode mode-pc">pc</span>
-    <span class="provider-mode mode-local">local</span>
-  </div>
 
 <script>
 const statusLine = document.getElementById('status-line');
@@ -310,7 +308,7 @@ function createActiveModelCard(category, config) {
       </div>
       <div class="c-data-list__item">
         <span class="c-data-list__label">Provider</span>
-        <span class="c-data-list__value">${safeProvider}</span>
+        <span class="c-data-list__value model-provider">${safeProvider}</span>
       </div>
     </div>
   `;

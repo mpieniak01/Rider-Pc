@@ -24,6 +24,9 @@
     </div>
     <div class="page-header__actions page-header__actions--small text-legend">
       <span id="authBadge" class="c-pill warn" data-i18n="home.auth_checking">Checking…</span>
+      <button class="c-btn btn-auth btn-auth--ghost" type="button" data-auth-trigger="header">
+        <span data-i18n="home.auth_button">Sign in with Google</span>
+      </button>
     </div>
   </header>
 
@@ -31,7 +34,7 @@
   <div id="authSection" class="c-card hidden">
     <h2 class="c-card__title" data-i18n="home.auth_title">Authentication Required</h2>
     <p data-i18n="home.auth_description">To control your Google Home devices, please sign in with your Google account.</p>
-    <button id="btnAuth" class="c-btn btn-auth" data-i18n="home.auth_button">Sign in with Google</button>
+    <button id="btnAuth" class="c-btn btn-auth" type="button" data-auth-trigger="primary" data-i18n="home.auth_button">Sign in with Google</button>
   </div>
 
   <!-- DEVICES SECTION -->
@@ -43,22 +46,9 @@
     </div>
     
     <div id="statusMsg" class="c-status-msg hidden"></div>
+    <div class="c-status-msg ok status-preview" style="display:none" aria-hidden="true"></div>
+    <div class="c-status-msg err status-preview" style="display:none" aria-hidden="true"></div>
     
-    <div class="coverage-probe" aria-hidden="true">
-      <div class="device-card c-card">
-        <div class="device-name">Sample Device</div>
-        <div class="device-type">type</div>
-        <div class="device-controls">
-          <div class="control-row">
-            <button class="c-btn-sm">On</button>
-            <button class="c-btn-sm">Off</button>
-            <input type="range" min="0" max="100" value="50" />
-            <input type="color" value="#1a73e8" />
-            <select><option>Auto</option></select>
-          </div>
-        </div>
-      </div>
-    </div>
     <div id="devicesList" class="device-grid l-grid">
       <div class="muted" data-i18n="meta.loading">Loading…</div>
     </div>
@@ -67,20 +57,6 @@
 
   <!-- Footer -->
   <footer class="layout-footer" data-dashboard-footer-target></footer>
-
-  <div class="coverage-probe" aria-hidden="true" style="display:none;">
-    <div class="device-card c-card">
-      <div class="device-name">Probe lamp</div>
-      <div class="device-type">lighting</div>
-      <div class="control-row">
-        <input type="range" min="0" max="100" value="50">
-        <input type="color" value="#1a73e8">
-        <select><option>Auto</option></select>
-      </div>
-    </div>
-    <div class="c-status-msg ok">ok</div>
-    <div class="c-status-msg err">err</div>
-  </div>
 
   <!-- APP (i18n + logika) -->
 <script type="module">
@@ -490,30 +466,26 @@ import { initI18n, applyDom, t } from '/web/assets/i18n.js';
     return div.innerHTML;
   }
 
-  // --- Event listeners
-  qs('#btnAuth').addEventListener('click', async ()=> {
-    const btn = qs('#btnAuth');
-    const originalText = btn.textContent;
-    
+  async function handleAuth(button){
+    if(!button) return;
+    const originalText = button.textContent;
     try {
-      btn.disabled = true;
-      btn.textContent = t('meta.loading') + '...';
-      
-      // POST request with extended timeout for blocking OAuth flow
+      button.disabled = true;
+      button.textContent = `${t('meta.loading')}...`;
+
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 seconds
-      
+      const timeoutId = setTimeout(() => controller.abort(), 120000);
+
       const response = await fetch('/api/home/auth', {
         method: 'POST',
-        signal: controller.signal
+        signal: controller.signal,
       });
-      
+
       clearTimeout(timeoutId);
       const result = await response.json().catch(() => ({}));
-      
+
       if (response.ok && result.ok) {
         showStatus(t('home.auth_success'), 'ok');
-        // Refresh to show devices
         await checkAuth();
       } else {
         throw new Error(result.error || 'Authentication failed');
@@ -524,9 +496,14 @@ import { initI18n, applyDom, t } from '/web/assets/i18n.js';
       } else {
         showStatus(t('home.error_auth', {msg: e.message}), 'err');
       }
-      btn.disabled = false;
-      btn.textContent = originalText;
+    } finally {
+      button.disabled = false;
+      button.textContent = originalText;
     }
+  }
+
+  document.querySelectorAll('[data-auth-trigger]').forEach(btn => {
+    btn.addEventListener('click', ()=> handleAuth(btn));
   });
 
   qs('#btnRefresh').addEventListener('click', ()=> loadDevices());

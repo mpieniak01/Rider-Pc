@@ -41,7 +41,7 @@
 
     <div class="panel-row">
       <!-- 1) KAMERA -->
-      <div class="c-card cam-card control-section is-camera">
+      <div class="c-card c-section cam-card control-section is-camera">
         <h2 class="c-card__title" data-i18n="camera.title">Podgląd kamery</h2>
 
         <div class="cam-actions cluster">
@@ -65,7 +65,7 @@
     </div>
 
     <!-- 2) STEROWANIE -->
-    <div class="c-card control-card control-section is-motion">
+    <div class="c-card c-section control-card control-section is-motion">
       <h2 class="c-card__title" data-i18n="motion.title">Sterowanie ruchem</h2>
 
       <div class="l-row control-range-row">
@@ -137,7 +137,7 @@
 
   <!-- FUNKCJE + ZASOBY -->
   <div class="panel-row feature-resource">
-    <div class="c-card feature-card control-section is-features">
+    <div class="c-card c-section feature-card control-section is-features">
       <h2 class="c-card__title" data-i18n="motion.features_title">Funkcje</h2>
       <div class="feature-list" id="featureList">
         <div class="feature-row" data-feature="zero">
@@ -250,7 +250,7 @@
       </div>
     </div>
 
-    <div class="c-card resource-card control-section is-resources">
+    <div class="c-card c-section resource-card control-section is-resources">
       <h2 class="c-card__title" data-i18n="resources.title">Diagnostyka zasobów</h2>
       <div id="resInfo" class="muted" data-i18n="meta.loading">Ładowanie…</div>
       <table class="svc-table c-table" id="resTable">
@@ -349,7 +349,7 @@
   </div>
 
   <div class="panel-row scenario-panel">
-    <div class="c-card scenario-card control-section is-scenarios">
+    <div class="c-card c-section scenario-card control-section is-scenarios">
       <h2 class="c-card__title">Scenariusze / targety</h2>
       <div class="feature-list scenario-list" id="scenarioList">
         <div class="muted" data-i18n="meta.loading">Ładowanie…</div>
@@ -358,12 +358,10 @@
     </div>
   </div>
 
-  <div class="c-card service-card control-section is-services">
-    <details class="svc-diagnostics" open>
-      <summary class="c-card__title svc-summary">
-        <span data-i18n="services.title">Usługi (systemd)</span>
-      </summary>
-      <div class="svc-controls" aria-label="Usługi – sterowanie listą">
+  <div class="c-card c-section service-card control-section is-services">
+    <div class="card-head svc-head">
+      <h2 class="c-card__title" data-i18n="services.title">Usługi (systemd)</h2>
+      <div class="svc-controls card-actions" aria-label="Usługi – sterowanie listą">
         <button
           id="svcRefresh"
           class="c-btn c-btn-sm section-action"
@@ -387,42 +385,44 @@
           </select>
         </label>
       </div>
-      <div id="svcInfo" class="muted">
-        <span data-i18n="meta.loading">Ładowanie…</span>
-        <span id="svcTs"></span>
-      </div>
-      <table class="svc-table c-table" id="svcTable" hidden>
-        <thead>
-        <tr>
-          <th data-i18n="services.unit">Unit</th>
-          <th data-i18n="services.desc">Opis</th>
-          <th data-i18n="services.status">Status</th>
-          <th data-i18n="services.autostart">Autostart</th>
-          <th data-i18n="services.actions">Akcje</th>
-        </tr>
-        </thead>
-        <tbody id="svcBody"></tbody>
-      </table>
-    </details>
+    </div>
+    <div id="svcInfo" class="muted">
+      <span data-i18n="meta.loading">Ładowanie…</span>
+      <span id="svcTs"></span>
+    </div>
+    <table class="svc-table c-table" id="svcTable" hidden>
+      <thead>
+      <tr>
+        <th data-i18n="services.unit">Unit</th>
+        <th data-i18n="services.desc">Opis</th>
+        <th data-i18n="services.status">Status</th>
+        <th data-i18n="services.autostart">Autostart</th>
+        <th data-i18n="services.actions">Akcje</th>
+      </tr>
+      </thead>
+      <tbody id="svcBody"></tbody>
+    </table>
   </div>
 
   <!-- LOG -->
-  <section class="log-panel c-card control-section is-log">
+  <section class="log-panel c-card c-section control-section is-log">
     <header class="log-header l-cluster">
       <h2 class="section-title" data-i18n="events.title">Zdarzenia (SSE /events)</h2>
     </header>
     <div id="log" class="log-terminal" role="log" aria-live="polite" aria-label="Zdarzenia"></div>
   </section>
 
-  <div class="c-card motion-queue-card control-section is-queue">
-    <h2 class="c-card__title">
-      <span data-i18n="motion_queue.title">Kolejka ruchu</span>
-      <button
-        id="btnMotionQueueFlush"
-        class="c-btn c-btn-sm section-action"
-        data-i18n="motion_queue.btn_flush"
-      >⏹ stop &amp; wyczyść</button>
-    </h2>
+  <div class="c-card c-section motion-queue-card control-section is-queue">
+    <div class="card-head motion-queue-head">
+      <h2 class="c-card__title" data-i18n="motion_queue.title">Kolejka ruchu</h2>
+      <div class="motion-queue-actions card-actions">
+        <button
+          id="btnMotionQueueFlush"
+          class="c-btn c-btn-sm"
+          data-i18n="motion_queue.btn_flush"
+        >⏹ stop &amp; wyczyść</button>
+      </div>
+    </div>
     <div id="motionQueueInfo" class="muted" data-i18n="motion_queue.loading">
       Brak danych…
     </div>

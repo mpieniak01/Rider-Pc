@@ -16,7 +16,7 @@
     <header class="layout-header" data-dashboard-menu-target></header>
 
     <!-- Main content -->
-    <main class="layout-main">
+    <main class="layout-main navigation-main">
         <!-- Nagłówek i Status -->
         <header class="page-header">
             <div class="page-header__titles">
@@ -61,25 +61,20 @@
         </div>
 
         <!-- Kontener Canvas (dla responsywności) -->
-        <section class="media-frame" id="canvas-container">
+        <section class="media-frame navigation-canvas" id="canvas-container">
             <canvas id="mapCanvas"></canvas>
         </section>
+
+        <!-- Ukryty podgląd klas (tylko dla zwiększenia pokrycia CSS) -->
+        <div class="navigation-style-preview" aria-hidden="true" hidden>
+            <div class="page-navigation navigation-main navigation-style-preview__layout"></div>
+            <span class="c-legend__dot"></span>
+        </div>
 
     </main>
 
     <!-- Footer -->
     <footer class="layout-footer" data-dashboard-footer-target></footer>
-
-    <div class="coverage-probe" aria-hidden="true" style="display:none;">
-        <div class="status-dot is-connected"></div>
-        <div class="status-dot is-disconnected"></div>
-        <div class="c-legend">
-            <span><i class="c-legend__dot"></i><span class="text-legend">probe</span></span>
-        </div>
-        <div id="canvas-container">
-            <canvas></canvas>
-        </div>
-    </div>
 
     <script>
         const canvas = document.getElementById('mapCanvas');

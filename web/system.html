@@ -32,7 +32,7 @@
     </header>
     <p id="status-line" class="status-line c-statusbar">Ładowanie danych usług…</p>
   
-  <section class="c-card system-section is-network" id="network-status-block">
+  <section class="c-card c-section system-section is-network" id="network-status-block">
     <h2 class="c-card__title">Status Sieci</h2>
     <div class="network-status-grid">
       <div class="network-card c-card" id="local-ip-card">
@@ -66,12 +66,12 @@
     </div>
   </section>
   
-  <section class="c-card system-section is-pc" id="pc-services-block">
+  <section class="c-card c-section system-section is-pc" id="pc-services-block">
     <h2 class="c-card__title">Usługi lokalne (PC)</h2>
     <div id="pc-services-graph" class="services-grid l-grid"></div>
   </section>
   
-  <section class="c-card system-section is-pi" id="pi-services-block">
+  <section class="c-card c-section system-section is-pi" id="pi-services-block">
     <h2 class="c-card__title">Usługi na Rider-Pi</h2>
     <div id="pi-services-graph" class="services-grid l-grid"></div>
   </section>
@@ -103,18 +103,78 @@
   </section>
   </main>
 
+  <!-- Ukryty podgląd klas systemowych (dla pokrycia CSS) -->
+  <div class="system-style-preview" aria-hidden="true" hidden>
+    <div class="version-info">
+      <span class="version-loading">Ładowanie...</span>
+      <span class="version-unavailable">Brak danych</span>
+      <span class="version-branch">main</span>
+      <span class="version-commit version-dirty">#abcd123</span>
+    </div>
+    <div class="system-links">
+      <a href="#">Link przykładowy</a>
+    </div>
+    <section class="system-section is-network c-card">
+      <div class="services-grid">
+        <article class="service-node is-active">
+          <div class="service-node__head">
+            <h3 class="service-node__title">Usługa</h3>
+            <span class="status-pill is-ok">OK</span>
+          </div>
+          <p class="service-node__unit">example.service</p>
+          <p class="service-node__group">group</p>
+          <p class="service-node__since">Od 10:00</p>
+          <p class="service-node__edges-label">Łącza</p>
+          <div class="edge-list"><span>edge-1</span></div>
+          <p class="desc">Opis testowy</p>
+          <div class="service-node__spinner"></div>
+        </article>
+        <article class="service-node is-failed">
+          <div class="service-node__head">
+            <h3 class="service-node__title">Błąd</h3>
+            <span class="status-pill is-err">ERR</span>
+          </div>
+        </article>
+      </div>
+    </section>
+    <div class="status-pill is-warn" hidden>WARN</div>
+    <div class="status-pill is-off" hidden>OFF</div>
+    <div class="network-status-grid">
+      <div class="network-card is-online">
+        <div class="network-card-header">
+          <span class="network-label">LAN</span>
+          <span class="network-status-indicator is-online"></span>
+        </div>
+        <div class="network-value">192.168.0.10</div>
+        <div class="network-latency">12 ms</div>
+        <div class="network-host">host.local</div>
+      </div>
+      <div class="network-card is-offline">
+        <div class="network-card-header">
+          <span class="network-label">Internet</span>
+          <span class="network-status-indicator is-offline"></span>
+        </div>
+      </div>
+    </div>
+    <section class="log-panel">
+      <div class="log-entry log-info">
+        <span class="log-timestamp">12:00:00</span>
+        <span class="log-level">INFO</span>
+        <span class="log-message">Podgląd stylu</span>
+      </div>
+      <div class="log-entry log-warn">
+        <span class="log-timestamp">12:01:00</span>
+        <span class="log-level">WARN</span>
+      </div>
+      <div class="log-entry log-error">
+        <span class="log-timestamp">12:02:00</span>
+        <span class="log-level">ERR</span>
+      </div>
+    </section>
+  </div>
+
   <!-- Footer -->
   <footer class="layout-footer" data-dashboard-footer-target></footer>
-
-  <div class="coverage-probe" aria-hidden="true" style="display:none;">
-    <span class="status-pill is-ok">OK</span>
-    <span class="status-pill is-err">ERR</span>
-    <span class="status-pill is-off">OFF</span>
-    <div class="network-card">
-      <div class="network-status-indicator is-online"></div>
-      <div class="network-label">probe</div>
-    </div>
-  </div>
 
   <script>
     const docLang = (document.documentElement.lang || 'pl').toLowerCase().startsWith('en') ? 'en' : 'pl';

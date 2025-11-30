@@ -48,6 +48,8 @@ web/
 - Interfejs oczekuje danych z `/api/logic/*`, `/svc`, `/api/providers/*`, `/api/motion/queue`, `/events`, `/ws/navigation`.
 - Dodano lokalny endpoint `/status/system-pc`, z którego mini dashboard (`view.html`) pobiera metryki hosta Rider-PC.
 - Pliki statyczne serwujemy spod `/web/`, auto-odświeżanie odbywa się co 1-5 sekund w zależności od sekcji.
+- W `TEST_MODE` `MockRestAdapter` dostarcza pełne makiety (m.in. urządzenia Google Home, listy modeli PC/Ollama/Rider-Pi, rozszerzone scenariusze logiczne). Dzięki temu UI w trybie audytu CSS nie wymaga żadnych ingerencji w HTML (żadnych `coverage-probe`).
+- W CI działa job `css-ui-audit` (Workflow `ci-cd.yml`), który na PR-ach uruchamia `npm run lint:css`, `npm run css:size`, `npm run css:audit` i publikuje artefakty (`logs/css_audit_summary.json`, `logs/css_audit/*.png`). Lokalne odtworzenie: `npm ci && python -m playwright install firefox --with-deps && npm run css:audit`.
 
 ### 2. `config/` - Pliki Konfiguracji Providerów (30 plików)
 Cel: Definiuje konfiguracje providerów i parametry dla negocjacji kontraktu między PC a Rider-PI.

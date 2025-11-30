@@ -56,7 +56,7 @@ class CacheManager:
         if not entry:
             logger.debug(f"Cache miss for key: {key} (memory cache)")
             return default
-        if time.time() - entry["timestamp"] > entry["ttl"]:
+        if time.time() - entry["timestamp"] >= entry["ttl"]:
             logger.debug(f"Cache expired for key: {key} (memory cache)")
             self._memory_cache.pop(key, None)
             return default
@@ -68,7 +68,7 @@ class CacheManager:
 
     def _memory_cleanup_expired(self) -> int:
         now = time.time()
-        expired = [key for key, entry in self._memory_cache.items() if now - entry["timestamp"] > entry["ttl"]]
+        expired = [key for key, entry in self._memory_cache.items() if now - entry["timestamp"] >= entry["ttl"]]
         for key in expired:
             self._memory_cache.pop(key, None)
         return len(expired)
@@ -79,7 +79,7 @@ class CacheManager:
     def _memory_get_stats(self) -> Dict[str, Any]:
         now = time.time()
         total = len(self._memory_cache)
-        expired = len([1 for entry in self._memory_cache.values() if now - entry["timestamp"] > entry["ttl"]])
+        expired = len([1 for entry in self._memory_cache.values() if now - entry["timestamp"] >= entry["ttl"]])
         return {
             "total_entries": total,
             "active_entries": total - expired,
@@ -184,7 +184,7 @@ class CacheManager:
         current_time = time.time()
 
         # Check if expired
-        if current_time - timestamp > ttl:
+        if current_time - timestamp >= ttl:
             logger.debug(f"Cache expired for key: {key}")
             self.delete(key)
             return default
@@ -230,15 +230,17 @@ class CacheManager:
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
+                changes_before = conn.total_changes
                 # Find and delete expired entries
                 cursor.execute(
                     """
                 DELETE FROM cache 
-                WHERE (? - timestamp) > ttl
+                WHERE (? - timestamp) >= ttl
             """,
                     (current_time,),
                 )
-                deleted_count = cursor.rowcount
+                # rowcount is unreliable on SQLite; total_changes reflects committed deletions
+                deleted_count = conn.total_changes - changes_before
                 conn.commit()
         except sqlite3.DatabaseError as exc:
             self._switch_to_memory_cache(exc)
@@ -286,7 +288,7 @@ class CacheManager:
                 cursor.execute(
                     """
                 SELECT COUNT(*) FROM cache 
-                WHERE (? - timestamp) > ttl
+                WHERE (? - timestamp) >= ttl
             """,
                     (current_time,),
                 )
