@@ -1,7 +1,6 @@
 """Unit tests for GoogleHomeService."""
 
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 import time
 
 from pc_client.services.google_home import (

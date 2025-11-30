@@ -6,6 +6,7 @@ enabling OAuth 2.0 authentication flow and device control directly from Rider-PC
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import logging
@@ -85,12 +86,8 @@ class AuthSession:
         state = secrets.token_urlsafe(32)
         code_verifier = secrets.token_urlsafe(64)[:128]
 
-        # Create code_challenge using S256 method
+        # Create code_challenge using S256 method (base64url encoding without padding)
         digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
-        code_challenge = secrets.token_urlsafe(len(digest))
-        # Proper base64url encoding without padding
-        import base64
-
         code_challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
 
         now = time.time()
