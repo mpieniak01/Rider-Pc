@@ -337,9 +337,15 @@ async def generate_pr_content(request: Request, payload: Dict[str, Any]) -> JSON
     VALID_STYLES = {"concise", "detailed", "technical"}
     VALID_LANGUAGES = {"pl", "en"}
     style = payload.get("style", "detailed")
+    context = payload.get("context", {})
+    VALID_STYLES = {"concise", "detailed", "technical"}
+    VALID_LANGUAGES = {"pl", "en"}
+    style = payload.get("style", "detailed")
     if style not in VALID_STYLES:
         style = "detailed"
     language = payload.get("language", "pl")
+    if language not in VALID_LANGUAGES:
+        language = "pl"
     if language not in VALID_LANGUAGES:
         language = "pl"
 
