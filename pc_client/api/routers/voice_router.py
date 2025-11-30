@@ -9,7 +9,7 @@ from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse
 
 from pc_client.adapters import RestAdapter
-from pc_client.api.task_utils import build_voice_tts_task
+from pc_client.api.task_utils import build_voice_asr_task, build_voice_tts_task
 from pc_client.providers import VoiceProvider
 from pc_client.providers.base import TaskStatus
 
