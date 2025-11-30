@@ -1,0 +1,57 @@
+name: "Copilot Setup Steps"
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/copilot-setup-steps.yml"
+      - "config/agent/**"
+      - "package-lock.json"
+      - "requirements-ci.txt"
+  pull_request:
+    paths:
+      - ".github/workflows/copilot-setup-steps.yml"
+      - "config/agent/**"
+      - "package-lock.json"
+      - "requirements-ci.txt"
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: "0"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: |
+            config/agent/constraints.txt
+            config/agent/requirements-test.txt
+            requirements-ci.txt
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r config/agent/requirements-test.txt -c config/agent/constraints.txt
+
+      - name: Install Playwright browsers
+        run: |
+          python -m playwright install chromium --with-deps
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install npm dependencies
+        run: npm ci

@@ -54,6 +54,7 @@ python -m pc_client.main
   - `make lint` → `ruff check .`
   - `make format` → `ruff format .`
   - `make test` → pytest suite with async/timeouts configured like GitHub Actions.
+- **Copilot / agent flow**: uruchom `./config/agent/run_tests.sh`, aby zreplikować środowisko wykorzystywane przez GitHub Copilot coding agent (instaluje zależności z `config/agent/constraints.txt`, odpala pytest). Szczegółowa checklista PR-ów: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
 - **Rider-PI Integration**:
   - UI (`web/control.html`) now mirrors Rider-Pi, including “AI Mode” and “Provider Control” cards.
   - Backend proxies `/api/system/ai-mode` and `/api/providers/*` to Rider-Pi via the `RestAdapter`, caching results for offline development.
