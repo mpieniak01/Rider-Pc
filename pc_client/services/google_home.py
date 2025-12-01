@@ -410,6 +410,14 @@ class GoogleHomeService:
             self._http_client.headers["Authorization"] = f"Bearer {self._tokens.access_token}"
 
         return self._http_client
+    def _get_auth_headers(self) -> Dict[str, str]:
+        """Get authentication headers for HTTP requests."""
+        if not self._tokens:
+            raise RuntimeError("No valid authentication")
+        return {
+            "Authorization": f"Bearer {self._tokens.access_token}",
+            "Content-Type": "application/json",
+        }
 
     async def list_devices(self, use_cache: bool = True) -> Dict[str, Any]:
         """List devices from Google Home / SDM.
@@ -431,30 +439,33 @@ class GoogleHomeService:
             return {"ok": True, "devices": self._devices_cache, "from_cache": True}
 
         try:
-            client = await self._get_http_client()
+            if not await self._ensure_valid_token():
+                return {"ok": False, "error": "auth_expired"}
+
             url = f"{SDM_API_BASE}/enterprises/{self.config.project_id}/devices"
 
-            response = await client.get(url)
+            async with httpx.AsyncClient(headers=self._get_auth_headers(), timeout=30.0) as client:
+                response = await client.get(url)
 
-            if response.status_code == 401:
-                # Token might be expired, try refresh
-                if await self.refresh_access_token():
-                    client = await self._get_http_client()
-                    response = await client.get(url)
-                else:
-                    return {"ok": False, "error": "auth_expired"}
+                if response.status_code == 401:
+                    # Token might be expired, try refresh
+                    if await self.refresh_access_token():
+                        async with httpx.AsyncClient(headers=self._get_auth_headers(), timeout=30.0) as retry_client:
+                            response = await retry_client.get(url)
+                    else:
+                        return {"ok": False, "error": "auth_expired"}
 
-            if response.status_code != 200:
-                error_data = response.json() if response.content else {}
-                return {
-                    "ok": False,
-                    "error": "sdm_error",
-                    "status_code": response.status_code,
-                    "details": error_data.get("error", {}).get("message", "Unknown error"),
-                }
+                if response.status_code != 200:
+                    error_data = response.json() if response.content else {}
+                    return {
+                        "ok": False,
+                        "error": "sdm_error",
+                        "status_code": response.status_code,
+                        "details": error_data.get("error", {}).get("message", "Unknown error"),
+                    }
 
-            data = response.json()
-            devices = data.get("devices", [])
+                data = response.json()
+                devices = data.get("devices", [])
 
             # Transform SDM devices to our format
             transformed = [self._transform_device(d) for d in devices]
@@ -488,6 +499,9 @@ class GoogleHomeService:
 
         try:
             client = await self._get_http_client()
+            if not await self._ensure_valid_token():
+                return {"ok": False, "error": "auth_expired"}
+
             url = f"{SDM_API_BASE}/{device_id}:executeCommand"
 
             # Map our command format to SDM format
@@ -510,6 +524,24 @@ class GoogleHomeService:
                     "status_code": response.status_code,
                     "details": error_data.get("error", {}).get("message", "Unknown error"),
                 }
+            async with httpx.AsyncClient(headers=self._get_auth_headers(), timeout=30.0) as client:
+                response = await client.post(url, json=sdm_command)
+
+                if response.status_code == 401:
+                    if await self.refresh_access_token():
+                        async with httpx.AsyncClient(headers=self._get_auth_headers(), timeout=30.0) as retry_client:
+                            response = await retry_client.post(url, json=sdm_command)
+                    else:
+                        return {"ok": False, "error": "auth_expired"}
+
+                if response.status_code != 200:
+                    error_data = response.json() if response.content else {}
+                    return {
+                        "ok": False,
+                        "error": "command_failed",
+                        "status_code": response.status_code,
+                        "details": error_data.get("error", {}).get("message", "Unknown error"),
+                    }
 
             # Invalidate device cache after command
             self._cache_timestamp = 0.0

@@ -2,7 +2,7 @@
 
 ## Status: W TRAKCIE REALIZACJI
 
-## Zrealizowane (PR #106)
+## Zrealizowane (PR #108)
 
 ### ✅ 1. Architektura i zależności
 - [x] Moduł `pc_client/services/google_home.py` z OAuth 2.0 + PKCE
