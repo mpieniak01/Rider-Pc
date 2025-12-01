@@ -8,6 +8,12 @@ from pc_client.cache import CacheManager
 from pc_client.config import Settings
 from pc_client.services.google_home import reset_google_home_service
 
+# Test configuration constants
+TEST_CLIENT_ID = "test-client-id"
+TEST_CLIENT_SECRET = "test-client-secret"
+TEST_PROJECT_ID = "test-project-id"
+TEST_REDIRECT_URI = "http://localhost:8000/api/home/auth/callback"
+
 
 @pytest.fixture(autouse=True)
 def reset_service():
@@ -26,6 +32,22 @@ def make_client(tmp_path, google_home_local=False) -> TestClient:
         settings.google_client_id = "test-client-id"
         settings.google_client_secret = "test-client-secret"
         settings.google_device_access_project_id = "test-project-id"
+    cache = CacheManager(db_path=str(tmp_path / "cache.db"))
+    app = create_app(settings, cache)
+    return TestClient(app)
+
+
+def make_client_with_google_home(tmp_path) -> TestClient:
+    """Create client with Google Home local mode enabled."""
+    settings = Settings()
+    settings.test_mode = True
+    settings.google_home_local_enabled = True
+    settings.google_home_client_id = "test-client-id"
+    settings.google_home_client_secret = "test-client-secret"
+    settings.google_home_project_id = "test-project-id"
+    settings.google_home_redirect_uri = "http://localhost:8000/api/home/auth/callback"
+    settings.google_home_test_mode = True
+    settings.google_home_tokens_path = str(tmp_path / "tokens.json")
     cache = CacheManager(db_path=str(tmp_path / "cache.db"))
     app = create_app(settings, cache)
     return TestClient(app)
@@ -69,22 +91,35 @@ def test_home_auth_endpoint(tmp_path):
     assert resp.json()["ok"] is True
 
 
-# --- Tests for new OAuth endpoints ---
+def make_client_with_google_home(tmp_path) -> TestClient:
+    """Create client with Google Home local mode enabled."""
+    settings = Settings()
+    settings.test_mode = True
+    settings.google_home_local_enabled = True
+    settings.google_home_client_id = TEST_CLIENT_ID
+    settings.google_home_client_secret = TEST_CLIENT_SECRET
+    settings.google_home_project_id = TEST_PROJECT_ID
+    settings.google_home_redirect_uri = TEST_REDIRECT_URI
+    settings.google_home_test_mode = True
+    settings.google_home_tokens_path = str(tmp_path / "tokens.json")
+    cache = CacheManager(db_path=str(tmp_path / "cache.db"))
+    app = create_app(settings, cache)
+    return TestClient(app)
 
 
-def test_home_auth_url_endpoint_not_configured(tmp_path):
-    """Auth URL endpoint returns error when not configured."""
-    client = make_client(tmp_path, google_home_local=False)
+def test_home_auth_url_not_enabled(tmp_path):
+    """Test auth/url returns error when Google Home local is not enabled."""
+    client = make_client(tmp_path)
     resp = client.get("/api/home/auth/url")
-    # In non-local mode with test_mode, the service uses test mode which is always "configured"
-    # but without real credentials. The endpoint may return 200 with test mode or 400 if not configured.
+    assert resp.status_code == 400
     body = resp.json()
-    assert "ok" in body
+    assert body["ok"] is False
+    assert body["error"] == "not_enabled"
 
 
-def test_home_auth_url_endpoint_configured(tmp_path):
-    """Auth URL endpoint returns auth URL when configured."""
-    client = make_client(tmp_path, google_home_local=True)
+def test_home_auth_url_enabled(tmp_path):
+    """Test auth/url returns auth URL when Google Home local is enabled."""
+    client = make_client_with_google_home(tmp_path)
     resp = client.get("/api/home/auth/url")
     assert resp.status_code == 200
     body = resp.json()

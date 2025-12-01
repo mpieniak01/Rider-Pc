@@ -6,44 +6,58 @@ authentication flow for direct communication with Google Smart Device Management
 
 from __future__ import annotations
 
+import html
 import logging
 import time
 from typing import Any, Dict, Optional
+from urllib.parse import quote
 
-from fastapi import APIRouter, Request, Query
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi import APIRouter, Query, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from pc_client.adapters import RestAdapter
 from pc_client.services.google_home import (
+    GoogleHomeConfig,
     GoogleHomeService,
-    get_google_home_service,
-    reset_google_home_service,
 )
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-def _get_google_home_service(app) -> GoogleHomeService:
-    """Get or create the Google Home service from app settings."""
-    settings = getattr(app.state, "settings", None)
-    if settings and settings.google_home_local_enabled:
-        return get_google_home_service(
-            client_id=settings.google_client_id,
-            client_secret=settings.google_client_secret,
-            project_id=settings.google_device_access_project_id,
-            redirect_uri=settings.google_redirect_uri,
-            tokens_path=settings.google_tokens_path,
-            test_mode=settings.google_home_test_mode or settings.test_mode,
-        )
-    # Return test mode service for fallback
-    return get_google_home_service(test_mode=True)
-
-
 def _use_local_service(app) -> bool:
     """Check if we should use the local Google Home service."""
     settings = getattr(app.state, "settings", None)
-    return settings and settings.google_home_local_enabled
+    return settings and getattr(settings, "google_home_local_enabled", False)
+
+
+def _get_google_home_service(request_or_app) -> Optional[GoogleHomeService]:
+    """Get GoogleHomeService from app state or create one.
+
+    Args:
+        request_or_app: Either a Request object or FastAPI app instance.
+    """
+    # Handle both Request objects and direct app references
+    if hasattr(request_or_app, "app"):
+        app = request_or_app.app
+    else:
+        app = request_or_app
+
+    service = getattr(app.state, "google_home_service", None)
+    if service is None:
+        settings = getattr(app.state, "settings", None)
+        if settings and getattr(settings, "google_home_local_enabled", False):
+            config = GoogleHomeConfig(
+                client_id=getattr(settings, "google_home_client_id", ""),
+                client_secret=getattr(settings, "google_home_client_secret", ""),
+                project_id=getattr(settings, "google_home_project_id", ""),
+                redirect_uri=getattr(settings, "google_home_redirect_uri", ""),
+                tokens_path=getattr(settings, "google_home_tokens_path", "config/local/google_tokens_pc.json"),
+                test_mode=getattr(settings, "google_home_test_mode", False),
+            )
+            service = GoogleHomeService(config)
+            app.state.google_home_service = service
+    return service
 
 
 def _home_state(app) -> Dict[str, Any]:
@@ -76,7 +90,10 @@ def _home_devices(app) -> Dict[str, Any]:
                 "type": "action.devices.types.THERMOSTAT",
                 "traits": {
                     "sdm.devices.traits.ThermostatMode": {"mode": "heatcool"},
-                    "sdm.devices.traits.ThermostatTemperatureSetpoint": {"heatCelsius": 20.0, "coolCelsius": 24.0},
+                    "sdm.devices.traits.ThermostatTemperatureSetpoint": {
+                        "heatCelsius": 20.0,
+                        "coolCelsius": 24.0,
+                    },
                     "sdm.devices.traits.Temperature": {"ambientTemperatureCelsius": 21.5},
                 },
             },
@@ -185,16 +202,17 @@ async def home_command(request: Request, payload: Dict[str, Any]) -> JSONRespons
     body = payload or {}
 
     # Try local service first
-    if _use_local_service(request.app):
-        service = _get_google_home_service(request.app)
-        device_id = body.get("deviceId", "")
-        command = body.get("command", "")
-        params = body.get("params", {})
-        result = await service.send_command(device_id, command, params)
+    service = _get_google_home_service(request)
+    if service and service.is_authenticated():
+        result = await service.send_command(
+            device_id=body.get("deviceId", ""),
+            command=body.get("command", ""),
+            params=body.get("params", {}),
+        )
         status_code = 200 if result.get("ok") else 400
         return JSONResponse(content=result, status_code=status_code)
 
-    # Fallback to adapter/mock
+    # Fallback to RestAdapter (Rider-Pi proxy)
     adapter: Optional[RestAdapter] = request.app.state.rest_adapter
     if adapter and hasattr(adapter, "post_home_command"):
         try:
@@ -209,53 +227,132 @@ async def home_command(request: Request, payload: Dict[str, Any]) -> JSONRespons
 
 @router.get("/api/home/auth/url")
 async def home_auth_url(request: Request) -> JSONResponse:
-    """Get OAuth authorization URL for Google login.
+    """Get OAuth authorization URL for Google Home.
+
+    Returns JSON with auth_url that the client should redirect to.
+    This endpoint starts the OAuth 2.0 Authorization Code flow with PKCE.
 
     Returns:
-        JSON with auth_url for redirecting user to Google login.
+        - ok: True if URL was generated successfully
+        - auth_url: URL to redirect user to for Google authentication
+        - state: CSRF protection state token
+        - expires_at: Timestamp when the auth session expires
     """
-    service = _get_google_home_service(request.app)
+    service = _get_google_home_service(request)
+    if not service:
+        return JSONResponse(
+            content={
+                "ok": False,
+                "error": "not_enabled",
+                "message": "Google Home local mode not enabled. Set GOOGLE_HOME_LOCAL_ENABLED=true",
+            },
+            status_code=400,
+        )
+
     result = service.start_auth_session()
-
-    if not result.get("ok"):
-        return JSONResponse(content=result, status_code=400)
-
-    return JSONResponse(content=result)
+    status_code = 200 if result.get("ok") else 400
+    return JSONResponse(content=result, status_code=status_code)
 
 
 @router.get("/api/home/auth/callback")
 async def home_auth_callback(
     request: Request,
-    code: Optional[str] = Query(None),
-    state: Optional[str] = Query(None),
-    error: Optional[str] = Query(None),
-    error_description: Optional[str] = Query(None),
-) -> RedirectResponse:
+    code: Optional[str] = Query(default=None),
+    state: Optional[str] = Query(default=None),
+    error: Optional[str] = Query(default=None),
+) -> HTMLResponse:
     """Handle OAuth callback from Google.
 
-    After user authorizes, Google redirects here with code and state.
-    We exchange the code for tokens and redirect to google_home page.
+    This endpoint receives the authorization code from Google after user consent.
+    It exchanges the code for tokens and stores them locally.
+
+    Query Parameters:
+        - code: Authorization code from Google
+        - state: CSRF protection state token
+        - error: Error code if authorization failed
+
+    Returns:
+        HTML page that redirects to google_home.html with auth result.
     """
     # Handle error from Google
     if error:
-        logger.warning("OAuth callback error: %s - %s", error, error_description)
-        return RedirectResponse(url=f"/google_home?auth=error&error={error}")
+        logger.warning("Google OAuth error: %s", error)
+        return HTMLResponse(
+            content=f"""
+            <!DOCTYPE html>
+            <html>
+            <head><meta http-equiv="refresh" content="2;url=/web/google_home.html?auth=error&reason={error}"></head>
+            <body>
+                <p>Błąd autoryzacji: {error}. Przekierowanie...</p>
+            </body>
+            </html>
+            """,
+            status_code=400,
+        )
 
-    # Validate parameters
+    # Validate required parameters
     if not code or not state:
-        return RedirectResponse(url="/google_home?auth=error&error=missing_params")
+        redirect_url = "/web/google_home.html?auth=error&reason=missing_params"
+        return HTMLResponse(
+            content=f"""
+            <!DOCTYPE html>
+            <html>
+            <head><meta http-equiv="refresh" content="2;url={redirect_url}"></head>
+            <body>
+                <p>Brak wymaganych parametrów. Przekierowanie...</p>
+            </body>
+            </html>
+            """,
+            status_code=400,
+        )
+
+    service = _get_google_home_service(request)
+    if not service:
+        return HTMLResponse(
+            content="""
+            <!DOCTYPE html>
+            <html>
+            <head><meta http-equiv="refresh" content="2;url=/web/google_home.html?auth=error&reason=not_enabled"></head>
+            <body>
+                <p>Google Home nie jest włączone lokalnie. Przekierowanie...</p>
+            </body>
+            </html>
+            """,
+            status_code=400,
+        )
 
     # Complete the OAuth flow
-    service = _get_google_home_service(request.app)
     result = await service.complete_auth(code, state)
 
     if result.get("ok"):
-        logger.info("OAuth flow completed successfully")
-        return RedirectResponse(url="/google_home?auth=success")
+        logger.info("Google Home OAuth completed successfully")
+        return HTMLResponse(
+            content="""
+            <!DOCTYPE html>
+            <html>
+            <head><meta http-equiv="refresh" content="1;url=/web/google_home.html?auth=success"></head>
+            <body>
+                <p>Autoryzacja zakończona pomyślnie! Przekierowanie...</p>
+            </body>
+            </html>
+            """
+        )
     else:
-        error_code = result.get("error", "unknown")
-        logger.error("OAuth flow failed: %s", result)
-        return RedirectResponse(url=f"/google_home?auth=error&error={error_code}")
+        error_msg = result.get("error", "unknown")
+        logger.warning("Google Home OAuth failed: %s", error_msg)
+        safe_error_msg = html.escape(error_msg)
+        return HTMLResponse(
+            content=f"""
+            <!DOCTYPE html>
+            <html>
+            <head><meta http-equiv="refresh" content="2;url=/web/google_home.html?auth=error&reason={error_msg}"></head>
+            <body>
+                <p>Błąd autoryzacji: {error_msg}. Przekierowanie...</p>
+            </body>
+            </html>
+            """,
+            status_code=400,
+        )
 
 
 @router.post("/api/home/auth")
@@ -282,6 +379,8 @@ async def home_auth(request: Request) -> JSONResponse:
             return JSONResponse(content=result, status_code=status)
         except Exception as exc:  # pragma: no cover
             return JSONResponse(content={"ok": False, "error": str(exc)}, status_code=502)
+
+    # Mock authentication
     state = _home_state(request.app)
     state["authenticated"] = True
     state.setdefault("profile", {})["updated_at"] = time.time()
@@ -289,10 +388,12 @@ async def home_auth(request: Request) -> JSONResponse:
 
 
 @router.post("/api/home/auth/clear")
+@router.post("/api/home/auth/logout")
 async def home_auth_clear(request: Request) -> JSONResponse:
-    """Clear stored authentication tokens.
+    """Clear stored authentication tokens (logout).
 
     Useful for logging out or resetting the OAuth state.
+    Available at both /api/home/auth/clear and /api/home/auth/logout.
     """
     if _use_local_service(request.app):
         service = _get_google_home_service(request.app)
