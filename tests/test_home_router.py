@@ -125,41 +125,41 @@ def test_home_auth_url_enabled(tmp_path):
     body = resp.json()
     assert body["ok"] is True
     assert "auth_url" in body
-    assert "accounts.google.com" in body["auth_url"]
+    assert body["auth_url"].startswith("https://accounts.google.com/o/oauth2/")
     assert "state" in body
 
 
 def test_home_auth_callback_missing_params(tmp_path):
-    """Auth callback redirects with error when params missing."""
+    """Auth callback zwraca błąd 400 gdy brakuje parametrów."""
     client = make_client(tmp_path, google_home_local=True)
     resp = client.get("/api/home/auth/callback", follow_redirects=False)
-    assert resp.status_code == 307
-    assert "auth=error" in resp.headers["location"]
-    assert "missing_params" in resp.headers["location"]
+    assert resp.status_code == 400
+    # Sprawdź, czy odpowiedź zawiera informację o błędzie "missing_params"
+    assert "missing_params" in resp.text
 
 
 def test_home_auth_callback_with_error(tmp_path):
-    """Auth callback handles error from Google."""
+    """Auth callback zwraca błąd 400 gdy Google zwraca błąd."""
     client = make_client(tmp_path, google_home_local=True)
     resp = client.get(
         "/api/home/auth/callback?error=access_denied&error_description=User+denied",
         follow_redirects=False,
     )
-    assert resp.status_code == 307
-    assert "auth=error" in resp.headers["location"]
-    assert "access_denied" in resp.headers["location"]
+    assert resp.status_code == 400
+    # Sprawdzamy, że odpowiedź zawiera informację o błędzie "access_denied"
+    assert "access_denied" in resp.text
 
 
 def test_home_auth_callback_invalid_state(tmp_path):
-    """Auth callback handles invalid state parameter."""
+    """Auth callback zwraca błąd 400 przy nieprawidłowym state."""
     client = make_client(tmp_path, google_home_local=True)
     resp = client.get(
         "/api/home/auth/callback?code=test-code&state=invalid-state",
         follow_redirects=False,
     )
-    assert resp.status_code == 307
-    assert "auth=error" in resp.headers["location"]
-    assert "invalid_state" in resp.headers["location"]
+    assert resp.status_code == 400
+    # Sprawdzamy, że odpowiedź zawiera informację o błędzie "invalid_state"
+    assert "invalid_state" in resp.text
 
 
 def test_home_auth_clear_endpoint(tmp_path):
