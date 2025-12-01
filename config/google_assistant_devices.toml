@@ -1,0 +1,67 @@
+# Static map of Google Assistant devices for Rider-PC control panel.
+# Each entry describes one tile in the UI and the exact phrases that should be
+# sent to Google Assistant API for ON/OFF (or other) actions.
+# Customize the list to match devices defined in your Google Home app.
+
+[[devices]]
+id = "pokoj_lights"
+label = "Pokój Lights"
+assistant_name = "Pokój Lights"
+room = "Pokój"
+category = "lights"
+supports_brightness = true
+on_command = "Włącz Pokój Lights"
+off_command = "Wyłącz Pokój Lights"
+brightness_template = "Ustaw jasność Pokój Lights na {value}%"
+notes = "Grupa światła w pokoju (2 lampy), obecnie 85%."
+
+[[devices]]
+id = "xiaomi_air_purifier_compact"
+label = "Inteligentny oczyszczacz powietrza Xiaomi 4 Compact"
+assistant_name = "Inteligentny oczyszczacz powietrza Xiaomi 4 Compact Wt."
+room = "Pokój"
+category = "air_purifier"
+on_command = "Włącz Inteligentny oczyszczacz powietrza Xiaomi 4 Compact Wt."
+off_command = "Wyłącz Inteligentny oczyszczacz powietrza Xiaomi 4 Compact Wt."
+notes = "Nursery purifier; używaj komend w języku polskim jak w Google Home."
+
+[[devices]]
+id = "pokoj_monitoring"
+label = "Monitoring"
+assistant_name = "Monitoring"
+room = "Pokój"
+category = "camera"
+on_command = "Włącz Monitoring"
+off_command = "Wyłącz Monitoring"
+notes = "Scena/urządzenie monitoringu (kamera lub gniazdo)."
+
+[[devices]]
+id = "pokoj_purifier_scene"
+label = "Oczyszczacz"
+assistant_name = "Oczyszczacz"
+room = "Pokój"
+category = "scene"
+on_command = "Włącz Oczyszczacz"
+off_command = "Wyłącz Oczyszczacz"
+notes = "Scena skrótu (np. ustawienie mocy)."
+
+[[devices]]
+id = "xiaomi_vacuum_h40"
+label = "Odkurzacz automatyczny Xiaomi H40"
+assistant_name = "Odkurzacz automatyczny Xiaomi H40"
+room = "Pokój"
+category = "vacuum"
+on_command = "Rozpocznij sprzątanie Odkurzacz automatyczny Xiaomi H40"
+off_command = "Zatrzymaj Odkurzacz automatyczny Xiaomi H40"
+dock_command = "Wracaj do stacji Odkurzacz automatyczny Xiaomi H40"
+notes = "Dodaj dodatkowe akcje (dock, pause) według potrzeb."
+
+[[devices]]
+id = "pokoj_nest"
+label = "Pokój Nest"
+assistant_name = "Pokój Nest"
+room = "Pokój"
+category = "scene"
+on_command = "Aktywuj Pokój Nest"
+off_command = "Dezaktywuj Pokój Nest"
+notes = "Scena/tryb dla urządzeń Nest (np. tryb komfort)."
