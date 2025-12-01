@@ -154,6 +154,39 @@ class Settings:
     rag_chunk_overlap: int = field(default_factory=lambda: _safe_int("RAG_CHUNK_OVERLAP", "100"))
     rag_persist_path: str = field(default_factory=lambda: os.getenv("RAG_PERSIST_PATH", "data/chroma_db"))
 
+    # Google Home integration configuration
+    # OAuth 2.0 Client ID for Google Home integration.
+    # Obtain from Google Cloud Console (APIs & Services > Credentials).
+    google_client_id: Optional[str] = field(default_factory=lambda: os.getenv("GOOGLE_CLIENT_ID"))
+    # OAuth 2.0 Client Secret for Google Home integration.
+    # Obtain from Google Cloud Console (APIs & Services > Credentials).
+    google_client_secret: Optional[str] = field(default_factory=lambda: os.getenv("GOOGLE_CLIENT_SECRET"))
+    # Device Access Project ID for Google Home API.
+    # Obtain from Google Device Access Console (https://console.devicemanagement.google.com).
+    google_device_access_project_id: Optional[str] = field(
+        default_factory=lambda: os.getenv("GOOGLE_DEVICE_ACCESS_PROJECT_ID")
+    )
+    # Redirect URI for OAuth 2.0 authentication flow.
+    # Should match the URI configured in Google Cloud Console for the OAuth client.
+    google_home_redirect_uri: str = field(
+        default_factory=lambda: os.getenv("GOOGLE_HOME_REDIRECT_URI", "http://localhost:8000/api/home/auth/callback")
+    )
+    # Path to store Google Home OAuth tokens (JSON file).
+    # Used for persisting authentication tokens locally.
+    google_home_tokens_path: str = field(
+        default_factory=lambda: os.getenv("GOOGLE_HOME_TOKENS_PATH", "config/local/google_tokens_pc.json")
+    )
+    # Enable local Google Home integration (for development/testing).
+    # Set to "true" to enable, "false" to disable. Default: true.
+    google_home_local_enabled: bool = field(
+        default_factory=lambda: os.getenv("GOOGLE_HOME_LOCAL_ENABLED", "true").lower() == "true"
+    )
+    # Enable test mode for Google Home integration.
+    # Set to "true" to enable test mode, "false" for production. Default: false.
+    google_home_test_mode: bool = field(
+        default_factory=lambda: os.getenv("GOOGLE_HOME_TEST_MODE", "false").lower() == "true"
+    )
+
     @property
     def rider_pi_base_url(self) -> str:
         """Get the base URL for Rider-PI API."""
@@ -182,6 +215,17 @@ class Settings:
             True if all required GitHub fields (token, owner, repo) are set (not None and not empty), False otherwise.
         """
         return bool(self.github_token and self.github_repo_owner and self.github_repo_name)
+
+    @property
+    def is_google_home_configured(self) -> bool:
+        """Check if Google Home integration is properly configured.
+
+        Returns:
+            True if all required Google Home fields are set, False otherwise.
+        """
+        return bool(
+            self.google_client_id and self.google_client_secret and self.google_device_access_project_id
+        )
 
 
 # Global settings instance
