@@ -23,7 +23,7 @@ room = "Pokój"
 category = "air_purifier"
 on_command = "Włącz Inteligentny oczyszczacz powietrza Xiaomi 4 Compact Wt."
 off_command = "Wyłącz Inteligentny oczyszczacz powietrza Xiaomi 4 Compact Wt."
-notes = "Nursery purifier; używaj komend w języku polskim jak w Google Home."
+notes = "Nursery purifier; używaj komend w języku polskim, jak w Google Home."
 
 [[devices]]
 id = "pokoj_monitoring"
