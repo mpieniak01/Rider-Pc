@@ -43,6 +43,21 @@ Zaprojektować i wdrożyć prosty panel webowy sterujący urządzeniami przez Go
    - Testy serwisu: inicjalizacja, wczytywanie konfiguracji, komendy
    - Testy routera: wszystkie endpointy, walidacja, tryb wyłączony
 
+6. **Dokumentacja wdrożeniowa** (`docs_pl/google-assistant-integration.md`)
+   - Architektura i schemat
+   - Opis wszystkich endpointów API
+   - Instrukcja konfiguracji urządzeń (TOML)
+   - Porównanie z SDM API
+   - Rozwiązywanie problemów
+
+7. **Tłumaczenia i18n** (`web/assets/i18n.js`)
+   - Dodano sekcję `assistant` z tłumaczeniami PL/EN
+   - Komunikaty o statusie, błędach, sukcesie
+   - Etykiety przycisków i nagłówków
+
+8. **Bezpieczeństwo** (`.gitignore`)
+   - Dodano ignorowanie plików JSON w `config/local/` (tokeny OAuth)
+
 ### 📋 Do zrealizowania w przyszłości
 
 1. **Rzeczywista integracja z Google Assistant API**
