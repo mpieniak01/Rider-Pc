@@ -167,15 +167,16 @@ class Settings:
     google_assistant_tokens_path: Optional[str] = field(
         default_factory=lambda: os.getenv("GOOGLE_ASSISTANT_TOKENS_PATH")
     )
-    google_assistant_project_id: Optional[str] = field(
-        default_factory=lambda: os.getenv("GOOGLE_ASSISTANT_PROJECT_ID")
-    )
-    google_assistant_client_id: Optional[str] = field(
-        default_factory=lambda: os.getenv("GOOGLE_ASSISTANT_CLIENT_ID")
-    )
+    google_assistant_project_id: Optional[str] = field(default_factory=lambda: os.getenv("GOOGLE_ASSISTANT_PROJECT_ID"))
+    google_assistant_client_id: Optional[str] = field(default_factory=lambda: os.getenv("GOOGLE_ASSISTANT_CLIENT_ID"))
     google_assistant_client_secret: Optional[str] = field(
         default_factory=lambda: os.getenv("GOOGLE_ASSISTANT_CLIENT_SECRET")
     )
+    google_assistant_device_model_id: Optional[str] = field(
+        default_factory=lambda: os.getenv("GOOGLE_ASSISTANT_DEVICE_MODEL_ID")
+    )
+    google_assistant_device_id: Optional[str] = field(default_factory=lambda: os.getenv("GOOGLE_ASSISTANT_DEVICE_ID"))
+    google_assistant_language: str = field(default_factory=lambda: os.getenv("GOOGLE_ASSISTANT_LANGUAGE", "pl-PL"))
 
     @property
     def rider_pi_base_url(self) -> str:

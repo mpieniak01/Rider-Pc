@@ -70,12 +70,54 @@ GOOGLE_ASSISTANT_TEST_MODE=true
 # Ścieżka do konfiguracji urządzeń
 GOOGLE_ASSISTANT_DEVICES_CONFIG=config/google_assistant_devices.toml
 
-# Opcjonalne: Konfiguracja OAuth (wymagane dla trybu produkcyjnego)
+# Konfiguracja OAuth (wymagane dla trybu produkcyjnego)
 # GOOGLE_ASSISTANT_TOKENS_PATH=config/local/google_assistant_tokens.json
 # GOOGLE_ASSISTANT_PROJECT_ID=your-project-id
 # GOOGLE_ASSISTANT_CLIENT_ID=your-client-id.apps.googleusercontent.com
 # GOOGLE_ASSISTANT_CLIENT_SECRET=your-client-secret
+
+# Identyfikatory urządzenia z Actions on Google
+# GOOGLE_ASSISTANT_DEVICE_MODEL_ID=rider-pc-panel-model
+# GOOGLE_ASSISTANT_DEVICE_ID=rider-pc-panel-device
+# Preferowany język zapytań (np. pl-PL, en-US)
+# GOOGLE_ASSISTANT_LANGUAGE=pl-PL
 ```
+
+### 3. Tryb produkcyjny (połączenie z prawdziwym Assistant API)
+
+1. **Zarejestruj urządzenie w Actions on Google**
+   - W Google Cloud Console utwórz projekt + klienta OAuth (Desktop app).
+   - W [Actions on Google](https://console.actions.google.com/) dodaj *Device Model* (zapamiętaj `GOOGLE_ASSISTANT_DEVICE_MODEL_ID`).
+   - Zarejestruj fizyczne urządzenie (`GOOGLE_ASSISTANT_DEVICE_ID`), powiąż je z modelem.
+
+2. **Uzyskaj token odświeżania**
+   - Użyj `google-auth-oauthlib` lub skryptu `google-oauthlib-tool --scope https://www.googleapis.com/auth/assistant-sdk-prototype ...`.
+   - Zapisz wynik w `config/local/google_assistant_tokens.json` w formacie:
+```json
+{
+  "refresh_token": "ya29...",
+  "client_id": "your-client-id.apps.googleusercontent.com",
+  "client_secret": "your-client-secret",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "scopes": [
+    "https://www.googleapis.com/auth/assistant-sdk-prototype"
+  ]
+}
+```
+   - Plik trafia do `.gitignore` (nie commituj).
+
+3. **Wyłącz tryb testowy**
+   - Ustaw `GOOGLE_ASSISTANT_TEST_MODE=false`.
+   - `GOOGLE_ASSISTANT_ENABLED=true` – po restarcie panelu `/api/assistant/status` pokaże `live_ready=true`.
+
+4. **Wymagane pakiety**
+   - `google-auth`, `google-auth-oauthlib`, `google-assistant-grpc`, `grpcio`.
+   - Są już dodane do `requirements*.txt`, więc `pip install -r requirements.txt` pobierze je automatycznie.
+
+5. **Diagnostyka**
+   - Endpoint `/api/assistant/status` informuje czy dostępne są biblioteki (`libs_available`) oraz czy tokeny zostały poprawnie wczytane (`live_ready`).
+   - Logi serwisu (`logs/panel-8080.log`) pokażą szczegóły błędu RPC lub odświeżania tokenu.
+
 
 ## Konfiguracja urządzeń
 

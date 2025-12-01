@@ -246,10 +246,13 @@ class TestAssistantRouter:
         client = make_client(tmp_path)
 
         # Valid command
-        resp = client.post("/api/assistant/command", json={
-            "device_id": "test_light",
-            "action": "on",
-        })
+        resp = client.post(
+            "/api/assistant/command",
+            json={
+                "device_id": "test_light",
+                "action": "on",
+            },
+        )
         assert resp.status_code == 200
         body = resp.json()
         assert body["ok"] is True
@@ -266,9 +269,12 @@ class TestAssistantRouter:
         """Test /api/assistant/custom endpoint."""
         client = make_client(tmp_path)
 
-        resp = client.post("/api/assistant/custom", json={
-            "text": "Turn off all lights",
-        })
+        resp = client.post(
+            "/api/assistant/custom",
+            json={
+                "text": "Turn off all lights",
+            },
+        )
         assert resp.status_code == 200
         body = resp.json()
         assert body["ok"] is True
@@ -282,10 +288,13 @@ class TestAssistantRouter:
         client = make_client(tmp_path)
 
         # Send a command first
-        client.post("/api/assistant/command", json={
-            "device_id": "test_light",
-            "action": "on",
-        })
+        client.post(
+            "/api/assistant/command",
+            json={
+                "device_id": "test_light",
+                "action": "on",
+            },
+        )
 
         resp = client.get("/api/assistant/history")
         assert resp.status_code == 200

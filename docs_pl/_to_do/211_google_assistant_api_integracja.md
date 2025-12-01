@@ -140,6 +140,13 @@ Zaprojektować i wdrożyć prosty panel webowy sterujący urządzeniami przez Go
    - Instrukcja wdrożeniowa (backup, migracja tokenów, restart usług).
    - Monitoring (metryki /health, logi).
 
+10. **Integracja z prawdziwym Google Assistant API**
+   - Obsługa OAuth 2.0 i odświeżania tokenów zapisanych w `config/local/google_assistant_tokens.json`.
+   - Wymagane biblioteki: `google-assistant-grpc`, `google-auth`, `google-auth-oauthlib`, `grpcio`.
+   - Dodatkowe zmienne: `GOOGLE_ASSISTANT_DEVICE_MODEL_ID`, `GOOGLE_ASSISTANT_DEVICE_ID`, `GOOGLE_ASSISTANT_LANGUAGE`.
+   - `_execute_command` wysyła `AssistRequest` (text_query) do `embeddedassistant.googleapis.com` i zwraca odpowiedź.
+   - Status API sygnalizuje gotowość trybu live (tokeny + zależności).
+
 ## Ryzyka / pytania
 - Google sukcesywnie ogranicza Assistant SDK; trzeba potwierdzić dostępność i zasady (np. tylko urządzenia dedykowane). Czy nasze use-case’y spełniają warunki?
 - Wymagania sprzętowe (nagrywanie audio, TLS). Czy Rider-PC ma mikrofon/głośnik pod ręką?

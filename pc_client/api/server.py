@@ -184,6 +184,13 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
         config_path=settings.google_assistant_devices_config,
         test_mode=settings.google_assistant_test_mode,
         enabled=settings.google_assistant_enabled,
+        tokens_path=settings.google_assistant_tokens_path,
+        project_id=settings.google_assistant_project_id,
+        client_id=settings.google_assistant_client_id,
+        client_secret=settings.google_assistant_client_secret,
+        device_model_id=settings.google_assistant_device_model_id,
+        device_id=settings.google_assistant_device_id,
+        language_code=settings.google_assistant_language,
     )
 
     # Register lifecycle events
