@@ -89,7 +89,8 @@ class TestGoogleHomeService:
         assert "auth_url" in result
         assert "state" in result
         assert "expires_at" in result
-        assert "accounts.google.com" in result["auth_url"]
+        # Verify URL starts with expected Google OAuth endpoint
+        assert result["auth_url"].startswith("https://accounts.google.com/o/oauth2/")
         assert "test-client-id" in result["auth_url"]
 
     def test_build_auth_url_with_custom_state(self):

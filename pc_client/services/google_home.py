@@ -211,8 +211,9 @@ class GoogleHomeService:
             }
             return {"ok": True, "profile": self._tokens["profile"]}
 
-        # Verify state and get verifier
-        pending = self._pending_auth.pop(state, None)
+        # Verify state and get verifier (thread-safe)
+        with self._pending_auth_lock:
+            pending = self._pending_auth.pop(state, None)
         if not pending:
             logger.warning("Invalid or expired OAuth state: %s", state[:8] if state else "None")
             return {"ok": False, "error": "invalid_state"}
@@ -377,7 +378,11 @@ class GoogleHomeService:
                     logger.error("SDM API error: %s", response.status_code)
                     return {"ok": False, "error": f"sdm_error_{response.status_code}", "devices": []}
 
-                data = response.json()
+                try:
+                    data = response.json()
+                except json.JSONDecodeError:
+                    logger.error("Invalid JSON response from SDM API")
+                    return {"ok": False, "error": "invalid_response", "devices": []}
                 devices = data.get("devices", [])
 
                 # Transform device data for UI
@@ -567,23 +572,26 @@ def get_google_home_service(
     global _service_instance
 
     if _service_instance is None or reset:
-        # Read from environment if not provided
-        client_id = client_id or os.getenv("GOOGLE_CLIENT_ID")
-        client_secret = client_secret or os.getenv("GOOGLE_CLIENT_SECRET")
-        project_id = project_id or os.getenv("GOOGLE_DEVICE_ACCESS_PROJECT_ID")
-        redirect_uri = redirect_uri or os.getenv(
-            "GOOGLE_HOME_REDIRECT_URI", "http://localhost:8000/api/home/auth/callback"
-        )
-        tokens_path = tokens_path or os.getenv("GOOGLE_HOME_TOKENS_PATH", "config/local/google_tokens_pc.json")
+        with _service_lock:
+            # Double-check after acquiring lock
+            if _service_instance is None or reset:
+                # Read from environment if not provided
+                client_id = client_id or os.getenv("GOOGLE_CLIENT_ID")
+                client_secret = client_secret or os.getenv("GOOGLE_CLIENT_SECRET")
+                project_id = project_id or os.getenv("GOOGLE_DEVICE_ACCESS_PROJECT_ID")
+                redirect_uri = redirect_uri or os.getenv(
+                    "GOOGLE_HOME_REDIRECT_URI", "http://localhost:8000/api/home/auth/callback"
+                )
+                tokens_path = tokens_path or os.getenv("GOOGLE_HOME_TOKENS_PATH", "config/local/google_tokens_pc.json")
 
-        _service_instance = GoogleHomeService(
-            client_id=client_id,
-            client_secret=client_secret,
-            project_id=project_id,
-            redirect_uri=redirect_uri,
-            tokens_path=tokens_path,
-            test_mode=test_mode,
-        )
+                _service_instance = GoogleHomeService(
+                    client_id=client_id,
+                    client_secret=client_secret,
+                    project_id=project_id,
+                    redirect_uri=redirect_uri,
+                    tokens_path=tokens_path,
+                    test_mode=test_mode,
+                )
 
     return _service_instance
 
@@ -591,4 +599,5 @@ def get_google_home_service(
 def reset_google_home_service() -> None:
     """Reset the singleton instance (useful for testing)."""
     global _service_instance
-    _service_instance = None
+    with _service_lock:
+        _service_instance = None

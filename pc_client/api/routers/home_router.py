@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import time
 from typing import Any, Dict, Optional
+from urllib.parse import quote
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -248,8 +249,10 @@ def _auth_result_html(success: bool, error: Optional[str] = None) -> str:
         redirect_url = "/google_home?auth=success"
         status_class = "success"
     else:
-        message = f"Błąd logowania: {error}"
-        redirect_url = f"/google_home?auth=error&error={error}"
+        # Sanitize error message for display and URL encode for redirect
+        safe_error = error if error else "unknown"
+        message = f"Błąd logowania: {safe_error}"
+        redirect_url = f"/google_home?auth=error&error={quote(safe_error, safe='')}"
         status_class = "error"
 
     return f"""<!DOCTYPE html>
