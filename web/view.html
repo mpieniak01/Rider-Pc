@@ -923,7 +923,10 @@ async function refreshMcpToolsList(){
       j.tools.slice(0, 8).forEach(tool => {
         const row = document.createElement('div');
         row.className = 'mcp-tool-item';
-        row.innerHTML = `<span class="mcp-tool-name">${tool.name}</span>`;
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'mcp-tool-name';
+        nameSpan.textContent = tool.name;
+        row.appendChild(nameSpan);
         row.title = tool.description || '';
         list.appendChild(row);
       });
