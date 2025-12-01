@@ -692,7 +692,17 @@ _google_home_service: Optional[GoogleHomeService] = None
 
 
 def get_google_home_service() -> GoogleHomeService:
-    """Get or create the singleton GoogleHomeService instance."""
+    """Get or create the singleton GoogleHomeService instance.
+
+    Konfiguracja jest automatycznie ładowana ze zmiennych środowiskowych:
+    - GOOGLE_HOME_CLIENT_ID
+    - GOOGLE_HOME_CLIENT_SECRET
+    - GOOGLE_HOME_PROJECT_ID
+    - GOOGLE_HOME_REDIRECT_URI
+    - GOOGLE_HOME_TOKENS_PATH
+
+    Zobacz .env.example dla szczegółów konfiguracji.
+    """
     global _google_home_service
     if _google_home_service is None:
         _google_home_service = GoogleHomeService()
