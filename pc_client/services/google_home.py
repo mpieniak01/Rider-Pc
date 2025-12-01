@@ -13,7 +13,6 @@ import json
 import logging
 import os
 import secrets
-import threading
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -83,7 +82,6 @@ class GoogleHomeService:
         # In-memory token cache
         self._tokens: Optional[Dict[str, Any]] = None
         self._pending_auth: Dict[str, Dict[str, Any]] = {}  # state -> {verifier, created_at}
-        self._pending_auth_lock = threading.Lock()  # Thread-safe access to _pending_auth
 
         # Load existing tokens if available
         self._load_tokens()
@@ -161,6 +159,14 @@ class GoogleHomeService:
         code_verifier = _generate_code_verifier()
         code_challenge = _generate_code_challenge(code_verifier)
 
+        # Store pending auth session
+        self._pending_auth[state] = {
+            "verifier": code_verifier,
+            "created_at": time.time(),
+        }
+
+        # Clean up old pending sessions (older than 10 minutes)
+        self._cleanup_pending_auth()
         # Store pending auth session (thread-safe)
         with self._pending_auth_lock:
             self._pending_auth[state] = {
@@ -306,11 +312,7 @@ class GoogleHomeService:
                     logger.error("Token refresh failed: %s", response.status_code)
                     return False
 
-                try:
-                    token_data = response.json()
-                except json.JSONDecodeError:
-                    logger.error("Invalid JSON response during token refresh")
-                    return False
+                token_data = response.json()
 
             except httpx.RequestError as e:
                 logger.error("Network error during token refresh: %s", e)

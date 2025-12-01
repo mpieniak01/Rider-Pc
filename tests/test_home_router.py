@@ -8,17 +8,10 @@ from pc_client.config import Settings
 from pc_client.services.google_home import reset_google_home_service
 
 
-def make_client(tmp_path, google_home_configured: bool = False) -> TestClient:
-    """Create test client with optional Google Home configuration."""
+def make_client(tmp_path) -> TestClient:
+    """Create test client in test mode."""
     settings = Settings()
     settings.test_mode = True
-
-    if google_home_configured:
-        settings.google_client_id = "test-client-id"
-        settings.google_client_secret = "test-secret"
-        settings.google_device_access_project_id = "test-project"
-        settings.google_home_redirect_uri = "http://localhost:8000/api/home/auth/callback"
-
     cache = CacheManager(db_path=str(tmp_path / "cache.db"))
     app = create_app(settings, cache)
     return TestClient(app)

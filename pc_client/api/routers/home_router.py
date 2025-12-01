@@ -48,6 +48,8 @@ def _get_service(request: Request) -> GoogleHomeService:
     # Store in app state for reuse
     request.app.state.google_home_service = service
     return service
+
+
 def _home_state(app) -> Dict[str, Any]:
     """Get fallback home state (legacy mock mode)."""
     state = getattr(app.state, "home_state", None)
@@ -242,22 +244,16 @@ async def home_auth_callback(
 
 def _auth_result_html(success: bool, error: Optional[str] = None) -> str:
     """Generate HTML page for OAuth result with auto-redirect."""
-    # Validate status_class to prevent CSS injection - only allow known values
-    status_class = "success" if success else "error"
-    color = "#4caf50" if success else "#f44336"
-
     if success:
         message = "Logowanie zakończone pomyślnie!"
         redirect_url = "/google_home?auth=success"
+        status_class = "success"
     else:
-        # Sanitize error message: escape HTML and URL encode for redirect
+        # Sanitize error message for display and URL encode for redirect
         safe_error = error if error else "unknown"
-        escaped_error = html.escape(safe_error)
-        message = f"Błąd logowania: {escaped_error}"
+        message = f"Błąd logowania: {safe_error}"
         redirect_url = f"/google_home?auth=error&error={quote(safe_error, safe='')}"
-
-    # Use JSON encoding for redirect URL to prevent JavaScript injection
-    redirect_url_json = json.dumps(redirect_url)
+        status_class = "error"
 
     return f"""<!DOCTYPE html>
 <html lang="pl">
@@ -283,7 +279,7 @@ def _auth_result_html(success: bool, error: Optional[str] = None) -> str:
             border-radius: 12px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
         }}
-        .{status_class} {{ color: {color}; }}
+        .{status_class} {{ color: {'#4caf50' if success else '#f44336'}; }}
         .spinner {{
             border: 3px solid #333;
             border-top: 3px solid #4caf50;
@@ -307,7 +303,7 @@ def _auth_result_html(success: bool, error: Optional[str] = None) -> str:
     </div>
     <script>
         setTimeout(function() {{
-            window.location.href = {redirect_url_json};
+            window.location.href = '{redirect_url}';
         }}, 2000);
     </script>
 </body>
