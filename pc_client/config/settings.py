@@ -154,6 +154,29 @@ class Settings:
     rag_chunk_overlap: int = field(default_factory=lambda: _safe_int("RAG_CHUNK_OVERLAP", "100"))
     rag_persist_path: str = field(default_factory=lambda: os.getenv("RAG_PERSIST_PATH", "data/chroma_db"))
 
+    # Google Assistant API configuration
+    google_assistant_enabled: bool = field(
+        default_factory=lambda: os.getenv("GOOGLE_ASSISTANT_ENABLED", "false").lower() == "true"
+    )
+    google_assistant_test_mode: bool = field(
+        default_factory=lambda: os.getenv("GOOGLE_ASSISTANT_TEST_MODE", "false").lower() == "true"
+    )
+    google_assistant_devices_config: str = field(
+        default_factory=lambda: os.getenv("GOOGLE_ASSISTANT_DEVICES_CONFIG", "config/google_assistant_devices.toml")
+    )
+    google_assistant_tokens_path: Optional[str] = field(
+        default_factory=lambda: os.getenv("GOOGLE_ASSISTANT_TOKENS_PATH")
+    )
+    google_assistant_project_id: Optional[str] = field(
+        default_factory=lambda: os.getenv("GOOGLE_ASSISTANT_PROJECT_ID")
+    )
+    google_assistant_client_id: Optional[str] = field(
+        default_factory=lambda: os.getenv("GOOGLE_ASSISTANT_CLIENT_ID")
+    )
+    google_assistant_client_secret: Optional[str] = field(
+        default_factory=lambda: os.getenv("GOOGLE_ASSISTANT_CLIENT_SECRET")
+    )
+
     @property
     def rider_pi_base_url(self) -> str:
         """Get the base URL for Rider-PI API."""
