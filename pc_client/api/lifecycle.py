@@ -722,5 +722,8 @@ async def shutdown_event(app: FastAPI):
             await service.close()
     except Exception:
         pass
+        await service.close()
+    except Exception as exc:
+        logger.warning(f"Failed to shutdown Google Home service: {exc}")
 
     logger.info("Shutdown complete")

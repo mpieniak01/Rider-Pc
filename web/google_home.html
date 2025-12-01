@@ -150,7 +150,7 @@ import { initI18n, applyDom, t } from '/web/assets/i18n.js';
         // Update description with configuration info
         const missing = result.configuration_missing || [];
         if(missing.length > 0 && authDescription){
-          // Bezpieczne tworzenie elementów DOM bez innerHTML
+          // Safe DOM element creation without innerHTML
           authDescription.textContent = '';
           
           const strong = document.createElement('strong');
@@ -169,7 +169,7 @@ import { initI18n, applyDom, t } from '/web/assets/i18n.js';
           authDescription.appendChild(document.createElement('br'));
           
           const link = document.createElement('a');
-          link.href = '/web/assets/docs/google-home-setup.html';
+          link.href = '/docs_pl/google-home-integration.md';
           link.target = '_blank';
           link.textContent = t('home.config_docs') || 'See documentation';
           authDescription.appendChild(link);

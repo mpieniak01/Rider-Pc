@@ -1,49 +1,58 @@
 # Plan: Rider-PC – natywne logowanie i integracja Google Home
 
-**Status:** ✅ Zaimplementowano w PR
-**PR:** mpieniak01/Rider-Pc#103
+## Status: W TRAKCIE REALIZACJI
 
-## Zrealizowane
+## Zrealizowane (PR #108)
 
-### Architektura i zależności ✅
-- Dodano zależności `google-auth`, `google-auth-oauthlib` do `requirements.txt` i `requirements-ci.txt`
-- Utworzono moduł `pc_client/services/google_home.py` z OAuth 2.0 PKCE flow
-- Utworzono `config/google_home.toml` z dokumentacją konfiguracji
-- Dodano konfigurację w `pc_client/config/settings.py` (zmienne środowiskowe)
+### ✅ 1. Architektura i zależności
+- [x] Moduł `pc_client/services/google_home.py` z OAuth 2.0 + PKCE
+- [x] Konfiguracja przez zmienne środowiskowe w Settings
+- [x] Używamy czystego `httpx` dla komunikacji z SDM API (bez dodatkowych zależności google-auth)
 
-### Przepływ OAuth na Rider-PC ✅
-- Endpoint `GET /api/home/auth/url` - buduje adres logowania Google z PKCE
-- Endpoint `GET /api/home/auth/callback` - obsługuje redirect z Google, wymienia code na tokeny
-- Endpoint `POST /api/home/auth/clear` - czyści tokeny
-- Endpoint `GET /api/home/profile` - pobiera profil użytkownika
-- Thread-safe singleton pattern z Lock dla GoogleHomeService
-- Tokeny zapisywane w `config/local/google_tokens_pc.json`
+### ✅ 2. Przepływ OAuth na Rider-PC
+- [x] Endpoint `GET /api/home/auth/url` buduje adres logowania Google (PKCE, state)
+- [x] Endpoint `GET /api/home/auth/callback` obsługuje redirect z Google
+- [x] Endpoint `POST /api/home/auth/logout` do wylogowania
+- [x] Weryfikacja `state` (CSRF protection) w pamięci serwera
 
-### Serwis Google Home ✅
-- Metody: `is_configured()`, `is_authenticated()`, `start_auth_session()`, `complete_auth()`, `list_devices()`, `send_command()`, `get_profile()`, `clear_auth()`
-- Automatyczne odświeżanie tokenów na 401
-- Cachowanie listy urządzeń (30 sekund)
-- Tryb testowy z mockowymi urządzeniami
+### ✅ 3. Serwis Google Home
+- [x] Metody: `is_configured()`, `is_authenticated()`, `start_auth_session()`, `complete_auth(code)`, `list_devices()`, `send_command()`, `get_status()`
+- [x] Zapisywanie tokenów w `config/local/google_tokens_pc.json`
+- [x] Odświeżanie tokenów na 401
+- [x] Cachowanie listy urządzeń (5 minut TTL)
+- [x] Tryb testowy (`GOOGLE_HOME_TEST_MODE=true`) dla developmentu
 
-### API FastAPI ✅
-- `home_router.py` zrefaktoryzowany: najpierw próbuje lokalnego serwisu, fallback do RestAdapter
-- Rozróżnianie błędów: `auth_env_missing`, `invalid_state`, `session_expired`, `token_exchange_failed`
-- `/api/home/status` zwraca `configured`, `authenticated`, `auth_url_available`, `profile`
+### ✅ 4. API FastAPI
+- [x] Refaktoryzacja `home_router.py` - najpierw lokalny serwis, potem RestAdapter jako fallback
+- [x] Rozróżnianie stanów: `not_configured`, `not_authenticated`, `authenticated`
+- [x] `/api/home/status` zwraca szczegółowy stan konfiguracji
 
-### UX w `web/google_home.html` ✅
-- Przycisk „Sign in with Google" przekierowuje na `auth_url`
-- Obsługa callback z `?auth=success` lub `?auth=error`
-- Stany: brak konfiguracji, gotowy do logowania, zalogowany
-- Bezpieczna obsługa XSS (textContent zamiast innerHTML)
+### ✅ 7. Konfiguracja i dokumentacja
+- [x] Nowy rozdział `docs_pl/google-home-integration.md`
+- [x] Zaktualizowany `.env.example` z instrukcjami konfiguracji
 
-### Dokumentacja ✅
-- Utworzono `docs_pl/google-home-integration.md` z pełną instrukcją konfiguracji
-- Zaktualizowano `.env.example` z nowymi zmiennymi
+### ✅ 8. Testy
+- [x] Testy jednostkowe dla GoogleHomeService (21 testów)
+- [x] Testy integracyjne dla endpointów OAuth (7 nowych testów)
 
-### Testy ✅
-- 32 testy jednostkowe dla `GoogleHomeService`
-- 13 testów dla endpointów w `home_router.py`
-- Wszystkie 305 testów projektu przechodzą
+## Do zrobienia (przyszłe PR)
+
+### 5. UX w `web/google_home.html`
+- [ ] Przycisk „Zaloguj przez Google" z przekierowaniem na `auth_url`
+- [ ] Sekcja konfiguracji gdy brak Client ID/Secret/Project ID
+- [ ] Stany `logowanie trwa` i `logowanie zakończone`
+- [ ] Widok profilu użytkownika po zalogowaniu
+
+### 6. Realna integracja SDM
+- [ ] Testy manualne na fizycznym domu
+- [ ] Weryfikacja mapowania komend OnOff, Brightness, Thermostat, StartStop, Dock
+- [ ] Logi akcji do `logs/google_home/actions.log`
+
+### 9. Sprzątanie
+- [ ] Oznaczenie `RestAdapter.post_home_*` jako legacy
+- [ ] Aktualizacja `config/google_bridge.toml`
+
+---
 
 ## Cel
 Zapewnić, aby użytkownik mógł w całości z poziomu przeglądarki Rider-PC:

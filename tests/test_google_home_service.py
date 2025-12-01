@@ -361,15 +361,15 @@ class TestSingleton:
         service2 = get_google_home_service(test_mode=True)
         assert service1 is service2
 
-    def test_reset_service_singleton(self):
-        """Reset creates new instance."""
+    def test_reset_clears_singleton(self):
+        """reset_google_home_service should clear the singleton."""
         service1 = get_google_home_service(test_mode=True)
         reset_google_home_service()
         service2 = get_google_home_service(test_mode=True)
         assert service1 is not service2
 
-    def test_get_service_with_reset_flag(self):
-        """Reset flag creates new instance."""
+    def test_get_service_with_reset(self):
+        """get_google_home_service with reset should create new instance."""
         service1 = get_google_home_service(test_mode=True)
         service2 = get_google_home_service(test_mode=True, reset=True)
         assert service1 is not service2

@@ -55,124 +55,83 @@ class AuthSession:
 
 @dataclass
 class TokenData:
-    """Represents stored OAuth tokens."""
+    """OAuth token storage."""
 
-    access_token: str
-    refresh_token: Optional[str] = None
+    access_token: str = ""
+    refresh_token: str = ""
     token_type: str = "Bearer"
-    expires_at: Optional[float] = None
+    expires_at: float = 0.0
     scopes: List[str] = field(default_factory=list)
+    profile_email: str = ""
 
     def is_expired(self) -> bool:
-        """Check if the access token has expired."""
-        if not self.expires_at:
-            return False
-        return time.time() > self.expires_at - 60  # 60 second buffer
+        """Check if access token is expired (with buffer before expiry)."""
+        return time.time() > (self.expires_at - TOKEN_EXPIRY_BUFFER_SECONDS)
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for JSON storage."""
+        """Convert to dictionary for JSON serialization."""
         return {
             "access_token": self.access_token,
             "refresh_token": self.refresh_token,
             "token_type": self.token_type,
             "expires_at": self.expires_at,
             "scopes": self.scopes,
+            "profile_email": self.profile_email,
         }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "TokenData":
-        """Create from dictionary loaded from JSON."""
+        """Create from dictionary."""
         return cls(
             access_token=data.get("access_token", ""),
-            refresh_token=data.get("refresh_token"),
+            refresh_token=data.get("refresh_token", ""),
             token_type=data.get("token_type", "Bearer"),
-            expires_at=data.get("expires_at"),
+            expires_at=data.get("expires_at", 0.0),
             scopes=data.get("scopes", []),
+            profile_email=data.get("profile_email", ""),
         )
-
-
-@dataclass
-class UserProfile:
-    """Represents the authenticated user's profile."""
-
-    email: str
-    name: Optional[str] = None
-    picture: Optional[str] = None
-    updated_at: float = field(default_factory=time.time)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for JSON serialization."""
-        return {
-            "email": self.email,
-            "name": self.name,
-            "picture": self.picture,
-            "updated_at": self.updated_at,
-        }
 
 
 class GoogleHomeService:
     """Service for Google Home / SDM integration.
 
-    Handles OAuth 2.0 Authorization Code flow with PKCE,
-    token management, and SDM API communication.
+    Provides:
+    - OAuth 2.0 Authorization Code flow with PKCE
+    - Token storage and automatic refresh
+    - Device listing and command execution via SDM API
+
+    Usage:
+        service = GoogleHomeService(config)
+        if service.is_configured() and not service.is_authenticated():
+            auth_url = service.get_auth_url()
+            # Redirect user to auth_url
+        # After callback:
+        await service.complete_auth(code, state)
+        devices = await service.list_devices()
     """
 
-    def __init__(
-        self,
-        client_id: Optional[str] = None,
-        client_secret: Optional[str] = None,
-        project_id: Optional[str] = None,
-        redirect_uri: str = "http://localhost:8000/api/home/auth/callback",
-        tokens_path: str = "config/local/google_tokens_pc.json",
-        test_mode: bool = False,
-    ):
+    def __init__(self, config: Optional[GoogleHomeConfig] = None):
         """Initialize the Google Home service.
 
         Args:
-            client_id: Google OAuth Client ID
-            client_secret: Google OAuth Client Secret
-            project_id: Google Device Access Project ID
-            redirect_uri: OAuth callback URI
-            tokens_path: Path to store OAuth tokens
-            test_mode: If True, use mock responses
+            config: Configuration object. If None, loads from environment.
         """
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.project_id = project_id
-        self.redirect_uri = redirect_uri
-        self.tokens_path = Path(tokens_path)
-        self.test_mode = test_mode
-
-        self._auth_sessions: Dict[str, AuthSession] = {}
+        self.config = config or GoogleHomeConfig.from_env()
         self._tokens: Optional[TokenData] = None
-        self._profile: Optional[UserProfile] = None
+        self._auth_session: Optional[AuthSession] = None
         self._devices_cache: List[Dict[str, Any]] = []
-        self._devices_cache_time: float = 0
+        self._cache_timestamp: float = 0.0
         self._http_client: Optional[httpx.AsyncClient] = None
 
-        # Load stored tokens if available
+        # Load tokens from disk if available
         self._load_tokens()
 
-    async def _get_client(self) -> httpx.AsyncClient:
-        """Get or create the HTTP client."""
-        if self._http_client is None:
-            self._http_client = httpx.AsyncClient(timeout=30.0)
-        return self._http_client
-
-    async def close(self) -> None:
-        """Close the HTTP client."""
-        if self._http_client:
-            await self._http_client.aclose()
-            self._http_client = None
-
     def is_configured(self) -> bool:
-        """Check if the service is properly configured."""
-        return bool(self.client_id and self.client_secret and self.project_id)
+        """Check if Google Home integration is configured."""
+        return self.config.is_configured()
 
     def is_authenticated(self) -> bool:
-        """Check if we have valid authentication tokens."""
-        if self.test_mode:
-            return True
+        """Check if we have valid authentication."""
         if not self._tokens:
             return False
         if not self._tokens.refresh_token:
@@ -313,7 +272,7 @@ class GoogleHomeService:
             )
 
             if response.status_code != 200:
-                # Bezpieczna obsługa JSON decode w odpowiedzi błędnej
+                # Safe JSON decode handling for error response
                 if response.headers.get("content-type", "").startswith("application/json"):
                     try:
                         error_data = response.json()
@@ -329,13 +288,13 @@ class GoogleHomeService:
 
             token_data = response.json()
 
-            # Sprawdź obecność access_token
+            # Verify access_token is present
             access_token = token_data.get("access_token")
             if not access_token:
                 return {
                     "ok": False,
                     "error": "missing_access_token",
-                    "message": "Brak access_token w odpowiedzi Google OAuth.",
+                    "message": "Missing access_token in Google OAuth response.",
                 }
 
             # Calculate expiration time
@@ -425,7 +384,7 @@ class GoogleHomeService:
             token_data = response.json()
             expires_in = token_data.get("expires_in", 3600)
 
-            # Sprawdź obecność access_token
+            # Verify access_token is present
             access_token = token_data.get("access_token")
             if not access_token:
                 logger.error("Token refresh response missing access_token: %s", token_data)
@@ -750,4 +709,5 @@ def get_google_home_service(
 def reset_google_home_service() -> None:
     """Reset the Google Home service singleton (useful for testing)."""
     global _google_home_service
-    _google_home_service = None
+    with _google_home_service_lock:
+        _google_home_service = None

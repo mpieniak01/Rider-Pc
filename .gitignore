@@ -75,3 +75,4 @@ models/
 *.onnx
 *.pb
 *.tflite
+docs_pl/_to_do/160_nowa-funkcja-y.md
