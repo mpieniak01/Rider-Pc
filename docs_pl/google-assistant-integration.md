@@ -50,6 +50,33 @@ sterowanie urządzeniami smart home zdefiniowanymi w statycznej konfiguracji.
 
 ## Wymagania wstępne
 
+### 0. Pakiety systemowe (Ubuntu 22.04/24.04)
+
+Na czystym Ubuntu najpierw doinstaluj paczki potrzebne Rider-PC (Python, kompilatory, audio, gRPC):
+
+```bash
+sudo apt update && sudo apt upgrade -y
+
+sudo apt install -y \
+  build-essential python3 python3-venv python3-dev python3-pip \
+  git curl wget unzip pkg-config cmake ninja-build \
+  libssl-dev libffi-dev libnss3 libnss3-tools \
+  libzmq3-dev libjpeg-dev zlib1g-dev libgl1 libglib2.0-0 libopenblas-dev \
+  alsa-utils libasound2 libasound2-dev portaudio19-dev libsndfile1 ffmpeg
+```
+
+> **Dlaczego te paczki?**
+> - `python3*`, `build-essential`, `cmake`, `ninja` – budowanie zależności (m.in. `grpcio`, `torch`, `ultralytics`).
+> - `libssl-dev`, `libffi-dev`, `libnss3*` – TLS/OAuth wymagane przez Google Assistant SDK.
+> - `libzmq3-dev` i biblioteki graficzne/audio (`libjpeg-dev`, `ffmpeg`, `portaudio19-dev`, `alsa-utils`) – obsługa istniejących modułów Rider-PC (wizja, nagrywanie audio do komend).
+
+Po instalacji utwórz środowisko wirtualne (raz na hosta):
+
+```bash
+python3 -m venv ~/venvs/rider-pc && source ~/venvs/rider-pc/bin/activate
+pip install --upgrade pip wheel
+```
+
 ### 1. Konfiguracja środowiska
 
 Upewnij się, że masz zainstalowane wymagane pakiety:
@@ -117,6 +144,8 @@ GOOGLE_ASSISTANT_DEVICES_CONFIG=config/google_assistant_devices.toml
 5. **Diagnostyka**
    - Endpoint `/api/assistant/status` informuje czy dostępne są biblioteki (`libs_available`) oraz czy tokeny zostały poprawnie wczytane (`live_ready`).
    - Logi serwisu (`logs/panel-8080.log`) pokażą szczegóły błędu RPC lub odświeżania tokenu.
+
+> **Uwaga:** Dashboard nie posiada przycisku „Zaloguj się przez Google”. Autoryzację wykonujesz jednorazowo narzędziem CLI, wynik wpisujesz do `config/local/google_assistant_tokens.json`, a panel korzysta wyłącznie z tego pliku i zmiennych `.env`.
 
 
 ## Konfiguracja urządzeń
