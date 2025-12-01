@@ -79,3 +79,4 @@ Zaprojektować i wdrożyć prosty panel webowy sterujący urządzeniami przez Go
 3. UI pozwala wysłać tekstową komendę i pokazuje odpowiedź.
 4. Testy jednostkowe + manualna checklista przechodzą.
 5. Dokumentacja konfiguracji i wdrożenia jest kompletna w `docs_pl`.
+6. Plik `.env.example` został zaktualizowany o nowe klucze konfiguracyjne Google Assistant z komentarzami.
