@@ -1,6 +1,7 @@
 """Git tools for MCP.
 
 Narzędzia do pracy z repozytorium Git: zmiany, status, testy (read-only).
+Uwaga: narzędzia te powinny być dostępne tylko dla zaufanych użytkowników/kontekstów.
 """
 
 import subprocess
@@ -9,15 +10,57 @@ from typing import Optional, List
 
 from pc_client.mcp.registry import mcp_tool
 
+# Dozwolone katalogi bazowe dla operacji git (bezpieczeństwo)
+_ALLOWED_GIT_PATHS = [
+    os.getcwd(),
+    os.path.expanduser("~"),
+]
+
+
+def _validate_cwd(cwd: Optional[str]) -> str:
+    """Waliduj ścieżkę cwd dla bezpieczeństwa.
+
+    Args:
+        cwd: Ścieżka do walidacji.
+
+    Returns:
+        Zwalidowana ścieżka.
+
+    Raises:
+        ValueError: Jeśli ścieżka jest poza dozwolonymi katalogami.
+    """
+    if cwd is None:
+        return os.getcwd()
+
+    # Normalizuj ścieżkę
+    normalized = os.path.normpath(os.path.abspath(cwd))
+
+    # Sprawdź czy ścieżka jest w dozwolonych katalogach
+    for allowed in _ALLOWED_GIT_PATHS:
+        allowed_norm = os.path.normpath(os.path.abspath(allowed))
+        if normalized.startswith(allowed_norm):
+            return normalized
+
+    raise ValueError(f"Path not allowed: {cwd}")
+
 
 def _run_git_command(args: List[str], cwd: Optional[str] = None) -> dict:
-    """Wykonaj komendę git i zwróć wynik."""
+    """Wykonaj komendę git i zwróć wynik.
+
+    Args:
+        args: Lista argumentów dla git.
+        cwd: Ścieżka do repozytorium (musi być w dozwolonych katalogach).
+
+    Returns:
+        Słownik z wynikiem komendy.
+    """
     try:
+        validated_cwd = _validate_cwd(cwd)
         result = subprocess.run(
             ["git"] + args,
             capture_output=True,
             text=True,
-            cwd=cwd or os.getcwd(),
+            cwd=validated_cwd,
             timeout=30,
         )
         return {
@@ -25,6 +68,8 @@ def _run_git_command(args: List[str], cwd: Optional[str] = None) -> dict:
             "stdout": result.stdout.strip(),
             "stderr": result.stderr.strip() if result.returncode != 0 else None,
         }
+    except ValueError as e:
+        return {"success": False, "error": str(e)}
     except subprocess.TimeoutExpired:
         return {"success": False, "error": "Command timed out"}
     except FileNotFoundError:

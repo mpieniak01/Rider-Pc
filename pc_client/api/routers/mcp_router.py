@@ -8,7 +8,6 @@ Endpointy MCP dla Rider-PC:
 
 import logging
 import os
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Request
@@ -165,7 +164,6 @@ async def invoke_tool(payload: InvokeToolRequest) -> JSONResponse:
     result = await registry.invoke(payload.tool, payload.arguments, confirm=payload.confirm)
 
     # Log do mcp-tools.log (dedykowany plik)
-    timestamp = datetime.now().isoformat()
     if result.ok:
         log_entry = f"INVOKE {payload.tool} -> SUCCESS ({result.meta.get('duration_ms', 0)}ms)"
         mcp_file_logger.info(log_entry)
