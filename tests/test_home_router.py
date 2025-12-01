@@ -91,7 +91,7 @@ def test_home_auth_url_not_enabled(tmp_path):
 
 def test_home_auth_url_enabled(tmp_path):
     """Test auth/url returns auth URL when Google Home local is enabled."""
-    client = make_client_with_google_home(tmp_path)
+    client = make_client(tmp_path, google_home_local=True)
     resp = client.get("/api/home/auth/url")
     assert resp.status_code == 200
     body = resp.json()
