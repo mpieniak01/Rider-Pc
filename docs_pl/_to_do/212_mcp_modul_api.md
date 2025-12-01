@@ -31,6 +31,7 @@ pc_client/api/routers/mcp_router.py
   - `robot.status` – odczytuje aktualny stan robota (połączenie, bateria, tryb).
   - `robot.move` – wysyła prostą komendę ruchu (np. `forward`, `stop`) z walidacją parametrów.
   - `weather.get_summary` – podaje krótką prognozę pogody (lokalna integracja np. z OpenWeather, przechowywana w cache).
+    - **Uwaga:** Wymaga dodania klucza API do `.env.example` (`OPENWEATHER_API_KEY`) oraz opcjonalnie czasu cache (`WEATHER_CACHE_TTL_SECONDS`). Należy uwzględnić te zmienne w module konfiguracyjnym (`Settings` w `pc_client/config/settings.py`) zgodnie ze standardem Rider-PC.
 - Uproszczona architektura:
   - `registry.py` trzyma całą wiedzę (lista narzędzi, ich schema, handlery).
   - `mcp_router.py` tylko mapuje HTTP → registry (walidacja, logi). Dzięki temu łatwo podmienić transport (np. STDIO) bez zmian w logice.
