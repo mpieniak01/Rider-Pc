@@ -55,124 +55,83 @@ class AuthSession:
 
 @dataclass
 class TokenData:
-    """Represents stored OAuth tokens."""
+    """OAuth token storage."""
 
-    access_token: str
-    refresh_token: Optional[str] = None
+    access_token: str = ""
+    refresh_token: str = ""
     token_type: str = "Bearer"
-    expires_at: Optional[float] = None
+    expires_at: float = 0.0
     scopes: List[str] = field(default_factory=list)
+    profile_email: str = ""
 
     def is_expired(self) -> bool:
-        """Check if the access token has expired."""
-        if not self.expires_at:
-            return False
-        return time.time() > self.expires_at - 60  # 60 second buffer
+        """Check if access token is expired (with buffer before expiry)."""
+        return time.time() > (self.expires_at - TOKEN_EXPIRY_BUFFER_SECONDS)
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for JSON storage."""
+        """Convert to dictionary for JSON serialization."""
         return {
             "access_token": self.access_token,
             "refresh_token": self.refresh_token,
             "token_type": self.token_type,
             "expires_at": self.expires_at,
             "scopes": self.scopes,
+            "profile_email": self.profile_email,
         }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "TokenData":
-        """Create from dictionary loaded from JSON."""
+        """Create from dictionary."""
         return cls(
             access_token=data.get("access_token", ""),
-            refresh_token=data.get("refresh_token"),
+            refresh_token=data.get("refresh_token", ""),
             token_type=data.get("token_type", "Bearer"),
-            expires_at=data.get("expires_at"),
+            expires_at=data.get("expires_at", 0.0),
             scopes=data.get("scopes", []),
+            profile_email=data.get("profile_email", ""),
         )
-
-
-@dataclass
-class UserProfile:
-    """Represents the authenticated user's profile."""
-
-    email: str
-    name: Optional[str] = None
-    picture: Optional[str] = None
-    updated_at: float = field(default_factory=time.time)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for JSON serialization."""
-        return {
-            "email": self.email,
-            "name": self.name,
-            "picture": self.picture,
-            "updated_at": self.updated_at,
-        }
 
 
 class GoogleHomeService:
     """Service for Google Home / SDM integration.
 
-    Handles OAuth 2.0 Authorization Code flow with PKCE,
-    token management, and SDM API communication.
+    Provides:
+    - OAuth 2.0 Authorization Code flow with PKCE
+    - Token storage and automatic refresh
+    - Device listing and command execution via SDM API
+
+    Usage:
+        service = GoogleHomeService(config)
+        if service.is_configured() and not service.is_authenticated():
+            auth_url = service.get_auth_url()
+            # Redirect user to auth_url
+        # After callback:
+        await service.complete_auth(code, state)
+        devices = await service.list_devices()
     """
 
-    def __init__(
-        self,
-        client_id: Optional[str] = None,
-        client_secret: Optional[str] = None,
-        project_id: Optional[str] = None,
-        redirect_uri: str = "http://localhost:8000/api/home/auth/callback",
-        tokens_path: str = "config/local/google_tokens_pc.json",
-        test_mode: bool = False,
-    ):
+    def __init__(self, config: Optional[GoogleHomeConfig] = None):
         """Initialize the Google Home service.
 
         Args:
-            client_id: Google OAuth Client ID
-            client_secret: Google OAuth Client Secret
-            project_id: Google Device Access Project ID
-            redirect_uri: OAuth callback URI
-            tokens_path: Path to store OAuth tokens
-            test_mode: If True, use mock responses
+            config: Configuration object. If None, loads from environment.
         """
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.project_id = project_id
-        self.redirect_uri = redirect_uri
-        self.tokens_path = Path(tokens_path)
-        self.test_mode = test_mode
-
-        self._auth_sessions: Dict[str, AuthSession] = {}
+        self.config = config or GoogleHomeConfig.from_env()
         self._tokens: Optional[TokenData] = None
-        self._profile: Optional[UserProfile] = None
+        self._auth_session: Optional[AuthSession] = None
         self._devices_cache: List[Dict[str, Any]] = []
-        self._devices_cache_time: float = 0
+        self._cache_timestamp: float = 0.0
         self._http_client: Optional[httpx.AsyncClient] = None
 
-        # Load stored tokens if available
+        # Load tokens from disk if available
         self._load_tokens()
 
-    async def _get_client(self) -> httpx.AsyncClient:
-        """Get or create the HTTP client."""
-        if self._http_client is None:
-            self._http_client = httpx.AsyncClient(timeout=30.0)
-        return self._http_client
-
-    async def close(self) -> None:
-        """Close the HTTP client."""
-        if self._http_client:
-            await self._http_client.aclose()
-            self._http_client = None
-
     def is_configured(self) -> bool:
-        """Check if the service is properly configured."""
-        return bool(self.client_id and self.client_secret and self.project_id)
+        """Check if Google Home integration is configured."""
+        return self.config.is_configured()
 
     def is_authenticated(self) -> bool:
-        """Check if we have valid authentication tokens."""
-        if self.test_mode:
-            return True
+        """Check if we have valid authentication."""
         if not self._tokens:
             return False
         if not self._tokens.refresh_token:
@@ -571,78 +530,146 @@ class GoogleHomeService:
         if not self.is_authenticated():
             return {"ok": False, "error": "not_authenticated"}
 
-        if not await self._ensure_valid_token():
-            return {"ok": False, "error": "token_refresh_failed"}
-
-        client = await self._get_client()
         try:
-            # Extract command name for SDM API
-            sdm_command = command.replace("action.devices.commands.", "sdm.devices.commands.")
+            client = await self._get_http_client()
+            if not await self._ensure_valid_token():
+                return {"ok": False, "error": "auth_expired"}
 
             url = f"{SDM_API_BASE}/{device_id}:executeCommand"
-            payload = {
-                "command": sdm_command,
-                "params": params,
-            }
 
-            response = await client.post(
-                url,
-                headers={
-                    "Authorization": f"Bearer {self._tokens.access_token}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
-            )
+            # Map our command format to SDM format
+            sdm_command = self._map_command_to_sdm(command, params)
+
+            response = await client.post(url, json=sdm_command)
 
             if response.status_code == 401:
-                if await self._ensure_valid_token():
-                    response = await client.post(
-                        url,
-                        headers={
-                            "Authorization": f"Bearer {self._tokens.access_token}",
-                            "Content-Type": "application/json",
-                        },
-                        json=payload,
-                    )
+                if await self.refresh_access_token():
+                    client = await self._get_http_client()
+                    response = await client.post(url, json=sdm_command)
+                else:
+                    return {"ok": False, "error": "auth_expired"}
 
-            if response.status_code not in (200, 204):
-                error_msg = response.text[:200]
-                logger.error("SDM command failed: %s - %s", response.status_code, error_msg)
+            if response.status_code != 200:
+                error_data = response.json() if response.content else {}
                 return {
                     "ok": False,
-                    "error": f"sdm_error_{response.status_code}",
-                    "message": error_msg,
+                    "error": "command_failed",
+                    "status_code": response.status_code,
+                    "details": error_data.get("error", {}).get("message", "Unknown error"),
                 }
+            async with httpx.AsyncClient(headers=self._get_auth_headers(), timeout=30.0) as client:
+                response = await client.post(url, json=sdm_command)
+
+                if response.status_code == 401:
+                    if await self.refresh_access_token():
+                        async with httpx.AsyncClient(headers=self._get_auth_headers(), timeout=30.0) as retry_client:
+                            response = await retry_client.post(url, json=sdm_command)
+                    else:
+                        return {"ok": False, "error": "auth_expired"}
+
+                if response.status_code != 200:
+                    error_data = response.json() if response.content else {}
+                    return {
+                        "ok": False,
+                        "error": "command_failed",
+                        "status_code": response.status_code,
+                        "details": error_data.get("error", {}).get("message", "Unknown error"),
+                    }
 
             # Invalidate device cache after command
-            self._devices_cache_time = 0
+            self._cache_timestamp = 0.0
 
             return {"ok": True, "device": device_id, "command": command}
 
-        except Exception as exc:
-            logger.exception("Error sending SDM command")
-            return {"ok": False, "error": "sdm_request_failed", "message": str(exc)}
+        except Exception as e:
+            logger.exception("Error sending command")
+            return {"ok": False, "error": "network_error", "details": str(e)}
 
-    def get_profile(self) -> Optional[Dict[str, Any]]:
-        """Get the current user profile."""
-        if self._profile:
-            return self._profile.to_dict()
-        return None
+    def _transform_device(self, sdm_device: Dict[str, Any]) -> Dict[str, Any]:
+        """Transform SDM device format to our internal format."""
+        name = sdm_device.get("name", "")
+        device_type = sdm_device.get("type", "")
+        traits = sdm_device.get("traits", {})
+        parent_relations = sdm_device.get("parentRelations", [])
 
-    def clear_auth(self) -> Dict[str, Any]:
-        """Clear stored authentication and tokens."""
-        self._tokens = None
-        self._profile = None
-        self._devices_cache = []
-        self._devices_cache_time = 0
+        # Extract room name from parent relations
+        room = ""
+        structure = ""
+        for rel in parent_relations:
+            display = rel.get("displayName", "")
+            parent = rel.get("parent", "")
+            if "structures" in parent:
+                structure = display
+            elif "rooms" in parent:
+                room = display
 
-        if self.tokens_path.exists():
+        return {
+            "name": name,
+            "type": device_type,
+            "traits": traits,
+            "room": room,
+            "structure": structure,
+            "custom_name": sdm_device.get("customName", ""),
+        }
+
+    def _map_command_to_sdm(self, command: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Map our command format to SDM executeCommand format."""
+        # SDM uses different command structure
+        sdm_command_map = {
+            "action.devices.commands.OnOff": ("sdm.devices.commands.OnOff", params),
+            "action.devices.commands.BrightnessAbsolute": (
+                "sdm.devices.commands.Brightness",
+                {"brightness": params.get("brightness", 0) / 100.0},
+            ),
+            "action.devices.commands.ThermostatTemperatureSetpoint": (
+                "sdm.devices.commands.ThermostatTemperatureSetpoint.SetHeat",
+                {"heatCelsius": params.get("thermostatTemperatureSetpoint", 20)},
+            ),
+        }
+
+        sdm_cmd, sdm_params = sdm_command_map.get(command, (command, params))
+
+        return {"command": sdm_cmd, "params": sdm_params}
+
+    def _load_tokens(self) -> None:
+        """Load tokens from disk."""
+        tokens_path = Path(self.config.tokens_path)
+        if tokens_path.exists():
             try:
-                os.remove(self.tokens_path)
-            except Exception as exc:
-                logger.warning("Failed to remove tokens file: %s", exc)
+                with open(tokens_path) as f:
+                    data = json.load(f)
+                self._tokens = TokenData.from_dict(data)
+                logger.info("Loaded Google Home tokens from %s", tokens_path)
+            except Exception as e:
+                logger.warning("Failed to load tokens: %s", e)
 
-        return {"ok": True, "message": "Authentication cleared"}
+    def _save_tokens(self) -> None:
+        """Save tokens to disk."""
+        if not self._tokens:
+            return
+
+        tokens_path = Path(self.config.tokens_path)
+        try:
+            tokens_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(tokens_path, "w") as f:
+                json.dump(self._tokens.to_dict(), f, indent=2)
+            logger.info("Saved Google Home tokens to %s", tokens_path)
+        except Exception as e:
+            logger.warning("Failed to save tokens: %s", e)
+
+    def clear_tokens(self) -> None:
+        """Clear stored tokens (logout)."""
+        self._tokens = None
+        self._devices_cache = []
+        self._cache_timestamp = 0.0
+
+        tokens_path = Path(self.config.tokens_path)
+        if tokens_path.exists():
+            try:
+                tokens_path.unlink()
+                logger.info("Deleted tokens file: %s", tokens_path)
+            except Exception as e:
+                logger.warning("Failed to delete tokens: %s", e)
 
     # Mock methods for test mode
     def _get_mock_devices(self) -> Dict[str, Any]:

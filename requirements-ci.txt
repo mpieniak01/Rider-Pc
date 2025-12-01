@@ -39,6 +39,10 @@ pytest-timeout==2.4.0
 playwright==1.48.0
 ruff==0.6.9
 
+# Google OAuth for Google Home integration
+google-auth==2.36.0
+google-auth-oauthlib==1.2.1
+
 # Note: Heavy ML models are excluded for CI:
 # - torch (2GB+)
 # - openai-whisper
