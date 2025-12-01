@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
 # Import registry - tools are registered on import
 from pc_client.mcp.registry import registry
@@ -19,6 +20,14 @@ from pc_client.mcp import tools as _  # noqa: F401 - triggers tool registration
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/mcp", tags=["mcp"])
+
+
+class InvokeToolRequest(BaseModel):
+    """Model żądania wywołania narzędzia MCP."""
+
+    tool: str = Field(..., description="Nazwa narzędzia do wywołania")
+    arguments: Optional[Dict[str, Any]] = Field(default=None, description="Argumenty dla narzędzia")
+    confirm: bool = Field(default=False, description="Potwierdzenie dla operacji wymagających zgody")
 
 
 @router.get("/tools")
@@ -102,14 +111,11 @@ async def get_resources(request: Request) -> JSONResponse:
 
 
 @router.post("/tools/invoke")
-async def invoke_tool(request: Request, payload: Dict[str, Any]) -> JSONResponse:
+async def invoke_tool(payload: InvokeToolRequest) -> JSONResponse:
     """Wywołaj narzędzie MCP.
 
     Args:
-        payload: JSON z nazwą narzędzia i argumentami.
-            - tool: Nazwa narzędzia (wymagane).
-            - arguments: Słownik z argumentami (opcjonalne).
-            - confirm: Potwierdzenie dla operacji wymagających zgody (opcjonalne).
+        payload: Walidowane żądanie z nazwą narzędzia i argumentami.
 
     Returns:
         Wynik wywołania narzędzia.
@@ -126,31 +132,15 @@ async def invoke_tool(request: Request, payload: Dict[str, Any]) -> JSONResponse
         }
     }
     """
-    tool_name = payload.get("tool")
-    if not tool_name:
-        return JSONResponse(
-            {
-                "ok": False,
-                "tool": None,
-                "result": None,
-                "error": "Missing 'tool' field in request",
-                "meta": {},
-            },
-            status_code=400,
-        )
+    logger.info("Invoking MCP tool: %s with arguments: %s", payload.tool, payload.arguments)
 
-    arguments: Optional[Dict[str, Any]] = payload.get("arguments")
-    confirm: bool = payload.get("confirm", False)
-
-    logger.info("Invoking MCP tool: %s with arguments: %s", tool_name, arguments)
-
-    result = await registry.invoke(tool_name, arguments, confirm=confirm)
+    result = await registry.invoke(payload.tool, payload.arguments, confirm=payload.confirm)
 
     # Log do mcp-tools.log
     if result.ok:
-        logger.info("[MCP] %s -> success (%dms)", tool_name, result.meta.get("duration_ms", 0))
+        logger.info("[MCP] %s -> success (%dms)", payload.tool, result.meta.get("duration_ms", 0))
     else:
-        logger.warning("[MCP] %s -> error: %s", tool_name, result.error)
+        logger.warning("[MCP] %s -> error: %s", payload.tool, result.error)
 
     status_code = 200 if result.ok else (404 if "not found" in (result.error or "") else 400)
 

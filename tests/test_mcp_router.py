@@ -143,13 +143,12 @@ class TestInvokeToolEndpoint:
 
     @pytest.mark.asyncio
     async def test_invoke_missing_tool_name(self, app):
-        """Test invoking without tool name returns 400."""
+        """Test invoking without tool name returns 422 (Pydantic validation error)."""
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.post("/api/mcp/tools/invoke", json={})
-            assert response.status_code == 400
+            assert response.status_code == 422
             data = response.json()
-            assert data["ok"] is False
-            assert "Missing 'tool'" in data["error"]
+            assert "detail" in data
 
     @pytest.mark.asyncio
     async def test_invoke_nonexistent_tool(self, app):
