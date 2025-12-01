@@ -254,14 +254,13 @@ async def home_auth_callback(
     # Handle error from Google
     if error:
         logger.warning("Google OAuth error: %s", error)
-        safe_error = html.escape(error)
         return HTMLResponse(
             content=f"""
             <!DOCTYPE html>
             <html>
-            <head><meta http-equiv="refresh" content="2;url=/web/google_home.html?auth=error&reason={quote(error)}"></head>
+            <head><meta http-equiv="refresh" content="2;url=/web/google_home.html?auth=error&reason={error}"></head>
             <body>
-                <p>Błąd autoryzacji: {safe_error}. Przekierowanie...</p>
+                <p>Błąd autoryzacji: {error}. Przekierowanie...</p>
             </body>
             </html>
             """,
@@ -323,9 +322,9 @@ async def home_auth_callback(
             content=f"""
             <!DOCTYPE html>
             <html>
-            <head><meta http-equiv="refresh" content="2;url=/web/google_home.html?auth=error&reason={quote(error_msg)}"></head>
+            <head><meta http-equiv="refresh" content="2;url=/web/google_home.html?auth=error&reason={error_msg}"></head>
             <body>
-                <p>Błąd autoryzacji: {safe_error_msg}. Przekierowanie...</p>
+                <p>Błąd autoryzacji: {error_msg}. Przekierowanie...</p>
             </body>
             </html>
             """,

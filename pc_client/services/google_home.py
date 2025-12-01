@@ -180,6 +180,7 @@ class GoogleHomeService:
         self._auth_session: Optional[AuthSession] = None
         self._devices_cache: List[Dict[str, Any]] = []
         self._cache_timestamp: float = 0.0
+        self._http_client: Optional[httpx.AsyncClient] = None
 
         # Load tokens from disk if available
         self._load_tokens()
@@ -391,6 +392,40 @@ class GoogleHomeService:
 
         return True
 
+    async def _get_http_client(self) -> httpx.AsyncClient:
+        """Get HTTP client with authentication headers."""
+        if not await self._ensure_valid_token():
+            raise RuntimeError("No valid authentication")
+
+        if self._http_client is None:
+            self._http_client = httpx.AsyncClient(
+                headers={
+                    "Authorization": f"Bearer {self._tokens.access_token}",
+                    "Content-Type": "application/json",
+                },
+                timeout=30.0,
+            )
+        else:
+            # Update auth header in case token was refreshed
+            self._http_client.headers["Authorization"] = f"Bearer {self._tokens.access_token}"
+
+        return self._http_client
+
+    async def __aenter__(self):
+        """Pozwala używać serwisu jako asynchronicznego context managera."""
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        """Zamyka klienta HTTPX przy wyjściu z context managera."""
+        await self.close()
+
+    async def close(self):
+        """Zamyka klienta HTTPX, aby uniknąć wycieków zasobów."""
+        if self._http_client is not None:
+            await self._http_client.aclose()
+            self._http_client = None
+        else:
+            logger.debug("close() wywołane, ale klient HTTPX już zamknięty lub nieutworzony.")
     def _get_auth_headers(self) -> Dict[str, str]:
         """Get authentication headers for HTTP requests."""
         if not self._tokens:
@@ -479,6 +514,7 @@ class GoogleHomeService:
             return {"ok": False, "error": "not_authenticated"}
 
         try:
+            client = await self._get_http_client()
             if not await self._ensure_valid_token():
                 return {"ok": False, "error": "auth_expired"}
 
@@ -487,6 +523,23 @@ class GoogleHomeService:
             # Map our command format to SDM format
             sdm_command = self._map_command_to_sdm(command, params)
 
+            response = await client.post(url, json=sdm_command)
+
+            if response.status_code == 401:
+                if await self.refresh_access_token():
+                    client = await self._get_http_client()
+                    response = await client.post(url, json=sdm_command)
+                else:
+                    return {"ok": False, "error": "auth_expired"}
+
+            if response.status_code != 200:
+                error_data = response.json() if response.content else {}
+                return {
+                    "ok": False,
+                    "error": "command_failed",
+                    "status_code": response.status_code,
+                    "details": error_data.get("error", {}).get("message", "Unknown error"),
+                }
             async with httpx.AsyncClient(headers=self._get_auth_headers(), timeout=30.0) as client:
                 response = await client.post(url, json=sdm_command)
 
@@ -600,6 +653,12 @@ class GoogleHomeService:
                 logger.info("Deleted tokens file: %s", tokens_path)
             except Exception as e:
                 logger.warning("Failed to delete tokens: %s", e)
+
+    async def close(self) -> None:
+        """Close HTTP client."""
+        if self._http_client:
+            await self._http_client.aclose()
+            self._http_client = None
 
     # Mock methods for test mode
     def _get_mock_devices(self) -> Dict[str, Any]:
