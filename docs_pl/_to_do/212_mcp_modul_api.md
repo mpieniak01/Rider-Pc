@@ -76,7 +76,11 @@ Tool(
 4. **TextProvider**: wsparcie tool-call (parsowanie JSON, konwersja do MCP).
 5. **UI**: log narzędzi + kafel w `view.html`.
 6. **Bezpieczeństwo**: progi (np. `robot_move` wymaga `confirm=true`), log `logs/mcp-tools.log`.
-7. **Dokumentacja/testy**: opis w `docs_pl`, testy jednostkowe `tests/test_mcp_tools.py`.
+7. **Dokumentacja/testy**: opis w `docs_pl`, testy jednostkowe i integracyjne:
+   - `tests/test_mcp_tools.py` – testy jednostkowe narzędzi MCP (poprawność handlerów, walidacja schematów, przypadki brzegowe).
+   - `tests/test_mcp_router.py` – testy routera MCP (walidacja endpointów, odpowiedzi JSON, logowanie, obsługa błędów).
+   - `tests/test_mcp_registry.py` – testy rejestru narzędzi (rejestracja, uprawnienia, dostępność narzędzi).
+   - testy integracyjne endpointów API (wywołania HTTP, scenariusze sukces/błąd, zgodność ze spec MCP).
 
 ## Ryzyka
 - LLM musi wspierać tool-calling (Mixtral, Llama3.2 Tool); dla innych modeli fallback do makr.
