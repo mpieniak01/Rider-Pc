@@ -695,11 +695,11 @@ def get_google_home_service() -> GoogleHomeService:
     """Get or create the singleton GoogleHomeService instance.
 
     Konfiguracja jest automatycznie ładowana ze zmiennych środowiskowych:
-    - GOOGLE_CLIENT_ID
-    - GOOGLE_CLIENT_SECRET
-    - GOOGLE_DEVICE_ACCESS_PROJECT_ID
-    - GOOGLE_REDIRECT_URI
-    - GOOGLE_TOKENS_PATH
+    - GOOGLE_HOME_CLIENT_ID
+    - GOOGLE_HOME_CLIENT_SECRET
+    - GOOGLE_HOME_PROJECT_ID
+    - GOOGLE_HOME_REDIRECT_URI
+    - GOOGLE_HOME_TOKENS_PATH
 
     Zobacz .env.example dla szczegółów konfiguracji.
     """
