@@ -29,6 +29,7 @@ Zaprojektować i wdrożyć prosty panel webowy sterujący urządzeniami przez Go
 
 3. **Statyczna mapa urządzeń (`config/google_assistant_devices.toml`)**
    - Każdy wpis zawiera `id`, `label`, `assistant_name`, `room`, `category`, `on_command`, `off_command` oraz opcjonalne pola (`brightness_template`, `dock_command`).
+   - Dodatkowe komendy są powiązane z kategorią urządzenia: np. pole `dock_command` występuje dla odkurzaczy (`category = vacuum`), a inne typy mogą mieć własne opcjonalne komendy (np. `pause_command` dla urządzeń multimedialnych). Warto sprawdzić, które kategorie obsługują konkretne pola w pliku konfiguracyjnym.
    - W repo istnieje startowa lista Twoich urządzeń z Google Home (Pokój Lights, oczyszczacz Xiaomi, Monitoring, Oczyszczacz, odkurzacz Xiaomi H40, scena Pokój Nest) — gotowa do modyfikacji.
    - Ten plik jest źródłem prawdy dla panelu; nie próbujemy pobierać listy urządzeń przez API Google.
 
