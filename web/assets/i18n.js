@@ -132,6 +132,26 @@ export const I18N = {
       no_auto: { pl: "• brak automatycznej kontroli", en: "• no automatic check" },
     },
 
+    mcp: {
+      title:         { pl: "MCP Tools", en: "MCP Tools" },
+      total_tools:   { pl: "Narzędzia", en: "Tools" },
+      invocations:   { pl: "Wywołania", en: "Invocations" },
+      last_tool:     { pl: "Ostatnie", en: "Last" },
+      status:        { pl: "Status", en: "Status" },
+      hint:          { pl: "Model Context Protocol – narzędzia AI.", en: "Model Context Protocol – AI tools." },
+      tools_list:    { pl: "Lista narzędzi", en: "Tools list" },
+      loading:       { pl: "Ładowanie...", en: "Loading..." },
+      no_tools:      { pl: "Brak narzędzi", en: "No tools" },
+      recent_calls:  { pl: "Ostatnie wywołania", en: "Recent calls" },
+      no_calls:      { pl: "Brak wywołań", en: "No calls" },
+      config:        { pl: "Konfiguracja MCP", en: "MCP Configuration" },
+      standalone:    { pl: "Standalone", en: "Standalone" },
+      port:          { pl: "Port", en: "Port" },
+      config_hint:   { pl: "Ustawienia MCP z /api/mcp/resources.", en: "MCP settings from /api/mcp/resources." },
+      status_active: { pl: "aktywny", en: "active" },
+      status_error:  { pl: "błąd", en: "error" },
+    },
+
     camera: {
       title:          { pl: "Kamera",                en: "Camera" },
       caption:        { pl: "podgląd (ostatnia klatka lub komunikat)", en: "preview (last frame or message)" },

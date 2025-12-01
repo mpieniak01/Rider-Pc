@@ -7,6 +7,7 @@ Endpointy MCP dla Rider-PC:
 """
 
 import logging
+import os
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Request
@@ -18,6 +19,32 @@ from pc_client.mcp.registry import registry
 from pc_client.mcp import tools as _  # noqa: F401 - triggers tool registration
 
 logger = logging.getLogger(__name__)
+
+# Dedykowany logger dla mcp-tools.log
+mcp_file_logger = logging.getLogger("mcp.tools")
+
+
+def _setup_mcp_file_logger():
+    """Skonfiguruj dedykowany logger dla pliku mcp-tools.log."""
+    if mcp_file_logger.handlers:
+        return
+
+    logs_dir = os.path.join(os.getcwd(), "logs")
+    os.makedirs(logs_dir, exist_ok=True)
+
+    file_handler = logging.FileHandler(
+        os.path.join(logs_dir, "mcp-tools.log"),
+        encoding="utf-8",
+    )
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+    )
+    mcp_file_logger.addHandler(file_handler)
+    mcp_file_logger.setLevel(logging.INFO)
+
+
+_setup_mcp_file_logger()
 
 router = APIRouter(prefix="/api/mcp", tags=["mcp"])
 
@@ -136,10 +163,14 @@ async def invoke_tool(payload: InvokeToolRequest) -> JSONResponse:
 
     result = await registry.invoke(payload.tool, payload.arguments, confirm=payload.confirm)
 
-    # Log do mcp-tools.log
+    # Log do mcp-tools.log (dedykowany plik)
     if result.ok:
+        log_entry = f"INVOKE {payload.tool} -> SUCCESS ({result.meta.get('duration_ms', 0)}ms)"
+        mcp_file_logger.info(log_entry)
         logger.info("[MCP] %s -> success (%dms)", payload.tool, result.meta.get("duration_ms", 0))
     else:
+        log_entry = f"INVOKE {payload.tool} -> ERROR: {result.error}"
+        mcp_file_logger.warning(log_entry)
         logger.warning("[MCP] %s -> error: %s", payload.tool, result.error)
 
     status_code = 200 if result.ok else (404 if "not found" in (result.error or "") else 400)
