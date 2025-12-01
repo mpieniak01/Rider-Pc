@@ -6,6 +6,12 @@ from pc_client.api.server import create_app
 from pc_client.cache import CacheManager
 from pc_client.config import Settings
 
+# Test configuration constants
+TEST_CLIENT_ID = "test-client-id"
+TEST_CLIENT_SECRET = "test-client-secret"
+TEST_PROJECT_ID = "test-project-id"
+TEST_REDIRECT_URI = "http://localhost:8000/api/home/auth/callback"
+
 
 def make_client(tmp_path) -> TestClient:
     settings = Settings()
@@ -69,6 +75,22 @@ def test_home_auth_endpoint(tmp_path):
     assert resp.json()["ok"] is True
 
 
+def make_client_with_google_home(tmp_path) -> TestClient:
+    """Create client with Google Home local mode enabled."""
+    settings = Settings()
+    settings.test_mode = True
+    settings.google_home_local_enabled = True
+    settings.google_home_client_id = TEST_CLIENT_ID
+    settings.google_home_client_secret = TEST_CLIENT_SECRET
+    settings.google_home_project_id = TEST_PROJECT_ID
+    settings.google_home_redirect_uri = TEST_REDIRECT_URI
+    settings.google_home_test_mode = True
+    settings.google_home_tokens_path = str(tmp_path / "tokens.json")
+    cache = CacheManager(db_path=str(tmp_path / "cache.db"))
+    app = create_app(settings, cache)
+    return TestClient(app)
+
+
 def test_home_auth_url_not_enabled(tmp_path):
     """Test auth/url returns error when Google Home local is not enabled."""
     client = make_client(tmp_path)
@@ -88,6 +110,8 @@ def test_home_auth_url_enabled(tmp_path):
     assert body["ok"] is True
     assert "auth_url" in body
     assert "accounts.google.com" in body["auth_url"]
+    # Verify the auth URL starts with Google's OAuth endpoint
+    assert body["auth_url"].startswith("https://accounts.google.com/o/oauth2/")
     assert "state" in body
     assert "expires_at" in body
 

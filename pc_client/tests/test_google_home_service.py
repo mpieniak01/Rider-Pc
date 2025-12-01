@@ -1,26 +1,34 @@
 """Unit tests for GoogleHomeService."""
 
-import pytest
 import time
 
+import pytest
+
 from pc_client.services.google_home import (
+    AuthSession,
     GoogleHomeConfig,
     GoogleHomeService,
-    AuthSession,
     TokenData,
     reset_google_home_service,
 )
+
+# Test configuration constants
+TEST_CLIENT_ID = "test-client-id"
+TEST_CLIENT_SECRET = "test-client-secret"
+TEST_PROJECT_ID = "test-project-id"
+TEST_REDIRECT_URI = "http://localhost:8000/api/home/auth/callback"
+TEST_TOKENS_PATH = "/tmp/test_tokens.json"
 
 
 @pytest.fixture
 def config():
     """Create test configuration."""
     return GoogleHomeConfig(
-        client_id="test-client-id",
-        client_secret="test-client-secret",
-        project_id="test-project-id",
-        redirect_uri="http://localhost:8000/api/home/auth/callback",
-        tokens_path="/tmp/test_tokens.json",
+        client_id=TEST_CLIENT_ID,
+        client_secret=TEST_CLIENT_SECRET,
+        project_id=TEST_PROJECT_ID,
+        redirect_uri=TEST_REDIRECT_URI,
+        tokens_path=TEST_TOKENS_PATH,
         test_mode=False,
     )
 
@@ -29,11 +37,11 @@ def config():
 def test_mode_config():
     """Create test mode configuration."""
     return GoogleHomeConfig(
-        client_id="test-client-id",
-        client_secret="test-client-secret",
-        project_id="test-project-id",
-        redirect_uri="http://localhost:8000/api/home/auth/callback",
-        tokens_path="/tmp/test_tokens.json",
+        client_id=TEST_CLIENT_ID,
+        client_secret=TEST_CLIENT_SECRET,
+        project_id=TEST_PROJECT_ID,
+        redirect_uri=TEST_REDIRECT_URI,
+        tokens_path=TEST_TOKENS_PATH,
         test_mode=True,
     )
 
@@ -209,7 +217,8 @@ class TestGoogleHomeService:
 
         assert result["ok"] is True
         assert "auth_url" in result
-        assert "accounts.google.com" in result["auth_url"]
+        # Verify the auth URL starts with Google's OAuth endpoint
+        assert result["auth_url"].startswith("https://accounts.google.com/o/oauth2/")
         assert "state" in result
         assert "expires_at" in result
 

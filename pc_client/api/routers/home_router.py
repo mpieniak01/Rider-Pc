@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import html
 import logging
 import time
 from typing import Any, Dict, Optional
+from urllib.parse import quote
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -318,6 +320,7 @@ async def home_auth_callback(
     else:
         error_msg = result.get("error", "unknown")
         logger.warning("Google Home OAuth failed: %s", error_msg)
+        safe_error_msg = html.escape(error_msg)
         return HTMLResponse(
             content=f"""
             <!DOCTYPE html>
