@@ -3,6 +3,63 @@
 ## Cel
 Zaprojektować i wdrożyć prosty panel webowy sterujący urządzeniami przez Google Assistant API. Panel ma używać zdefiniowanej ręcznie listy urządzeń (mapy nazw), wysyłać odpowiednie komendy tekstowe/głosowe i optymistycznie aktualizować stan.
 
+## Status implementacji
+
+### ✅ Zrealizowane
+
+1. **Serwis Google Assistant** (`pc_client/services/google_assistant.py`)
+   - Wczytywanie konfiguracji urządzeń z TOML
+   - Hot-reload konfiguracji przy zmianach
+   - Metody: `list_devices()`, `send_command()`, `send_custom_text()`
+   - Tryb testowy (mock) oraz tryb produkcyjny
+   - Historia komend w pamięci (max 100 wpisów)
+   - Optymistyczne aktualizowanie statusów urządzeń
+
+2. **Router FastAPI** (`pc_client/api/routers/assistant_router.py`)
+   - `GET /api/assistant/status` – status integracji
+   - `GET /api/assistant/devices` – lista urządzeń
+   - `GET /api/assistant/device/{id}` – szczegóły urządzenia
+   - `POST /api/assistant/command` – wysyłanie komend (on/off/brightness/dock)
+   - `POST /api/assistant/custom` – własne komendy tekstowe
+   - `GET /api/assistant/history` – historia komend
+   - `POST /api/assistant/reload` – przeładowanie konfiguracji
+
+3. **Panel UI** (`web/assistant.html` + `web/assets/pages/assistant.css`)
+   - Kafelki urządzeń z przyciskami ON/OFF
+   - Wskaźnik statusu urządzenia (zielony/szary/żółty)
+   - Suwak jasności dla urządzeń wspierających
+   - Przycisk "Do stacji" dla odkurzaczy
+   - Input dla własnych komend tekstowych
+   - Historia wysłanych komend (ostatnie 10)
+   - Wskaźnik statusu usługi (aktywny/testowy/wyłączony)
+
+4. **Konfiguracja** (`.env.example`, `pc_client/config/settings.py`)
+   - `GOOGLE_ASSISTANT_ENABLED` – włączenie usługi
+   - `GOOGLE_ASSISTANT_TEST_MODE` – tryb testowy (mock)
+   - `GOOGLE_ASSISTANT_DEVICES_CONFIG` – ścieżka do konfiguracji urządzeń
+   - Opcjonalne pola OAuth (tokens path, project ID, client credentials)
+
+5. **Testy jednostkowe** (`tests/test_assistant_router.py`)
+   - Testy serwisu: inicjalizacja, wczytywanie konfiguracji, komendy
+   - Testy routera: wszystkie endpointy, walidacja, tryb wyłączony
+
+### 📋 Do zrealizowania w przyszłości
+
+1. **Rzeczywista integracja z Google Assistant API**
+   - Implementacja OAuth flow (InstalledAppFlow)
+   - Klient gRPC dla `converse` API
+   - Obsługa odświeżania tokenów
+
+2. **Integracja głosowa**
+   - MediaRecorder w przeglądarce
+   - Endpoint `/api/assistant/voice`
+   - Odtwarzanie odpowiedzi audio
+
+3. **Dodatkowe funkcje**
+   - Logowanie komend do pliku
+   - Metryki /health
+   - Więcej kategorii urządzeń (thermostat, media player)
+
 ## Zakres
 - Rider-PC (FastAPI + UI web) — obsługa logowania, wysyłania komend, podglądu historii.
 - Statyczna konfiguracja urządzeń po stronie PC (np. `config/google_assistant_devices.toml`).
