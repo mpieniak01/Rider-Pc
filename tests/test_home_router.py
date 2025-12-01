@@ -164,11 +164,11 @@ def test_home_profile_endpoint_not_authenticated(tmp_path):
     settings.test_mode = True
     settings.google_home_local_enabled = True
     settings.google_home_test_mode = False  # Disable test mode
-    settings.google_home_client_id = TEST_CLIENT_ID
-    settings.google_home_client_secret = TEST_CLIENT_SECRET
-    settings.google_home_project_id = TEST_PROJECT_ID
-    settings.google_home_redirect_uri = TEST_REDIRECT_URI
-    settings.google_home_tokens_path = str(tmp_path / "tokens.json")
+    settings.google_client_id = TEST_CLIENT_ID
+    settings.google_client_secret = TEST_CLIENT_SECRET
+    settings.google_device_access_project_id = TEST_PROJECT_ID
+    settings.google_redirect_uri = TEST_REDIRECT_URI
+    settings.google_tokens_path = str(tmp_path / "tokens.json")
     cache = CacheManager(db_path=str(tmp_path / "cache.db"))
     app = create_app(settings, cache)
     client = TestClient(app)
