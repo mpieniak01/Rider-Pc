@@ -8,6 +8,7 @@ through Rider-Pi.
 from __future__ import annotations
 
 import html
+import json
 import logging
 import time
 from typing import Any, Dict, Optional
@@ -23,43 +24,30 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-import asyncio
-
 def _get_service(request: Request) -> GoogleHomeService:
-    """Get or create GoogleHomeService instance from app state (thread-safe)."""
+    """Get or create GoogleHomeService instance from app state."""
     settings = request.app.state.settings
-
-    # Ensure lock exists in app state
-    if not hasattr(request.app.state, "google_home_service_lock"):
-        request.app.state.google_home_service_lock = asyncio.Lock()
 
     # Check if service exists in app state
     service = getattr(request.app.state, "google_home_service", None)
     if service is not None:
         return service
 
-    # Thread-safe singleton initialization
-    async def create_service():
-        async with request.app.state.google_home_service_lock:
-            # Double-check after acquiring lock
-            service = getattr(request.app.state, "google_home_service", None)
-            if service is not None:
-                return service
-            test_mode = settings.test_mode or settings.google_home_test_mode
-            service = get_google_home_service(
-                client_id=settings.google_client_id,
-                client_secret=settings.google_client_secret,
-                project_id=settings.google_device_access_project_id,
-                redirect_uri=settings.google_home_redirect_uri,
-                tokens_path=settings.google_home_tokens_path,
-                test_mode=test_mode,
-            )
-            request.app.state.google_home_service = service
-            return service
+    # Create service based on settings
+    test_mode = settings.test_mode or settings.google_home_test_mode
 
-    # If called from a sync context, run the async function
-    import asyncio
-    return asyncio.run(create_service())
+    service = get_google_home_service(
+        client_id=settings.google_client_id,
+        client_secret=settings.google_client_secret,
+        project_id=settings.google_device_access_project_id,
+        redirect_uri=settings.google_home_redirect_uri,
+        tokens_path=settings.google_home_tokens_path,
+        test_mode=test_mode,
+    )
+
+    # Store in app state for reuse
+    request.app.state.google_home_service = service
+    return service
 def _home_state(app) -> Dict[str, Any]:
     """Get fallback home state (legacy mock mode)."""
     state = getattr(app.state, "home_state", None)
@@ -268,6 +256,9 @@ def _auth_result_html(success: bool, error: Optional[str] = None) -> str:
         message = f"Błąd logowania: {escaped_error}"
         redirect_url = f"/google_home?auth=error&error={quote(safe_error, safe='')}"
 
+    # Use JSON encoding for redirect URL to prevent JavaScript injection
+    redirect_url_json = json.dumps(redirect_url)
+
     return f"""<!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -316,7 +307,7 @@ def _auth_result_html(success: bool, error: Optional[str] = None) -> str:
     </div>
     <script>
         setTimeout(function() {{
-            window.location.href = '{redirect_url}';
+            window.location.href = {redirect_url_json};
         }}, 2000);
     </script>
 </body>
