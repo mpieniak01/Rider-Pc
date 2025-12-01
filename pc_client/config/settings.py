@@ -154,6 +154,10 @@ class Settings:
     rag_chunk_overlap: int = field(default_factory=lambda: _safe_int("RAG_CHUNK_OVERLAP", "100"))
     rag_persist_path: str = field(default_factory=lambda: os.getenv("RAG_PERSIST_PATH", "data/chroma_db"))
 
+    # MCP (Model Context Protocol) configuration
+    mcp_standalone: bool = field(default_factory=lambda: os.getenv("MCP_STANDALONE", "false").lower() == "true")
+    mcp_port: int = field(default_factory=lambda: _safe_int("MCP_PORT", "8210"))
+
     @property
     def rider_pi_base_url(self) -> str:
         """Get the base URL for Rider-PI API."""
