@@ -233,13 +233,13 @@ class GoogleHomeService:
         """Get list of missing configuration fields."""
         missing = []
         if not self.config.client_id:
-            missing.append("GOOGLE_HOME_CLIENT_ID")
+            missing.append("GOOGLE_CLIENT_ID")
         if not self.config.client_secret:
-            missing.append("GOOGLE_HOME_CLIENT_SECRET")
+            missing.append("GOOGLE_CLIENT_SECRET")
         if not self.config.project_id:
-            missing.append("GOOGLE_HOME_PROJECT_ID")
+            missing.append("GOOGLE_DEVICE_ACCESS_PROJECT_ID")
         if not self.config.redirect_uri:
-            missing.append("GOOGLE_HOME_REDIRECT_URI")
+            missing.append("GOOGLE_REDIRECT_URI")
         return missing
 
     def start_auth_session(self) -> Dict[str, Any]:
