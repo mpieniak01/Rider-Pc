@@ -70,7 +70,10 @@ def _home_devices(app) -> Dict[str, Any]:
                 "type": "action.devices.types.THERMOSTAT",
                 "traits": {
                     "sdm.devices.traits.ThermostatMode": {"mode": "heatcool"},
-                    "sdm.devices.traits.ThermostatTemperatureSetpoint": {"heatCelsius": 20.0, "coolCelsius": 24.0},
+                    "sdm.devices.traits.ThermostatTemperatureSetpoint": {
+                        "heatCelsius": 20.0,
+                        "coolCelsius": 24.0,
+                    },
                     "sdm.devices.traits.Temperature": {"ambientTemperatureCelsius": 21.5},
                 },
             },
