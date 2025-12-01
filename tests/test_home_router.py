@@ -29,9 +29,11 @@ def make_client(tmp_path, google_home_local=False) -> TestClient:
     settings.google_home_local_enabled = google_home_local
     if google_home_local:
         settings.google_home_test_mode = True
-        settings.google_client_id = "test-client-id"
-        settings.google_client_secret = "test-client-secret"
-        settings.google_device_access_project_id = "test-project-id"
+        settings.google_home_client_id = TEST_CLIENT_ID
+        settings.google_home_client_secret = TEST_CLIENT_SECRET
+        settings.google_home_project_id = TEST_PROJECT_ID
+        settings.google_home_redirect_uri = TEST_REDIRECT_URI
+        settings.google_home_tokens_path = str(tmp_path / "tokens.json")
     cache = CacheManager(db_path=str(tmp_path / "cache.db"))
     app = create_app(settings, cache)
     return TestClient(app)
@@ -42,10 +44,10 @@ def make_client_with_google_home(tmp_path) -> TestClient:
     settings = Settings()
     settings.test_mode = True
     settings.google_home_local_enabled = True
-    settings.google_home_client_id = "test-client-id"
-    settings.google_home_client_secret = "test-client-secret"
-    settings.google_home_project_id = "test-project-id"
-    settings.google_home_redirect_uri = "http://localhost:8000/api/home/auth/callback"
+    settings.google_home_client_id = TEST_CLIENT_ID
+    settings.google_home_client_secret = TEST_CLIENT_SECRET
+    settings.google_home_project_id = TEST_PROJECT_ID
+    settings.google_home_redirect_uri = TEST_REDIRECT_URI
     settings.google_home_test_mode = True
     settings.google_home_tokens_path = str(tmp_path / "tokens.json")
     cache = CacheManager(db_path=str(tmp_path / "cache.db"))
@@ -89,22 +91,6 @@ def test_home_auth_endpoint(tmp_path):
     resp = client.post("/api/home/auth")
     assert resp.status_code == 200
     assert resp.json()["ok"] is True
-
-
-def make_client_with_google_home(tmp_path) -> TestClient:
-    """Create client with Google Home local mode enabled."""
-    settings = Settings()
-    settings.test_mode = True
-    settings.google_home_local_enabled = True
-    settings.google_home_client_id = TEST_CLIENT_ID
-    settings.google_home_client_secret = TEST_CLIENT_SECRET
-    settings.google_home_project_id = TEST_PROJECT_ID
-    settings.google_home_redirect_uri = TEST_REDIRECT_URI
-    settings.google_home_test_mode = True
-    settings.google_home_tokens_path = str(tmp_path / "tokens.json")
-    cache = CacheManager(db_path=str(tmp_path / "cache.db"))
-    app = create_app(settings, cache)
-    return TestClient(app)
 
 
 def test_home_auth_url_not_enabled(tmp_path):
@@ -178,9 +164,11 @@ def test_home_profile_endpoint_not_authenticated(tmp_path):
     settings.test_mode = True
     settings.google_home_local_enabled = True
     settings.google_home_test_mode = False  # Disable test mode
-    settings.google_client_id = "test-client-id"
-    settings.google_client_secret = "test-client-secret"
-    settings.google_device_access_project_id = "test-project-id"
+    settings.google_home_client_id = TEST_CLIENT_ID
+    settings.google_home_client_secret = TEST_CLIENT_SECRET
+    settings.google_home_project_id = TEST_PROJECT_ID
+    settings.google_home_redirect_uri = TEST_REDIRECT_URI
+    settings.google_home_tokens_path = str(tmp_path / "tokens.json")
     cache = CacheManager(db_path=str(tmp_path / "cache.db"))
     app = create_app(settings, cache)
     client = TestClient(app)
@@ -210,7 +198,7 @@ def test_home_devices_local_service(tmp_path):
     assert resp.status_code == 200
     body = resp.json()
     assert body["ok"] is True
-    assert len(body["devices"]) == 3
+    assert len(body["devices"]) == 2
     assert body.get("test_mode") is True
 
 

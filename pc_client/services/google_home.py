@@ -191,6 +191,8 @@ class GoogleHomeService:
 
     def is_authenticated(self) -> bool:
         """Check if we have valid authentication."""
+        if self.config.test_mode:
+            return True
         if not self._tokens:
             return False
         if not self._tokens.refresh_token:
@@ -591,6 +593,23 @@ class GoogleHomeService:
             logger.info("Saved Google Home tokens to %s", tokens_path)
         except Exception as e:
             logger.warning("Failed to save tokens: %s", e)
+
+    def get_profile(self) -> Optional[Dict[str, Any]]:
+        """Get current user profile from stored tokens.
+
+        Returns:
+            Dict with profile information if authenticated, None otherwise.
+        """
+        if self.config.test_mode:
+            return {"email": "test@example.com"}
+
+        if not self.is_authenticated():
+            return None
+
+        if self._tokens and self._tokens.profile_email:
+            return {"email": self._tokens.profile_email}
+
+        return None
 
     def clear_auth(self) -> Dict[str, Any]:
         """Clear stored authentication and tokens.
