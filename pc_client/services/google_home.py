@@ -410,6 +410,22 @@ class GoogleHomeService:
             self._http_client.headers["Authorization"] = f"Bearer {self._tokens.access_token}"
 
         return self._http_client
+
+    async def __aenter__(self):
+        """Pozwala używać serwisu jako asynchronicznego context managera."""
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        """Zamyka klienta HTTPX przy wyjściu z context managera."""
+        await self.close()
+
+    async def close(self):
+        """Zamyka klienta HTTPX, aby uniknąć wycieków zasobów."""
+        if self._http_client is not None:
+            await self._http_client.aclose()
+            self._http_client = None
+        else:
+            logger.debug("close() wywołane, ale klient HTTPX już zamknięty lub nieutworzony.")
     def _get_auth_headers(self) -> Dict[str, str]:
         """Get authentication headers for HTTP requests."""
         if not self._tokens:
