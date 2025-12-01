@@ -11,7 +11,7 @@ Zaprojektować i wdrożyć prosty panel webowy sterujący urządzeniami przez Go
 
 ## Założenia
 1. Korzystamy z Google Assistant SDK (gRPC) i mechanizmu OAuth 2.0 (implicit/installed app).
-2. Komendy mają być wysyłane zarówno w trybie głosowym, jak i tekstowym (np. wpisanie „Turn off all lights”).
+2. Komendy mają być wysyłane zarówno w trybie głosowym, jak i tekstowym (np. wpisanie „Wyłącz wszystkie światła”).
 3. Użytkownik może wskazać profil (konto Google), które obsługuje jego dom.
 4. Tokeny przechowujemy lokalnie (`config/local/google_assistant_tokens.json`, gitignore).
 5. Zachowujemy możliwość fallbacku do SDM dla urządzeń wspieranych, ale panel Assistant będzie działał bez realtime feedbacku.
