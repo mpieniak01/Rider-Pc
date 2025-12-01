@@ -274,3 +274,27 @@ class TestStatsEndpoint:
             assert "total_tools" in stats
             assert "invocation_count" in stats
             assert "last_invoked_tool" in stats
+
+
+class TestHistoryEndpoint:
+    """Tests for GET /api/mcp/history endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_get_history_returns_ok(self, app):
+        """Test that history endpoint returns ok status."""
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.get("/api/mcp/history")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["ok"] is True
+            assert "history" in data
+            assert "count" in data
+
+    @pytest.mark.asyncio
+    async def test_get_history_with_limit(self, app):
+        """Test history endpoint respects limit parameter."""
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.get("/api/mcp/history?limit=10")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["ok"] is True

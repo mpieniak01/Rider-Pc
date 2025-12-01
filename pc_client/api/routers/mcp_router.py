@@ -192,3 +192,41 @@ async def get_stats() -> JSONResponse:
             "stats": stats,
         }
     )
+
+
+@router.get("/history")
+async def get_invocation_history(limit: int = 50) -> JSONResponse:
+    """Pobierz historię wywołań narzędzi MCP z logu.
+
+    Args:
+        limit: Maksymalna liczba wpisów do zwrócenia (1-200).
+
+    Returns:
+        JSON z historią wywołań.
+    """
+    import os
+
+    limit = min(max(1, limit), 200)
+    history = []
+
+    log_path = os.path.join(os.getcwd(), "logs", "mcp-tools.log")
+    if os.path.exists(log_path):
+        try:
+            with open(log_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+                # Pobierz ostatnie N linii
+                for line in lines[-limit:]:
+                    line = line.strip()
+                    if line:
+                        history.append(line)
+        except Exception as e:
+            logger.warning("Failed to read mcp-tools.log: %s", e)
+
+    return JSONResponse(
+        {
+            "ok": True,
+            "history": history,
+            "count": len(history),
+            "log_path": log_path,
+        }
+    )

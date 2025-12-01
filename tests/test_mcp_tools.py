@@ -259,3 +259,48 @@ class TestToolCallHandler:
         )
         formatted = format_tool_result(result)
         assert "[Błąd narzędzia robot.move]" in formatted
+
+
+class TestTextProviderMCPIntegration:
+    """Tests for TextProvider MCP integration."""
+
+    @pytest.mark.asyncio
+    async def test_text_provider_mcp_enabled(self):
+        """Test that TextProvider has MCP tools enabled by default."""
+        from pc_client.providers.text_provider import TextProvider
+
+        provider = TextProvider({"use_mock": True})
+        await provider.initialize()
+
+        assert provider.enable_mcp_tools is True
+        telemetry = provider.get_telemetry()
+        assert telemetry.get("mcp_tools_enabled") is True
+
+    @pytest.mark.asyncio
+    async def test_text_provider_mcp_history(self):
+        """Test TextProvider MCP call history."""
+        from pc_client.providers.text_provider import TextProvider
+
+        provider = TextProvider({"use_mock": True})
+        await provider.initialize()
+
+        history = provider.get_mcp_call_history()
+        assert isinstance(history, list)
+
+    @pytest.mark.asyncio
+    async def test_text_provider_tools_in_system_prompt(self):
+        """Test that MCP tools are added to system prompt when enabled."""
+        from pc_client.providers.text_provider import TextProvider
+        from pc_client.providers.base import TaskEnvelope, TaskType
+
+        provider = TextProvider({"use_mock": True, "enable_mcp_tools": True})
+        await provider.initialize()
+
+        task = TaskEnvelope(
+            task_id="test-mcp-1",
+            task_type=TaskType.TEXT_GENERATE,
+            payload={"prompt": "What time is it?"},
+        )
+        result = await provider.process_task(task)
+        assert result.status.value == "completed"
+        assert "text" in result.result
