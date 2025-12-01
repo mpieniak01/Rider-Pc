@@ -1,7 +1,7 @@
-# Zadanie #160: Nowa Funkcja Y
+# Zadanie #101: Nowa Funkcja Y
 
 **Status:** :hourglass_flowing_sand: W trakcie
-**Link:** https://github.com/mpieniak01/rider-pc/issues/160
+**Link:** https://github.com/mpieniak01/rider-pc/issues/101
 **Autor:** Nieprzypisane
 
 ## Cel

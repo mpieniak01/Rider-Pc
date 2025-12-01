@@ -167,6 +167,14 @@ class GoogleHomeService:
 
         # Clean up old pending sessions (older than 10 minutes)
         self._cleanup_pending_auth()
+        # Store pending auth session (thread-safe)
+        with self._pending_auth_lock:
+            self._pending_auth[state] = {
+                "verifier": code_verifier,
+                "created_at": time.time(),
+            }
+            # Clean up old pending sessions (older than 10 minutes)
+            self._cleanup_pending_auth_locked()
 
         params = {
             "client_id": self.client_id,
@@ -210,8 +218,9 @@ class GoogleHomeService:
             }
             return {"ok": True, "profile": self._tokens["profile"]}
 
-        # Verify state and get verifier
-        pending = self._pending_auth.pop(state, None)
+        # Verify state and get verifier (thread-safe)
+        with self._pending_auth_lock:
+            pending = self._pending_auth.pop(state, None)
         if not pending:
             logger.warning("Invalid or expired OAuth state: %s", state[:8] if state else "None")
             return {"ok": False, "error": "invalid_state"}
@@ -547,12 +556,17 @@ class GoogleHomeService:
 
             with open(self.tokens_path, "w") as f:
                 json.dump(self._tokens, f, indent=2)
-                logger.debug("Saved tokens to %s", self.tokens_path)
+            # Set restrictive file permissions (owner read/write only) for sensitive tokens
+            os.chmod(self.tokens_path, 0o600)
+            logger.debug("Saved tokens to %s", self.tokens_path)
         except OSError as e:
             logger.error("Failed to save tokens: %s", e)
 
-    def _cleanup_pending_auth(self, max_age: float = 600.0) -> None:
-        """Remove expired pending auth sessions."""
+    def _cleanup_pending_auth_locked(self, max_age: float = 600.0) -> None:
+        """Remove expired pending auth sessions.
+        
+        Note: Must be called with _pending_auth_lock held.
+        """
         now = time.time()
         expired = [
             state for state, data in self._pending_auth.items() if now - data.get("created_at", 0) > max_age
@@ -564,6 +578,7 @@ class GoogleHomeService:
 
 # Singleton instance for global access
 _service_instance: Optional[GoogleHomeService] = None
+_service_lock = threading.Lock()
 
 
 def get_google_home_service(
@@ -592,23 +607,26 @@ def get_google_home_service(
     global _service_instance
 
     if _service_instance is None or reset:
-        # Read from environment if not provided
-        client_id = client_id or os.getenv("GOOGLE_CLIENT_ID")
-        client_secret = client_secret or os.getenv("GOOGLE_CLIENT_SECRET")
-        project_id = project_id or os.getenv("GOOGLE_DEVICE_ACCESS_PROJECT_ID")
-        redirect_uri = redirect_uri or os.getenv(
-            "GOOGLE_HOME_REDIRECT_URI", "http://localhost:8000/api/home/auth/callback"
-        )
-        tokens_path = tokens_path or os.getenv("GOOGLE_HOME_TOKENS_PATH", "config/local/google_tokens_pc.json")
+        with _service_lock:
+            # Double-check after acquiring lock
+            if _service_instance is None or reset:
+                # Read from environment if not provided
+                client_id = client_id or os.getenv("GOOGLE_CLIENT_ID")
+                client_secret = client_secret or os.getenv("GOOGLE_CLIENT_SECRET")
+                project_id = project_id or os.getenv("GOOGLE_DEVICE_ACCESS_PROJECT_ID")
+                redirect_uri = redirect_uri or os.getenv(
+                    "GOOGLE_HOME_REDIRECT_URI", "http://localhost:8000/api/home/auth/callback"
+                )
+                tokens_path = tokens_path or os.getenv("GOOGLE_HOME_TOKENS_PATH", "config/local/google_tokens_pc.json")
 
-        _service_instance = GoogleHomeService(
-            client_id=client_id,
-            client_secret=client_secret,
-            project_id=project_id,
-            redirect_uri=redirect_uri,
-            tokens_path=tokens_path,
-            test_mode=test_mode,
-        )
+                _service_instance = GoogleHomeService(
+                    client_id=client_id,
+                    client_secret=client_secret,
+                    project_id=project_id,
+                    redirect_uri=redirect_uri,
+                    tokens_path=tokens_path,
+                    test_mode=test_mode,
+                )
 
     return _service_instance
 
@@ -616,4 +634,5 @@ def get_google_home_service(
 def reset_google_home_service() -> None:
     """Reset the singleton instance (useful for testing)."""
     global _service_instance
-    _service_instance = None
+    with _service_lock:
+        _service_instance = None

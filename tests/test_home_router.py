@@ -30,8 +30,9 @@ def test_home_status_returns_authenticated(tmp_path):
     resp = client.get("/api/home/status")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["authenticated"] is True
+    assert body["authenticated"] is True  # Sprawdzamy, że w trybie testowym endpoint zwraca authenticated=True
     assert "profile" in body
+    assert isinstance(body["profile"], dict)
 
 
 def test_home_devices_and_command(tmp_path):
@@ -87,7 +88,8 @@ def test_home_auth_url_returns_url_when_configured(tmp_path):
         body = resp.json()
         assert body["ok"] is True
         assert "auth_url" in body
-        assert "accounts.google.com" in body["auth_url"]
+        # Verify URL starts with expected Google OAuth endpoint
+        assert body["auth_url"].startswith("https://accounts.google.com/o/oauth2/")
         assert "state" in body
     finally:
         reset_google_home_service()

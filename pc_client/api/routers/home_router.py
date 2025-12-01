@@ -7,6 +7,8 @@ through Rider-Pi.
 
 from __future__ import annotations
 
+import html
+import json
 import logging
 import time
 from typing import Any, Dict, Optional
