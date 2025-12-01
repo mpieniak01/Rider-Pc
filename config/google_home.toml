@@ -1,0 +1,48 @@
+# Google Home Configuration
+# To customize, copy to config/local/google_home.toml and modify as needed
+
+# -----------------------------------------------------------------------------
+# Google Home Integration Configuration
+# -----------------------------------------------------------------------------
+[google_home]
+# Enable native Google Home integration (true) or proxy through Rider-Pi (false)
+local_enabled = true
+
+# Enable test mode with mock responses (for development/CI)
+test_mode = false
+
+# OAuth callback URL - must match "Authorized redirect URIs" in Google Cloud Console
+redirect_uri = "http://localhost:8000/api/home/auth/callback"
+
+# Path for storing OAuth tokens (keep secure, add to .gitignore)
+tokens_path = "config/local/google_tokens_pc.json"
+
+# -----------------------------------------------------------------------------
+# OAuth 2.0 Credentials (set in .env for security)
+# -----------------------------------------------------------------------------
+# Create OAuth 2.0 Client at: https://console.cloud.google.com/apis/credentials
+# Client type: Web application
+# Authorized redirect URIs: Must include the redirect_uri above
+#
+# Set these via environment variables (recommended):
+#   GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+#   GOOGLE_CLIENT_SECRET=your-client-secret
+
+# -----------------------------------------------------------------------------
+# Device Access Project (set in .env for security)
+# -----------------------------------------------------------------------------
+# Register at: https://console.nest.google.com/device-access
+# Note: Requires one-time $5 registration fee
+#
+# Set via environment variable (recommended):
+#   GOOGLE_DEVICE_ACCESS_PROJECT_ID=your-project-id
+
+# -----------------------------------------------------------------------------
+# Logging Configuration
+# -----------------------------------------------------------------------------
+[google_home.logging]
+# Log level for Google Home operations
+level = "INFO"
+
+# Log file for command history (relative to project root)
+command_log_path = "logs/google_home/actions.log"
