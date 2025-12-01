@@ -93,6 +93,7 @@ def parse_tool_call(response: str) -> Optional[Dict[str, Any]]:
                     "arguments": tool_call.get("arguments", {}),
                 }
     except json.JSONDecodeError:
+        # Oczekiwany przypadek: odpowiedź nie jest poprawnym JSON-em, zwracamy None.
         pass
 
     return None
