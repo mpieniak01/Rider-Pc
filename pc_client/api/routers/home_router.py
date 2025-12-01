@@ -6,6 +6,7 @@ authentication flow for direct communication with Google Smart Device Management
 
 from __future__ import annotations
 
+import html
 import logging
 import time
 from typing import Any, Dict, Optional
@@ -24,11 +25,27 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-def _get_google_home_service(request: Request) -> Optional[GoogleHomeService]:
-    """Get GoogleHomeService from app state or create one."""
-    service = getattr(request.app.state, "google_home_service", None)
+def _use_local_service(app) -> bool:
+    """Check if we should use the local Google Home service."""
+    settings = getattr(app.state, "settings", None)
+    return settings and getattr(settings, "google_home_local_enabled", False)
+
+
+def _get_google_home_service(request_or_app) -> Optional[GoogleHomeService]:
+    """Get GoogleHomeService from app state or create one.
+
+    Args:
+        request_or_app: Either a Request object or FastAPI app instance.
+    """
+    # Handle both Request objects and direct app references
+    if hasattr(request_or_app, "app"):
+        app = request_or_app.app
+    else:
+        app = request_or_app
+
+    service = getattr(app.state, "google_home_service", None)
     if service is None:
-        settings = getattr(request.app.state, "settings", None)
+        settings = getattr(app.state, "settings", None)
         if settings and getattr(settings, "google_home_local_enabled", False):
             config = GoogleHomeConfig(
                 client_id=getattr(settings, "google_home_client_id", ""),
@@ -39,7 +56,7 @@ def _get_google_home_service(request: Request) -> Optional[GoogleHomeService]:
                 test_mode=getattr(settings, "google_home_test_mode", False),
             )
             service = GoogleHomeService(config)
-            request.app.state.google_home_service = service
+            app.state.google_home_service = service
     return service
 
 
@@ -370,62 +387,13 @@ async def home_auth(request: Request) -> JSONResponse:
     return JSONResponse(content={"ok": True, "note": "local mock auth"})
 
 
-@router.get("/api/home/auth/url")
-async def home_auth_url(request: Request) -> JSONResponse:
-    """Get OAuth authorization URL for Google login.
-
-    Returns:
-        JSON with auth_url for redirecting user to Google login.
-    """
-    service = _get_google_home_service(request.app)
-    result = service.start_auth_session()
-
-    if not result.get("ok"):
-        return JSONResponse(content=result, status_code=400)
-
-    return JSONResponse(content=result)
-
-
-@router.get("/api/home/auth/callback")
-async def home_auth_callback(
-    request: Request,
-    code: Optional[str] = Query(None),
-    state: Optional[str] = Query(None),
-    error: Optional[str] = Query(None),
-    error_description: Optional[str] = Query(None),
-) -> RedirectResponse:
-    """Handle OAuth callback from Google.
-
-    After user authorizes, Google redirects here with code and state.
-    We exchange the code for tokens and redirect to google_home page.
-    """
-    # Handle error from Google
-    if error:
-        logger.warning("OAuth callback error: %s - %s", error, error_description)
-        return RedirectResponse(url=f"/google_home?auth=error&error={error}")
-
-    # Validate parameters
-    if not code or not state:
-        return RedirectResponse(url="/google_home?auth=error&error=missing_params")
-
-    # Complete the OAuth flow
-    service = _get_google_home_service(request.app)
-    result = await service.complete_auth(code, state)
-
-    if result.get("ok"):
-        logger.info("OAuth flow completed successfully")
-        return RedirectResponse(url="/google_home?auth=success")
-    else:
-        error_code = result.get("error", "unknown")
-        logger.error("OAuth flow failed: %s", result)
-        return RedirectResponse(url=f"/google_home?auth=error&error={error_code}")
-
-
 @router.post("/api/home/auth/clear")
+@router.post("/api/home/auth/logout")
 async def home_auth_clear(request: Request) -> JSONResponse:
-    """Clear stored authentication tokens.
+    """Clear stored authentication tokens (logout).
 
     Useful for logging out or resetting the OAuth state.
+    Available at both /api/home/auth/clear and /api/home/auth/logout.
     """
     if _use_local_service(request.app):
         service = _get_google_home_service(request.app)

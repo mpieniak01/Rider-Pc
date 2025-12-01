@@ -144,22 +144,6 @@ Czyści zapisane tokeny i wylogowuje użytkownika.
 ### GET /api/home/devices
 
 Zwraca listę urządzeń z Google Home:
-Endpoint callbacku OAuth. Przekierowuje do `/web/google_home.html?auth=success` po pomyślnej autoryzacji.
-
-### POST /api/home/auth/logout
-
-Czyści tokeny autoryzacji:
-
-```json
-{
-  "ok": true,
-  "message": "Tokens cleared"
-}
-```
-
-### GET /api/home/devices
-
-Zwraca listę urządzeń:
 
 ```json
 {
