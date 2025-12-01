@@ -144,10 +144,11 @@
     </div>
 
     <div class="c-card">
-      <h3 data-i18n="dash.repo.title">Repozytorium</h3>
-      <div class="c-kv">
-        <div data-i18n="dash.repo.name">projekt</div><div><a href="https://github.com/mpieniak01/Rider-Pc" target="_blank">Rider-PC</a></div>
-        <div data-i18n="dash.repo.github">GitHub</div><div><a href="https://github.com/mpieniak01" target="_blank">@mpieniak01</a></div>
+      <h3 data-i18n="dash.gpu.card_title">GPU (60 s)</h3>
+      <canvas id="chartGpu" width="300" height="140"></canvas>
+      <div class="c-legend">
+        <span><i class="c-legend__dot gpu-util"></i><span class="text-legend" data-i18n="dash.gpu.util_label">gpu%</span></span>
+        <span><i class="c-legend__dot gpu-mem"></i><span class="text-legend" data-i18n="dash.gpu.mem_label">mem%</span></span>
       </div>
     </div>
 
@@ -172,6 +173,8 @@
         <div data-i18n="dash.pc_system.load">Load (1/5/15)</div><div id="pcLoad">—</div>
         <div data-i18n="dash.pc_system.mem">Pamięć</div><div id="pcMem">—</div>
         <div data-i18n="dash.pc_system.disk">Dysk</div><div id="pcDisk">—</div>
+        <div data-i18n="dash.pc_system.gpu_util">GPU (%)</div><div id="pcGpuUtil">—</div>
+        <div data-i18n="dash.pc_system.gpu_mem">Pamięć GPU</div><div id="pcGpuMem">—</div>
         <div data-i18n="dash.pc_system.os">System</div><div id="pcOs">—</div>
         <div data-i18n="dash.pc_system.distro">Dystrybucja</div><div id="pcDistro">—</div>
         <div data-i18n="dash.pc_system.uptime">Uptime</div><div id="pcUptime">—</div>
@@ -206,7 +209,6 @@
       </div>
     </div>
   </div>
-
   </main>
 
   <!-- Footer -->
@@ -276,7 +278,7 @@ window.addEventListener('dashboard:langchange',ev=>{
 });
 
 /* wykres CPU/MEM */
-function drawChart(cpuArr=[], memArr=[], canvasId='chart'){
+function drawChart(cpuArr=[], memArr=[], canvasId='chart', colors = { line1: '#6db3ff', line2: '#ffd36d' }){
   const c=el(canvasId); if(!c) return; const ctx=c.getContext('2d');
   ctx.clearRect(0,0,c.width,c.height);
   const padL=30,padT=10,padR=10,padB=10; const W=c.width-padL-padR,H=c.height-padT-padB;
@@ -284,7 +286,7 @@ function drawChart(cpuArr=[], memArr=[], canvasId='chart'){
   ctx.fillStyle='#8aa'; ctx.font='10px sans-serif'; ctx.textAlign='right';
   [0,50,100].forEach(yv=>{const y=padT+H-((yv/100)*H); ctx.beginPath(); ctx.moveTo(padL-4,y); ctx.lineTo(padL,y); ctx.strokeStyle='#1d3548'; ctx.stroke(); ctx.fillText(String(yv),padL-6,y+3);});
   function plot(arr,color){ if(!arr||arr.length<2) return; ctx.beginPath(); ctx.lineWidth=1.2; ctx.strokeStyle=color; const n=arr.length; for(let i=0;i<n;i++){ const x=padL+(i*(W/(n-1))); const v=Math.max(0,Math.min(100,Number(arr[i]||0))); const y=padT+H-((v/100)*H); if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);} ctx.stroke(); }
-  plot(cpuArr,'#6db3ff'); plot(memArr,'#ffd36d');
+  plot(cpuArr, colors?.line1 || '#6db3ff'); plot(memArr, colors?.line2 || '#ffd36d');
 }
 
 /* ===== KAMERY ===== */
@@ -359,6 +361,17 @@ function applyPcSystemMetrics(data){
   } else {
     setTxt('pcDisk','—');
   }
+  const gpuUtil = data.gpu_util_pct != null ? Number(data.gpu_util_pct) : null;
+  if(gpuUtil!=null) setTxt('pcGpuUtil', `${fmt(gpuUtil,1)}%`);
+  else setTxt('pcGpuUtil','—');
+  let gpuMemPct = null;
+  if(data.gpu_mem_total_mb != null && data.gpu_mem_used_mb != null){
+    gpuMemPct = data.gpu_mem_pct != null ? Number(data.gpu_mem_pct) : (data.gpu_mem_total_mb ? (data.gpu_mem_used_mb / data.gpu_mem_total_mb) * 100 : null);
+    const pct = gpuMemPct != null ? ` (${fmt(gpuMemPct,1)}%)` : '';
+    setTxt('pcGpuMem', `${fmt(data.gpu_mem_used_mb,1)} / ${fmt(data.gpu_mem_total_mb,1)} MB${pct}`);
+  } else {
+    setTxt('pcGpuMem','—');
+  }
   setTxt('pcUptime', data.uptime_s != null ? formatDuration(data.uptime_s) : '—');
   if(cpuPct!=null){
     pcHistCpu.push(Math.max(0, Math.min(100, cpuPct)));
@@ -368,7 +381,16 @@ function applyPcSystemMetrics(data){
     pcHistMem.push(Math.max(0, Math.min(100, memPct)));
     if(pcHistMem.length>PC_HISTORY_LIMIT) pcHistMem.shift();
   }
+  if(gpuUtil!=null){
+    gpuHistUtil.push(Math.max(0, Math.min(100, gpuUtil)));
+    if(gpuHistUtil.length>PC_HISTORY_LIMIT) gpuHistUtil.shift();
+  }
+  if(gpuMemPct!=null){
+    gpuHistMem.push(Math.max(0, Math.min(100, gpuMemPct)));
+    if(gpuHistMem.length>PC_HISTORY_LIMIT) gpuHistMem.shift();
+  }
   drawChart(pcHistCpu, pcHistMem, 'chartPc');
+  drawChart(gpuHistUtil, gpuHistMem, 'chartGpu', { line1: '#a5b4fc', line2: '#ff8fb3' });
 }
 
 async function refreshPcSystemMetrics(){
@@ -382,6 +404,8 @@ async function refreshPcSystemMetrics(){
     setTxt('pcLoad','—');
     setTxt('pcMem','—');
     setTxt('pcDisk','—');
+    setTxt('pcGpuUtil','—');
+    setTxt('pcGpuMem','—');
     setTxt('pcUptime','—');
     setTxt('pcOs','—');
     setTxt('pcDistro','—');
@@ -579,6 +603,8 @@ async function busHeartbeatFallback(){
 let lastHealth=null, lastState=null;
 const pcHistCpu = [];
 const pcHistMem = [];
+const gpuHistUtil = [];
+const gpuHistMem = [];
 const PC_HISTORY_LIMIT = 60;
 
 function updateStateUI(s){
