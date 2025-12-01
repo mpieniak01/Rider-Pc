@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import secrets
+import threading
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -82,6 +83,7 @@ class GoogleHomeService:
         # In-memory token cache
         self._tokens: Optional[Dict[str, Any]] = None
         self._pending_auth: Dict[str, Dict[str, Any]] = {}  # state -> {verifier, created_at}
+        self._pending_auth_lock = threading.Lock()  # Lock for thread-safe access to pending auth
 
         # Load existing tokens if available
         self._load_tokens()
@@ -167,14 +169,6 @@ class GoogleHomeService:
 
         # Clean up old pending sessions (older than 10 minutes)
         self._cleanup_pending_auth()
-        # Store pending auth session (thread-safe)
-        with self._pending_auth_lock:
-            self._pending_auth[state] = {
-                "verifier": code_verifier,
-                "created_at": time.time(),
-            }
-            # Clean up old pending sessions (older than 10 minutes)
-            self._cleanup_pending_auth_locked()
 
         params = {
             "client_id": self.client_id,
@@ -254,8 +248,8 @@ class GoogleHomeService:
 
                 try:
                     token_data = response.json()
-                except json.JSONDecodeError:
-                    logger.error("Invalid JSON response from token endpoint")
+                except json.JSONDecodeError as e:
+                    logger.error("Invalid JSON in token response: %s", e)
                     return {"ok": False, "error": "invalid_response"}
 
             except httpx.RequestError as e:
@@ -402,28 +396,13 @@ class GoogleHomeService:
                 # Transform device data for UI
                 transformed = []
                 for device in devices:
-                    parent_relations = device.get("parentRelations", [])
-                    # Extract room from parent relations - typically the structure/room name
-                    room_name = ""
-                    custom_name = ""
-                    if parent_relations:
-                        first_relation = parent_relations[0]
-                        custom_name = first_relation.get("displayName", "")
-                        # Room info may come from parent path or displayName
-                        parent = first_relation.get("parent", "")
-                        if "/rooms/" in parent:
-                            # Extract room from parent path like "enterprises/xxx/structures/yyy/rooms/zzz"
-                            room_name = custom_name
-                        else:
-                            room_name = custom_name
-
                     transformed.append(
                         {
                             "name": device.get("name", ""),
                             "type": device.get("type", ""),
                             "traits": device.get("traits", {}),
-                            "customName": custom_name,
-                            "room": room_name,
+                            "customName": device.get("parentRelations", [{}])[0].get("displayName", ""),
+                            "room": device.get("parentRelations", [{}])[0].get("displayName", ""),
                         }
                     )
 
@@ -538,7 +517,7 @@ class GoogleHomeService:
             return
 
         try:
-            with open(self.tokens_path) as f:
+            with open(self.tokens_path, "r") as f:
                 self._tokens = json.load(f)
                 logger.debug("Loaded tokens from %s", self.tokens_path)
         except (json.JSONDecodeError, OSError) as e:
@@ -556,17 +535,14 @@ class GoogleHomeService:
 
             with open(self.tokens_path, "w") as f:
                 json.dump(self._tokens, f, indent=2)
-            # Set restrictive file permissions (owner read/write only) for sensitive tokens
+                logger.debug("Saved tokens to %s", self.tokens_path)
+            # Set restrictive file permissions for OAuth tokens (owner-only read/write)
             os.chmod(self.tokens_path, 0o600)
-            logger.debug("Saved tokens to %s", self.tokens_path)
         except OSError as e:
             logger.error("Failed to save tokens: %s", e)
 
-    def _cleanup_pending_auth_locked(self, max_age: float = 600.0) -> None:
-        """Remove expired pending auth sessions.
-        
-        Note: Must be called with _pending_auth_lock held.
-        """
+    def _cleanup_pending_auth(self, max_age: float = 600.0) -> None:
+        """Remove expired pending auth sessions."""
         now = time.time()
         expired = [
             state for state, data in self._pending_auth.items() if now - data.get("created_at", 0) > max_age

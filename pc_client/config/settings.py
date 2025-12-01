@@ -155,34 +155,27 @@ class Settings:
     rag_persist_path: str = field(default_factory=lambda: os.getenv("RAG_PERSIST_PATH", "data/chroma_db"))
 
     # Google Home integration configuration
-    # OAuth 2.0 Client ID for Google Home integration.
-    # Obtain from Google Cloud Console (APIs & Services > Credentials).
+    # OAuth 2.0 Client ID from Google Cloud Console (https://console.cloud.google.com/apis/credentials)
     google_client_id: Optional[str] = field(default_factory=lambda: os.getenv("GOOGLE_CLIENT_ID"))
-    # OAuth 2.0 Client Secret for Google Home integration.
-    # Obtain from Google Cloud Console (APIs & Services > Credentials).
+    # OAuth 2.0 Client Secret from Google Cloud Console
     google_client_secret: Optional[str] = field(default_factory=lambda: os.getenv("GOOGLE_CLIENT_SECRET"))
-    # Device Access Project ID for Google Home API.
-    # Obtain from Google Device Access Console (https://console.devicemanagement.google.com).
+    # Device Access Project ID from Google Device Access Console (https://console.nest.google.com/device-access)
     google_device_access_project_id: Optional[str] = field(
         default_factory=lambda: os.getenv("GOOGLE_DEVICE_ACCESS_PROJECT_ID")
     )
-    # Redirect URI for OAuth 2.0 authentication flow.
-    # Should match the URI configured in Google Cloud Console for the OAuth client.
+    # OAuth callback URI - must match "Authorized redirect URIs" in Google Cloud Console
     google_home_redirect_uri: str = field(
         default_factory=lambda: os.getenv("GOOGLE_HOME_REDIRECT_URI", "http://localhost:8000/api/home/auth/callback")
     )
-    # Path to store Google Home OAuth tokens (JSON file).
-    # Used for persisting authentication tokens locally.
+    # Path for storing OAuth tokens (keep secure, add to .gitignore)
     google_home_tokens_path: str = field(
         default_factory=lambda: os.getenv("GOOGLE_HOME_TOKENS_PATH", "config/local/google_tokens_pc.json")
     )
-    # Enable local Google Home integration (for development/testing).
-    # Set to "true" to enable, "false" to disable. Default: true.
+    # Enable native Google Home integration (true) or proxy through Rider-Pi (false)
     google_home_local_enabled: bool = field(
         default_factory=lambda: os.getenv("GOOGLE_HOME_LOCAL_ENABLED", "true").lower() == "true"
     )
-    # Enable test mode for Google Home integration.
-    # Set to "true" to enable test mode, "false" for production. Default: false.
+    # Enable test mode with mock responses (for development/CI)
     google_home_test_mode: bool = field(
         default_factory=lambda: os.getenv("GOOGLE_HOME_TEST_MODE", "false").lower() == "true"
     )
