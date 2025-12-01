@@ -32,6 +32,16 @@ SDM_SCOPES = [
     "https://www.googleapis.com/auth/sdm.service",
 ]
 
+# PKCE configuration constants
+AUTH_SESSION_TTL_SECONDS = 600  # 10 minutes for auth session validity
+PKCE_STATE_LENGTH = 32  # Length of state token for CSRF protection
+PKCE_VERIFIER_RAW_LENGTH = 64  # Raw length for code verifier generation
+PKCE_VERIFIER_MAX_LENGTH = 128  # Max length for code verifier (PKCE spec)
+
+# Cache configuration
+DEVICE_CACHE_TTL_SECONDS = 300  # 5 minutes cache for device list
+TOKEN_EXPIRY_BUFFER_SECONDS = 300  # Refresh token 5 minutes before expiry
+
 
 @dataclass
 class GoogleHomeConfig:
@@ -645,12 +655,6 @@ class GoogleHomeService:
                 logger.info("Deleted tokens file: %s", tokens_path)
             except Exception as e:
                 logger.warning("Failed to delete tokens: %s", e)
-
-    async def close(self) -> None:
-        """Close HTTP client."""
-        if self._http_client:
-            await self._http_client.aclose()
-            self._http_client = None
 
     # Mock methods for test mode
     def _get_mock_devices(self) -> Dict[str, Any]:
