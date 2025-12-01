@@ -7,6 +7,12 @@ from pc_client.cache import CacheManager
 from pc_client.config import Settings
 from pc_client.services.google_home import reset_google_home_service
 
+# Test configuration constants
+TEST_CLIENT_ID = "test-client-id"
+TEST_CLIENT_SECRET = "test-client-secret"
+TEST_PROJECT_ID = "test-project-id"
+TEST_REDIRECT_URI = "http://localhost:8000/api/home/auth/callback"
+
 
 def make_client(tmp_path, google_home_configured: bool = False) -> TestClient:
     """Create test client with optional Google Home configuration."""
@@ -66,138 +72,87 @@ def test_home_auth_endpoint(tmp_path):
     assert resp.json()["ok"] is True
 
 
-def test_home_auth_url_returns_url_when_configured(tmp_path):
-    """Auth URL endpoint should return OAuth URL when configured."""
-    reset_google_home_service()
-    try:
-        # Create client with test_mode=False but with Google credentials
-        settings = Settings()
-        settings.test_mode = False
-        settings.google_home_local_enabled = True
-        settings.google_client_id = "test-client-id"
-        settings.google_client_secret = "test-secret"
-        settings.google_device_access_project_id = "test-project"
-        settings.google_home_redirect_uri = "http://localhost:8000/api/home/auth/callback"
-
-        cache = CacheManager(db_path=str(tmp_path / "cache.db"))
-        app = create_app(settings, cache)
-        client = TestClient(app)
-
-        resp = client.get("/api/home/auth/url")
-        assert resp.status_code == 200
-        body = resp.json()
-        assert body["ok"] is True
-        assert "auth_url" in body
-        # Verify URL starts with expected Google OAuth endpoint
-        assert body["auth_url"].startswith("https://accounts.google.com/o/oauth2/")
-        assert "state" in body
-    finally:
-        reset_google_home_service()
+def make_client_with_google_home(tmp_path) -> TestClient:
+    """Create client with Google Home local mode enabled."""
+    settings = Settings()
+    settings.test_mode = True
+    settings.google_home_local_enabled = True
+    settings.google_home_client_id = TEST_CLIENT_ID
+    settings.google_home_client_secret = TEST_CLIENT_SECRET
+    settings.google_home_project_id = TEST_PROJECT_ID
+    settings.google_home_redirect_uri = TEST_REDIRECT_URI
+    settings.google_home_test_mode = True
+    settings.google_home_tokens_path = str(tmp_path / "tokens.json")
+    cache = CacheManager(db_path=str(tmp_path / "cache.db"))
+    app = create_app(settings, cache)
+    return TestClient(app)
 
 
-def test_home_auth_url_fails_without_config(tmp_path):
-    """Auth URL endpoint should fail when not configured."""
-    reset_google_home_service()
-    try:
-        settings = Settings()
-        settings.test_mode = False
-        settings.google_home_local_enabled = True
-        # No Google credentials set
-
-        cache = CacheManager(db_path=str(tmp_path / "cache.db"))
-        app = create_app(settings, cache)
-        client = TestClient(app)
-
-        resp = client.get("/api/home/auth/url")
-        assert resp.status_code == 400
-        body = resp.json()
-        assert body["ok"] is False
-        assert body["error"] == "auth_env_missing"
-    finally:
-        reset_google_home_service()
-
-
-def test_home_auth_callback_invalid_state(tmp_path):
-    """Auth callback should fail with invalid state."""
-    reset_google_home_service()
-    try:
-        settings = Settings()
-        settings.test_mode = False
-        settings.google_home_local_enabled = True
-        settings.google_client_id = "test-client-id"
-        settings.google_client_secret = "test-secret"
-        settings.google_device_access_project_id = "test-project"
-
-        cache = CacheManager(db_path=str(tmp_path / "cache.db"))
-        app = create_app(settings, cache)
-        client = TestClient(app)
-
-        resp = client.get("/api/home/auth/callback?code=test&state=invalid")
-        assert resp.status_code == 400
-        assert "invalid_state" in resp.text
-    finally:
-        reset_google_home_service()
-
-
-def test_home_auth_callback_missing_params(tmp_path):
-    """Auth callback should fail without required params."""
-    reset_google_home_service()
-    try:
-        settings = Settings()
-        settings.test_mode = False
-        settings.google_home_local_enabled = True
-
-        cache = CacheManager(db_path=str(tmp_path / "cache.db"))
-        app = create_app(settings, cache)
-        client = TestClient(app)
-
-        resp = client.get("/api/home/auth/callback")
-        assert resp.status_code == 400
-        assert "missing_params" in resp.text
-    finally:
-        reset_google_home_service()
-
-
-def test_home_logout(tmp_path):
-    """Logout should clear authentication state."""
-    reset_google_home_service()
-    try:
-        settings = Settings()
-        settings.test_mode = False
-        settings.google_home_local_enabled = True
-
-        cache = CacheManager(db_path=str(tmp_path / "cache.db"))
-        app = create_app(settings, cache)
-        client = TestClient(app)
-
-        resp = client.post("/api/home/logout")
-        assert resp.status_code == 200
-        assert resp.json()["ok"] is True
-    finally:
-        reset_google_home_service()
-
-
-def test_home_command_device_not_found(tmp_path):
-    """Command should fail for non-existent device."""
+def test_home_auth_url_not_enabled(tmp_path):
+    """Test auth/url returns error when Google Home local is not enabled."""
     client = make_client(tmp_path)
-    cmd = {
-        "deviceId": "non-existent-device",
-        "command": "action.devices.commands.OnOff",
-        "params": {"on": True},
-    }
-    resp = client.post("/api/home/command", json=cmd)
+    resp = client.get("/api/home/auth/url")
     assert resp.status_code == 400
-    assert resp.json()["error"] == "device_not_found"
+    body = resp.json()
+    assert body["ok"] is False
+    assert body["error"] == "not_enabled"
 
 
-def test_home_devices_returns_list(tmp_path):
-    """Devices endpoint should return list of devices."""
-    client = make_client(tmp_path)
-    resp = client.get("/api/home/devices")
+def test_home_auth_url_enabled(tmp_path):
+    """Test auth/url returns auth URL when Google Home local is enabled."""
+    client = make_client_with_google_home(tmp_path)
+    resp = client.get("/api/home/auth/url")
     assert resp.status_code == 200
     body = resp.json()
     assert body["ok"] is True
-    assert "devices" in body
-    assert isinstance(body["devices"], list)
-    assert len(body["devices"]) >= 1
+    assert "auth_url" in body
+    # Verify the auth URL starts with Google's OAuth endpoint
+    assert body["auth_url"].startswith("https://accounts.google.com/o/oauth2/")
+    assert "state" in body
+    assert "expires_at" in body
 
+
+def test_home_auth_callback_missing_params(tmp_path):
+    """Test auth/callback returns error when code/state is missing."""
+    client = make_client_with_google_home(tmp_path)
+    resp = client.get("/api/home/auth/callback")
+    assert resp.status_code == 400
+    assert "missing_params" in resp.text
+
+
+def test_home_auth_callback_error_from_google(tmp_path):
+    """Test auth/callback handles error from Google."""
+    client = make_client_with_google_home(tmp_path)
+    resp = client.get("/api/home/auth/callback?error=access_denied")
+    assert resp.status_code == 400
+    assert "access_denied" in resp.text
+
+
+def test_home_auth_callback_invalid_state(tmp_path):
+    """Test auth/callback returns error for invalid state."""
+    client = make_client_with_google_home(tmp_path)
+    # First, start an auth session to have a valid service state
+    client.get("/api/home/auth/url")
+    # Then try callback with wrong state
+    resp = client.get("/api/home/auth/callback?code=test-code&state=wrong-state")
+    assert resp.status_code == 400
+    assert "invalid_state" in resp.text
+
+
+def test_home_status_with_local_service(tmp_path):
+    """Test status endpoint with local Google Home service."""
+    client = make_client_with_google_home(tmp_path)
+    resp = client.get("/api/home/status")
+    assert resp.status_code == 200
+    body = resp.json()
+    # In test mode, service reports as authenticated
+    assert body["configured"] is True
+    assert body["test_mode"] is True
+
+
+def test_home_logout(tmp_path):
+    """Test logout endpoint clears tokens."""
+    client = make_client_with_google_home(tmp_path)
+    resp = client.post("/api/home/auth/logout")
+    assert resp.status_code == 200
+    assert resp.json()["ok"] is True

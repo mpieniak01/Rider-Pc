@@ -154,30 +154,19 @@ class Settings:
     rag_chunk_overlap: int = field(default_factory=lambda: _safe_int("RAG_CHUNK_OVERLAP", "100"))
     rag_persist_path: str = field(default_factory=lambda: os.getenv("RAG_PERSIST_PATH", "data/chroma_db"))
 
-    # Google Home integration configuration
-    # OAuth 2.0 Client ID from Google Cloud Console (https://console.cloud.google.com/apis/credentials)
-    google_client_id: Optional[str] = field(default_factory=lambda: os.getenv("GOOGLE_CLIENT_ID"))
-    # OAuth 2.0 Client Secret from Google Cloud Console
-    google_client_secret: Optional[str] = field(default_factory=lambda: os.getenv("GOOGLE_CLIENT_SECRET"))
-    # Device Access Project ID from Google Device Access Console (https://console.nest.google.com/device-access)
-    google_device_access_project_id: Optional[str] = field(
-        default_factory=lambda: os.getenv("GOOGLE_DEVICE_ACCESS_PROJECT_ID")
-    )
-    # OAuth callback URI - must match "Authorized redirect URIs" in Google Cloud Console
-    google_home_redirect_uri: str = field(
-        default_factory=lambda: os.getenv("GOOGLE_HOME_REDIRECT_URI", "http://localhost:8000/api/home/auth/callback")
-    )
-    # Path for storing OAuth tokens (keep secure, add to .gitignore)
+    # Google Home / SDM configuration
+    google_home_client_id: str = field(default_factory=lambda: os.getenv("GOOGLE_HOME_CLIENT_ID", ""))
+    google_home_client_secret: str = field(default_factory=lambda: os.getenv("GOOGLE_HOME_CLIENT_SECRET", ""))
+    google_home_project_id: str = field(default_factory=lambda: os.getenv("GOOGLE_HOME_PROJECT_ID", ""))
+    google_home_redirect_uri: str = field(default_factory=lambda: os.getenv("GOOGLE_HOME_REDIRECT_URI", ""))
     google_home_tokens_path: str = field(
         default_factory=lambda: os.getenv("GOOGLE_HOME_TOKENS_PATH", "config/local/google_tokens_pc.json")
     )
-    # Enable native Google Home integration (true) or proxy through Rider-Pi (false)
-    google_home_local_enabled: bool = field(
-        default_factory=lambda: os.getenv("GOOGLE_HOME_LOCAL_ENABLED", "true").lower() == "true"
-    )
-    # Enable test mode with mock responses (for development/CI)
     google_home_test_mode: bool = field(
         default_factory=lambda: os.getenv("GOOGLE_HOME_TEST_MODE", "false").lower() == "true"
+    )
+    google_home_local_enabled: bool = field(
+        default_factory=lambda: os.getenv("GOOGLE_HOME_LOCAL_ENABLED", "false").lower() == "true"
     )
 
     @property
@@ -214,10 +203,13 @@ class Settings:
         """Check if Google Home integration is properly configured.
 
         Returns:
-            True if all required Google Home fields are set, False otherwise.
+            True if all required Google Home fields are set.
         """
         return bool(
-            self.google_client_id and self.google_client_secret and self.google_device_access_project_id
+            self.google_home_client_id
+            and self.google_home_client_secret
+            and self.google_home_project_id
+            and self.google_home_redirect_uri
         )
 
 

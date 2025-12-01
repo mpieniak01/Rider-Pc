@@ -7,6 +7,7 @@ through Rider-Pi.
 
 from __future__ import annotations
 
+import html
 import logging
 import time
 from typing import Any, Dict, Optional
@@ -20,6 +21,26 @@ from pc_client.services.google_home import GoogleHomeService, get_google_home_se
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+def _get_google_home_service(request: Request) -> Optional[GoogleHomeService]:
+    """Get GoogleHomeService from app state or create one."""
+    service = getattr(request.app.state, "google_home_service", None)
+    if service is None:
+        settings = getattr(request.app.state, "settings", None)
+        if settings and getattr(settings, "google_home_local_enabled", False):
+            config = GoogleHomeConfig(
+                client_id=getattr(settings, "google_home_client_id", ""),
+                client_secret=getattr(settings, "google_home_client_secret", ""),
+                project_id=getattr(settings, "google_home_project_id", ""),
+                redirect_uri=getattr(settings, "google_home_redirect_uri", ""),
+                tokens_path=getattr(settings, "google_home_tokens_path", "config/local/google_tokens_pc.json"),
+                test_mode=getattr(settings, "google_home_test_mode", False),
+            )
+            service = GoogleHomeService(config)
+            request.app.state.google_home_service = service
+    return service
 
 
 def _get_service(request: Request) -> GoogleHomeService:
