@@ -6,7 +6,7 @@ Obsługa wywołań narzędzi MCP z poziomu LLM (tool-call).
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from pc_client.mcp.registry import registry, ToolInvokeResult
 
