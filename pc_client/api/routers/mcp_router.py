@@ -194,9 +194,86 @@ async def get_stats() -> JSONResponse:
     )
 
 
+def _read_last_lines(file_path: str, num_lines: int, max_line_length: int = 1024) -> list:
+    """Efektywne czytanie ostatnich N linii z pliku.
+
+    Czyta plik od końca, unikając wczytywania całego pliku do pamięci.
+
+    Args:
+        file_path: Ścieżka do pliku.
+        num_lines: Liczba linii do pobrania.
+        max_line_length: Maksymalna długość linii (dla bezpieczeństwa).
+
+    Returns:
+        Lista ostatnich N linii (od najstarszej do najnowszej).
+    """
+    import os
+
+    lines = []
+    file_size = os.path.getsize(file_path)
+
+    if file_size == 0:
+        return lines
+
+    # Początkowy rozmiar bufora - dostosowany do oczekiwanej liczby linii
+    buffer_size = min(max(4096, num_lines * 200), file_size)
+
+    with open(file_path, "rb") as f:
+        # Zacznij od końca pliku
+        position = file_size
+        buffer = b""
+
+        while position > 0 and len(lines) < num_lines:
+            # Cofnij się o rozmiar bufora
+            read_size = min(buffer_size, position)
+            position -= read_size
+            f.seek(position)
+
+            # Czytaj fragment i dodaj do bufora
+            chunk = f.read(read_size)
+            buffer = chunk + buffer
+
+            # Rozdziel na linie
+            split_lines = buffer.split(b"\n")
+
+            # Ostatni element to niepełna linia (lub pusta) - zachowaj do następnej iteracji
+            buffer = split_lines[0]
+
+            # Przetwórz pozostałe linie (od końca do początku)
+            for raw_line in reversed(split_lines[1:]):
+                if len(lines) >= num_lines:
+                    break
+                try:
+                    line = raw_line.decode("utf-8", errors="replace").strip()
+                    if line:
+                        # Ogranicz długość linii
+                        if len(line) > max_line_length:
+                            line = line[:max_line_length] + "..."
+                        lines.append(line)
+                except Exception:
+                    continue
+
+        # Przetwórz pozostały bufor jeśli potrzeba więcej linii
+        if len(lines) < num_lines and buffer:
+            try:
+                line = buffer.decode("utf-8", errors="replace").strip()
+                if line:
+                    if len(line) > max_line_length:
+                        line = line[:max_line_length] + "..."
+                    lines.append(line)
+            except Exception:
+                pass
+
+    # Odwróć aby zachować chronologiczną kolejność (od najstarszej do najnowszej)
+    return list(reversed(lines))
+
+
 @router.get("/history")
 async def get_invocation_history(limit: int = 50) -> JSONResponse:
     """Pobierz historię wywołań narzędzi MCP z logu.
+
+    Używa efektywnego czytania od końca pliku, unikając wczytywania
+    całego pliku do pamięci dla dużych logów.
 
     Args:
         limit: Maksymalna liczba wpisów do zwrócenia (1-200).
@@ -212,13 +289,18 @@ async def get_invocation_history(limit: int = 50) -> JSONResponse:
     log_path = os.path.join(os.getcwd(), "logs", "mcp-tools.log")
     if os.path.exists(log_path):
         try:
-            with open(log_path, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-                # Pobierz ostatnie N linii
-                for line in lines[-limit:]:
-                    line = line.strip()
-                    if line:
-                        history.append(line)
+            file_size = os.path.getsize(log_path)
+            # Dla małych plików (< 64KB) używamy prostego odczytu
+            if file_size < 65536:
+                with open(log_path, "r", encoding="utf-8") as f:
+                    lines = f.readlines()
+                    for line in lines[-limit:]:
+                        line = line.strip()
+                        if line:
+                            history.append(line)
+            else:
+                # Dla dużych plików używamy efektywnego czytania od końca
+                history = _read_last_lines(log_path, limit)
         except Exception as e:
             logger.warning("Failed to read mcp-tools.log: %s", e)
 
