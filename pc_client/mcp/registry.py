@@ -4,11 +4,12 @@ Rejestr narzędzi MCP przechowujący informacje o dostępnych narzędziach,
 ich schematach argumentów i handlerach.
 """
 
+import asyncio
 import logging
 import time
 import socket
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Awaitable
+from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -183,10 +184,11 @@ class ToolRegistry:
 
         try:
             args = arguments or {}
-            # Sprawdź czy handler jest async
-            result = tool.handler(**args)
-            if isinstance(result, Awaitable):
-                result = await result
+            # Sprawdź czy handler jest async przed wywołaniem
+            if asyncio.iscoroutinefunction(tool.handler):
+                result = await tool.handler(**args)
+            else:
+                result = tool.handler(**args)
 
             duration_ms = int((time.time() - start_time) * 1000)
 
