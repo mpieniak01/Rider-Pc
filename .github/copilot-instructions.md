@@ -25,8 +25,9 @@ Repozytorium Rider-PC ma rozbudowany backend FastAPI oraz pakiet testów jednost
 - Gdy wprowadzisz nową konfigurację, dodaj klucz do `Settings` (`pc_client/config/settings.py`) oraz ustaw domyślne wartości w `.env.example`.
 - Zainstaluj `pre-commit` i przed PR uruchom `pre-commit run --all-files` – hooki (`ruff` + `ruff-format` z `--fix`) muszą przejść lokalnie, żeby uniknąć poprawek “na ślepo”.
 - W CI obowiązuje `ruff` – uruchom `make lint` jeśli dotykasz stylu.
-- Kazda zmiana powinna byc udokumentowana postaci planu zmian w wersji polskiej w katalogu /dosc_pl/_to_do w nazwie {numer_PR}, na zakonczenie prac plan powinien byc zaktualizowany o wykonane zmiany i pozostawiony w repozytorium.
-- Agent na zakonczenie pracy musi zamknac swoja sesje i zwolnic srodowisko o ile z niego korzystal podczas pracy.
+- Każda zmiana, przed rozpoczęciem prac, powinna być poprzedzona analizą i udokumentowana w formie planu zmian w języku polskim, w katalogu `/dosc_pl/_to_do`, pod nazwą `{numer_PR}`.
+- Na zakonczenie prac plan zmiany powinien bys uzupelniony.
+- Każda zmiana powinna zawierać krótkie uzasadnienie w opisie PR oraz kroki reprodukcji/regresji.
 
 ## Szybkie komendy
 ```bash
