@@ -407,7 +407,7 @@ class GoogleHomeService:
                     room_name = ""
                     custom_name = ""
                     if parent_relations:
-                        first_relation = parent_relations[0] if parent_relations else {}
+                        first_relation = parent_relations[0]
                         custom_name = first_relation.get("displayName", "")
                         # Room info may come from parent path or displayName
                         parent = first_relation.get("parent", "")
