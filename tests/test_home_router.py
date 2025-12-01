@@ -39,8 +39,6 @@ def make_client(tmp_path, google_home_local=False) -> TestClient:
     return TestClient(app)
 
 
-
-
 def test_home_status_returns_authenticated(tmp_path):
     client = make_client(tmp_path)
     resp = client.get("/api/home/status")

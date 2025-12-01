@@ -210,11 +210,7 @@ class Settings:
             True if all required Google Home fields are set (client_id, client_secret, project_id),
             False otherwise.
         """
-        return bool(
-            self.google_client_id
-            and self.google_client_secret
-            and self.google_device_access_project_id
-        )
+        return bool(self.google_client_id and self.google_client_secret and self.google_device_access_project_id)
 
 
 # Global settings instance
