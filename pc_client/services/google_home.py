@@ -7,14 +7,16 @@ without proxying through Rider-Pi.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import logging
 import os
 import secrets
+import threading
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from urllib.parse import urlencode
 
 import httpx
@@ -42,8 +44,6 @@ def _generate_code_verifier() -> str:
 def _generate_code_challenge(verifier: str) -> str:
     """Generate code challenge from verifier using S256 method."""
     digest = hashlib.sha256(verifier.encode("ascii")).digest()
-    import base64
-
     return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
 
 
@@ -83,6 +83,7 @@ class GoogleHomeService:
         # In-memory token cache
         self._tokens: Optional[Dict[str, Any]] = None
         self._pending_auth: Dict[str, Dict[str, Any]] = {}  # state -> {verifier, created_at}
+        self._pending_auth_lock = threading.Lock()  # Lock for thread-safe access to pending auth
 
         # Load existing tokens if available
         self._load_tokens()
@@ -237,12 +238,19 @@ class GoogleHomeService:
                 )
 
                 if response.status_code != 200:
-                    error_data = response.json() if response.content else {}
+                    try:
+                        error_data = response.json() if response.content else {}
+                    except json.JSONDecodeError:
+                        error_data = {}
                     error = error_data.get("error", f"http_{response.status_code}")
                     logger.error("Token exchange failed: %s - %s", response.status_code, error)
                     return {"ok": False, "error": error}
 
-                token_data = response.json()
+                try:
+                    token_data = response.json()
+                except json.JSONDecodeError as e:
+                    logger.error("Invalid JSON in token response: %s", e)
+                    return {"ok": False, "error": "invalid_response"}
 
             except httpx.RequestError as e:
                 logger.error("Network error during token exchange: %s", e)
@@ -528,6 +536,8 @@ class GoogleHomeService:
             with open(self.tokens_path, "w") as f:
                 json.dump(self._tokens, f, indent=2)
                 logger.debug("Saved tokens to %s", self.tokens_path)
+            # Set restrictive file permissions for OAuth tokens (owner-only read/write)
+            os.chmod(self.tokens_path, 0o600)
         except OSError as e:
             logger.error("Failed to save tokens: %s", e)
 
@@ -544,6 +554,7 @@ class GoogleHomeService:
 
 # Singleton instance for global access
 _service_instance: Optional[GoogleHomeService] = None
+_service_lock = threading.Lock()
 
 
 def get_google_home_service(

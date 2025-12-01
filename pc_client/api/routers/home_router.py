@@ -13,7 +13,7 @@ from typing import Any, Dict, Optional
 from urllib.parse import quote
 
 from fastapi import APIRouter, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from pc_client.adapters import RestAdapter
 from pc_client.services.google_home import GoogleHomeService, get_google_home_service, reset_google_home_service
@@ -203,8 +203,6 @@ async def home_auth_callback(
     grants permission. It exchanges the code for tokens and redirects
     back to the Google Home UI page.
     """
-    settings = request.app.state.settings
-
     # Handle OAuth errors from Google
     if error:
         logger.warning("OAuth callback error: %s", error)
