@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 try:
     import tomli
 except ImportError:
-    import tomllib as tomli  # Python 3.11+
+    import tomllib as tomli  # Python 3.11+ standard library
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ class AssistantDevice:
             "on_command": self.on_command,
             "off_command": self.off_command,
         }
-        if self.supports_brightness:
+        if self.supports_brightness and self.brightness_template:
             result["supports_brightness"] = True
             result["brightness_template"] = self.brightness_template
         if self.dock_command:

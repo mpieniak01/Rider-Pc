@@ -323,7 +323,7 @@ import { initI18n, applyDom, t } from '/web/assets/i18n.js';
   // --- Send custom command
   async function sendCustomCommand(){
     const input = qs('#customInput');
-    const text = input.value.trim();
+    const text = (input.value || '').trim();
     
     if(!text){
       showStatus(t('assistant.error_empty') || 'Wpisz komendę', 'err');
