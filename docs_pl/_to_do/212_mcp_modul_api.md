@@ -10,6 +10,7 @@ Zapewnić wewnętrzny serwer MCP (Model Context Protocol) jako moduł FastAPI Ri
 4. **Bezpieczeństwo** – logowanie wywołań, walidacja parametrów, limity i opcjonalne potwierdzenia w UI.
 5. **Monitoring** – metryki użycia narzędzi + log `logs/mcp-tools.log`.
 6. **Tryb pracy** – domyślnie moduł działa w ramach głównego API Rider-PC (ten sam port), ale konfiguracja powinna pozwolić przełączyć go w tryb „standalone” (np. `MCP_STANDALONE=true`, `MCP_PORT=8210`) i wystartować jako osobna aplikacja Uvicorn/FastAPI z tym samym rejestrem narzędzi (skalowalność / integracje zewnętrzne).
+7. **Aktualizacja `.env.example`** – dodać nowe zmienne środowiskowe `MCP_STANDALONE` i `MCP_PORT` z domyślnymi wartościami zgodnie z wytycznymi projektu.
 
 ## Architektura
 ### 1. Warstwa MCP (FastAPI)
