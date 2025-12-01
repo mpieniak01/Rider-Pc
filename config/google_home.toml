@@ -52,7 +52,7 @@ tokens_path = "config/local/google_tokens_pc.json"
 [google_home.cache]
 # How long to cache device list (seconds)
 # Lower values mean more API calls, higher values mean staler data
-devices_ttl_seconds = 30
+devices_ttl_seconds = 300
 
 # -----------------------------------------------------------------------------
 # API Endpoints (do not modify unless Google changes their API)

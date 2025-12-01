@@ -121,7 +121,7 @@ import { initI18n, applyDom, t } from '/web/assets/i18n.js';
     try{
       const result = await httpGet('/api/home/status');
       const isAuth = result.authenticated;
-      const isConfigured = result.configured !== false; // Default to true for backward compatibility
+      const isConfigured = result.configured === true;
       
       const authBadge = qs('#authBadge');
       const authSection = qs('#authSection');
@@ -148,7 +148,7 @@ import { initI18n, applyDom, t } from '/web/assets/i18n.js';
         devicesSection.classList.add('hidden');
         
         // Update description with configuration info
-        const missing = result.configuration_missing || [];
+        const missing = result.config_missing || [];
         if(missing.length > 0 && authDescription){
           // Safe DOM element creation without innerHTML
           authDescription.textContent = '';

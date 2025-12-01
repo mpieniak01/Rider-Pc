@@ -239,11 +239,3 @@ Jeśli wcześniej używałeś integracji Google Home przez Rider-Pi:
    - Zaloguj się ponownie przez przeglądarkę
 
 Tokeny z Rider-Pi nie są kompatybilne z Rider-PC ze względu na różne OAuth Client ID.
-Odpowiedź:
-```json
-{
-  "ok": true,
-  "device": "...",
-  "command": "..."
-}
-```
