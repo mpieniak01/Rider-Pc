@@ -39,20 +39,6 @@ def make_client(tmp_path, google_home_local=False) -> TestClient:
     return TestClient(app)
 
 
-def make_client_with_google_home(tmp_path) -> TestClient:
-    """Create client with Google Home local mode enabled."""
-    settings = Settings()
-    settings.test_mode = True
-    settings.google_home_local_enabled = True
-    settings.google_home_client_id = TEST_CLIENT_ID
-    settings.google_home_client_secret = TEST_CLIENT_SECRET
-    settings.google_home_project_id = TEST_PROJECT_ID
-    settings.google_home_redirect_uri = TEST_REDIRECT_URI
-    settings.google_home_test_mode = True
-    settings.google_home_tokens_path = str(tmp_path / "tokens.json")
-    cache = CacheManager(db_path=str(tmp_path / "cache.db"))
-    app = create_app(settings, cache)
-    return TestClient(app)
 
 
 def test_home_status_returns_authenticated(tmp_path):
