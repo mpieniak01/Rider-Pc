@@ -886,11 +886,11 @@ async function refreshMcpStats(){
       setTxt('mcpInvocations', j.stats.invocation_count || 0);
       setTxt('mcpLastTool', j.stats.last_invoked_tool || '—');
       setCls('mcpStatus', 'ok');
-      setTxt('mcpStatus', 'aktywny');
+      setTxt('mcpStatus', i18n('dash.mcp.status_active'));
     }
   }catch{
     setCls('mcpStatus', 'bad');
-    setTxt('mcpStatus', 'błąd');
+    setTxt('mcpStatus', i18n('dash.mcp.status_error'));
   }
 }
 
