@@ -5,7 +5,7 @@
 # są pobierane ze zmiennych środowiskowych (zdefiniowanych w .env).
 # 
 # Aby skonfigurować integrację Google Home, ustaw odpowiednie zmienne
-# środowiskowe zgodnie z .env.example (linie 125-131).
+# środowiskowe zgodnie z .env.example (linie 120-135).
 # 
 # Plik można skopiować do config/local/google_home.toml jako referencję.
 # 
