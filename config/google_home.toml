@@ -1,5 +1,13 @@
 # Google Home / Smart Device Management Configuration
-# To customize, copy to config/local/google_home.toml and modify as needed
+# 
+# UWAGA: Ten plik służy wyłącznie jako dokumentacja i przykład konfiguracji.
+# NIE jest wczytywany przez kod aplikacji - wszystkie wartości konfiguracyjne
+# są pobierane ze zmiennych środowiskowych (zdefiniowanych w .env).
+# 
+# Aby skonfigurować integrację Google Home, ustaw odpowiednie zmienne
+# środowiskowe zgodnie z .env.example (linie 125-131).
+# 
+# Plik można skopiować do config/local/google_home.toml jako referencję.
 # 
 # Documentation: docs_pl/google-home-integration.md
 
