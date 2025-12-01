@@ -38,7 +38,7 @@ mediapipe==0.10.18
 chromadb==0.5.23
 sentence-transformers==3.3.1
 
-# Google OAuth for Google Home integration
+# Google OAuth/SDM
 google-auth==2.36.0
 google-auth-oauthlib==1.2.1
 

@@ -1,48 +1,80 @@
-# Google Home Configuration
+# Google Home / Smart Device Management Configuration
+# 
+# UWAGA: Ten plik jest tylko dokumentacją/przykładem.
+# Rider-PC używa wyłącznie konfiguracji przez zmienne środowiskowe.
+# Szczegóły: docs_pl/google-home-integration.md
+#
 # To customize, copy to config/local/google_home.toml and modify as needed
+# 
+# Documentation: docs_pl/google-home-integration.md
 
 # -----------------------------------------------------------------------------
-# Google Home Integration Configuration
+# Google Home Configuration for Rider-PC
 # -----------------------------------------------------------------------------
 [google_home]
-# Enable native Google Home integration (true) or proxy through Rider-Pi (false)
-local_enabled = true
+# Enable native OAuth 2.0 flow (instead of proxying to Rider-Pi)
+# When true, Rider-PC handles authentication and SDM API communication directly
+# When false (default), requests are proxied to Rider-Pi
+enabled = false
 
-# Enable test mode with mock responses (for development/CI)
+# Enable test mode for development (uses mock devices)
+# Useful for UI development without real Google credentials
 test_mode = false
 
-# OAuth callback URL - must match "Authorized redirect URIs" in Google Cloud Console
+# -----------------------------------------------------------------------------
+# OAuth 2.0 Configuration
+# -----------------------------------------------------------------------------
+# These values should be set via environment variables for security:
+# - GOOGLE_CLIENT_ID
+# - GOOGLE_CLIENT_SECRET
+# - GOOGLE_DEVICE_ACCESS_PROJECT_ID
+#
+# Create credentials at: https://console.cloud.google.com/apis/credentials
+# Select "Web application" as the application type
+
+[google_home.oauth]
+# OAuth redirect URI - must match Authorized redirect URIs in Google Cloud Console
 redirect_uri = "http://localhost:8000/api/home/auth/callback"
 
-# Path for storing OAuth tokens (keep secure, add to .gitignore)
+# OAuth scopes requested (do not modify unless you know what you're doing)
+scopes = [
+    "https://www.googleapis.com/auth/sdm.service",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile"
+]
+
+# -----------------------------------------------------------------------------
+# Token Storage
+# -----------------------------------------------------------------------------
+[google_home.storage]
+# Path to store OAuth tokens (relative to project root)
+# This file contains sensitive data - ensure it's in .gitignore
 tokens_path = "config/local/google_tokens_pc.json"
 
 # -----------------------------------------------------------------------------
-# OAuth 2.0 Credentials (set in .env for security)
+# Device Cache
 # -----------------------------------------------------------------------------
-# Create OAuth 2.0 Client at: https://console.cloud.google.com/apis/credentials
-# Client type: Web application
-# Authorized redirect URIs: Must include the redirect_uri above
-#
-# Set these via environment variables (recommended):
-#   GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
-#   GOOGLE_CLIENT_SECRET=your-client-secret
+[google_home.cache]
+# How long to cache device list (seconds)
+# Lower values mean more API calls, higher values mean staler data
+devices_ttl_seconds = 30
 
 # -----------------------------------------------------------------------------
-# Device Access Project (set in .env for security)
+# API Endpoints (do not modify unless Google changes their API)
 # -----------------------------------------------------------------------------
-# Register at: https://console.nest.google.com/device-access
-# Note: Requires one-time $5 registration fee
-#
-# Set via environment variable (recommended):
-#   GOOGLE_DEVICE_ACCESS_PROJECT_ID=your-project-id
+[google_home.api]
+sdm_base_url = "https://smartdevicemanagement.googleapis.com/v1"
+oauth_auth_url = "https://accounts.google.com/o/oauth2/v2/auth"
+oauth_token_url = "https://oauth2.googleapis.com/token"
+userinfo_url = "https://www.googleapis.com/oauth2/v3/userinfo"
 
 # -----------------------------------------------------------------------------
-# Logging Configuration
+# Logging
 # -----------------------------------------------------------------------------
 [google_home.logging]
 # Log level for Google Home operations
+# Options: DEBUG, INFO, WARNING, ERROR
 level = "INFO"
 
-# Log file for command history (relative to project root)
-command_log_path = "logs/google_home/actions.log"
+# Log commands sent to devices (useful for debugging)
+log_commands = true

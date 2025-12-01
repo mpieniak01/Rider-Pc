@@ -1,245 +1,362 @@
-"""Tests for Google Home service."""
+"""Tests for Google Home service and OAuth flow."""
 
 import pytest
+import time
 
 from pc_client.services.google_home import (
     GoogleHomeService,
+    AuthSession,
+    TokenData,
+    UserProfile,
     get_google_home_service,
     reset_google_home_service,
-    _generate_code_verifier,
-    _generate_code_challenge,
 )
 
 
+@pytest.fixture(autouse=True)
+def reset_service():
+    """Reset the service singleton before each test."""
+    reset_google_home_service()
+    yield
+    reset_google_home_service()
+
+
 class TestGoogleHomeService:
-    """Test GoogleHomeService functionality."""
+    """Test GoogleHomeService class."""
 
-    def setup_method(self):
-        """Reset singleton before each test."""
-        reset_google_home_service()
-
-    def teardown_method(self):
-        """Reset singleton after each test."""
-        reset_google_home_service()
-
-    def test_is_configured_returns_false_without_credentials(self):
-        """Service should not be configured without OAuth credentials."""
+    def test_is_configured_without_credentials(self):
+        """Service is not configured without credentials."""
         service = GoogleHomeService()
         assert service.is_configured() is False
 
-    def test_is_configured_returns_true_with_all_credentials(self):
-        """Service should be configured when all credentials are provided."""
+    def test_is_configured_with_credentials(self):
+        """Service is configured with all credentials."""
         service = GoogleHomeService(
             client_id="test-client-id",
-            client_secret="test-secret",
+            client_secret="test-client-secret",
             project_id="test-project-id",
         )
         assert service.is_configured() is True
 
-    def test_is_authenticated_in_test_mode(self):
-        """Service should report authenticated in test mode."""
+    def test_is_configured_missing_client_secret(self):
+        """Service is not configured with missing client_secret."""
+        service = GoogleHomeService(
+            client_id="test-client-id",
+            project_id="test-project-id",
+        )
+        assert service.is_configured() is False
+
+    def test_is_authenticated_test_mode(self):
+        """In test mode, service is always authenticated."""
         service = GoogleHomeService(test_mode=True)
         assert service.is_authenticated() is True
 
-    def test_is_authenticated_without_tokens(self):
-        """Service should not be authenticated without tokens."""
-        service = GoogleHomeService()
+    def test_is_authenticated_no_tokens(self):
+        """Without tokens, service is not authenticated."""
+        service = GoogleHomeService(
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            project_id="test-project-id",
+        )
         assert service.is_authenticated() is False
 
-    def test_get_status_in_test_mode(self):
-        """Status should show configured and authenticated in test mode."""
-        service = GoogleHomeService(test_mode=True)
-        status = service.get_status()
-
-        assert status["configured"] is True
-        assert status["authenticated"] is True
-        assert status["auth_url_available"] is True
-        assert status["profile"]["email"] == "mock@rider.test"
-        assert status["error"] is None
-
-    def test_get_status_without_config(self):
-        """Status should indicate missing configuration."""
+    def test_get_status_not_configured(self):
+        """Status shows configuration missing when not configured."""
         service = GoogleHomeService()
         status = service.get_status()
-
         assert status["configured"] is False
         assert status["authenticated"] is False
-        assert status["error"] == "auth_env_missing"
+        assert "GOOGLE_CLIENT_ID" in status["configuration_missing"]
+        assert "GOOGLE_CLIENT_SECRET" in status["configuration_missing"]
+        assert "GOOGLE_DEVICE_ACCESS_PROJECT_ID" in status["configuration_missing"]
 
-    def test_build_auth_url_without_config(self):
-        """Building auth URL should fail without config."""
+    def test_get_status_configured(self):
+        """Status shows configured when credentials are set."""
+        service = GoogleHomeService(
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            project_id="test-project-id",
+        )
+        status = service.get_status()
+        assert status["configured"] is True
+        assert status["auth_url_available"] is True
+
+    def test_get_status_test_mode(self):
+        """Status shows test mode when enabled."""
+        service = GoogleHomeService(test_mode=True)
+        status = service.get_status()
+        assert status["test_mode"] is True
+        assert status["authenticated"] is True
+
+    def test_start_auth_session_not_configured(self):
+        """Auth session fails when not configured."""
         service = GoogleHomeService()
-        result = service.build_auth_url()
-
+        result = service.start_auth_session()
         assert result["ok"] is False
         assert result["error"] == "auth_env_missing"
 
-    def test_build_auth_url_with_config(self):
-        """Building auth URL should succeed with config."""
+    def test_start_auth_session_success(self):
+        """Auth session starts successfully with configuration."""
         service = GoogleHomeService(
             client_id="test-client-id",
-            client_secret="test-secret",
+            client_secret="test-client-secret",
             project_id="test-project-id",
-            redirect_uri="http://localhost:8000/api/home/auth/callback",
         )
-        result = service.build_auth_url()
-
+        result = service.start_auth_session()
         assert result["ok"] is True
         assert "auth_url" in result
         assert "state" in result
-        assert "expires_at" in result
-        # Verify URL starts with expected Google OAuth endpoint
-        assert result["auth_url"].startswith("https://accounts.google.com/o/oauth2/")
-        assert "test-client-id" in result["auth_url"]
+        assert result["auth_url"].startswith("https://accounts.google.com/")
+        assert "code_challenge" in result["auth_url"]
 
-    def test_build_auth_url_with_custom_state(self):
-        """Building auth URL should use provided state."""
+    def test_start_auth_session_pkce_params(self):
+        """Auth URL contains PKCE parameters."""
         service = GoogleHomeService(
             client_id="test-client-id",
-            client_secret="test-secret",
+            client_secret="test-client-secret",
             project_id="test-project-id",
             redirect_uri="http://localhost:8000/api/home/auth/callback",
         )
-        custom_state = "custom-test-state-12345"
-        result = service.build_auth_url(state=custom_state)
+        result = service.start_auth_session()
+        auth_url = result["auth_url"]
+        assert "code_challenge=" in auth_url
+        assert "code_challenge_method=S256" in auth_url
+        assert "state=" in auth_url
+        assert "redirect_uri=http%3A%2F%2Flocalhost%3A8000%2Fapi%2Fhome%2Fauth%2Fcallback" in auth_url
 
-        assert result["ok"] is True
-        assert result["state"] == custom_state
-        assert custom_state in result["auth_url"]
+    def test_cleanup_expired_sessions(self):
+        """Expired sessions are cleaned up."""
+        service = GoogleHomeService(
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            project_id="test-project-id",
+        )
+        # Create a session
+        result = service.start_auth_session()
+        state = result["state"]
+        assert state in service._auth_sessions
+
+        # Manually expire the session
+        service._auth_sessions[state].expires_at = time.time() - 100
+
+        # Trigger cleanup by starting new session
+        service.start_auth_session()
+
+        # Old session should be gone
+        assert state not in service._auth_sessions
+
+    def test_code_verifier_generation(self):
+        """Code verifier is generated with correct length."""
+        service = GoogleHomeService()
+        verifier = service._generate_code_verifier()
+        assert len(verifier) <= 128
+        assert len(verifier) >= 43  # Minimum per RFC 7636
+
+    def test_code_challenge_generation(self):
+        """Code challenge is generated correctly."""
+        service = GoogleHomeService()
+        verifier = "test_verifier_string_for_pkce_testing"
+        challenge = service._generate_code_challenge(verifier)
+        # Challenge should be base64url encoded
+        assert "=" not in challenge  # No padding
+        assert "+" not in challenge  # URL safe
+        assert "/" not in challenge  # URL safe
+
+
+class TestGoogleHomeServiceAsync:
+    """Async tests for GoogleHomeService."""
 
     @pytest.mark.asyncio
-    async def test_complete_auth_in_test_mode(self):
-        """Auth completion should work in test mode."""
+    async def test_list_devices_test_mode(self):
+        """List devices returns mock devices in test mode."""
         service = GoogleHomeService(test_mode=True)
-        result = await service.complete_auth(code="test-code", state="test-state")
-
+        result = await service.list_devices()
         assert result["ok"] is True
-        assert "profile" in result
+        assert len(result["devices"]) == 3
+        assert result.get("test_mode") is True
+
+    @pytest.mark.asyncio
+    async def test_list_devices_not_authenticated(self):
+        """List devices fails when not authenticated."""
+        service = GoogleHomeService(
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            project_id="test-project-id",
+        )
+        result = await service.list_devices()
+        assert result["ok"] is False
+        assert result["error"] == "not_authenticated"
+
+    @pytest.mark.asyncio
+    async def test_send_command_test_mode(self):
+        """Send command returns success in test mode."""
+        service = GoogleHomeService(test_mode=True)
+        result = await service.send_command(
+            "devices/light/living-room",
+            "action.devices.commands.OnOff",
+            {"on": True},
+        )
+        assert result["ok"] is True
+        assert result.get("test_mode") is True
+
+    @pytest.mark.asyncio
+    async def test_send_command_not_authenticated(self):
+        """Send command fails when not authenticated."""
+        service = GoogleHomeService(
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            project_id="test-project-id",
+        )
+        result = await service.send_command(
+            "devices/light/living-room",
+            "action.devices.commands.OnOff",
+            {"on": True},
+        )
+        assert result["ok"] is False
+        assert result["error"] == "not_authenticated"
 
     @pytest.mark.asyncio
     async def test_complete_auth_invalid_state(self):
-        """Auth completion should fail with invalid state."""
+        """Complete auth fails with invalid state."""
         service = GoogleHomeService(
             client_id="test-client-id",
-            client_secret="test-secret",
+            client_secret="test-client-secret",
             project_id="test-project-id",
         )
-        result = await service.complete_auth(code="test-code", state="invalid-state")
-
+        result = await service.complete_auth("test-code", "invalid-state")
         assert result["ok"] is False
         assert result["error"] == "invalid_state"
 
     @pytest.mark.asyncio
-    async def test_list_devices_in_test_mode(self):
-        """Listing devices should return mock data in test mode."""
-        service = GoogleHomeService(test_mode=True, project_id="test-project")
-        result = await service.list_devices()
-
-        assert result["ok"] is True
-        assert "devices" in result
-        assert len(result["devices"]) > 0
-        assert "mock-light-1" in result["devices"][0]["name"]
-
-    @pytest.mark.asyncio
-    async def test_list_devices_not_authenticated(self):
-        """Listing devices should fail when not authenticated."""
+    async def test_complete_auth_expired_session(self):
+        """Complete auth fails with expired session."""
         service = GoogleHomeService(
             client_id="test-client-id",
-            client_secret="test-secret",
+            client_secret="test-client-secret",
             project_id="test-project-id",
         )
-        result = await service.list_devices()
+        # Start a session
+        start_result = service.start_auth_session()
+        state = start_result["state"]
 
+        # Manually expire the session
+        service._auth_sessions[state].expires_at = time.time() - 100
+
+        result = await service.complete_auth("test-code", state)
         assert result["ok"] is False
-        assert result["error"] == "not_authenticated"
+        assert result["error"] == "session_expired"
 
     @pytest.mark.asyncio
-    async def test_send_command_in_test_mode(self):
-        """Sending command should work in test mode."""
+    async def test_close_client(self):
+        """HTTP client can be closed."""
         service = GoogleHomeService(test_mode=True)
-        result = await service.send_command(
-            device_id="test-device",
-            command="action.devices.commands.OnOff",
-            params={"on": True},
+        # Create client
+        await service._get_client()
+        assert service._http_client is not None
+
+        # Close client
+        await service.close()
+        assert service._http_client is None
+
+
+class TestAuthSession:
+    """Tests for AuthSession dataclass."""
+
+    def test_is_expired_false(self):
+        """Session is not expired when created."""
+        session = AuthSession(
+            state="test-state",
+            code_verifier="test-verifier",
+            redirect_uri="http://localhost/callback",
         )
+        assert session.is_expired() is False
 
-        assert result["ok"] is True
-        assert result["device"] == "test-device"
-        assert result["command"] == "action.devices.commands.OnOff"
-
-    @pytest.mark.asyncio
-    async def test_send_command_not_authenticated(self):
-        """Sending command should fail when not authenticated."""
-        service = GoogleHomeService(
-            client_id="test-client-id",
-            client_secret="test-secret",
-            project_id="test-project-id",
+    def test_is_expired_true(self):
+        """Session is expired after expiration time."""
+        session = AuthSession(
+            state="test-state",
+            code_verifier="test-verifier",
+            redirect_uri="http://localhost/callback",
+            expires_at=time.time() - 100,
         )
-        result = await service.send_command(
-            device_id="test-device",
-            command="action.devices.commands.OnOff",
-            params={"on": True},
+        assert session.is_expired() is True
+
+
+class TestTokenData:
+    """Tests for TokenData dataclass."""
+
+    def test_is_expired_no_expiry(self):
+        """Token without expiry is not considered expired."""
+        token = TokenData(access_token="test-token")
+        assert token.is_expired() is False
+
+    def test_is_expired_future(self):
+        """Token with future expiry is not expired."""
+        token = TokenData(
+            access_token="test-token",
+            expires_at=time.time() + 3600,
         )
+        assert token.is_expired() is False
 
-        assert result["ok"] is False
-        assert result["error"] == "not_authenticated"
+    def test_is_expired_past(self):
+        """Token with past expiry is expired."""
+        token = TokenData(
+            access_token="test-token",
+            expires_at=time.time() - 100,
+        )
+        assert token.is_expired() is True
 
-    def test_logout(self, tmp_path):
-        """Logout should clear tokens."""
-        tokens_file = tmp_path / "tokens.json"
-        tokens_file.write_text('{"access_token": "test"}')
+    def test_to_dict(self):
+        """Token can be converted to dictionary."""
+        token = TokenData(
+            access_token="test-token",
+            refresh_token="refresh-token",
+            expires_at=1234567890,
+            scopes=["scope1", "scope2"],
+        )
+        data = token.to_dict()
+        assert data["access_token"] == "test-token"
+        assert data["refresh_token"] == "refresh-token"
+        assert data["expires_at"] == 1234567890
+        assert data["scopes"] == ["scope1", "scope2"]
 
-        service = GoogleHomeService(tokens_path=str(tokens_file))
-        service._tokens = {"access_token": "test", "refresh_token": "test"}
+    def test_from_dict(self):
+        """Token can be created from dictionary."""
+        data = {
+            "access_token": "test-token",
+            "refresh_token": "refresh-token",
+            "expires_at": 1234567890,
+            "scopes": ["scope1", "scope2"],
+        }
+        token = TokenData.from_dict(data)
+        assert token.access_token == "test-token"
+        assert token.refresh_token == "refresh-token"
+        assert token.expires_at == 1234567890
+        assert token.scopes == ["scope1", "scope2"]
 
-        result = service.logout()
 
-        assert result["ok"] is True
-        assert service._tokens is None
-        assert not tokens_file.exists()
+class TestUserProfile:
+    """Tests for UserProfile dataclass."""
 
-
-class TestPKCE:
-    """Test PKCE functions."""
-
-    def test_code_verifier_length(self):
-        """Code verifier should be valid length."""
-        verifier = _generate_code_verifier()
-        assert len(verifier) >= 43
-        assert len(verifier) <= 128
-
-    def test_code_verifier_uniqueness(self):
-        """Code verifiers should be unique."""
-        verifiers = [_generate_code_verifier() for _ in range(10)]
-        assert len(set(verifiers)) == 10
-
-    def test_code_challenge_deterministic(self):
-        """Code challenge should be deterministic for same verifier."""
-        verifier = "test-verifier-string-12345678901234567890"
-        challenge1 = _generate_code_challenge(verifier)
-        challenge2 = _generate_code_challenge(verifier)
-        assert challenge1 == challenge2
-
-    def test_code_challenge_different_for_different_verifier(self):
-        """Code challenge should differ for different verifiers."""
-        challenge1 = _generate_code_challenge("verifier-1-test-string-12345")
-        challenge2 = _generate_code_challenge("verifier-2-test-string-12345")
-        assert challenge1 != challenge2
+    def test_to_dict(self):
+        """Profile can be converted to dictionary."""
+        profile = UserProfile(
+            email="test@example.com",
+            name="Test User",
+            picture="https://example.com/avatar.jpg",
+        )
+        data = profile.to_dict()
+        assert data["email"] == "test@example.com"
+        assert data["name"] == "Test User"
+        assert data["picture"] == "https://example.com/avatar.jpg"
+        assert "updated_at" in data
 
 
 class TestSingleton:
-    """Test singleton behavior."""
+    """Tests for singleton pattern."""
 
-    def setup_method(self):
-        """Reset singleton before each test."""
-        reset_google_home_service()
-
-    def teardown_method(self):
-        """Reset singleton after each test."""
-        reset_google_home_service()
-
-    def test_get_service_creates_singleton(self):
-        """get_google_home_service should return same instance."""
+    def test_get_service_singleton(self):
+        """Singleton returns same instance."""
         service1 = get_google_home_service(test_mode=True)
         service2 = get_google_home_service(test_mode=True)
         assert service1 is service2

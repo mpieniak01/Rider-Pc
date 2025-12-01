@@ -1,10 +1,12 @@
 """Tests for Google Home router endpoints."""
 
+import pytest
 from fastapi.testclient import TestClient
 
 from pc_client.api.server import create_app
 from pc_client.cache import CacheManager
 from pc_client.config import Settings
+from pc_client.services.google_home import reset_google_home_service
 
 # Test configuration constants
 TEST_CLIENT_ID = "test-client-id"
@@ -13,9 +15,23 @@ TEST_PROJECT_ID = "test-project-id"
 TEST_REDIRECT_URI = "http://localhost:8000/api/home/auth/callback"
 
 
-def make_client(tmp_path) -> TestClient:
+@pytest.fixture(autouse=True)
+def reset_service():
+    """Reset the Google Home service singleton before each test."""
+    reset_google_home_service()
+    yield
+    reset_google_home_service()
+
+
+def make_client(tmp_path, google_home_local=False) -> TestClient:
     settings = Settings()
     settings.test_mode = True
+    settings.google_home_local_enabled = google_home_local
+    if google_home_local:
+        settings.google_home_test_mode = True
+        settings.google_client_id = "test-client-id"
+        settings.google_client_secret = "test-client-secret"
+        settings.google_device_access_project_id = "test-project-id"
     cache = CacheManager(db_path=str(tmp_path / "cache.db"))
     app = create_app(settings, cache)
     return TestClient(app)

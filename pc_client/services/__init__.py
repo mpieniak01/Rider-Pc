@@ -1,5 +1,5 @@
-"""PC Client services."""
+"""Rider-PC services module."""
 
-from .google_home import GoogleHomeService
+from pc_client.services.google_home import GoogleHomeService, AuthSession
 
-__all__ = ["GoogleHomeService"]
+__all__ = ["GoogleHomeService", "AuthSession"]

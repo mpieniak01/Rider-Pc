@@ -1,7 +1,8 @@
-"""Google Home Service for Rider-PC.
+"""Google Home / Smart Device Management service for Rider-PC.
 
-This module provides native Google Smart Device Management (SDM) integration,
-enabling OAuth 2.0 authentication flow and device control directly from Rider-PC.
+This module provides OAuth 2.0 authentication flow and communication
+with Google Smart Device Management (SDM) API. It enables Rider-PC to
+act as a standalone Google Home controller without proxying through Rider-Pi.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ import json
 import logging
 import os
 import secrets
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -22,96 +24,33 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-# Google OAuth endpoints
-GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
-GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+# SDM API endpoints
 SDM_API_BASE = "https://smartdevicemanagement.googleapis.com/v1"
+GOOGLE_OAUTH_AUTH = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_OAUTH_TOKEN = "https://oauth2.googleapis.com/token"
+GOOGLE_USERINFO = "https://www.googleapis.com/oauth2/v3/userinfo"
 
-# Required scopes for Google Home / SDM
+# OAuth 2.0 scopes for SDM
 SDM_SCOPES = [
     "https://www.googleapis.com/auth/sdm.service",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
 ]
-
-# PKCE configuration constants
-AUTH_SESSION_TTL_SECONDS = 600  # 10 minutes for auth session validity
-PKCE_STATE_LENGTH = 32  # Length of state token for CSRF protection
-PKCE_VERIFIER_RAW_LENGTH = 64  # Raw length for code verifier generation
-PKCE_VERIFIER_MAX_LENGTH = 128  # Max length for code verifier (PKCE spec)
-
-# Cache configuration
-DEVICE_CACHE_TTL_SECONDS = 300  # 5 minutes cache for device list
-TOKEN_EXPIRY_BUFFER_SECONDS = 300  # Refresh token 5 minutes before expiry
-
-
-@dataclass
-class GoogleHomeConfig:
-    """Configuration for Google Home integration."""
-
-    # OAuth credentials (from Google Cloud Console)
-    client_id: str = ""
-    client_secret: str = ""
-
-    # Device Access Project ID (from device-access.cloud.google.com)
-    project_id: str = ""
-
-    # Redirect URL for OAuth callback (must match Google Cloud Console config)
-    redirect_uri: str = ""
-
-    # Path to store tokens locally
-    tokens_path: str = "config/local/google_tokens_pc.json"
-
-    # Enable test mode (uses mock data instead of real API)
-    test_mode: bool = False
-
-    @classmethod
-    def from_env(cls) -> "GoogleHomeConfig":
-        """Create config from environment variables."""
-        return cls(
-            client_id=os.getenv("GOOGLE_HOME_CLIENT_ID", ""),
-            client_secret=os.getenv("GOOGLE_HOME_CLIENT_SECRET", ""),
-            project_id=os.getenv("GOOGLE_HOME_PROJECT_ID", ""),
-            redirect_uri=os.getenv("GOOGLE_HOME_REDIRECT_URI", ""),
-            tokens_path=os.getenv("GOOGLE_HOME_TOKENS_PATH", "config/local/google_tokens_pc.json"),
-            test_mode=os.getenv("GOOGLE_HOME_TEST_MODE", "false").lower() == "true",
-        )
-
-    def is_configured(self) -> bool:
-        """Check if all required OAuth fields are set."""
-        return bool(self.client_id and self.client_secret and self.project_id and self.redirect_uri)
 
 
 @dataclass
 class AuthSession:
-    """OAuth authentication session data."""
+    """Represents an active OAuth authorization session."""
 
-    state: str = ""
-    code_verifier: str = ""
-    code_challenge: str = ""
+    state: str
+    code_verifier: str
+    redirect_uri: str
     created_at: float = field(default_factory=time.time)
-    expires_at: float = 0.0
+    expires_at: float = field(default_factory=lambda: time.time() + 600)  # 10 minutes
 
-    @classmethod
-    def create(cls, ttl_seconds: int = AUTH_SESSION_TTL_SECONDS) -> "AuthSession":
-        """Create a new auth session with PKCE parameters."""
-        state = secrets.token_urlsafe(PKCE_STATE_LENGTH)
-        code_verifier = secrets.token_urlsafe(PKCE_VERIFIER_RAW_LENGTH)[:PKCE_VERIFIER_MAX_LENGTH]
-
-        # Create code_challenge using S256 method (base64url encoding without padding)
-        digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
-        code_challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
-
-        now = time.time()
-        return cls(
-            state=state,
-            code_verifier=code_verifier,
-            code_challenge=code_challenge,
-            created_at=now,
-            expires_at=now + ttl_seconds,
-        )
-
-    def is_valid(self) -> bool:
-        """Check if session is still valid."""
-        return time.time() < self.expires_at
+    def is_expired(self) -> bool:
+        """Check if this session has expired."""
+        return time.time() > self.expires_at
 
 
 @dataclass
@@ -200,317 +139,393 @@ class GoogleHomeService:
         return True
 
     def get_status(self) -> Dict[str, Any]:
-        """Get current authentication status."""
-        if self.config.test_mode:
-            return {
-                "configured": True,
-                "authenticated": True,
-                "test_mode": True,
-                "profile": {"email": "test@example.com"},
-                "auth_url_available": False,
-            }
-
-        if not self.is_configured():
-            return {
-                "configured": False,
-                "authenticated": False,
-                "test_mode": False,
-                "profile": None,
-                "auth_url_available": False,
-                "config_missing": self._get_missing_config(),
-            }
-
-        return {
-            "configured": True,
-            "authenticated": self.is_authenticated(),
-            "test_mode": False,
-            "profile": {"email": self._tokens.profile_email} if self._tokens else None,
-            "auth_url_available": True,
-            "token_expires_at": self._tokens.expires_at if self._tokens else None,
-        }
-
-    def _get_missing_config(self) -> List[str]:
-        """Get list of missing configuration fields."""
-        missing = []
-        if not self.config.client_id:
-            missing.append("GOOGLE_HOME_CLIENT_ID")
-        if not self.config.client_secret:
-            missing.append("GOOGLE_HOME_CLIENT_SECRET")
-        if not self.config.project_id:
-            missing.append("GOOGLE_HOME_PROJECT_ID")
-        if not self.config.redirect_uri:
-            missing.append("GOOGLE_HOME_REDIRECT_URI")
-        return missing
-
-    def start_auth_session(self) -> Dict[str, Any]:
-        """Start a new OAuth authentication session.
+        """Get the current authentication status.
 
         Returns:
-            Dict with auth_url and session metadata.
+            Dictionary with configuration and auth status
         """
-        if not self.is_configured():
-            return {"ok": False, "error": "not_configured", "missing": self._get_missing_config()}
+        configured = self.is_configured()
+        authenticated = self.is_authenticated()
 
-        self._auth_session = AuthSession.create()
-
-        params = {
-            "client_id": self.config.client_id,
-            "redirect_uri": self.config.redirect_uri,
-            "response_type": "code",
-            "scope": " ".join(SDM_SCOPES),
-            "access_type": "offline",
-            "prompt": "consent",
-            "state": self._auth_session.state,
-            "code_challenge": self._auth_session.code_challenge,
-            "code_challenge_method": "S256",
+        status: Dict[str, Any] = {
+            "configured": configured,
+            "authenticated": authenticated,
+            "auth_url_available": configured and not authenticated,
+            "profile": self._profile.to_dict() if self._profile else None,
+            "scopes": self._tokens.scopes if self._tokens else [],
+            "test_mode": self.test_mode,
         }
 
-        auth_url = f"{GOOGLE_AUTH_URL}?{urlencode(params)}"
+        if not configured:
+            status["configuration_missing"] = []
+            if not self.client_id:
+                status["configuration_missing"].append("GOOGLE_CLIENT_ID")
+            if not self.client_secret:
+                status["configuration_missing"].append("GOOGLE_CLIENT_SECRET")
+            if not self.project_id:
+                status["configuration_missing"].append("GOOGLE_DEVICE_ACCESS_PROJECT_ID")
+
+        return status
+
+    def _generate_code_verifier(self) -> str:
+        """Generate a code verifier for PKCE."""
+        return secrets.token_urlsafe(64)[:128]
+
+    def _generate_code_challenge(self, verifier: str) -> str:
+        """Generate a code challenge from verifier using S256."""
+        digest = hashlib.sha256(verifier.encode("ascii")).digest()
+        return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+
+    def start_auth_session(self, redirect_uri: Optional[str] = None) -> Dict[str, Any]:
+        """Start a new OAuth authorization session.
+
+        Args:
+            redirect_uri: Optional override for redirect URI
+
+        Returns:
+            Dictionary with auth_url and session info
+        """
+        if not self.is_configured():
+            return {
+                "ok": False,
+                "error": "auth_env_missing",
+                "message": "Google Home not configured. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_DEVICE_ACCESS_PROJECT_ID.",
+            }
+
+        # Generate PKCE parameters
+        state = secrets.token_urlsafe(32)
+        code_verifier = self._generate_code_verifier()
+        code_challenge = self._generate_code_challenge(code_verifier)
+        actual_redirect = redirect_uri or self.redirect_uri
+
+        # Store session
+        session = AuthSession(
+            state=state,
+            code_verifier=code_verifier,
+            redirect_uri=actual_redirect,
+        )
+        self._auth_sessions[state] = session
+
+        # Clean up expired sessions
+        self._cleanup_expired_sessions()
+
+        # Build authorization URL
+        params = {
+            "client_id": self.client_id,
+            "redirect_uri": actual_redirect,
+            "response_type": "code",
+            "scope": " ".join(SDM_SCOPES),
+            "state": state,
+            "code_challenge": code_challenge,
+            "code_challenge_method": "S256",
+            "access_type": "offline",
+            "prompt": "consent",
+        }
+
+        auth_url = f"{GOOGLE_OAUTH_AUTH}?{urlencode(params)}"
 
         return {
             "ok": True,
             "auth_url": auth_url,
-            "state": self._auth_session.state,
-            "expires_at": self._auth_session.expires_at,
+            "state": state,
+            "expires_at": session.expires_at,
         }
+
+    def _cleanup_expired_sessions(self) -> None:
+        """Remove expired auth sessions."""
+        expired = [state for state, session in self._auth_sessions.items() if session.is_expired()]
+        for state in expired:
+            del self._auth_sessions[state]
 
     async def complete_auth(self, code: str, state: str) -> Dict[str, Any]:
-        """Complete OAuth flow by exchanging authorization code for tokens.
+        """Complete the OAuth flow by exchanging code for tokens.
 
         Args:
-            code: Authorization code from Google callback.
-            state: State parameter for CSRF validation.
+            code: Authorization code from Google
+            state: State parameter for verification
 
         Returns:
-            Dict with success status and profile info.
+            Dictionary with result or error
         """
-        # Validate state
-        if not self._auth_session or self._auth_session.state != state:
-            return {"ok": False, "error": "invalid_state"}
+        # Verify state and get session
+        session = self._auth_sessions.get(state)
+        if not session:
+            return {"ok": False, "error": "invalid_state", "message": "Invalid or expired state parameter"}
 
-        if not self._auth_session.is_valid():
-            return {"ok": False, "error": "session_expired"}
+        if session.is_expired():
+            del self._auth_sessions[state]
+            return {"ok": False, "error": "session_expired", "message": "Auth session has expired"}
 
         # Exchange code for tokens
+        client = await self._get_client()
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    GOOGLE_TOKEN_URL,
-                    data={
-                        "client_id": self.config.client_id,
-                        "client_secret": self.config.client_secret,
-                        "code": code,
-                        "code_verifier": self._auth_session.code_verifier,
-                        "grant_type": "authorization_code",
-                        "redirect_uri": self.config.redirect_uri,
-                    },
-                )
+            response = await client.post(
+                GOOGLE_OAUTH_TOKEN,
+                data={
+                    "client_id": self.client_id,
+                    "client_secret": self.client_secret,
+                    "code": code,
+                    "code_verifier": session.code_verifier,
+                    "grant_type": "authorization_code",
+                    "redirect_uri": session.redirect_uri,
+                },
+            )
 
-                if response.status_code != 200:
-                    error_data = response.json() if response.content else {}
-                    logger.error("Token exchange failed: %s", error_data)
-                    return {
-                        "ok": False,
-                        "error": "token_exchange_failed",
-                        "details": error_data.get("error_description", str(response.status_code)),
-                    }
+            if response.status_code != 200:
+                # Safe JSON decode handling for error response
+                if response.headers.get("content-type", "").startswith("application/json"):
+                    try:
+                        error_data = response.json()
+                    except json.JSONDecodeError:
+                        error_data = {}
+                else:
+                    error_data = {}
+                return {
+                    "ok": False,
+                    "error": "token_exchange_failed",
+                    "message": error_data.get("error_description", f"HTTP {response.status_code}"),
+                }
 
-                token_data = response.json()
+            token_data = response.json()
 
-        except Exception as e:
-            logger.exception("Error during token exchange")
-            return {"ok": False, "error": "network_error", "details": str(e)}
+            # Verify access_token is present
+            access_token = token_data.get("access_token")
+            if not access_token:
+                return {
+                    "ok": False,
+                    "error": "missing_access_token",
+                    "message": "Missing access_token in Google OAuth response.",
+                }
 
-        # Store tokens
-        expires_in = token_data.get("expires_in", 3600)
-        self._tokens = TokenData(
-            access_token=token_data.get("access_token", ""),
-            refresh_token=token_data.get("refresh_token", ""),
-            token_type=token_data.get("token_type", "Bearer"),
-            expires_at=time.time() + expires_in,
-            scopes=token_data.get("scope", "").split(),
-        )
+            # Calculate expiration time
+            expires_in = token_data.get("expires_in", 3600)
+            expires_at = time.time() + expires_in
 
-        # Clear auth session
-        self._auth_session = None
+            self._tokens = TokenData(
+                access_token=access_token,
+                refresh_token=token_data.get("refresh_token"),
+                token_type=token_data.get("token_type", "Bearer"),
+                expires_at=expires_at,
+                scopes=token_data.get("scope", "").split(),
+            )
 
-        # Save tokens to disk
-        self._save_tokens()
+            # Save tokens
+            self._save_tokens()
 
-        return {
-            "ok": True,
-            "profile": {"email": self._tokens.profile_email},
-            "expires_at": self._tokens.expires_at,
-        }
+            # Fetch user profile
+            await self._fetch_profile()
 
-    async def refresh_access_token(self) -> bool:
-        """Refresh the access token using refresh token.
+            # Clean up session
+            del self._auth_sessions[state]
 
-        Returns:
-            True if refresh was successful.
-        """
-        if not self._tokens or not self._tokens.refresh_token:
-            return False
+            return {
+                "ok": True,
+                "profile": self._profile.to_dict() if self._profile else None,
+                "authenticated": True,
+            }
 
+        except Exception as exc:
+            logger.exception("Error completing OAuth flow")
+            return {"ok": False, "error": "auth_error", "message": str(exc)}
+
+    async def _fetch_profile(self) -> None:
+        """Fetch the user's profile from Google."""
+        if not self._tokens:
+            return
+
+        client = await self._get_client()
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    GOOGLE_TOKEN_URL,
-                    data={
-                        "client_id": self.config.client_id,
-                        "client_secret": self.config.client_secret,
-                        "refresh_token": self._tokens.refresh_token,
-                        "grant_type": "refresh_token",
-                    },
+            response = await client.get(
+                GOOGLE_USERINFO,
+                headers={"Authorization": f"Bearer {self._tokens.access_token}"},
+            )
+            if response.status_code == 200:
+                data = response.json()
+                self._profile = UserProfile(
+                    email=data.get("email", "unknown"),
+                    name=data.get("name"),
+                    picture=data.get("picture"),
                 )
-
-                if response.status_code != 200:
-                    logger.error("Token refresh failed: %s", response.text)
-                    return False
-
-                token_data = response.json()
-
-        except Exception:
-            logger.exception("Error during token refresh")
-            return False
-
-        # Update tokens
-        expires_in = token_data.get("expires_in", 3600)
-        self._tokens.access_token = token_data.get("access_token", self._tokens.access_token)
-        self._tokens.expires_at = time.time() + expires_in
-
-        # Save updated tokens
-        self._save_tokens()
-
-        return True
+        except Exception as exc:
+            logger.warning("Failed to fetch user profile: %s", exc)
 
     async def _ensure_valid_token(self) -> bool:
-        """Ensure we have a valid access token, refreshing if needed."""
+        """Ensure we have a valid access token, refreshing if needed.
+
+        Returns:
+            True if we have a valid token, False otherwise
+        """
         if not self._tokens:
             return False
 
-        if self._tokens.is_expired():
-            return await self.refresh_access_token()
+        if not self._tokens.is_expired():
+            return True
 
-        return True
+        # Try to refresh
+        if not self._tokens.refresh_token:
+            return False
 
-    async def _get_http_client(self) -> httpx.AsyncClient:
-        """Get HTTP client with authentication headers."""
-        if not await self._ensure_valid_token():
-            raise RuntimeError("No valid authentication")
-
-        if self._http_client is None:
-            self._http_client = httpx.AsyncClient(
-                headers={
-                    "Authorization": f"Bearer {self._tokens.access_token}",
-                    "Content-Type": "application/json",
+        client = await self._get_client()
+        try:
+            response = await client.post(
+                GOOGLE_OAUTH_TOKEN,
+                data={
+                    "client_id": self.client_id,
+                    "client_secret": self.client_secret,
+                    "refresh_token": self._tokens.refresh_token,
+                    "grant_type": "refresh_token",
                 },
-                timeout=30.0,
             )
-        else:
-            # Update auth header in case token was refreshed
-            self._http_client.headers["Authorization"] = f"Bearer {self._tokens.access_token}"
 
-        return self._http_client
+            if response.status_code != 200:
+                logger.error("Token refresh failed: %s", response.text)
+                return False
 
-    async def __aenter__(self):
-        """Pozwala używać serwisu jako asynchronicznego context managera."""
-        return self
+            token_data = response.json()
+            expires_in = token_data.get("expires_in", 3600)
 
-    async def __aexit__(self, exc_type, exc, tb):
-        """Zamyka klienta HTTPX przy wyjściu z context managera."""
-        await self.close()
+            # Verify access_token is present
+            access_token = token_data.get("access_token")
+            if not access_token:
+                logger.error("Token refresh response missing access_token: %s", token_data)
+                return False
 
-    async def close(self):
-        """Zamyka klienta HTTPX, aby uniknąć wycieków zasobów."""
-        if self._http_client is not None:
-            await self._http_client.aclose()
-            self._http_client = None
-        else:
-            logger.debug("close() wywołane, ale klient HTTPX już zamknięty lub nieutworzony.")
-    def _get_auth_headers(self) -> Dict[str, str]:
-        """Get authentication headers for HTTP requests."""
+            self._tokens.access_token = access_token
+            self._tokens.expires_at = time.time() + expires_in
+            if "scope" in token_data:
+                self._tokens.scopes = token_data["scope"].split()
+
+            self._save_tokens()
+            return True
+
+        except Exception as exc:
+            logger.exception("Error refreshing token: %s", exc)
+            return False
+
+    def _load_tokens(self) -> None:
+        """Load tokens from storage."""
+        if not self.tokens_path.exists():
+            return
+
+        try:
+            with open(self.tokens_path, "r") as f:
+                data = json.load(f)
+                self._tokens = TokenData.from_dict(data.get("tokens", {}))
+                if "profile" in data:
+                    self._profile = UserProfile(
+                        email=data["profile"].get("email", "unknown"),
+                        name=data["profile"].get("name"),
+                        picture=data["profile"].get("picture"),
+                        updated_at=data["profile"].get("updated_at", time.time()),
+                    )
+                logger.info("Loaded Google Home tokens from %s", self.tokens_path)
+        except Exception as exc:
+            logger.warning("Failed to load tokens from %s: %s", self.tokens_path, exc)
+
+    def _save_tokens(self) -> None:
+        """Save tokens to storage."""
         if not self._tokens:
-            raise RuntimeError("No valid authentication")
-        return {
-            "Authorization": f"Bearer {self._tokens.access_token}",
-            "Content-Type": "application/json",
-        }
+            return
+
+        try:
+            self.tokens_path.parent.mkdir(parents=True, exist_ok=True)
+            data = {
+                "tokens": self._tokens.to_dict(),
+                "saved_at": time.time(),
+            }
+            if self._profile:
+                data["profile"] = self._profile.to_dict()
+
+            with open(self.tokens_path, "w") as f:
+                json.dump(data, f, indent=2)
+            logger.info("Saved Google Home tokens to %s", self.tokens_path)
+        except Exception as exc:
+            logger.error("Failed to save tokens to %s: %s", self.tokens_path, exc)
 
     async def list_devices(self, use_cache: bool = True) -> Dict[str, Any]:
-        """List devices from Google Home / SDM.
+        """List devices from Google SDM.
 
         Args:
-            use_cache: If True, return cached devices if available and fresh.
+            use_cache: If True, return cached devices if available
 
         Returns:
-            Dict with devices list or error.
+            Dictionary with devices list or error
         """
-        if self.config.test_mode:
+        if self.test_mode:
             return self._get_mock_devices()
 
         if not self.is_authenticated():
-            return {"ok": False, "error": "not_authenticated"}
+            return {"ok": False, "error": "not_authenticated", "devices": []}
 
-        # Check cache using defined TTL
-        if use_cache and self._devices_cache and (time.time() - self._cache_timestamp) < DEVICE_CACHE_TTL_SECONDS:
-            return {"ok": True, "devices": self._devices_cache, "from_cache": True}
+        # Return cached devices if fresh (< 30 seconds)
+        if use_cache and self._devices_cache and (time.time() - self._devices_cache_time) < 30:
+            return {"ok": True, "devices": self._devices_cache, "cached": True}
 
+        if not await self._ensure_valid_token():
+            return {"ok": False, "error": "token_refresh_failed", "devices": []}
+
+        client = await self._get_client()
         try:
-            if not await self._ensure_valid_token():
-                return {"ok": False, "error": "auth_expired"}
+            url = f"{SDM_API_BASE}/enterprises/{self.project_id}/devices"
+            response = await client.get(
+                url,
+                headers={"Authorization": f"Bearer {self._tokens.access_token}"},
+            )
 
-            url = f"{SDM_API_BASE}/enterprises/{self.config.project_id}/devices"
+            if response.status_code == 401:
+                # Token might be invalid, try refresh once
+                if await self._ensure_valid_token():
+                    response = await client.get(
+                        url,
+                        headers={"Authorization": f"Bearer {self._tokens.access_token}"},
+                    )
 
-            async with httpx.AsyncClient(headers=self._get_auth_headers(), timeout=30.0) as client:
-                response = await client.get(url)
+            if response.status_code != 200:
+                error_msg = response.text[:200]
+                logger.error("SDM devices request failed: %s - %s", response.status_code, error_msg)
+                return {
+                    "ok": False,
+                    "error": f"sdm_error_{response.status_code}",
+                    "message": error_msg,
+                    "devices": [],
+                }
 
-                if response.status_code == 401:
-                    # Token might be expired, try refresh
-                    if await self.refresh_access_token():
-                        async with httpx.AsyncClient(headers=self._get_auth_headers(), timeout=30.0) as retry_client:
-                            response = await retry_client.get(url)
-                    else:
-                        return {"ok": False, "error": "auth_expired"}
+            data = response.json()
+            devices = data.get("devices", [])
 
-                if response.status_code != 200:
-                    error_data = response.json() if response.content else {}
-                    return {
-                        "ok": False,
-                        "error": "sdm_error",
-                        "status_code": response.status_code,
-                        "details": error_data.get("error", {}).get("message", "Unknown error"),
-                    }
+            # Transform to expected format
+            formatted_devices = []
+            for device in devices:
+                formatted_device = {
+                    "name": device.get("name", ""),
+                    "type": device.get("type", "UNKNOWN"),
+                    "traits": device.get("traits", {}),
+                    "parentRelations": device.get("parentRelations", []),
+                }
+                formatted_devices.append(formatted_device)
 
-                data = response.json()
-                devices = data.get("devices", [])
+            self._devices_cache = formatted_devices
+            self._devices_cache_time = time.time()
 
-            # Transform SDM devices to our format
-            transformed = [self._transform_device(d) for d in devices]
+            return {"ok": True, "devices": formatted_devices}
 
-            # Update cache
-            self._devices_cache = transformed
-            self._cache_timestamp = time.time()
-
-            return {"ok": True, "devices": transformed, "from_cache": False}
-
-        except Exception as e:
-            logger.exception("Error fetching devices")
-            return {"ok": False, "error": "network_error", "details": str(e)}
+        except Exception as exc:
+            logger.exception("Error fetching SDM devices")
+            return {"ok": False, "error": "sdm_request_failed", "message": str(exc), "devices": []}
 
     async def send_command(self, device_id: str, command: str, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Send command to a device.
+        """Send a command to a device.
 
         Args:
-            device_id: Full device name/path.
-            command: Command name (e.g., 'action.devices.commands.OnOff').
-            params: Command parameters.
+            device_id: Full device resource name
+            command: Command name (e.g., action.devices.commands.OnOff)
+            params: Command parameters
 
         Returns:
-            Dict with command result.
+            Dictionary with result or error
         """
-        if self.config.test_mode:
-            return self._mock_command(device_id, command, params)
+        if self.test_mode:
+            return self._apply_mock_command(device_id, command, params)
 
         if not self.is_authenticated():
             return {"ok": False, "error": "not_authenticated"}
@@ -663,37 +678,47 @@ class GoogleHomeService:
             "ok": True,
             "devices": [
                 {
-                    "name": "enterprises/test/devices/light-living-room",
+                    "name": "enterprises/test-project/devices/light-living-room",
                     "type": "sdm.devices.types.LIGHT",
                     "traits": {
                         "sdm.devices.traits.OnOff": {"on": True},
-                        "sdm.devices.traits.Brightness": {"brightness": 0.7},
+                        "sdm.devices.traits.Brightness": {"brightness": 70},
+                        "sdm.devices.traits.ColorSetting": {"color": {"temperatureK": 3200}},
                     },
-                    "room": "Living Room",
-                    "structure": "Home",
-                    "custom_name": "Main Light",
                 },
                 {
-                    "name": "enterprises/test/devices/thermostat-hall",
+                    "name": "enterprises/test-project/devices/thermostat-hall",
                     "type": "sdm.devices.types.THERMOSTAT",
                     "traits": {
-                        "sdm.devices.traits.Temperature": {"ambientTemperatureCelsius": 21.5},
+                        "sdm.devices.traits.ThermostatMode": {
+                            "mode": "HEATCOOL",
+                            "availableModes": ["OFF", "HEAT", "COOL", "HEATCOOL"],
+                        },
                         "sdm.devices.traits.ThermostatTemperatureSetpoint": {
                             "heatCelsius": 20.0,
                             "coolCelsius": 24.0,
                         },
-                        "sdm.devices.traits.ThermostatMode": {"mode": "HEAT"},
+                        "sdm.devices.traits.Temperature": {
+                            "ambientTemperatureCelsius": 21.5,
+                        },
                     },
-                    "room": "Hallway",
-                    "structure": "Home",
-                    "custom_name": "Smart Thermostat",
+                },
+                {
+                    "name": "enterprises/test-project/devices/vacuum-dusty",
+                    "type": "sdm.devices.types.VACUUM",
+                    "traits": {
+                        "sdm.devices.traits.StartStop": {"isRunning": False, "isPaused": False},
+                        "sdm.devices.traits.Dock": {"available": True},
+                    },
                 },
             ],
             "test_mode": True,
         }
 
-    def _mock_command(self, device_id: str, command: str, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle command in test mode."""
+    def _apply_mock_command(
+        self, device_id: str, command: str, params: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Apply command in mock mode (update local cache)."""
         return {
             "ok": True,
             "device": device_id,
@@ -703,19 +728,54 @@ class GoogleHomeService:
         }
 
 
-# Singleton instance
+# Singleton instance for the service
 _google_home_service: Optional[GoogleHomeService] = None
+_google_home_service_lock = threading.Lock()
 
 
-def get_google_home_service() -> GoogleHomeService:
-    """Get or create the singleton GoogleHomeService instance."""
+def get_google_home_service(
+    client_id: Optional[str] = None,
+    client_secret: Optional[str] = None,
+    project_id: Optional[str] = None,
+    redirect_uri: str = "http://localhost:8000/api/home/auth/callback",
+    tokens_path: str = "config/local/google_tokens_pc.json",
+    test_mode: bool = False,
+    reset: bool = False,
+) -> GoogleHomeService:
+    """Get or create the Google Home service singleton.
+
+    Thread-safe singleton pattern using Lock.
+
+    Args:
+        client_id: Google OAuth Client ID
+        client_secret: Google OAuth Client Secret
+        project_id: Google Device Access Project ID
+        redirect_uri: OAuth callback URI
+        tokens_path: Path to store OAuth tokens
+        test_mode: If True, use mock responses
+        reset: If True, create a new instance
+
+    Returns:
+        GoogleHomeService instance
+    """
     global _google_home_service
-    if _google_home_service is None:
-        _google_home_service = GoogleHomeService()
+
+    with _google_home_service_lock:
+        if reset or _google_home_service is None:
+            _google_home_service = GoogleHomeService(
+                client_id=client_id,
+                client_secret=client_secret,
+                project_id=project_id,
+                redirect_uri=redirect_uri,
+                tokens_path=tokens_path,
+                test_mode=test_mode,
+            )
+
     return _google_home_service
 
 
 def reset_google_home_service() -> None:
-    """Reset the singleton instance (for testing)."""
+    """Reset the Google Home service singleton (useful for testing)."""
     global _google_home_service
-    _google_home_service = None
+    with _google_home_service_lock:
+        _google_home_service = None
