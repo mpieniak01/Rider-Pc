@@ -13,7 +13,7 @@ supports_brightness = true
 on_command = "Włącz Pokój Lights"
 off_command = "Wyłącz Pokój Lights"
 brightness_template = "Ustaw jasność Pokój Lights na {value}%"
-notes = "Grupa światła w pokoju (2 lampy), obecnie 85%."
+notes = "Grupa światła w pokoju (2 lampy)."
 
 [[devices]]
 id = "xiaomi_air_purifier_compact"
