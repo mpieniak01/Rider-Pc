@@ -26,7 +26,7 @@ pc_client/api/routers/mcp_router.py
 - `pc_client/mcp/tools/robot.py` – `robot_move`, `robot_status`.
 - `pc_client/mcp/tools/smart_home.py` – `toggle_light`, `set_scene`.
 - `pc_client/mcp/tools/git.py` – `get_changed_files`, `run_tests` (read-only na start).
-- Pierwsze narzędzia do wdrożenia (jednozdaniowe definicje):
+- Pierwsze narzędzia do wdrożenia (z krótkimi opisami):
   - `system.get_time` – zwraca lokalny czas Rider-PC (ISO 8601 + strefa).
   - `robot.status` – odczytuje aktualny stan robota (połączenie, bateria, tryb).
   - `robot.move` – wysyła prostą komendę ruchu (np. `forward`, `stop`) z walidacją parametrów.
