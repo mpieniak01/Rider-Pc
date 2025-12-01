@@ -287,8 +287,8 @@ class TestGoogleHomeService:
         assert result["ok"] is False
         assert result["error"] == "not_authenticated"
 
-    def test_clear_tokens(self, config, tmp_path):
-        """Test clearing tokens."""
+    def test_clear_auth(self, config, tmp_path):
+        """Test clearing authentication and tokens."""
         config.tokens_path = str(tmp_path / "tokens.json")
         service = GoogleHomeService(config)
         service._tokens = TokenData(
@@ -297,7 +297,7 @@ class TestGoogleHomeService:
             expires_at=time.time() + 3600,
         )
 
-        service.clear_tokens()
+        service.clear_auth()
 
         assert service._tokens is None
         assert service.is_authenticated() is False
