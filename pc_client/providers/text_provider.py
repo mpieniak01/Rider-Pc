@@ -3,7 +3,7 @@
 import logging
 import os
 from collections import deque
-from typing import Dict, Any, List, Optional, Deque, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Any, List, Optional, Deque
 from pc_client.providers.base import BaseProvider, TaskEnvelope, TaskResult, TaskType, TaskStatus
 from pc_client.telemetry.metrics import (
     tasks_processed_total,

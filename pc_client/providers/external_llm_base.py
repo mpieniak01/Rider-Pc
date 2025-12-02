@@ -1,5 +1,6 @@
 """Base class for external LLM providers (Gemini, ChatGPT, etc.)."""
 
+import asyncio
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, replace
@@ -178,8 +179,6 @@ class ExternalLLMProvider(ABC):
 
     async def _async_sleep(self, seconds: float) -> None:
         """Async sleep helper."""
-        import asyncio
-
         await asyncio.sleep(seconds)
 
     def get_mock_response(self, prompt: str) -> LLMResponse:

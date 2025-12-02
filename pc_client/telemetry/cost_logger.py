@@ -10,6 +10,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+# Module logger for debugging
+_logger = logging.getLogger(__name__)
+
 # Cost rates per 1M tokens (approximate, may vary by model)
 # These are reference values and should be updated based on current pricing
 COST_RATES = {
@@ -179,20 +182,17 @@ def get_daily_summary(date: Optional[datetime] = None) -> Dict[str, Any]:
                         try:
                             tokens_in = int(part.split(":")[1])
                         except (ValueError, IndexError):
-                            # Malformed log line - skip this value silently
-                            pass
+                            _logger.debug("Malformed log line, skipping token count: %s", part)
                     elif part.startswith("out:"):
                         try:
                             tokens_out = int(part.split(":")[1])
                         except (ValueError, IndexError):
-                            # Malformed log line - skip this value silently
-                            pass
+                            _logger.debug("Malformed log line, skipping token count: %s", part)
                     elif part.startswith("$"):
                         try:
                             cost = float(part[1:])
                         except (ValueError, IndexError):
-                            # Malformed cost value - skip this value silently
-                            pass
+                            _logger.debug("Malformed cost value, skipping: %s", part)
 
                 # Update summary
                 if provider not in summary["providers"]:
