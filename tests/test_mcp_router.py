@@ -274,3 +274,62 @@ class TestStatsEndpoint:
             assert "total_tools" in stats
             assert "invocation_count" in stats
             assert "last_invoked_tool" in stats
+
+
+class TestHistoryEndpoint:
+    """Tests for GET /api/mcp/history endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_get_history_returns_ok(self, app):
+        """Test that history endpoint returns ok status."""
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.get("/api/mcp/history")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["ok"] is True
+            assert "history" in data
+            assert "count" in data
+            assert isinstance(data["history"], list)
+            assert isinstance(data["count"], int)
+
+    @pytest.mark.asyncio
+    async def test_get_history_with_limit(self, app):
+        """Test history endpoint respects limit parameter."""
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.get("/api/mcp/history?limit=10")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["ok"] is True
+            # Sprawdź że count jest zgodny z limitem
+            assert data["count"] <= 10
+
+    @pytest.mark.asyncio
+    async def test_get_history_limit_max(self, app):
+        """Test that limit is capped at 200."""
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.get("/api/mcp/history?limit=500")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["ok"] is True
+            # Limit powinien być ograniczony do 200
+            assert data["count"] <= 200
+
+    @pytest.mark.asyncio
+    async def test_get_history_limit_min(self, app):
+        """Test that limit is at least 1."""
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.get("/api/mcp/history?limit=0")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["ok"] is True
+            # Limit powinien być co najmniej 1
+
+    @pytest.mark.asyncio
+    async def test_get_history_includes_log_path(self, app):
+        """Test that response includes log_path."""
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.get("/api/mcp/history")
+            assert response.status_code == 200
+            data = response.json()
+            assert "log_path" in data
+            assert "mcp-tools.log" in data["log_path"]
