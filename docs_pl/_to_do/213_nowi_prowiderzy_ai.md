@@ -168,7 +168,7 @@ Chcemy traktować każdy etap pipeline’u jako niezależny provider z możliwo�
   - **Hybrydowy tryb** – jeśli zewnętrzny model zwróci żądanie, którego nie obsłuży (np. `robot.move` z confirm), TextProvider wykonuje MCP lokalnie i injektuje wynik jako kolejną wiadomość (tak jak w trybie lokalnym).
 - Wymagania:
   - serializacja JSON Schema narzędzi MCP do formatu wymaganego przez Gemini/ChatGPT (nazwa, opis, parametry).
-  - logi `mcp-tools.log` oznaczają źródło (`source_backend: gemini/chatgpt/local`), żeby wiemy kto poprosił o narzędzie.
+  - logi `mcp-tools.log` oznaczają źródło (`source_backend: gemini/chatgpt/local`), żebyśmy wiedzieli, kto poprosił o narzędzie.
   - tryb mock: symulacja tool-call przy wyłączonych usługach.
 
 ## Otwarte pytania
