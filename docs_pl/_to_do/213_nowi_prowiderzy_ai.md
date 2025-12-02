@@ -165,7 +165,7 @@ Chcemy traktować każdy etap pipeline’u jako niezależny provider z możliwo�
 - Scenariusze:
   - **Lokalny LLM** – narzędzia MCP wywoływane tak jak dziś (tool-call z odpowiedzi modelu).
   - **Gemini / ChatGPT** – jeśli backend wspiera tool calling (Gemini 1.5 Pro, GPT-4o), przekazujemy definicje MCP jako „available tools”. W razie braku wsparcia interpreter zwraca do TextProvidera odpowiedni prompt („Jeśli potrzebujesz narzędzia, poproś Ridera aby wykonał `system.get_time`”).
-  - **Hybrdowy tryb** – jeśli zewnętrzny model zwróci żądanie, którego nie obsłuży (np. `robot.move` z confirm), TextProvider wykonuje MCP lokalnie i injektuje wynik jako kolejną wiadomość (tak jak w trybie lokalnym).
+  - **Hybrydowy tryb** – jeśli zewnętrzny model zwróci żądanie, którego nie obsłuży (np. `robot.move` z confirm), TextProvider wykonuje MCP lokalnie i injektuje wynik jako kolejną wiadomość (tak jak w trybie lokalnym).
 - Wymagania:
   - serializacja JSON Schema narzędzi MCP do formatu wymaganego przez Gemini/ChatGPT (nazwa, opis, parametry).
   - logi `mcp-tools.log` oznaczają źródło (`source_backend: gemini/chatgpt/local`), żeby wiemy kto poprosił o narzędzie.
