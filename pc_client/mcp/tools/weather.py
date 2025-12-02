@@ -25,6 +25,7 @@ _weather_cache_lock = threading.Lock()
 def _get_settings():
     """Lazy import settings to avoid circular imports."""
     from pc_client.config.settings import settings
+
     return settings
 
 
@@ -63,12 +64,7 @@ def _fetch_openweather_data(api_key: str, location: str) -> dict:
     # Buduj URL API z poprawnym URL encoding
     # UWAGA: Nie loguj pełnego URL, ponieważ zawiera klucz API!
     base_url = "https://api.openweathermap.org/data/2.5/weather"
-    params = urllib.parse.urlencode({
-        "q": location,
-        "appid": api_key,
-        "units": "metric",
-        "lang": "pl"
-    })
+    params = urllib.parse.urlencode({"q": location, "appid": api_key, "units": "metric", "lang": "pl"})
     url = f"{base_url}?{params}"
 
     try:

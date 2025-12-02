@@ -218,6 +218,7 @@ class TestToolCallHandler:
     def test_get_tools_for_llm(self):
         """Test get_tools_for_llm returns list of tools."""
         from pc_client.mcp.tool_call_handler import get_tools_for_llm
+
         tools = get_tools_for_llm()
         assert isinstance(tools, list)
         assert len(tools) > 0
@@ -228,6 +229,7 @@ class TestToolCallHandler:
     def test_get_tools_prompt(self):
         """Test get_tools_prompt returns non-empty string."""
         from pc_client.mcp.tool_call_handler import get_tools_prompt
+
         prompt = get_tools_prompt()
         assert isinstance(prompt, str)
         assert len(prompt) > 0
@@ -236,6 +238,7 @@ class TestToolCallHandler:
     def test_parse_tool_call_valid_json(self):
         """Test parsing valid tool call JSON."""
         from pc_client.mcp.tool_call_handler import parse_tool_call
+
         response = '```json\n{"tool_call": {"name": "system.get_time", "arguments": {}}}\n```'
         result = parse_tool_call(response)
         assert result is not None
@@ -244,6 +247,7 @@ class TestToolCallHandler:
     def test_parse_tool_call_no_tool(self):
         """Test parsing response without tool call."""
         from pc_client.mcp.tool_call_handler import parse_tool_call
+
         response = "This is just a normal text response."
         result = parse_tool_call(response)
         assert result is None
@@ -252,6 +256,7 @@ class TestToolCallHandler:
     async def test_execute_tool_call(self):
         """Test executing a tool call."""
         from pc_client.mcp.tool_call_handler import execute_tool_call
+
         result = await execute_tool_call("system.get_time")
         assert result.ok is True
         assert result.tool == "system.get_time"
@@ -261,6 +266,7 @@ class TestToolCallHandler:
         """Test formatting successful tool result."""
         from pc_client.mcp.tool_call_handler import format_tool_result
         from pc_client.mcp.registry import ToolInvokeResult
+
         result = ToolInvokeResult(
             ok=True,
             tool="system.get_time",
@@ -273,6 +279,7 @@ class TestToolCallHandler:
         """Test formatting failed tool result."""
         from pc_client.mcp.tool_call_handler import format_tool_result
         from pc_client.mcp.registry import ToolInvokeResult
+
         result = ToolInvokeResult(
             ok=False,
             tool="robot.move",
@@ -335,13 +342,15 @@ class TestTextProviderMCPIntegration:
 
         # Symuluj dodanie wpisów do historii
         for i in range(10):
-            provider._mcp_call_history.append({
-                "tool": f"test.tool_{i}",
-                "arguments": {},
-                "ok": True,
-                "result": {"value": i},
-                "error": None,
-            })
+            provider._mcp_call_history.append(
+                {
+                    "tool": f"test.tool_{i}",
+                    "arguments": {},
+                    "ok": True,
+                    "result": {"value": i},
+                    "error": None,
+                }
+            )
 
         # Sprawdź limit
         history_5 = provider.get_mcp_call_history(limit=5)

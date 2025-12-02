@@ -261,11 +261,13 @@ def get_log(count: int = 10, path: Optional[str] = None) -> dict:
             continue
         parts = line.split("|", 3)
         if len(parts) >= 4:
-            commits.append({
-                "sha": parts[0][:8],
-                "author": parts[1],
-                "message": parts[2],
-                "relative_time": parts[3],
-            })
+            commits.append(
+                {
+                    "sha": parts[0][:8],
+                    "author": parts[1],
+                    "message": parts[2],
+                    "relative_time": parts[3],
+                }
+            )
 
     return {"commits": commits, "count": len(commits)}

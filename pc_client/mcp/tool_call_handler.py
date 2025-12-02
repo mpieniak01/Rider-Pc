@@ -17,11 +17,13 @@ def get_tools_for_llm() -> List[Dict[str, Any]]:
     """Zwróć listę narzędzi w formacie dla LLM."""
     tools = []
     for tool in registry.list_tools():
-        tools.append({
-            "name": tool.name,
-            "description": tool.description,
-            "parameters": tool.args_schema,
-        })
+        tools.append(
+            {
+                "name": tool.name,
+                "description": tool.description,
+                "parameters": tool.args_schema,
+            }
+        )
     return tools
 
 

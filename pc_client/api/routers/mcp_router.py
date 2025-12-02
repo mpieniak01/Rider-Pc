@@ -37,9 +37,7 @@ def _setup_mcp_file_logger():
         encoding="utf-8",
     )
     file_handler.setLevel(logging.INFO)
-    file_handler.setFormatter(
-        logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
-    )
+    file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
     mcp_file_logger.addHandler(file_handler)
     mcp_file_logger.setLevel(logging.INFO)
 
