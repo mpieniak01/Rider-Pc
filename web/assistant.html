@@ -296,7 +296,7 @@ import { initI18n, applyDom, t } from '/web/assets/i18n.js';
         if(dot){
           dot.classList.remove('is-ok', 'is-disconnected');
           if(action === 'on') dot.classList.add('is-ok');
-          else if(action === 'off') dot.classList.add('is-disconnected');
+          // dla 'off' nie dodajemy klasy .is-disconnected; można dodać .is-off jeśli istnieje styl
         }
       }
       
