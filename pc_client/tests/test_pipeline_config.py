@@ -1,6 +1,5 @@
 """Tests for pipeline_config module."""
 
-import pytest
 from pc_client.providers.pipeline_config import (
     PipelineConfig,
     PipelineProfile,

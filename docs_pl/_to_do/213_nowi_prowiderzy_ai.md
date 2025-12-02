@@ -100,9 +100,14 @@ Aby agent kodowania (np. GitHub Copilot) mógł automatycznie rozszerzać Rider-
 ### Gemini
 1. **Autoryzacja**
    - `GEMINI_API_KEY` przechowywany w `.env`.
-   - Klucz API przekazujemy jako parametr query string: `?key=<API_KEY>`. Nie używamy nagłówka `x-goog-api-key` dla standardowego klucza API.
-   - Nagłówek `Authorization: Bearer <token>` stosujemy wyłącznie w trybie OAuth2 (Service Account). Opcjonalnie można dodać nagłówek `x-goog-api-client` z metadanymi klienta.
+   - Zalecane: klucz API przekazujemy w nagłówku `x-goog-api-key: <API_KEY>`. Przykład:
+     ```
+     x-goog-api-key: twój_klucz_gemini
+     ```
+   - **Ostrzeżenie:** Przekazywanie klucza API w query stringu (`?key=<API_KEY>`) grozi wyciekiem danych przez logi, proxy, historię przeglądarki i nagłówki Referer. Stosuj wyłącznie w testach, nigdy w produkcji!
+   - Nagłówek `Authorization: Bearer <token>` stosujemy w trybie OAuth2 (Service Account). Rekomendowane dla produkcji i środowisk wymagających podwyższonego bezpieczeństwa.
    - Opcjonalnie tryb OAuth (Service Account) – generujemy JWT oraz token dostępu.
+   - Można dodać nagłówek `x-goog-api-client` z metadanymi klienta.
 2. **Wysyłanie żądań**
    - Tekst: `POST https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`
    - Audio/ASR/TTS: te same endpointy z odpowiednimi `mime_type`.
