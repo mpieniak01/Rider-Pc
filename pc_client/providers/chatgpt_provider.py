@@ -262,14 +262,17 @@ class ChatGPTProvider(ExternalLLMProvider):
                 if isinstance(args, str):
                     try:
                         import json
+
                         args = json.loads(args)
                     except (json.JSONDecodeError, TypeError):
                         args = {}
-                tool_calls.append({
-                    "id": tc.get("id"),
-                    "name": func.get("name", ""),
-                    "arguments": args,
-                })
+                tool_calls.append(
+                    {
+                        "id": tc.get("id"),
+                        "name": func.get("name", ""),
+                        "arguments": args,
+                    }
+                )
 
         # Extract usage
         usage = data.get("usage", {})

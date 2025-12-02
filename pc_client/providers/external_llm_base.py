@@ -179,6 +179,7 @@ class ExternalLLMProvider(ABC):
     async def _async_sleep(self, seconds: float) -> None:
         """Async sleep helper."""
         import asyncio
+
         await asyncio.sleep(seconds)
 
     def get_mock_response(self, prompt: str) -> LLMResponse:

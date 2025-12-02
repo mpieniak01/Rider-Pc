@@ -241,10 +241,12 @@ class GeminiProvider(ExternalLLMProvider):
                 text_parts.append(part["text"])
             elif "functionCall" in part:
                 fc = part["functionCall"]
-                tool_calls.append({
-                    "name": fc.get("name", ""),
-                    "arguments": fc.get("args", {}),
-                })
+                tool_calls.append(
+                    {
+                        "name": fc.get("name", ""),
+                        "arguments": fc.get("args", {}),
+                    }
+                )
 
         text = "\n".join(text_parts)
 

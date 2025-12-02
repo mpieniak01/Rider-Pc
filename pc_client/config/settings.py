@@ -190,23 +190,17 @@ class Settings:
     gemini_api_key: Optional[str] = field(default_factory=lambda: os.getenv("GEMINI_API_KEY"))
     gemini_model: str = field(default_factory=lambda: os.getenv("GEMINI_MODEL", "gemini-2.0-flash"))
     gemini_endpoint: str = field(
-        default_factory=lambda: os.getenv(
-            "GEMINI_ENDPOINT", "https://generativelanguage.googleapis.com/v1beta"
-        )
+        default_factory=lambda: os.getenv("GEMINI_ENDPOINT", "https://generativelanguage.googleapis.com/v1beta")
     )
 
     # OpenAI ChatGPT API configuration
     openai_api_key: Optional[str] = field(default_factory=lambda: os.getenv("OPENAI_API_KEY"))
     openai_model: str = field(default_factory=lambda: os.getenv("OPENAI_MODEL", "gpt-4o-mini"))
-    openai_base_url: str = field(
-        default_factory=lambda: os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
-    )
+    openai_base_url: str = field(default_factory=lambda: os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"))
 
     # Text provider backend configuration
     # Available backends: "local" (Ollama), "gemini", "chatgpt", "auto"
-    text_provider_backend: str = field(
-        default_factory=lambda: os.getenv("TEXT_PROVIDER_BACKEND", "local")
-    )
+    text_provider_backend: str = field(default_factory=lambda: os.getenv("TEXT_PROVIDER_BACKEND", "local"))
 
     @property
     def rider_pi_base_url(self) -> str:

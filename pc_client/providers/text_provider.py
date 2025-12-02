@@ -109,9 +109,7 @@ class TextProvider(BaseProvider):
         # External provider config from Settings or config dict
         self._gemini_api_key = self.config.get("gemini_api_key")
         self._gemini_model = self.config.get("gemini_model", "gemini-2.0-flash")
-        self._gemini_endpoint = self.config.get(
-            "gemini_endpoint", "https://generativelanguage.googleapis.com/v1beta"
-        )
+        self._gemini_endpoint = self.config.get("gemini_endpoint", "https://generativelanguage.googleapis.com/v1beta")
         self._openai_api_key = self.config.get("openai_api_key")
         self._openai_model = self.config.get("openai_model", "gpt-4o-mini")
         self._openai_base_url = self.config.get("openai_base_url", "https://api.openai.com/v1")
@@ -173,6 +171,7 @@ class TextProvider(BaseProvider):
         if self._gemini_api_key or self.use_mock:
             try:
                 from pc_client.providers.gemini_provider import GeminiProvider
+
                 self._gemini_provider = GeminiProvider(
                     api_key=self._gemini_api_key,
                     model=self._gemini_model,
@@ -191,6 +190,7 @@ class TextProvider(BaseProvider):
         if self._openai_api_key or self.use_mock:
             try:
                 from pc_client.providers.chatgpt_provider import ChatGPTProvider
+
                 self._chatgpt_provider = ChatGPTProvider(
                     api_key=self._openai_api_key,
                     model=self._openai_model,
@@ -314,9 +314,7 @@ class TextProvider(BaseProvider):
 
         # Update metrics with provider info
         tasks_processed_total.labels(
-            provider=f'TextProvider-{used_backend}',
-            task_type='text.generate',
-            status='completed'
+            provider=f'TextProvider-{used_backend}', task_type='text.generate', status='completed'
         ).inc()
 
         # Determine model used based on backend
@@ -696,9 +694,10 @@ class TextProvider(BaseProvider):
             "chatgpt": self._chatgpt_provider.get_status() if self._chatgpt_provider else {"available": False},
             "active_backend": self.backend,
             "available_backends": [
-                b for b in [BACKEND_LOCAL, BACKEND_GEMINI, BACKEND_CHATGPT]
-                if (b == BACKEND_LOCAL and self.ollama_available) or
-                   (b == BACKEND_GEMINI and self._gemini_provider and self._gemini_provider.is_available) or
-                   (b == BACKEND_CHATGPT and self._chatgpt_provider and self._chatgpt_provider.is_available)
+                b
+                for b in [BACKEND_LOCAL, BACKEND_GEMINI, BACKEND_CHATGPT]
+                if (b == BACKEND_LOCAL and self.ollama_available)
+                or (b == BACKEND_GEMINI and self._gemini_provider and self._gemini_provider.is_available)
+                or (b == BACKEND_CHATGPT and self._chatgpt_provider and self._chatgpt_provider.is_available)
             ],
         }

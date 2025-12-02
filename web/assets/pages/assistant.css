@@ -110,6 +110,7 @@
   background: var(--color-ok);
   border-color: var(--color-ok-border);
 }
+
 .page-assistant .btn-on:hover {
   background: #7bf2a1;
   border-color: var(--color-ok);
@@ -120,6 +121,7 @@
   border-color: var(--color-border-primary);
   color: var(--color-fg-primary);
 }
+
 .page-assistant .btn-off:hover {
   background: var(--color-border-secondary);
   border-color: var(--color-border-secondary);
@@ -130,6 +132,7 @@
   border-color: var(--color-accent-border);
   color: #041321;
 }
+
 .page-assistant .btn-dock:hover {
   background: #8dd0ff;
   border-color: var(--color-accent);
