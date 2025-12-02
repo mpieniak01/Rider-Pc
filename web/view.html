@@ -209,6 +209,44 @@
       </div>
     </div>
   </div>
+
+  <!-- RZĄD 5: MCP Tools -->
+  <div class="l-grid l-grid--4 view-row view-row--5">
+    <div class="c-card">
+      <h3 data-i18n="dash.mcp.title">MCP Tools</h3>
+      <div class="c-kv">
+        <div data-i18n="dash.mcp.total_tools">Narzędzia</div><div id="mcpTotalTools" class="muted">—</div>
+        <div data-i18n="dash.mcp.invocations">Wywołania</div><div id="mcpInvocations" class="muted">—</div>
+        <div data-i18n="dash.mcp.last_tool">Ostatnie</div><div id="mcpLastTool" class="muted">—</div>
+        <div data-i18n="dash.mcp.status">Status</div><div id="mcpStatus" class="ok">aktywny</div>
+      </div>
+      <div class="c-hint c-hint--sub" data-i18n="dash.mcp.hint">Model Context Protocol – narzędzia AI.</div>
+    </div>
+
+    <div class="c-card">
+      <h3 data-i18n="dash.mcp.tools_list">Lista narzędzi</h3>
+      <div id="mcpToolsList" class="mcp-tools-list">
+        <div class="muted" data-i18n="dash.mcp.loading">Ładowanie...</div>
+      </div>
+    </div>
+
+    <div class="c-card">
+      <h3 data-i18n="dash.mcp.recent_calls">Ostatnie wywołania</h3>
+      <div id="mcpRecentCalls" class="mcp-recent-calls">
+        <div class="muted" data-i18n="dash.mcp.no_calls">Brak wywołań</div>
+      </div>
+    </div>
+
+    <div class="c-card">
+      <h3 data-i18n="dash.mcp.config">Konfiguracja MCP</h3>
+      <div class="c-kv">
+        <div data-i18n="dash.mcp.standalone">Standalone</div><div id="mcpStandalone" class="muted">—</div>
+        <div data-i18n="dash.mcp.port">Port</div><div id="mcpPort" class="muted">—</div>
+      </div>
+      <div class="c-hint c-hint--sub" data-i18n="dash.mcp.config_hint">Ustawienia MCP z /api/mcp/resources.</div>
+    </div>
+  </div>
+
   </main>
 
   <!-- Footer -->
@@ -864,6 +902,77 @@ async function tick(){
   try{ await refreshCamera(); }catch{}
 }
 
+/* ===== MCP Tools ===== */
+async function refreshMcpStats(){
+  try{
+    const r = await fetch('/api/mcp/stats', {cache:'no-store'});
+    if(!r.ok) return;
+    const j = await r.json().catch(()=>null);
+    if(j && j.stats){
+      setTxt('mcpTotalTools', j.stats.total_tools || 0);
+      setTxt('mcpInvocations', j.stats.invocation_count || 0);
+      setTxt('mcpLastTool', j.stats.last_invoked_tool || '—');
+      setCls('mcpStatus', 'ok');
+      setTxt('mcpStatus', i18n('dash.mcp.status_active'));
+    }
+  }catch{
+    setCls('mcpStatus', 'bad');
+    setTxt('mcpStatus', i18n('dash.mcp.status_error'));
+  }
+}
+
+async function refreshMcpResources(){
+  try{
+    const r = await fetch('/api/mcp/resources', {cache:'no-store'});
+    if(!r.ok) return;
+    const j = await r.json().catch(()=>null);
+    if(j && j.resources && j.resources.config){
+      const cfg = j.resources.config;
+      setTxt('mcpStandalone', cfg.mcp_standalone ? 'tak' : 'nie');
+      setTxt('mcpPort', cfg.mcp_port || 8210);
+    }
+  }catch{}
+}
+
+async function refreshMcpToolsList(){
+  try{
+    const r = await fetch('/api/mcp/tools', {cache:'no-store'});
+    if(!r.ok) return;
+    const j = await r.json().catch(()=>null);
+    if(j && j.tools){
+      const list = el('mcpToolsList');
+      if(!list) return;
+      if(!j.tools.length){
+        list.innerHTML = '<div class="muted">Brak narzędzi</div>';
+        return;
+      }
+      list.innerHTML = '';
+      j.tools.slice(0, 8).forEach(tool => {
+        const row = document.createElement('div');
+        row.className = 'mcp-tool-item';
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'mcp-tool-name';
+        nameSpan.textContent = tool.name;
+        row.appendChild(nameSpan);
+        row.title = tool.description || '';
+        list.appendChild(row);
+      });
+      if(j.tools.length > 8){
+        const more = document.createElement('div');
+        more.className = 'muted';
+        more.textContent = `... i ${j.tools.length - 8} więcej`;
+        list.appendChild(more);
+      }
+    }
+  }catch{}
+}
+
+async function refreshMcp(){
+  await refreshMcpStats();
+  await refreshMcpResources();
+  await refreshMcpToolsList();
+}
+
 /* lekkie SSE */
 function startSSE(){ try{ const es=new EventSource('/events'); es.onmessage=()=>{}; es.onerror=()=>{}; }catch{} }
 
@@ -872,6 +981,7 @@ setInterval(fetchObstacle, REFRESH_MS); fetchObstacle();
 setInterval(refreshApiMetrics, REFRESH_MS); refreshApiMetrics();
 setInterval(refreshPcSystemMetrics, PC_SYSTEM_REFRESH_MS); refreshPcSystemMetrics();
 setInterval(refreshPcServices, PC_SERVICE_REFRESH_MS); refreshPcServices();
+setInterval(refreshMcp, PC_SERVICE_REFRESH_MS); refreshMcp();
 startSSE();
 </script>
 <script type="module" src="/web/assets/menu.js"></script>

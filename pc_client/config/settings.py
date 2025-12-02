@@ -154,6 +154,15 @@ class Settings:
     rag_chunk_overlap: int = field(default_factory=lambda: _safe_int("RAG_CHUNK_OVERLAP", "100"))
     rag_persist_path: str = field(default_factory=lambda: os.getenv("RAG_PERSIST_PATH", "data/chroma_db"))
 
+    # MCP (Model Context Protocol) configuration
+    mcp_standalone: bool = field(default_factory=lambda: os.getenv("MCP_STANDALONE", "false").lower() == "true")
+    mcp_port: int = field(default_factory=lambda: _safe_int("MCP_PORT", "8210"))
+
+    # OpenWeather API configuration (for weather.get_summary MCP tool)
+    openweather_api_key: Optional[str] = field(default_factory=lambda: os.getenv("OPENWEATHER_API_KEY"))
+    weather_cache_ttl_seconds: int = field(default_factory=lambda: _safe_int("WEATHER_CACHE_TTL_SECONDS", "300"))
+    weather_default_location: str = field(default_factory=lambda: os.getenv("WEATHER_DEFAULT_LOCATION", "Warsaw,PL"))
+
     @property
     def rider_pi_base_url(self) -> str:
         """Get the base URL for Rider-PI API."""
