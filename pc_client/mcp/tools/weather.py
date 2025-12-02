@@ -57,11 +57,18 @@ def _fetch_openweather_data(api_key: str, location: str) -> dict:
     """
     import urllib.request
     import urllib.error
+    import urllib.parse
     import json
 
-    # Buduj URL API
+    # Buduj URL API z poprawnym URL encoding
+    # UWAGA: Nie loguj pełnego URL, ponieważ zawiera klucz API!
     base_url = "https://api.openweathermap.org/data/2.5/weather"
-    params = f"q={location}&appid={api_key}&units=metric&lang=pl"
+    params = urllib.parse.urlencode({
+        "q": location,
+        "appid": api_key,
+        "units": "metric",
+        "lang": "pl"
+    })
     url = f"{base_url}?{params}"
 
     try:

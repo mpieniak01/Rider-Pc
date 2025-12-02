@@ -194,6 +194,10 @@ async def get_stats() -> JSONResponse:
     )
 
 
+# Próg rozmiaru pliku dla użycia zoptymalizowanego odczytu (64KB)
+_LARGE_FILE_THRESHOLD = 65536
+
+
 def _read_last_lines(file_path: str, num_lines: int, max_line_length: int = 1024) -> list:
     """Efektywne czytanie ostatnich N linii z pliku.
 
@@ -236,11 +240,19 @@ def _read_last_lines(file_path: str, num_lines: int, max_line_length: int = 1024
             # Rozdziel na linie
             split_lines = buffer.split(b"\n")
 
-            # Ostatni element to niepełna linia (lub pusta) - zachowaj do następnej iteracji
-            buffer = split_lines[0]
+            # Logika obsługi niepełnych linii:
+            # - Jeśli nie jesteśmy na początku pliku, pierwsza linia może być niepełna
+            # - Zachowaj ją do następnej iteracji
+            if position > 0:
+                buffer = split_lines[0]
+                process_lines = split_lines[1:]
+            else:
+                # Jesteśmy na początku - wszystkie linie są kompletne
+                buffer = b""
+                process_lines = split_lines
 
-            # Przetwórz pozostałe linie (od końca do początku)
-            for raw_line in reversed(split_lines[1:]):
+            # Przetwórz linie (od końca do początku)
+            for raw_line in reversed(process_lines):
                 if len(lines) >= num_lines:
                     break
                 try:
@@ -250,8 +262,9 @@ def _read_last_lines(file_path: str, num_lines: int, max_line_length: int = 1024
                         if len(line) > max_line_length:
                             line = line[:max_line_length] + "..."
                         lines.append(line)
-                except Exception:
-                    continue
+                # Ignorujemy wyjątki dekodowania, bo linia może być niekompletna lub uszkodzona
+                except Exception as exc:
+                    logger.debug("Błąd dekodowania linii z pliku %s: %s", file_path, exc)
 
         # Przetwórz pozostały bufor jeśli potrzeba więcej linii
         if len(lines) < num_lines and buffer:
@@ -261,8 +274,9 @@ def _read_last_lines(file_path: str, num_lines: int, max_line_length: int = 1024
                     if len(line) > max_line_length:
                         line = line[:max_line_length] + "..."
                     lines.append(line)
-            except Exception:
-                pass
+            # Ignorujemy wyjątki dekodowania dla pozostałego bufora
+            except Exception as exc:
+                logger.debug("Błąd dekodowania pozostałego bufora z pliku %s: %s", file_path, exc)
 
     # Odwróć aby zachować chronologiczną kolejność (od najstarszej do najnowszej)
     return list(reversed(lines))
@@ -290,8 +304,8 @@ async def get_invocation_history(limit: int = 50) -> JSONResponse:
     if os.path.exists(log_path):
         try:
             file_size = os.path.getsize(log_path)
-            # Dla małych plików (< 64KB) używamy prostego odczytu
-            if file_size < 65536:
+            # Dla małych plików używamy prostego odczytu
+            if file_size < _LARGE_FILE_THRESHOLD:
                 with open(log_path, "r", encoding="utf-8") as f:
                     lines = f.readlines()
                     for line in lines[-limit:]:

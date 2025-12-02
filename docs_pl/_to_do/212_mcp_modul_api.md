@@ -44,7 +44,6 @@ Zapewnić wewnętrzny serwer MCP (Model Context Protocol) jako moduł FastAPI Ri
 
 ### 🔄 Do rozważenia w przyszłości
 - Rozszerzone UI do potwierdzania narzędzi wymagających `confirm` (modal w czacie).
-- Pełna integracja z OpenWeather API (obecnie mock).
 - Więcej narzędzi git (np. `run_tests`).
 
 ## Zakres

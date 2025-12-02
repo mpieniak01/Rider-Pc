@@ -97,12 +97,14 @@ class TestWeatherTools:
 
     def test_get_weather_summary_cache_behavior(self):
         """Test that caching works correctly."""
-        # Pierwsze wywołanie
-        result1 = weather.get_weather_summary(use_cache=False)
+        # Używamy unikalnej lokalizacji, aby test był izolowany
+        test_location = "Warsaw,PL-test-cache"
+        # Pierwsze wywołanie: cache miss
+        result1 = weather.get_weather_summary(location=test_location, use_cache=True)
         assert result1["cached"] is False
 
-        # Drugie wywołanie z cache
-        result2 = weather.get_weather_summary(use_cache=True)
+        # Drugie wywołanie: cache hit
+        result2 = weather.get_weather_summary(location=test_location, use_cache=True)
         assert result2["cached"] is True
         assert "cache_age_seconds" in result2
 
@@ -296,9 +298,22 @@ class TestTextProviderMCPIntegration:
         assert telemetry.get("mcp_tools_enabled") is True
 
     @pytest.mark.asyncio
-    async def test_text_provider_mcp_history(self):
-        """Test TextProvider MCP call history."""
+    async def test_text_provider_mcp_disabled(self):
+        """Test that MCP tools can be disabled."""
         from pc_client.providers.text_provider import TextProvider
+
+        provider = TextProvider({"use_mock": True, "enable_mcp_tools": False})
+        await provider.initialize()
+
+        assert provider.enable_mcp_tools is False
+        telemetry = provider.get_telemetry()
+        assert telemetry.get("mcp_tools_enabled") is False
+
+    @pytest.mark.asyncio
+    async def test_text_provider_mcp_history(self):
+        """Test TextProvider MCP call history structure and limit."""
+        from pc_client.providers.text_provider import TextProvider
+        from collections import deque
 
         provider = TextProvider({"use_mock": True})
         await provider.initialize()
@@ -306,14 +321,51 @@ class TestTextProviderMCPIntegration:
         history = provider.get_mcp_call_history()
         assert isinstance(history, list)
 
+        # Sprawdź czy wewnętrzna historia jest deque z maxlen
+        assert isinstance(provider._mcp_call_history, deque)
+        assert provider._mcp_call_history.maxlen == 100
+
+    @pytest.mark.asyncio
+    async def test_text_provider_mcp_history_limit(self):
+        """Test that history respects limit parameter."""
+        from pc_client.providers.text_provider import TextProvider
+
+        provider = TextProvider({"use_mock": True})
+        await provider.initialize()
+
+        # Symuluj dodanie wpisów do historii
+        for i in range(10):
+            provider._mcp_call_history.append({
+                "tool": f"test.tool_{i}",
+                "arguments": {},
+                "ok": True,
+                "result": {"value": i},
+                "error": None,
+            })
+
+        # Sprawdź limit
+        history_5 = provider.get_mcp_call_history(limit=5)
+        assert len(history_5) == 5
+
+        history_all = provider.get_mcp_call_history(limit=20)
+        assert len(history_all) == 10
+
     @pytest.mark.asyncio
     async def test_text_provider_tools_in_system_prompt(self):
         """Test that MCP tools are added to system prompt when enabled."""
         from pc_client.providers.text_provider import TextProvider
         from pc_client.providers.base import TaskEnvelope, TaskType
+        from pc_client.mcp.tool_call_handler import get_tools_prompt
+        from unittest.mock import patch
 
         provider = TextProvider({"use_mock": True, "enable_mcp_tools": True})
         await provider.initialize()
+
+        # Sprawdź czy get_tools_prompt zwraca niepusty string
+        tools_prompt = get_tools_prompt()
+        assert isinstance(tools_prompt, str)
+        assert len(tools_prompt) > 0
+        assert "tool_call" in tools_prompt or "system" in tools_prompt.lower()
 
         task = TaskEnvelope(
             task_id="test-mcp-1",
@@ -323,3 +375,32 @@ class TestTextProviderMCPIntegration:
         result = await provider.process_task(task)
         assert result.status.value == "completed"
         assert "text" in result.result
+
+    @pytest.mark.asyncio
+    async def test_text_provider_mcp_history_structure(self):
+        """Test that history entries have correct structure."""
+        from pc_client.providers.text_provider import TextProvider
+
+        provider = TextProvider({"use_mock": True})
+        await provider.initialize()
+
+        # Dodaj przykładowy wpis
+        test_record = {
+            "tool": "system.get_time",
+            "arguments": {},
+            "ok": True,
+            "result": {"time": "2025-12-01T12:00:00"},
+            "error": None,
+        }
+        provider._mcp_call_history.append(test_record)
+
+        history = provider.get_mcp_call_history()
+        assert len(history) == 1
+        entry = history[0]
+
+        # Sprawdź strukturę wpisu
+        assert "tool" in entry
+        assert "arguments" in entry
+        assert "ok" in entry
+        assert "result" in entry
+        assert "error" in entry

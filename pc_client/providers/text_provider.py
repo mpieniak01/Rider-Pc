@@ -1,7 +1,8 @@
 """Text provider for NLU/NLG and LLM tasks with MCP tool-call support."""
 
 import logging
-from typing import Dict, Any, List, Optional
+from collections import deque
+from typing import Dict, Any, List, Optional, Deque
 from pc_client.providers.base import BaseProvider, TaskEnvelope, TaskResult, TaskType, TaskStatus
 from pc_client.telemetry.metrics import (
     tasks_processed_total,
@@ -16,6 +17,9 @@ from pc_client.mcp.tool_call_handler import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Maksymalna liczba wpisów w historii wywołań MCP
+_MCP_HISTORY_MAX_SIZE = 100
 
 # Import AI libraries with fallback to mock mode
 try:
@@ -62,7 +66,8 @@ class TextProvider(BaseProvider):
         self.max_tool_iterations = self.config.get("max_tool_iterations", 3)
         self._cache: Dict[str, str] = {}
         self.ollama_available = False
-        self._mcp_call_history: List[Dict[str, Any]] = []
+        # Użycie deque z maxlen dla automatycznego zarządzania rozmiarem historii
+        self._mcp_call_history: Deque[Dict[str, Any]] = deque(maxlen=_MCP_HISTORY_MAX_SIZE)
 
     async def _initialize_impl(self) -> None:
         """Initialize text processing models."""
@@ -272,7 +277,7 @@ class TextProvider(BaseProvider):
                 confirm=False,  # Domyślnie bez potwierdzenia (UI musi obsłużyć confirm)
             )
 
-            # Zapisz w historii wywołań
+            # Zapisz w historii wywołań (deque automatycznie usuwa stare wpisy)
             call_record = {
                 "tool": tool_call["name"],
                 "arguments": tool_call.get("arguments"),
@@ -282,8 +287,6 @@ class TextProvider(BaseProvider):
             }
             tool_calls.append(call_record)
             self._mcp_call_history.append(call_record)
-            if len(self._mcp_call_history) > 100:
-                self._mcp_call_history.pop(0)
 
             # Formatuj wynik narzędzia
             tool_result_text = format_tool_result(result)
@@ -323,7 +326,9 @@ class TextProvider(BaseProvider):
 
     def get_mcp_call_history(self, limit: int = 20) -> List[Dict[str, Any]]:
         """Zwróć ostatnie wywołania narzędzi MCP."""
-        return self._mcp_call_history[-limit:]
+        # Konwersja deque do listy, aby umożliwić slicing
+        history_list = list(self._mcp_call_history)
+        return history_list[-limit:]
 
     async def _process_nlu(self, task: TaskEnvelope) -> TaskResult:
         """
