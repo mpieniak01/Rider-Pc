@@ -1,9 +1,10 @@
 # 213 – Integracja nowych providerów AI (Gemini + ChatGPT)
 
 ## Cel
-Zapewnić Rider-PC dostęp do dwóch niezależnych dostawców modeli językowych:
+Zapewnić Rider-PC dostęp do dwóch niezależnych providerów modeli językowych:
 
 1. **Gemini API (najnowsze wydanie)** – wykorzystywane do zadań konwersacyjnych, RAG oraz generowania PR.
+   - **Wspierane modele**: `gemini-1.5-pro`, `gemini-1.5-flash`, `gemini-1.5-pro-vision` (multimodalny). Lista modeli będzie rozszerzana zgodnie z dokumentacją Google.
 2. **OpenAI ChatGPT API** – fallback lub alternatywa dla lokalnych modeli oraz Gemini, z obsługą funkcji reasoning/tool-call.
 
 Docelowo UI (Chat PC, PR Assistant, Benchmark) ma umożliwiać wybór źródła odpowiedzi i raportować koszt/czas.
@@ -15,6 +16,8 @@ Docelowo UI (Chat PC, PR Assistant, Benchmark) ma umożliwiać wybór źródła 
 - Nie pojawia się dodatkowa infrastruktura – wszystko w ramach istniejącego serwera Rider-PC.
 
 ## Status
+> **Uwaga:** Poniższe statusy będą aktualizowane w trakcie realizacji zadania PR #213.
+
 - [ ] Spec integracji Gemini (autoryzacja, modele, limity).
 - [ ] Spec integracji ChatGPT (opłaty, modele reasoning).
 - [ ] Wymagania UI (przełącznik providerów w Chat PC / Asystent PR / Benchmark).
@@ -26,15 +29,20 @@ Docelowo UI (Chat PC, PR Assistant, Benchmark) ma umożliwiać wybór źródła 
      - `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_ENDPOINT`.
      - `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL`.
    - Przełącznik `TEXT_PROVIDER_BACKENDS = ["local", "gemini", "chatgpt"]`.
+
+   > **Uwaga dot. nazewnictwa providerów AI:**
+   > - W plikach konfiguracyjnych (`.env`, `providers.toml`) oraz identyfikatorach kodowych używamy wyłącznie małych liter: `"local"`, `"gemini"`, `"chatgpt"`.
+   > - W UI oraz dokumentacji wyświetlamy nazwy providerów w formacie CamelCase: `"Gemini"`, `"ChatGPT"`, `"Local"`.
+   > - Dzięki temu unikamy niejednoznaczności i błędów przy mapowaniu wartości między warstwami systemu.
 2. **Providerzy**
    - `GeminiProvider` – klasa w `pc_client/providers` z obsługą:
      - OAuth/API key.
      - modeli tekstowych + audio (jeśli dostępne).
      - kosztów i throttlingu.
-   - `ChatGptProvider` – analogiczny provider z obsługą funkcji reasoning/tool-call.
+   - `ChatGPTProvider` – analogiczny provider z obsługą funkcji reasoning/tool-call.
    - Adapter w `TextProvider` umożliwiający wybór backendu per-zadanie (`mode: gemini`).
 3. **UI / API**
-   - Zakładka **Projekt → Modele AI / Ustawienia AI** – główne miejsce zarządzania konfiguracją backendów. Administrator wybiera domyślne profile (np. lokalny, hybrydowy Gemini, hybrydowy ChatGPT), zapisuje klucze i przypisuje pipeline (ASR, LLM, TTS).
+   - Zakładka **Projekt → Modele AI / Ustawienia AI** – główne miejsce zarządzania konfiguracją backendów. Administrator wybiera domyślne profile (np. lokalny, hybrydowy Gemini, hybrydowy ChatGPT) oraz przypisuje pipeline (ASR, LLM, TTS). **Uwaga: Klucze API są zarządzane wyłącznie przez pliki `.env` lub `ai_credentials.toml` – UI nie umożliwia ich wprowadzania ani zapisywania.**
    - Chat PC: tylko odczytuje bieżący profil; w UI wyświetla „Źródło: PC lokalny / Gemini / ChatGPT” z ewentualnym ostrzeżeniem (brak klucza, quota). Nie przełącza globalnej konfiguracji.
    - PR Assistant i Benchmark: również odczytują profil i jedynie w trybie ręcznym pozwalają wybrać inny backend dla pojedynczej operacji (bez zapisu globalnego).
    - `/api/models/active` i `/api/providers/text` – dodanie informacji o zewnętrznych providerach.
@@ -45,7 +53,17 @@ Docelowo UI (Chat PC, PR Assistant, Benchmark) ma umożliwiać wybór źródła 
    - Symulator odpowiedzi dla Gemini/ChatGPT, aby UI można było testować bez kluczy.
    - Dokumentacja jak aktywować mock (`use_mock = true`).
 6. **Bezpieczeństwo**
-   - Przechowywanie kluczy w `.env` + wsparcie dla `~/.config/rider-pc/ai_credentials.toml`.
+   - Przechowywanie kluczy w `.env` (zalecane) oraz wsparcie dla pliku `~/.config/rider-pc/ai_credentials.toml`.
+     - **Format pliku `ai_credentials.toml`:** plik w formacie TOML, zawierający klucze w postaci:
+       ```toml
+       GEMINI_API_KEY = "twój_klucz_gemini"
+       OPENAI_API_KEY = "twój_klucz_openai"
+       ```
+     - **Uprawnienia pliku:** plik musi mieć uprawnienia 0600 (tylko odczyt/zapis dla właściciela). Zalecane polecenie:
+       ```bash
+       chmod 600 ~/.config/rider-pc/ai_credentials.toml
+       ```
+     - **Kolejność ładowania kluczy:** domyślnie najpierw ładowane są wartości z `.env`, a następnie (jeśli nie znaleziono klucza) z `ai_credentials.toml`. Klucz z `.env` ma wyższy priorytet.
    - Komunikaty w UI gdy klucz wygasł lub quota wyczerpana.
 
 ## Integracje API – procesy i wymagania (dla Copilot/GitHub)
@@ -54,7 +72,8 @@ Aby agent kodowania (np. GitHub Copilot) mógł automatycznie rozszerzać Rider-
 ### Gemini
 1. **Autoryzacja**
    - `GEMINI_API_KEY` przechowywany w `.env`.
-   - Nagłówki dla każdego żądania: `x-goog-api-key: <key>` (dla klucza API) lub `Authorization: Bearer <token>` (dla OAuth2). Opcjonalnie `x-goog-api-client`.
+   - Klucz API przekazujemy jako parametr query string: `?key=<API_KEY>`. Nie używamy nagłówka `x-goog-api-key` dla standardowego klucza API.
+   - Nagłówek `Authorization: Bearer <token>` stosujemy wyłącznie w trybie OAuth2 (Service Account). Opcjonalnie można dodać nagłówek `x-goog-api-client` z metadanymi klienta.
    - Opcjonalnie tryb OAuth (Service Account) – generujemy JWT oraz token dostępu.
 2. **Wysyłanie żądań**
    - Tekst: `POST https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`
@@ -62,8 +81,8 @@ Aby agent kodowania (np. GitHub Copilot) mógł automatycznie rozszerzać Rider-
    - Payload:
      ```json
      {
+       "systemInstruction": {"parts": [{"text": "<prompt systemowy + MCP>"}]},
        "contents": [
-         {"role": "system", "parts": [{"text": "<prompt systemowy + MCP>"}]},
          {"role": "user", "parts": [{"text": "<prompt użytkownika>"}]}
        ],
        "generationConfig": {"temperature": 0.7, "topP": 0.95},
@@ -76,10 +95,15 @@ Aby agent kodowania (np. GitHub Copilot) mógł automatycznie rozszerzać Rider-
        ]
      }
      ```
+   > **Uwaga:** W Gemini API rola `"system"` nie istnieje w `contents`. Instrukcje systemowe przekazujemy przez osobne pole `systemInstruction`.
 3. **Obsługa odpowiedzi**
    - Parsujemy `candidates[].content.parts`. Jeśli część ma `functionCall`, wykonujemy MCP i dodajemy `functionResponse`.
    - Audio (`inline_data`) zapisujemy po `base64` do pliku `.wav`.
    - Błędy mapujemy na `TaskStatus.FAILED` wraz z `error_code`, `retry_after`.
+   - **Obsługa rate limiting i quota:**
+     - HTTP 429 (Too Many Requests): odczytujemy nagłówek `Retry-After` i stosujemy exponential backoff.
+     - Quota wyczerpana (kod 429 lub 503): wyświetlamy komunikat w UI, logujemy do `logs/providers-errors.log`.
+     - Mechanizm retry: domyślnie 3 próby z opóźnieniem 1s, 2s, 4s (exponential backoff).
 
 ### OpenAI ChatGPT
 1. **Autoryzacja**
@@ -107,8 +131,12 @@ Aby agent kodowania (np. GitHub Copilot) mógł automatycznie rozszerzać Rider-
      ```
 3. **Obsługa odpowiedzi**
    - `choices[].message.tool_calls` → wykonujemy MCP i odpowiadamy jako `role: tool`.
-   - Modele reasoning (o1/o3) wymagają `reasoning: { "effort": "medium" }` i dłuższego `timeout_seconds`.
+   - Modele reasoning (`o1-preview`/`o1-mini`) wymagają `reasoning: { "effort": "medium" }` i dłuższego `timeout_seconds`. Model `o3` został zapowiedziany, ale nie jest jeszcze dostępny w API – wsparcie zostanie dodane po jego udostępnieniu.
    - Raportujemy koszty (`usage.prompt_tokens`, `usage.completion_tokens`).
+   - **Obsługa rate limiting i quota:**
+     - HTTP 429 (Too Many Requests): odczytujemy nagłówek `Retry-After` i stosujemy exponential backoff.
+     - Quota wyczerpana: wyświetlamy komunikat w UI, logujemy do `logs/providers-errors.log`.
+     - Mechanizm retry: domyślnie 3 próby z opóźnieniem 1s, 2s, 4s (exponential backoff).
 
 ### Unified API Layer
 - Interfejs `ExternalLLMProvider` z metodami `generate_text`, `transcribe_audio`, `synthesize_speech`.
@@ -173,7 +201,7 @@ Chcemy traktować każdy etap pipeline’u jako niezależny provider z możliwo�
 
 ## Otwarte pytania
 - Czy Gemini ma być wykorzystywane również do generowania obrazów/głosu?
-- Czy ChatGPT reasoning (o1/o3) wymagają specjalnych limitów czasu lub interakcji z MCP?
+- Czy ChatGPT reasoning (`o1-preview`/`o1-mini`) wymagają specjalnych limitów czasu lub interakcji z MCP?
 - Jak mapować funkcje tool-call Gemini/ChatGPT na nasze MCP?
 - Czy potrzebujemy dedykowanego modułu rozliczającego koszty (np. per-user, per-task)?
 
