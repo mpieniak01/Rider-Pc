@@ -33,7 +33,7 @@ def main() -> None:
         raise SystemExit("pyzmq is required (pip install pyzmq)")
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--host", default="192.168.1.71", help="Rider-Pi ZMQ host")
+    parser.add_argument("--host", default="192.168.1.14", help="Rider-Pi ZMQ host")
     parser.add_argument("--port", type=int, default=5555, help="ZMQ PUB port")
     parser.add_argument("--topic", default="vision.frame.offload", help="Topic to subscribe")
     parser.add_argument("--count", type=int, default=0, help="Stop after consuming this many frames (0=infinite)")

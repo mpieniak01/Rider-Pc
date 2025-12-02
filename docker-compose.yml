@@ -11,7 +11,7 @@ services:
       - "8000:8000"
     environment:
       # Rider-PI connection
-      - RIDER_PI_HOST=${RIDER_PI_HOST:-192.168.1.71}
+      - RIDER_PI_HOST=${RIDER_PI_HOST:-192.168.1.14}
       - RIDER_PI_PORT=${RIDER_PI_PORT:-8080}
       # ZMQ configuration
       - ZMQ_PUB_PORT=${ZMQ_PUB_PORT:-5555}
