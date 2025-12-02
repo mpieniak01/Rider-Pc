@@ -913,11 +913,11 @@ async function refreshMcpStats(){
       setTxt('mcpInvocations', j.stats.invocation_count || 0);
       setTxt('mcpLastTool', j.stats.last_invoked_tool || '—');
       setCls('mcpStatus', 'ok');
-      setTxt('mcpStatus', i18n('dash.mcp.status_active'));
+      setTxt('mcpStatus', t('dash.mcp.status_active') || 'aktywny');
     }
   }catch{
     setCls('mcpStatus', 'bad');
-    setTxt('mcpStatus', i18n('dash.mcp.status_error'));
+    setTxt('mcpStatus', t('dash.mcp.status_error') || 'błąd');
   }
 }
 
@@ -967,10 +967,67 @@ async function refreshMcpToolsList(){
   }catch{}
 }
 
+async function refreshMcpHistory(){
+  const list = el('mcpRecentCalls');
+  if(!list) return;
+
+  list.innerHTML = `<div class="muted">${t('dash.mcp.loading') || 'Ładowanie...'}</div>`;
+
+  try{
+    const r = await fetch('/api/chat/pc/mcp-history?limit=6', {cache:'no-store'});
+    if(!r.ok){
+      throw new Error(await r.text());
+    }
+    const j = await r.json().catch(()=>null);
+    if(!j || j.ok === false || !Array.isArray(j.history) || j.history.length === 0){
+      list.innerHTML = `<div class="muted">${t('dash.mcp.no_calls') || 'Brak wywołań'}</div>`;
+      return;
+    }
+
+    list.innerHTML = '';
+    j.history.forEach(entry => {
+      const row = document.createElement('div');
+      row.className = 'mcp-call-item';
+
+      const info = document.createElement('div');
+      info.className = 'mcp-call-info';
+      const name = document.createElement('div');
+      name.className = 'mcp-call-tool';
+      name.textContent = entry.tool || '—';
+      info.appendChild(name);
+
+      if(entry.arguments && Object.keys(entry.arguments).length){
+        const args = document.createElement('div');
+        args.className = 'mcp-call-args';
+        const preview = JSON.stringify(entry.arguments);
+        args.textContent = preview.length > 80 ? `${preview.slice(0, 80)}...` : preview;
+        info.appendChild(args);
+      }else if(entry.error){
+        const err = document.createElement('div');
+        err.className = 'mcp-call-args';
+        err.textContent = entry.error;
+        info.appendChild(err);
+      }
+
+      row.appendChild(info);
+
+      const status = document.createElement('span');
+      status.className = `c-pill ${entry.ok ? 'ok' : 'err'}`;
+      status.textContent = entry.ok ? (t('meta.ok') || 'OK') : (t('meta.error') || 'Błąd');
+      row.appendChild(status);
+
+      list.appendChild(row);
+    });
+  }catch{
+    list.innerHTML = `<div class="err">${t('dash.mcp.status_error') || 'Błąd'}</div>`;
+  }
+}
+
 async function refreshMcp(){
   await refreshMcpStats();
   await refreshMcpResources();
   await refreshMcpToolsList();
+  await refreshMcpHistory();
 }
 
 /* lekkie SSE */

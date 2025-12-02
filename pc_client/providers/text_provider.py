@@ -153,6 +153,8 @@ class TextProvider(BaseProvider):
 
         # Check cache
         cache_key = f"{prompt}:{max_tokens}:{temperature}"
+        messages: Optional[List[Dict[str, str]]] = None
+
         if self.use_cache and cache_key in self._cache:
             self.logger.info("[provider] Cache hit for text generation")
             generated_text = self._cache[cache_key]

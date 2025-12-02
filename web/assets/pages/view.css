@@ -139,3 +139,33 @@
   font-size: var(--font-size-sm);
   color: var(--accent);
 }
+
+.page-view .mcp-call-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  padding: var(--space-xxs) 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.page-view .mcp-call-item:last-child {
+  border-bottom: none;
+}
+
+.page-view .mcp-call-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.page-view .mcp-call-tool {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+}
+
+.page-view .mcp-call-args {
+  font-size: var(--font-size-xs);
+  color: var(--value-color);
+  margin-top: 2px;
+  word-break: break-all;
+}

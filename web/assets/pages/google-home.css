@@ -16,15 +16,15 @@
   padding: var(--space-md) var(--space-xxl);
   font-size: var(--font-size-lg);
   border-radius: var(--radius-xl);
-  background: #1a73e8;
-  border: 1px solid #1a73e8;
-  color: #fff;
+  background: linear-gradient(135deg, var(--color-accent), #4ba6ff);
+  border: 1px solid var(--color-accent-border);
+  color: #041321;
   transition: transform var(--transition-fast), background var(--transition-fast);
 }
 
 .page-google .btn-auth:hover {
-  background: #1557b0;
-  border-color: #1557b0;
+  background: linear-gradient(135deg, #8dd0ff, #5ab8ff);
+  border-color: var(--color-accent);
 }
 
 .page-google .btn-auth:active {
@@ -35,6 +35,9 @@
   padding: var(--space-xs) var(--space-lg);
   font-size: var(--font-size-sm);
   border-radius: var(--radius-lg);
+  background: transparent;
+  border-color: var(--color-accent-border);
+  color: var(--color-accent);
 }
 
 /* Device grid */
@@ -82,7 +85,7 @@
   height: 36px;
   border: 1px solid var(--color-off-border);
   border-radius: var(--radius-md);
-  background: #122435;
+  background: var(--color-bg-input);
   cursor: pointer;
   padding: 2px;
 }
@@ -91,7 +94,7 @@
   padding: var(--space-xs) var(--space-lg);
   border: 1px solid var(--color-off-border);
   border-radius: var(--radius-md);
-  background: #122435;
+  background: var(--color-bg-input);
   color: var(--color-fg-primary);
   cursor: pointer;
 }
@@ -99,7 +102,7 @@
 /* Status messages */
 .page-google .c-status-msg {
   margin-bottom: var(--space-md);
-  border: 1px solid #1c3349;
+  border: 1px solid var(--color-border-secondary);
   background: var(--color-bg-elevated);
 }
 

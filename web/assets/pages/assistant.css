@@ -26,7 +26,7 @@
   padding: var(--space-md) var(--space-lg);
   border: 1px solid var(--color-off-border);
   border-radius: var(--radius-lg);
-  background: #122435;
+  background: var(--color-bg-input);
   color: var(--color-fg-primary);
   font-size: var(--font-size-md);
 }
@@ -34,7 +34,7 @@
 .page-assistant .custom-input:focus {
   outline: none;
   border-color: var(--color-ok);
-}
+  }
 
 .page-assistant .custom-input::placeholder { color: var(--color-fg-secondary); }
 
@@ -56,7 +56,7 @@
 
 .page-assistant .device-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  box-shadow: var(--shadow-md);
 }
 
 /* Device header - uses global .status-dot with .is-ok/.is-disconnected */
@@ -101,16 +101,39 @@
 
 .page-assistant .btn-on,
 .page-assistant .btn-off,
-.page-assistant .btn-dock { color: #fff; }
+.page-assistant .btn-dock {
+  color: var(--color-bg-primary);
+  border-color: transparent;
+}
 
-.page-assistant .btn-on { background: var(--color-ok); border-color: var(--color-ok); }
-.page-assistant .btn-on:hover { background: #2ecc71; }
+.page-assistant .btn-on {
+  background: var(--color-ok);
+  border-color: var(--color-ok-border);
+}
+.page-assistant .btn-on:hover {
+  background: #7bf2a1;
+  border-color: var(--color-ok);
+}
 
-.page-assistant .btn-off { background: #555; border-color: #555; }
-.page-assistant .btn-off:hover { background: #666; }
+.page-assistant .btn-off {
+  background: var(--color-border-primary);
+  border-color: var(--color-border-primary);
+  color: var(--color-fg-primary);
+}
+.page-assistant .btn-off:hover {
+  background: var(--color-border-secondary);
+  border-color: var(--color-border-secondary);
+}
 
-.page-assistant .btn-dock { background: #3498db; border-color: #3498db; }
-.page-assistant .btn-dock:hover { background: #2980b9; }
+.page-assistant .btn-dock {
+  background: var(--color-accent);
+  border-color: var(--color-accent-border);
+  color: #041321;
+}
+.page-assistant .btn-dock:hover {
+  background: #8dd0ff;
+  border-color: var(--color-accent);
+}
 
 /* Brightness row */
 .page-assistant .brightness-row {
