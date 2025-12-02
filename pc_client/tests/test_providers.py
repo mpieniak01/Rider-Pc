@@ -323,3 +323,206 @@ async def test_provider_telemetry():
     assert len(telemetry["supported_tasks"]) > 0
 
     await voice_provider.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_gemini_provider_mock_mode():
+    """Test GeminiProvider in mock mode."""
+    from pc_client.providers.gemini_provider import GeminiProvider
+
+    provider = GeminiProvider(
+        api_key=None,
+        model="gemini-2.0-flash",
+        use_mock=True,
+    )
+
+    response = await provider.generate(
+        prompt="What is the weather?",
+        system_prompt="You are a helpful assistant.",
+        max_tokens=100,
+        temperature=0.7,
+    )
+
+    assert response.text is not None
+    assert "[MOCK GEMINI]" in response.text
+    assert response.provider == "gemini"
+    assert response.model == "mock-gemini-2.0-flash"
+    assert response.error is None
+
+    await provider.close()
+
+
+@pytest.mark.asyncio
+async def test_chatgpt_provider_mock_mode():
+    """Test ChatGPTProvider in mock mode."""
+    from pc_client.providers.chatgpt_provider import ChatGPTProvider
+
+    provider = ChatGPTProvider(
+        api_key=None,
+        model="gpt-4o-mini",
+        use_mock=True,
+    )
+
+    response = await provider.generate(
+        prompt="What is the weather?",
+        system_prompt="You are a helpful assistant.",
+        max_tokens=100,
+        temperature=0.7,
+    )
+
+    assert response.text is not None
+    assert "[MOCK CHATGPT]" in response.text
+    assert response.provider == "chatgpt"
+    assert response.model == "mock-gpt-4o-mini"
+    assert response.error is None
+
+    await provider.close()
+
+
+@pytest.mark.asyncio
+async def test_gemini_provider_status():
+    """Test GeminiProvider status reporting."""
+    from pc_client.providers.gemini_provider import GeminiProvider
+
+    provider = GeminiProvider(
+        api_key="test_key",
+        model="gemini-2.0-flash",
+        use_mock=True,
+    )
+
+    status = provider.get_status()
+
+    assert status["provider"] == "gemini"
+    assert status["model"] == "gemini-2.0-flash"
+    assert status["use_mock"] is True
+    assert status["has_api_key"] is True
+
+    await provider.close()
+
+
+@pytest.mark.asyncio
+async def test_chatgpt_provider_status():
+    """Test ChatGPTProvider status reporting."""
+    from pc_client.providers.chatgpt_provider import ChatGPTProvider
+
+    provider = ChatGPTProvider(
+        api_key="test_key",
+        model="gpt-4o-mini",
+        use_mock=True,
+    )
+
+    status = provider.get_status()
+
+    assert status["provider"] == "chatgpt"
+    assert status["model"] == "gpt-4o-mini"
+    assert status["use_mock"] is True
+    assert status["has_api_key"] is True
+    assert status["is_reasoning_model"] is False
+
+    await provider.close()
+
+
+@pytest.mark.asyncio
+async def test_chatgpt_provider_reasoning_model():
+    """Test ChatGPTProvider with reasoning model detection."""
+    from pc_client.providers.chatgpt_provider import ChatGPTProvider
+
+    provider = ChatGPTProvider(
+        api_key="test_key",
+        model="o1-preview",
+        use_mock=True,
+    )
+
+    status = provider.get_status()
+    assert status["is_reasoning_model"] is True
+
+    await provider.close()
+
+
+@pytest.mark.asyncio
+async def test_text_provider_with_external_backends():
+    """Test TextProvider with external backends in mock mode."""
+    config = {
+        "model": "test_llm",
+        "use_mock": True,
+        "backend": "auto",
+        "gemini_api_key": "test_gemini_key",
+        "gemini_model": "gemini-2.0-flash",
+        "openai_api_key": "test_openai_key",
+        "openai_model": "gpt-4o-mini",
+    }
+
+    provider = TextProvider(config)
+    await provider.initialize()
+
+    telemetry = provider.get_telemetry()
+    assert telemetry["backend"] == "auto"
+    assert "gemini_configured" in telemetry
+    assert "chatgpt_configured" in telemetry
+
+    # Test generation with default (auto) backend
+    task = TaskEnvelope(
+        task_id="gen-external-1",
+        task_type=TaskType.TEXT_GENERATE,
+        payload={"prompt": "What is the weather?"},
+    )
+
+    result = await provider.process_task(task)
+    assert result.status == TaskStatus.COMPLETED
+    assert "text" in result.result
+    assert "backend" in result.result
+
+    await provider.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_text_provider_backend_override():
+    """Test TextProvider with per-request backend override."""
+    config = {
+        "model": "test_llm",
+        "use_mock": True,
+        "backend": "local",
+        "gemini_api_key": "test_key",
+        "openai_api_key": "test_key",
+    }
+
+    provider = TextProvider(config)
+    await provider.initialize()
+
+    # Request with gemini backend override
+    task = TaskEnvelope(
+        task_id="gen-gemini-1",
+        task_type=TaskType.TEXT_GENERATE,
+        payload={
+            "prompt": "Test with gemini",
+            "backend": "gemini",
+        },
+    )
+
+    result = await provider.process_task(task)
+    assert result.status == TaskStatus.COMPLETED
+    assert result.result.get("backend") == "gemini"
+
+    await provider.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_text_provider_external_status():
+    """Test TextProvider external providers status."""
+    config = {
+        "use_mock": True,
+        "gemini_api_key": "test_key",
+        "openai_api_key": "test_key",
+    }
+
+    provider = TextProvider(config)
+    await provider.initialize()
+
+    external_status = provider.get_external_providers_status()
+
+    assert "gemini" in external_status
+    assert "chatgpt" in external_status
+    assert "active_backend" in external_status
+    assert "available_backends" in external_status
+
+    await provider.shutdown()
