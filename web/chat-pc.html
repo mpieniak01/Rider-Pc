@@ -80,10 +80,31 @@
               <input type="checkbox" id="tts" />
               <span>Czytaj odpowiedzi (TTS)</span>
             </label>
+            <label class="chat-pc-select">
+              <span>Provider TTS</span>
+              <select id="ttsProvider"></select>
+            </label>
           </div>
         </div>
       </div>
     </div>
+
+    <div id="provider-hint" class="provider-hint c-status-msg" hidden>Ładuję listę providerów…</div>
+
+    <section class="providers-card c-card l-stack" aria-labelledby="providerTitle">
+      <div class="providers-head l-row">
+        <h2 id="providerTitle">Providerzy TTS</h2>
+        <div class="u-spacer"></div>
+        <div class="providers-actions">
+          <button class="c-btn c-btn-sm" id="btnReloadProviders">Odśwież listę</button>
+          <button class="c-btn c-btn-sm" id="btnTestAll">Testuj wszystkie</button>
+        </div>
+      </div>
+      <div id="providerList" class="provider-list" aria-live="polite">
+        <div class="provider-empty c-status-msg">Ładowanie…</div>
+      </div>
+      <div class="c-hint">Kliknij „Test”, aby wykonać próbę TTS i sprawdzić działanie usług.</div>
+    </section>
 
     <!-- Latency info -->
     <div class="meta" id="latency"></div>
@@ -238,6 +259,11 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
   const modeAutoBtn = document.getElementById('modeAuto');
   const modeProxyBtn = document.getElementById('modeProxy');
   const ttsChk = document.getElementById('tts');
+  const providerSelect = document.getElementById('ttsProvider');
+  const providerHint = document.getElementById('provider-hint');
+  const providerListEl = document.getElementById('providerList');
+  const btnReloadProviders = document.getElementById('btnReloadProviders');
+  const btnTestAll = document.getElementById('btnTestAll');
 
   // PR Assistant elements
   const btnTogglePrAssistant = document.getElementById('btnTogglePrAssistant');
@@ -297,6 +323,11 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
     auto: 'Auto',
     mock: 'Mock'
   };
+  const FALLBACK_PROVIDERS = [
+    { id: 'local',  label: 'Piper (lokalny)',         backend: 'piper',  voice: 'pl_PL-gosia-medium.onnx', description: 'Offline TTS Rider-PC.', service: 'voice-web' },
+    { id: 'openai', label: 'OpenAI gpt-4o-mini-tts', backend: 'openai', voice: 'alloy', model: 'gpt-4o-mini-tts', description: 'Chmurowy TTS OpenAI.', service: null },
+    { id: 'google', label: 'Google Gemini Kore',     backend: 'google', voice: 'Kore',  model: 'gemini-2.5-flash-preview-tts', description: 'Chmurowy TTS Gemini.', service: null },
+  ];
 
   // State
   let currentMode = 'pc';
@@ -305,6 +336,7 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
   let isRecording = false;
   let mediaRecorder = null;
   let audioChunks = [];
+  let providerCatalog = [];
   const urlParams = new URLSearchParams(window.location.search);
   const auditMode = urlParams.get('audit') === '1';
 
@@ -369,6 +401,306 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
     }
     board.appendChild(el);
     board.scrollTop = board.scrollHeight;
+  }
+
+  // Voice provider helpers
+  function providerStateClass(state) {
+    if (state === 'ok') return 'c-pill is-ok';
+    if (state === 'error') return 'c-pill is-err';
+    return 'c-pill is-warn';
+  }
+
+  function serviceStateSummary(provider) {
+    const state = provider?.service_state;
+    if (!state) return 'brak danych';
+    if (state.error) return `błąd (${state.error})`;
+    const parts = [];
+    if (state.active) parts.push(state.active);
+    if (state.sub && (!parts.length || state.sub !== parts[parts.length - 1])) {
+      parts.push(state.sub);
+    }
+    if (!parts.length && state.enabled) parts.push(state.enabled);
+    return parts.join(' / ') || 'n/a';
+  }
+
+  function isServiceActive(provider) {
+    const state = provider?.service_state;
+    if (!state) return false;
+    const active = (state.active || '').toLowerCase();
+    const sub = (state.sub || '').toLowerCase();
+    return active === 'active' || sub === 'running';
+  }
+
+  function setProviderHint(provider) {
+    if (!providerHint) return;
+    if (!provider) {
+      providerHint.textContent = 'Brak providerów TTS – używam domyślnego Piper.';
+      providerHint.hidden = false;
+      return;
+    }
+    const state = provider.status?.state || 'unknown';
+    const detail = provider.status?.detail || '';
+    providerHint.hidden = false;
+    providerHint.textContent = `${provider.label}: ${state === 'ok' ? 'gotowy' : state === 'error' ? 'błąd' : 'brak danych'}${detail ? ` – ${detail}` : ''}`;
+  }
+
+  function getSelectedProvider() {
+    if (!providerSelect) return undefined;
+    const currentId = providerSelect.value;
+    if (!currentId) return undefined;
+    return providerCatalog.find((p) => p.id === currentId);
+  }
+
+  function renderProviderSelect() {
+    if (!providerSelect) return;
+    providerSelect.innerHTML = '';
+    if (!providerCatalog.length) {
+      providerSelect.disabled = true;
+      return;
+    }
+    providerSelect.disabled = false;
+    for (const provider of providerCatalog) {
+      const opt = document.createElement('option');
+      opt.value = provider.id;
+      opt.textContent = provider.label;
+      providerSelect.appendChild(opt);
+    }
+    const stored = localStorage.getItem('chat_pc_tts_provider');
+    let current = stored && providerCatalog.find((p) => p.id === stored);
+    if (!current) {
+      current = providerCatalog.find((p) => p.status?.state === 'ok') || providerCatalog[0];
+    }
+    providerSelect.value = current?.id || providerCatalog[0].id;
+    localStorage.setItem('chat_pc_tts_provider', providerSelect.value);
+    setProviderHint(getSelectedProvider());
+  }
+
+  function renderProviderList() {
+    if (!providerListEl) return;
+    providerListEl.innerHTML = '';
+    if (!providerCatalog.length) {
+      const empty = document.createElement('div');
+      empty.className = 'provider-empty c-status-msg';
+      empty.textContent = 'Brak danych o providerach.';
+      providerListEl.appendChild(empty);
+      return;
+    }
+    for (const provider of providerCatalog) {
+      const row = document.createElement('div');
+      row.className = 'provider-row c-card';
+
+      const info = document.createElement('div');
+      info.className = 'provider-info';
+      const name = document.createElement('div');
+      name.className = 'provider-name';
+      name.textContent = provider.label;
+      const desc = document.createElement('div');
+      desc.className = 'provider-desc';
+      desc.textContent = provider.description || '';
+      info.appendChild(name);
+      info.appendChild(desc);
+
+      const meta = document.createElement('div');
+      meta.className = 'provider-meta';
+      const pill = document.createElement('span');
+      const state = provider.status?.state || 'unknown';
+      pill.className = providerStateClass(state);
+      pill.textContent = state === 'ok' ? 'OK' : state === 'error' ? 'Błąd' : '—';
+      meta.appendChild(pill);
+      if (provider.status?.detail) {
+        const detail = document.createElement('div');
+        detail.className = 'provider-detail';
+        detail.textContent = provider.status.detail;
+        meta.appendChild(detail);
+      }
+      if (typeof provider.status?.latency_ms === 'number') {
+        const latencyInfo = document.createElement('div');
+        latencyInfo.className = 'provider-latency';
+        latencyInfo.textContent = `${provider.status.latency_ms} ms`;
+        meta.appendChild(latencyInfo);
+      }
+      if (provider.service) {
+        const svcInfo = document.createElement('div');
+        svcInfo.className = 'provider-service';
+        svcInfo.innerHTML = `<strong>Usługa:</strong> ${provider.service} (${serviceStateSummary(provider)})`;
+        meta.appendChild(svcInfo);
+      }
+
+      const actions = document.createElement('div');
+      actions.className = 'provider-actions';
+      const btn = document.createElement('button');
+      btn.className = 'c-btn c-btn-sm';
+      btn.textContent = 'Test';
+      btn.addEventListener('click', () => {
+        btn.disabled = true;
+        btn.textContent = '…';
+        runProviderChecks([provider.id])
+          .catch((err) => { if (providerHint) providerHint.textContent = `Test ${provider.label} nieudany: ${err.message || err}`; })
+          .finally(() => {
+            btn.disabled = false;
+            btn.textContent = 'Test';
+          });
+      });
+      actions.appendChild(btn);
+      if (provider.service) {
+        const startBtn = document.createElement('button');
+        startBtn.className = 'c-btn c-btn-sm';
+        startBtn.textContent = 'Start';
+        if (isServiceActive(provider)) startBtn.disabled = true;
+        startBtn.addEventListener('click', () => {
+          handleServiceAction(provider, 'start', startBtn);
+        });
+        const stopBtn = document.createElement('button');
+        stopBtn.className = 'c-btn c-btn-sm';
+        stopBtn.textContent = 'Stop';
+        if (!isServiceActive(provider)) stopBtn.disabled = true;
+        stopBtn.addEventListener('click', () => {
+          handleServiceAction(provider, 'stop', stopBtn);
+        });
+        actions.appendChild(startBtn);
+        actions.appendChild(stopBtn);
+      }
+
+      row.appendChild(info);
+      row.appendChild(meta);
+      row.appendChild(actions);
+      providerListEl.appendChild(row);
+    }
+  }
+
+  function updateProviderStatus(providerId, result) {
+    if (!providerId) return;
+    const provider = providerCatalog.find((p) => p.id === providerId);
+    if (!provider) return;
+    provider.status = provider.status || {};
+    if (result?.state) provider.status.state = result.state;
+    provider.status.state = provider.status.state || 'unknown';
+    if (result?.detail || result?.error) {
+      provider.status.detail = result.detail || result.error;
+    }
+    if (typeof result?.latency_ms === 'number') {
+      provider.status.latency_ms = Math.round(result.latency_ms);
+    }
+    provider.status.updated = Date.now();
+    renderProviderList();
+    if (getSelectedProvider()?.id === providerId) {
+      setProviderHint(provider);
+    }
+  }
+
+  async function loadProviders() {
+    if (!providerHint) return;
+    if (auditMode) {
+      providerCatalog = FALLBACK_PROVIDERS.map((p, idx) => ({
+        ...p,
+        status: { state: idx === 0 ? 'ok' : 'warn', detail: idx === 0 ? 'Lokalny provider aktywny' : 'Proxy wymaga Rider-Pi' },
+        service_state: p.service ? { unit: p.service, alias: p.service, active: idx === 0 ? 'active' : 'inactive', sub: idx === 0 ? 'running' : 'stopped' } : null,
+      }));
+      providerHint.textContent = 'Tryb audytu CSS – dane przykładowe.';
+      providerHint.hidden = false;
+      renderProviderSelect();
+      renderProviderList();
+      return;
+    }
+    providerHint.hidden = false;
+    providerHint.textContent = 'Ładuję listę providerów…';
+    try {
+      const res = await fetch('/api/voice/providers', { cache: 'no-store' });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => `${res.status} ${res.statusText}`);
+        throw new Error(errText);
+      }
+      const data = await res.json();
+      providerCatalog = (data?.providers || []).map((item) => ({
+        ...item,
+        service_state: item.service_state || null,
+      }));
+      if (!providerCatalog.length) {
+        providerCatalog = FALLBACK_PROVIDERS.map((p) => ({
+          ...p,
+          status: p.status || { state: 'warn', detail: 'domyślny fallback' },
+          service_state: p.service ? { unit: p.service, alias: p.service, active: 'inactive', sub: 'dead' } : null,
+        }));
+      }
+      providerHint.textContent = 'Wybierz provider do czytania odpowiedzi.';
+    } catch (err) {
+      console.warn('voice providers list failed', err);
+      providerCatalog = FALLBACK_PROVIDERS.map((p) => ({
+        ...p,
+        status: { state: 'warn', detail: 'tryb offline' },
+        service_state: p.service ? { unit: p.service, alias: p.service, active: 'inactive', sub: 'dead' } : null,
+      }));
+      providerHint.textContent = 'Nie udało się pobrać listy providerów (tryb offline).';
+    }
+    renderProviderSelect();
+    renderProviderList();
+  }
+
+  function buildTtsPayload(text) {
+    const provider = getSelectedProvider();
+    if (!provider) {
+      return { text, backend: 'piper', voice: 'pl_PL-gosia-medium.onnx' };
+    }
+    const payload = {
+      text,
+      backend: provider.backend || provider.id,
+      provider: provider.id,
+    };
+    if (provider.voice) payload.voice = provider.voice;
+    if (provider.model) payload.model = provider.model;
+    return payload;
+  }
+
+  async function runProviderChecks(ids) {
+    if (!ids || !ids.length) return;
+    const res = await fetch('/api/voice/providers/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ providers: ids }),
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => `${res.status} ${res.statusText}`);
+      throw new Error(`Providers HTTP ${res.status}: ${errText}`);
+    }
+    const data = await res.json();
+    for (const item of data.results || []) {
+      updateProviderStatus(item.id, item);
+    }
+    return data;
+  }
+
+  async function serviceAction(alias, action) {
+    if (!alias) throw new Error('Nieznany alias usługi');
+    const res = await fetch(`/svc/${encodeURIComponent(alias)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => `${res.status} ${res.statusText}`);
+      throw new Error(`svc ${alias} ${action}: ${txt}`);
+    }
+    return res.json();
+  }
+
+  async function handleServiceAction(provider, action, button) {
+    if (!provider?.service) return;
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = action === 'start' ? 'Startuję…' : 'Zatrzymuję…';
+    try {
+      const data = await serviceAction(provider.service, action);
+      if (data?.status) {
+        provider.service_state = data.status;
+      }
+      setProviderHint(getSelectedProvider());
+    } catch (err) {
+      if (providerHint) providerHint.textContent = `Usługa ${provider.service}: ${err.message || err}`;
+    } finally {
+      button.disabled = false;
+      button.textContent = original;
+      renderProviderList();
+    }
   }
 
   // Mode selection
@@ -446,10 +778,12 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
   }
 
   async function speak(text) {
+    const payload = buildTtsPayload(text);
+    const t0 = performance.now();
     const res = await fetch('/api/voice/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, backend: 'piper' }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error(`TTS HTTP ${res.status}`);
     const blob = await res.blob();
@@ -457,6 +791,9 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
     const audio = new Audio(url);
     await audio.play().catch(() => {});
     setTimeout(() => URL.revokeObjectURL(url), 15000);
+    if (payload.provider) {
+      updateProviderStatus(payload.provider, { id: payload.provider, state: 'ok', detail: 'Odtworzenie udane', latency_ms: Math.round(performance.now() - t0) });
+    }
   }
 
   async function send() {
@@ -483,6 +820,10 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
           await speak(reply);
         } catch (e) {
           appendMessage('bot', '⚠️ TTS: ' + (e.message || e), true, null);
+          const provider = getSelectedProvider();
+          if (provider) {
+            updateProviderStatus(provider.id, { id: provider.id, state: 'error', detail: e.message || e });
+          }
         }
       }
     } catch (e) {
@@ -838,6 +1179,27 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
 
   btnRefreshVoiceStatus.addEventListener('click', refreshVoiceStatus);
 
+  providerSelect?.addEventListener('change', () => {
+    localStorage.setItem('chat_pc_tts_provider', providerSelect.value);
+    setProviderHint(getSelectedProvider());
+  });
+  btnReloadProviders?.addEventListener('click', (event) => {
+    event.preventDefault();
+    loadProviders();
+  });
+  btnTestAll?.addEventListener('click', (event) => {
+    event.preventDefault();
+    if (!providerCatalog.length) return;
+    btnTestAll.disabled = true;
+    btnTestAll.textContent = 'Testuję…';
+    runProviderChecks(providerCatalog.map((p) => p.id))
+      .catch((err) => { if (providerHint) providerHint.textContent = err.message || err; })
+      .finally(() => {
+        btnTestAll.disabled = false;
+        btnTestAll.textContent = 'Testuj wszystkie';
+      });
+  });
+
   btnTogglePrAssistant.addEventListener('click', () => {
     const isHidden = prAssistantContent.hidden;
     prAssistantContent.hidden = !isHidden;
@@ -879,6 +1241,7 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
   input.focus();
   refreshProviderStatus();
   refreshVoiceStatus();
+  loadProviders();
 })();
 </script>
 <script type="module" src="/web/assets/menu.js"></script>
