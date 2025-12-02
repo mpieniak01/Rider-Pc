@@ -91,7 +91,7 @@ Aby agent kodowania (np. GitHub Copilot) mógł automatycznie rozszerzać Rider-
    - Payload:
      ```json
      {
-       "model": "gpt-4.1",
+       "model": "gpt-4o",
        "messages": [
          {"role": "system", "content": "<system prompt + MCP>"},
          {"role": "user", "content": "<prompt>"}
