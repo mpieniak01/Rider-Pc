@@ -84,6 +84,10 @@ async def _process_local_chat(provider: TextProvider, prompt: str, payload: Dict
                 temperature = None
         except (ValueError, TypeError):
             temperature = None
+
+    # Backend selection (optional per-request override)
+    backend = payload.get("backend")
+
     task = TaskEnvelope(
         task_id=f"text-chat-{uuid.uuid4()}",
         task_type=TaskType.TEXT_GENERATE,
@@ -92,11 +96,13 @@ async def _process_local_chat(provider: TextProvider, prompt: str, payload: Dict
             "max_tokens": max_tokens,
             "temperature": temperature,
             "system_prompt": payload.get("system_prompt"),
+            "backend": backend,
         },
         meta={
             "mode": "pc",
             "context": payload.get("context"),
             "user": payload.get("user"),
+            "backend": backend,
         },
     )
     start_time = time.time()
@@ -110,6 +116,7 @@ async def _process_local_chat(provider: TextProvider, prompt: str, payload: Dict
         )
 
     reply = (result.result or {}).get("text") or ""
+    used_backend = (result.result or {}).get("backend", "local")
     telemetry = provider.get_telemetry()
 
     return JSONResponse(
@@ -117,12 +124,14 @@ async def _process_local_chat(provider: TextProvider, prompt: str, payload: Dict
             "ok": True,
             "reply": reply,
             "source": "pc",
+            "backend": used_backend,
             "meta": result.meta,
             "task_id": result.task_id,
             "latency_ms": latency_ms,
             "provider_info": {
-                "model": telemetry.get("model"),
-                "engine": telemetry.get("mode"),
+                "model": result.meta.get("model") if result.meta else telemetry.get("model"),
+                "engine": result.meta.get("engine") if result.meta else telemetry.get("mode"),
+                "backend": used_backend,
                 "ollama_available": telemetry.get("ollama_available", False),
             },
         }
@@ -255,10 +264,14 @@ async def providers_text_status(request: Request) -> JSONResponse:
     Odpowiedź zawiera:
     - initialized: czy provider jest zainicjalizowany
     - model: nazwa modelu
-    - engine: silnik (ollama/mock)
+    - engine: silnik (ollama/mock/gemini/chatgpt)
     - ollama_available: czy Ollama jest dostępna
     - cache_size: rozmiar cache
     - mode: tryb pracy (real/mock)
+    - backend: aktualny backend (local/gemini/chatgpt/auto)
+    - available_backends: lista dostępnych backendów
+    - gemini_configured: czy Gemini jest skonfigurowane
+    - chatgpt_configured: czy ChatGPT jest skonfigurowane
     """
     provider = _get_text_provider(request)
 
@@ -285,6 +298,45 @@ async def providers_text_status(request: Request) -> JSONResponse:
             "temperature": telemetry.get("temperature"),
             "use_cache": telemetry.get("use_cache", False),
             "mcp_tools_enabled": telemetry.get("mcp_tools_enabled", False),
+            # External providers info
+            "backend": telemetry.get("backend", "local"),
+            "available_backends": telemetry.get("available_backends", []),
+            "gemini_configured": telemetry.get("gemini_configured", False),
+            "gemini_model": telemetry.get("gemini_model"),
+            "chatgpt_configured": telemetry.get("chatgpt_configured", False),
+            "chatgpt_model": telemetry.get("chatgpt_model"),
+        }
+    )
+
+
+@router.get("/api/providers/text/external")
+async def providers_text_external_status(request: Request) -> JSONResponse:
+    """Zwróć szczegółowy status zewnętrznych providerów (Gemini, ChatGPT).
+
+    Odpowiedź zawiera:
+    - gemini: status providera Gemini
+    - chatgpt: status providera ChatGPT
+    - active_backend: aktualnie wybrany backend
+    - available_backends: lista dostępnych backendów
+    """
+    provider = _get_text_provider(request)
+
+    if not provider:
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": "TextProvider not configured",
+                "gemini": {"available": False},
+                "chatgpt": {"available": False},
+            },
+            status_code=503,
+        )
+
+    external_status = provider.get_external_providers_status()
+    return JSONResponse(
+        {
+            "ok": True,
+            **external_status,
         }
     )
 

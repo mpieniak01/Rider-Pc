@@ -3,7 +3,7 @@
 import logging
 import os
 from collections import deque
-from typing import Dict, Any, List, Optional, Deque
+from typing import Dict, Any, List, Optional, Deque, TYPE_CHECKING
 from pc_client.providers.base import BaseProvider, TaskEnvelope, TaskResult, TaskType, TaskStatus
 from pc_client.telemetry.metrics import (
     tasks_processed_total,
@@ -17,10 +17,22 @@ from pc_client.mcp.tool_call_handler import (
     format_tool_result,
 )
 
+if TYPE_CHECKING:
+    from pc_client.providers.gemini_provider import GeminiProvider
+    from pc_client.providers.chatgpt_provider import ChatGPTProvider
+
 logger = logging.getLogger(__name__)
 
 # Maksymalna liczba wpisów w historii wywołań MCP
 _MCP_HISTORY_MAX_SIZE = 100
+
+# Available text provider backends
+BACKEND_LOCAL = "local"
+BACKEND_GEMINI = "gemini"
+BACKEND_CHATGPT = "chatgpt"
+BACKEND_AUTO = "auto"
+BACKEND_MOCK = "mock"
+VALID_BACKENDS = {BACKEND_LOCAL, BACKEND_GEMINI, BACKEND_CHATGPT, BACKEND_AUTO}
 
 # Import AI libraries with fallback to mock mode
 try:
@@ -37,8 +49,14 @@ class TextProvider(BaseProvider):
     Provider for text processing tasks (NLU/NLG/LLM).
 
     This provider handles text generation and understanding tasks offloaded
-    from Rider-PI. It can delegate to local LLMs or cloud APIs, with
-    caching and fallback support.
+    from Rider-PI. It can delegate to local LLMs (Ollama) or cloud APIs
+    (Gemini, ChatGPT), with caching and fallback support.
+
+    Supported backends:
+    - "local": Local Ollama LLM
+    - "gemini": Google Gemini API
+    - "chatgpt": OpenAI ChatGPT API
+    - "auto": Try backends in order (local -> gemini -> chatgpt)
     """
 
     def __init__(self, config: Dict[str, Any] = None):
@@ -55,6 +73,13 @@ class TextProvider(BaseProvider):
                 - ollama_host: Ollama server host (default: "http://localhost:11434")
                 - enable_mcp_tools: Enable MCP tool-call support (default: True)
                 - max_tool_iterations: Max tool iterations per request (default: 3)
+                - backend: LLM backend ("local", "gemini", "chatgpt", "auto")
+                - gemini_api_key: Gemini API key
+                - gemini_model: Gemini model name
+                - gemini_endpoint: Gemini API endpoint
+                - openai_api_key: OpenAI API key
+                - openai_model: OpenAI model name
+                - openai_base_url: OpenAI API base URL
         """
         super().__init__("TextProvider", config)
         self.model = self.config.get("model", "llama3.2:1b")
@@ -70,6 +95,26 @@ class TextProvider(BaseProvider):
         self.ollama_client = None
         # Użycie deque z maxlen dla automatycznego zarządzania rozmiarem historii
         self._mcp_call_history: Deque[Dict[str, Any]] = deque(maxlen=_MCP_HISTORY_MAX_SIZE)
+
+        # External provider configuration
+        self.backend = self.config.get("backend", BACKEND_LOCAL)
+        if self.backend not in VALID_BACKENDS:
+            self.logger.warning(f"Invalid backend '{self.backend}', falling back to 'local'")
+            self.backend = BACKEND_LOCAL
+
+        # External providers (initialized lazily)
+        self._gemini_provider: Optional["GeminiProvider"] = None
+        self._chatgpt_provider: Optional["ChatGPTProvider"] = None
+
+        # External provider config from Settings or config dict
+        self._gemini_api_key = self.config.get("gemini_api_key")
+        self._gemini_model = self.config.get("gemini_model", "gemini-2.0-flash")
+        self._gemini_endpoint = self.config.get(
+            "gemini_endpoint", "https://generativelanguage.googleapis.com/v1beta"
+        )
+        self._openai_api_key = self.config.get("openai_api_key")
+        self._openai_model = self.config.get("openai_model", "gpt-4o-mini")
+        self._openai_base_url = self.config.get("openai_base_url", "https://api.openai.com/v1")
 
     async def _initialize_impl(self) -> None:
         """Initialize text processing models."""
@@ -111,13 +156,72 @@ class TextProvider(BaseProvider):
             self.logger.info("[provider] Using mock text implementation")
             self.ollama_available = False
 
-        self.logger.info("[provider] Text provider initialized")
+        # Initialize external providers if configured
+        await self._initialize_external_providers()
+
+        self.logger.info(
+            "[provider] Text provider initialized (backend=%s, ollama=%s, gemini=%s, chatgpt=%s)",
+            self.backend,
+            self.ollama_available,
+            self._gemini_provider.is_available if self._gemini_provider else False,
+            self._chatgpt_provider.is_available if self._chatgpt_provider else False,
+        )
+
+    async def _initialize_external_providers(self) -> None:
+        """Initialize external LLM providers (Gemini, ChatGPT)."""
+        # Initialize Gemini provider if API key is available
+        if self._gemini_api_key or self.use_mock:
+            try:
+                from pc_client.providers.gemini_provider import GeminiProvider
+                self._gemini_provider = GeminiProvider(
+                    api_key=self._gemini_api_key,
+                    model=self._gemini_model,
+                    endpoint=self._gemini_endpoint,
+                    use_mock=self.use_mock,
+                )
+                self.logger.info(
+                    "[provider] Gemini provider initialized (model=%s, mock=%s)",
+                    self._gemini_model,
+                    self.use_mock,
+                )
+            except Exception as e:
+                self.logger.warning(f"[provider] Failed to initialize Gemini provider: {e}")
+
+        # Initialize ChatGPT provider if API key is available
+        if self._openai_api_key or self.use_mock:
+            try:
+                from pc_client.providers.chatgpt_provider import ChatGPTProvider
+                self._chatgpt_provider = ChatGPTProvider(
+                    api_key=self._openai_api_key,
+                    model=self._openai_model,
+                    base_url=self._openai_base_url,
+                    use_mock=self.use_mock,
+                )
+                self.logger.info(
+                    "[provider] ChatGPT provider initialized (model=%s, mock=%s)",
+                    self._openai_model,
+                    self.use_mock,
+                )
+            except Exception as e:
+                self.logger.warning(f"[provider] Failed to initialize ChatGPT provider: {e}")
 
     async def _shutdown_impl(self) -> None:
         """Cleanup text processing resources."""
         self.logger.info("[provider] Cleaning up text resources")
         self._cache.clear()
-        # TODO: Cleanup models or close API connections
+
+        # Close external provider connections
+        if self._gemini_provider:
+            try:
+                await self._gemini_provider.close()
+            except Exception as e:
+                self.logger.warning(f"[provider] Error closing Gemini provider: {e}")
+
+        if self._chatgpt_provider:
+            try:
+                await self._chatgpt_provider.close()
+            except Exception as e:
+                self.logger.warning(f"[provider] Error closing ChatGPT provider: {e}")
 
     async def _process_task_impl(self, task: TaskEnvelope) -> TaskResult:
         """
@@ -148,6 +252,7 @@ class TextProvider(BaseProvider):
             - temperature: Sampling temperature (optional)
             - system_prompt: System prompt (optional)
             - enable_tools: Enable MCP tools for this request (optional, default: True)
+            - backend: Override backend for this request (optional)
 
         Returns:
             TaskResult with generated text
@@ -159,6 +264,8 @@ class TextProvider(BaseProvider):
         temperature = task.payload.get("temperature", self.temperature)
         system_prompt = task.payload.get("system_prompt", "")
         enable_tools = task.payload.get("enable_tools", self.enable_mcp_tools)
+        # Allow per-request backend override
+        request_backend = task.payload.get("backend") or task.meta.get("backend") or self.backend
 
         if not prompt:
             return TaskResult(task_id=task.task_id, status=TaskStatus.FAILED, error="Missing prompt in payload")
@@ -170,79 +277,56 @@ class TextProvider(BaseProvider):
                 system_prompt = f"{system_prompt}\n\n{tools_prompt}" if system_prompt else tools_prompt
 
         # Check cache
-        cache_key = f"{prompt}:{max_tokens}:{temperature}"
+        cache_key = f"{request_backend}:{prompt}:{max_tokens}:{temperature}"
         messages: Optional[List[Dict[str, str]]] = None
 
         if self.use_cache and cache_key in self._cache:
             self.logger.info("[provider] Cache hit for text generation")
             generated_text = self._cache[cache_key]
             from_cache = True
+            used_backend = request_backend
             cache_hits_total.labels(cache_type='text_llm').inc()
         else:
-            # Generate with real Ollama LLM if available
-            if self.ollama_available:
-                try:
-                    self.logger.info(f"[provider] Generating with Ollama model: {self.model}")
+            # Generate with selected backend
+            generated_text, used_backend, messages = await self._generate_with_backend(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                backend=request_backend,
+            )
 
-                    # Build messages
-                    messages = []
-                    if system_prompt:
-                        messages.append({"role": "system", "content": system_prompt})
-                    messages.append({"role": "user", "content": prompt})
+            # Update cache
+            if self.use_cache and generated_text:
+                self._cache[cache_key] = generated_text
 
-                    # Call Ollama API
-                    client = self.ollama_client or ollama
-                    response = client.chat(
-                        model=self.model,
-                        messages=messages,
-                        options={"temperature": temperature, "num_predict": max_tokens},
-                    )
-
-                    generated_text = response['message']['content']
-
-                    # Update cache
-                    if self.use_cache:
-                        self._cache[cache_key] = generated_text
-
-                    from_cache = False
-                    cache_misses_total.labels(cache_type='text_llm').inc()
-
-                    self.logger.info(f"[provider] Generated {len(generated_text)} characters with Ollama")
-
-                except Exception as e:
-                    self.logger.error(f"[provider] Ollama generation failed: {e}")
-                    self.logger.warning("[provider] Falling back to mock generation")
-                    # Fall through to mock implementation
-                    generated_text = f"Mock LLM response to: {prompt[:50]}..."
-                    from_cache = False
-                    cache_misses_total.labels(cache_type='text_llm').inc()
-            else:
-                # Mock implementation
-                generated_text = f"Mock LLM response to: {prompt[:50]}..."
-
-                # Update cache
-                if self.use_cache:
-                    self._cache[cache_key] = generated_text
-
-                from_cache = False
-                cache_misses_total.labels(cache_type='text_llm').inc()
+            from_cache = False
+            cache_misses_total.labels(cache_type='text_llm').inc()
 
         # Obsługa tool-call: sprawdź czy odpowiedź zawiera wywołanie narzędzia
         tool_calls = []
         if enable_tools and self.enable_mcp_tools:
             generated_text, tool_calls = await self._handle_tool_calls(
-                generated_text, messages if self.ollama_available else None, max_tokens, temperature
+                generated_text, messages if used_backend == BACKEND_LOCAL else None, max_tokens, temperature
             )
 
-        self.logger.info(f"[provider] Generated {len(generated_text)} characters")
+        self.logger.info(f"[provider] Generated {len(generated_text)} characters via {used_backend}")
 
-        # Update metrics
-        tasks_processed_total.labels(provider='TextProvider', task_type='text.generate', status='completed').inc()
+        # Update metrics with provider info
+        tasks_processed_total.labels(
+            provider=f'TextProvider-{used_backend}',
+            task_type='text.generate',
+            status='completed'
+        ).inc()
+
+        # Determine model used based on backend
+        model_used = self._get_model_for_backend(used_backend)
 
         result_data = {
             "text": generated_text,
             "tokens_used": len(generated_text.split()),
             "from_cache": from_cache,
+            "backend": used_backend,
         }
         if tool_calls:
             result_data["tool_calls"] = tool_calls
@@ -252,14 +336,177 @@ class TextProvider(BaseProvider):
             status=TaskStatus.COMPLETED,
             result=result_data,
             meta={
-                "model": self.model,
+                "model": model_used,
                 "max_tokens": max_tokens,
                 "temperature": temperature,
                 "prompt_length": len(prompt),
-                "engine": "ollama" if self.ollama_available else "mock",
+                "backend": used_backend,
+                "engine": self._get_engine_name(used_backend),
                 "mcp_tools_used": len(tool_calls) if tool_calls else 0,
             },
         )
+
+    async def _generate_with_backend(
+        self,
+        prompt: str,
+        system_prompt: str,
+        max_tokens: int,
+        temperature: float,
+        backend: str,
+    ) -> tuple:
+        """
+        Generate text with specified backend.
+
+        Returns:
+            Tuple of (generated_text, used_backend, messages)
+        """
+        # List of backends to try (for auto mode)
+        if backend == BACKEND_AUTO:
+            backends_to_try = [BACKEND_LOCAL, BACKEND_GEMINI, BACKEND_CHATGPT]
+        else:
+            backends_to_try = [backend]
+
+        for current_backend in backends_to_try:
+            try:
+                text, messages = await self._generate_single_backend(
+                    current_backend, prompt, system_prompt, max_tokens, temperature
+                )
+                # Accept empty strings as valid responses (content may be filtered)
+                return text, current_backend, messages
+            except Exception as e:
+                self.logger.warning(f"[provider] Backend {current_backend} failed: {e}")
+                if backend != BACKEND_AUTO:
+                    break  # Don't try other backends if specific one was requested
+
+        # All backends failed, return mock response
+        self.logger.warning("[provider] All backends failed, using mock response")
+        mock_text = f"Mock LLM response to: {prompt[:50]}..."
+        return mock_text, BACKEND_MOCK, None
+
+    async def _generate_single_backend(
+        self,
+        backend: str,
+        prompt: str,
+        system_prompt: str,
+        max_tokens: int,
+        temperature: float,
+    ) -> tuple:
+        """Generate with a single backend. Returns (text, messages)."""
+        if backend == BACKEND_LOCAL:
+            return await self._generate_local(prompt, system_prompt, max_tokens, temperature)
+        elif backend == BACKEND_GEMINI:
+            return await self._generate_gemini(prompt, system_prompt, max_tokens, temperature)
+        elif backend == BACKEND_CHATGPT:
+            return await self._generate_chatgpt(prompt, system_prompt, max_tokens, temperature)
+        else:
+            raise ValueError(f"Unknown backend: {backend}")
+
+    async def _generate_local(
+        self,
+        prompt: str,
+        system_prompt: str,
+        max_tokens: int,
+        temperature: float,
+    ) -> tuple:
+        """Generate with local Ollama backend."""
+        if not self.ollama_available:
+            raise RuntimeError("Ollama not available")
+
+        self.logger.info(f"[provider] Generating with Ollama model: {self.model}")
+
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        client = self.ollama_client or ollama
+        response = client.chat(
+            model=self.model,
+            messages=messages,
+            options={"temperature": temperature, "num_predict": max_tokens},
+        )
+
+        generated_text = response['message']['content']
+        self.logger.info(f"[provider] Generated {len(generated_text)} characters with Ollama")
+        return generated_text, messages
+
+    async def _generate_gemini(
+        self,
+        prompt: str,
+        system_prompt: str,
+        max_tokens: int,
+        temperature: float,
+    ) -> tuple:
+        """Generate with Gemini backend."""
+        if not self._gemini_provider:
+            raise RuntimeError("Gemini provider not initialized")
+        if not self._gemini_provider.is_available:
+            raise RuntimeError("Gemini API key not configured")
+
+        self.logger.info(f"[provider] Generating with Gemini model: {self._gemini_model}")
+
+        response = await self._gemini_provider.generate(
+            prompt=prompt,
+            system_prompt=system_prompt if system_prompt else None,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+
+        if response.error:
+            raise RuntimeError(f"Gemini error: {response.error}")
+
+        self.logger.info(f"[provider] Generated {len(response.text)} characters with Gemini")
+        return response.text, None
+
+    async def _generate_chatgpt(
+        self,
+        prompt: str,
+        system_prompt: str,
+        max_tokens: int,
+        temperature: float,
+    ) -> tuple:
+        """Generate with ChatGPT backend."""
+        if not self._chatgpt_provider:
+            raise RuntimeError("ChatGPT provider not initialized")
+        if not self._chatgpt_provider.is_available:
+            raise RuntimeError("OpenAI API key not configured")
+
+        self.logger.info(f"[provider] Generating with ChatGPT model: {self._openai_model}")
+
+        response = await self._chatgpt_provider.generate(
+            prompt=prompt,
+            system_prompt=system_prompt if system_prompt else None,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+
+        if response.error:
+            raise RuntimeError(f"ChatGPT error: {response.error}")
+
+        self.logger.info(f"[provider] Generated {len(response.text)} characters with ChatGPT")
+        return response.text, None
+
+    def _get_model_for_backend(self, backend: str) -> str:
+        """Get model name for the given backend."""
+        if backend == BACKEND_LOCAL:
+            return self.model
+        elif backend == BACKEND_GEMINI:
+            return self._gemini_model
+        elif backend == BACKEND_CHATGPT:
+            return self._openai_model
+        else:
+            return "mock"
+
+    def _get_engine_name(self, backend: str) -> str:
+        """Get engine name for telemetry."""
+        if backend == BACKEND_LOCAL:
+            return "ollama" if self.ollama_available else "mock"
+        elif backend == BACKEND_GEMINI:
+            return "gemini"
+        elif backend == BACKEND_CHATGPT:
+            return "chatgpt"
+        else:
+            return "mock"
 
     async def _handle_tool_calls(
         self,
@@ -410,6 +657,16 @@ class TextProvider(BaseProvider):
     def get_telemetry(self) -> Dict[str, Any]:
         """Get text provider telemetry."""
         base_telemetry = super().get_telemetry()
+
+        # Build available backends list
+        available_backends = []
+        if self.ollama_available:
+            available_backends.append(BACKEND_LOCAL)
+        if self._gemini_provider and self._gemini_provider.is_available:
+            available_backends.append(BACKEND_GEMINI)
+        if self._chatgpt_provider and self._chatgpt_provider.is_available:
+            available_backends.append(BACKEND_CHATGPT)
+
         base_telemetry.update(
             {
                 "model": self.model,
@@ -421,6 +678,27 @@ class TextProvider(BaseProvider):
                 "mode": "mock" if not self.ollama_available else "real",
                 "mcp_tools_enabled": self.enable_mcp_tools,
                 "mcp_call_history_size": len(self._mcp_call_history),
+                # External providers info
+                "backend": self.backend,
+                "available_backends": available_backends,
+                "gemini_configured": self._gemini_provider.is_configured if self._gemini_provider else False,
+                "gemini_model": self._gemini_model,
+                "chatgpt_configured": self._chatgpt_provider.is_configured if self._chatgpt_provider else False,
+                "chatgpt_model": self._openai_model,
             }
         )
         return base_telemetry
+
+    def get_external_providers_status(self) -> Dict[str, Any]:
+        """Get detailed status of external providers."""
+        return {
+            "gemini": self._gemini_provider.get_status() if self._gemini_provider else {"available": False},
+            "chatgpt": self._chatgpt_provider.get_status() if self._chatgpt_provider else {"available": False},
+            "active_backend": self.backend,
+            "available_backends": [
+                b for b in [BACKEND_LOCAL, BACKEND_GEMINI, BACKEND_CHATGPT]
+                if (b == BACKEND_LOCAL and self.ollama_available) or
+                   (b == BACKEND_GEMINI and self._gemini_provider and self._gemini_provider.is_available) or
+                   (b == BACKEND_CHATGPT and self._chatgpt_provider and self._chatgpt_provider.is_available)
+            ],
+        }

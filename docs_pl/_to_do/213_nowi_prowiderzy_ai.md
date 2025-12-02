@@ -18,10 +18,38 @@ Docelowo UI (Chat PC, PR Assistant, Benchmark) ma umożliwiać wybór źródła 
 ## Status
 > **Uwaga:** Poniższe statusy będą aktualizowane w trakcie realizacji zadania PR #213.
 
-- [ ] Spec integracji Gemini (autoryzacja, modele, limity).
-- [ ] Spec integracji ChatGPT (opłaty, modele reasoning).
-- [ ] Wymagania UI (przełącznik providerów w Chat PC / Asystent PR / Benchmark).
-- [ ] Plan testów i tryb mock.
+- [x] Spec integracji Gemini (autoryzacja, modele, limity).
+- [x] Spec integracji ChatGPT (opłaty, modele reasoning).
+- [x] Wymagania UI (przełącznik providerów w Chat PC / Asystent PR / Benchmark).
+- [x] Plan testów i tryb mock.
+
+### Zrealizowane komponenty
+
+1. **Konfiguracja** (`.env.example`, `pc_client/config/settings.py`)
+   - `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_ENDPOINT`
+   - `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL`
+   - `TEXT_PROVIDER_BACKEND` = "local" | "gemini" | "chatgpt" | "auto"
+
+2. **Providerzy** (`pc_client/providers/`)
+   - `ExternalLLMProvider` - bazowa klasa dla zewnętrznych LLM
+   - `GeminiProvider` - integracja z Google Gemini API
+   - `ChatGPTProvider` - integracja z OpenAI API
+
+3. **TextProvider** - rozszerzony o obsługę wielu backendów
+   - Wybór backendu per-request (parametr `backend` w payload)
+   - Tryb "auto" próbuje kolejno: local → gemini → chatgpt
+   - Tryb mock dla testów bez kluczy API
+   - Telemetria z informacją o użytym backendzie
+
+4. **API Endpoints**
+   - `GET /api/providers/text` - status z info o zewnętrznych providerach
+   - `GET /api/providers/text/external` - szczegółowy status Gemini/ChatGPT
+   - `POST /api/chat/send` - parametr `backend` do wyboru providera
+
+5. **Testy** - 313 testów (wszystkie przechodzą)
+   - Testy mock mode dla Gemini i ChatGPT
+   - Testy statusu providerów
+   - Testy per-request backend override
 
 ## Zakres (szablon do rozbudowy)
 1. **Warstwa konfiguracyjna**
