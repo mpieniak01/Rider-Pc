@@ -131,7 +131,7 @@ Aby agent kodowania (np. GitHub Copilot) mógł automatycznie rozszerzać Rider-
      ```
 3. **Obsługa odpowiedzi**
    - `choices[].message.tool_calls` → wykonujemy MCP i odpowiadamy jako `role: tool`.
-   - Modele reasoning (`o1-preview`/`o1-mini`) wymagają `reasoning: { "effort": "medium" }` i dłuższego `timeout_seconds`. Model `o3` został zapowiedziany, ale nie jest jeszcze dostępny w API – wsparcie zostanie dodane po jego udostępnieniu.
+   - Modele reasoning (`o1-preview`/`o1-mini`) automatycznie stosują rozumowanie; wymagają dłuższego `timeout_seconds` i mają ograniczenia w obsłudze narzędzi. Model `o3` został zapowiedziany, ale nie jest jeszcze dostępny w API – wsparcie zostanie dodane po jego udostępnieniu.
    - Raportujemy koszty (`usage.prompt_tokens`, `usage.completion_tokens`).
    - **Obsługa rate limiting i quota:**
      - HTTP 429 (Too Many Requests): odczytujemy nagłówek `Retry-After` i stosujemy exponential backoff.
