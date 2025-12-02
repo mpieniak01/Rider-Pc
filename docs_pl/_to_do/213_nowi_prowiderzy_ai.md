@@ -54,7 +54,7 @@ Aby agent kodowania (np. GitHub Copilot) mógł automatycznie rozszerzać Rider-
 ### Gemini
 1. **Autoryzacja**
    - `GEMINI_API_KEY` przechowywany w `.env`.
-   - Nagłówki dla każdego żądania: `Authorization: Bearer <key>`, `x-goog-api-client`.
+   - Nagłówki dla każdego żądania: `x-goog-api-key: <key>` (dla klucza API) lub `Authorization: Bearer <token>` (dla OAuth2). Opcjonalnie `x-goog-api-client`.
    - Opcjonalnie tryb OAuth (Service Account) – generujemy JWT oraz token dostępu.
 2. **Wysyłanie żądań**
    - Tekst: `POST https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`
