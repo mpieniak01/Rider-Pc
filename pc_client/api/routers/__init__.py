@@ -13,6 +13,7 @@ from . import project_router
 from . import model_router
 from . import knowledge_router
 from . import home_router
+from . import assistant_router
 
 __all__ = [
     "status_router",
@@ -24,4 +25,5 @@ __all__ = [
     "model_router",
     "knowledge_router",
     "home_router",
+    "assistant_router",
 ]

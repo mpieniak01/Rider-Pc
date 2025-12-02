@@ -48,8 +48,9 @@ Thumbs.db
 logs/
 .pids/
 
-# Local configuration
+# Local configuration (tokens, secrets)
 config/local/*.toml
+config/local/*.json
 !config/local/.gitignore
 
 # Data and snapshots

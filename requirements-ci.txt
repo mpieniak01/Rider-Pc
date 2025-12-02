@@ -24,6 +24,12 @@ psutil==6.1.0
 tomli==2.0.1
 tomli-w==1.0.0
 
+# Google Assistant / OAuth (tekstowe komendy – bez audio)
+google-auth==2.35.0
+google-auth-oauthlib==1.2.1
+google-assistant-grpc==0.2.1
+grpcio==1.66.1
+
 # Image processing (lightweight)
 pillow==11.0.0
 numpy==1.26.4

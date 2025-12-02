@@ -26,9 +26,11 @@ from pc_client.api.routers import (
     model_router,
     knowledge_router,
     home_router,
+    assistant_router,
     mcp_router,
 )
 from pc_client.api.sse_manager import SseManager
+from pc_client.services.google_assistant import GoogleAssistantService
 
 logger = logging.getLogger(__name__)
 
@@ -178,6 +180,20 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
         },
     ]
 
+    # Initialize Google Assistant service
+    app.state.google_assistant_service = GoogleAssistantService(
+        config_path=settings.google_assistant_devices_config,
+        test_mode=settings.google_assistant_test_mode,
+        enabled=settings.google_assistant_enabled,
+        tokens_path=settings.google_assistant_tokens_path,
+        project_id=settings.google_assistant_project_id,
+        client_id=settings.google_assistant_client_id,
+        client_secret=settings.google_assistant_client_secret,
+        device_model_id=settings.google_assistant_device_model_id,
+        device_id=settings.google_assistant_device_id,
+        language_code=settings.google_assistant_language,
+    )
+
     # Register lifecycle events
     @app.on_event("startup")
     async def startup():
@@ -197,6 +213,7 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
     app.include_router(model_router.router)
     app.include_router(knowledge_router.router)
     app.include_router(home_router.router)
+    app.include_router(assistant_router.router)
     app.include_router(mcp_router.router)
 
     class NoCacheStaticFiles(StaticFiles):
@@ -235,6 +252,7 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
             "system": "system.html",
             "home": "home.html",
             "google_home": "google_home.html",
+            "assistant": "assistant.html",
             "chat": "chat.html",
             "chat-pc": "chat-pc.html",
             "providers": "providers.html",

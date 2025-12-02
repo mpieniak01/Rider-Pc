@@ -25,6 +25,12 @@ tomli==2.0.1
 tomli-w==1.0.0
 python-dotenv==1.0.1
 
+# Google Assistant / OAuth
+google-auth==2.35.0
+google-auth-oauthlib==1.2.1
+google-assistant-grpc==0.2.1
+grpcio==1.66.1
+
 # AI/ML Models
 openai-whisper==20240930
 ultralytics==8.3.43

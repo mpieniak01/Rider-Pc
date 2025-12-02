@@ -1,0 +1,427 @@
+<!doctype html>
+<!--
+  Google Assistant Control Panel - Rider-PC Dashboard
+  Uses shared layout classes: .layout-header, .layout-main, .layout-footer
+-->
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Rider-PC: Google Assistant</title>
+  <link rel="stylesheet" href="/web/assets/dashboard-common.css">
+  <link rel="stylesheet" href="/web/assets/pages/assistant.css">
+</head>
+<body data-page="assistant" class="page page-assistant">
+  <!-- Header with Menu -->
+  <header class="layout-header" data-dashboard-menu-target></header>
+
+  <!-- Main content -->
+  <main class="layout-main">
+  
+  <header class="page-header">
+    <div class="page-header__titles">
+      <h1 class="page-title"><span class="brand-accent">Rider-PC</span>: <span class="page-title-text">Google Assistant</span></h1>
+    </div>
+    <div class="page-header__actions page-header__actions--small text-legend">
+      <span id="statusBadge" class="c-pill warn" data-i18n="assistant.status_checking">Sprawdzam…</span>
+      <button id="btnReload" class="c-btn-sm" title="Przeładuj konfigurację">⟳</button>
+    </div>
+  </header>
+
+  <!-- STATUS SECTION -->
+  <div id="statusSection" class="c-card">
+    <div id="statusMsg" class="c-status-msg u-hidden"></div>
+  </div>
+
+  <!-- CUSTOM COMMAND SECTION -->
+  <div id="customSection" class="c-card">
+    <h2 class="c-card__title" data-i18n="assistant.custom_title">Własna komenda</h2>
+    <div class="custom-command-row">
+      <input type="text" id="customInput" class="custom-input" 
+             placeholder="Wpisz komendę, np. 'Włącz wszystkie światła'" />
+      <button id="btnSendCustom" class="c-btn" data-i18n="assistant.send_button">Wyślij</button>
+    </div>
+  </div>
+
+  <!-- DEVICES SECTION -->
+  <div id="devicesSection" class="c-card">
+    <div class="l-row device-head">
+      <h2 class="c-card__title" data-i18n="assistant.devices_title">Urządzenia</h2>
+      <div class="u-spacer"></div>
+      <button id="btnRefresh" class="c-btn-sm" data-i18n="assistant.refresh_button">⟳ Odśwież</button>
+    </div>
+    
+    <div id="devicesList" class="device-grid l-grid">
+      <div class="muted" data-i18n="meta.loading">Ładowanie…</div>
+    </div>
+  </div>
+
+  <!-- HISTORY SECTION -->
+  <div id="historySection" class="c-card">
+    <h2 class="c-card__title" data-i18n="assistant.history_title">Historia komend</h2>
+    <div id="historyList" class="history-list">
+      <div class="muted" data-i18n="assistant.no_history">Brak historii</div>
+    </div>
+  </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="layout-footer" data-dashboard-footer-target></footer>
+
+  <!-- APP -->
+<script type="module">
+import { initI18n, applyDom, t } from '/web/assets/i18n.js';
+
+  // --- Inicjalizacja języka
+  const urlLang = new URLSearchParams(location.search).get('lang');
+  const saved = localStorage.getItem('lang');
+  const browser = (navigator.language || '').slice(0,2).toLowerCase();
+  const pick = (v)=> v && v.toLowerCase().startsWith('en') ? 'en' : (v && v.toLowerCase().startsWith('pl') ? 'pl' : null);
+  const lang = pick(urlLang) || pick(saved) || pick(browser) || 'pl';
+  if (urlLang) localStorage.setItem('lang', lang);
+  await initI18n(lang);
+  applyDom();
+  function syncLangMeta(code){
+    document.documentElement.setAttribute('lang', code);
+    document.title = t('assistant.page_title') || 'Rider-PC: Google Assistant';
+  }
+  syncLangMeta(lang);
+  window.addEventListener('dashboard:langchange', (ev) => {
+    const next = ev?.detail?.lang;
+    if(next) syncLangMeta(next);
+  });
+
+  // --- Helper functions
+  const qs = (s)=>document.querySelector(s);
+  
+  function showStatus(msg, type='ok'){
+    const statusMsg = qs('#statusMsg');
+    statusMsg.textContent = msg;
+    statusMsg.className = `c-status-msg ${type}`;
+    statusMsg.classList.remove('u-hidden');
+    setTimeout(()=> statusMsg.classList.add('u-hidden'), 5000);
+  }
+
+  async function httpGet(url){
+    const r = await fetch(url, {cache:'no-store'});
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    return j;
+  }
+
+  async function httpPost(url, body){
+    const r = await fetch(url, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    return j;
+  }
+
+  // --- Check service status
+  async function checkStatus(){
+    try{
+      const result = await httpGet('/api/assistant/status');
+      const statusBadge = qs('#statusBadge');
+      
+      if(result.enabled){
+        if(result.test_mode){
+          statusBadge.textContent = t('assistant.status_test') || 'Tryb testowy';
+          statusBadge.className = 'c-pill warn';
+        } else {
+          statusBadge.textContent = t('assistant.status_ok') || 'Aktywny';
+          statusBadge.className = 'c-pill ok';
+        }
+        loadDevices();
+        loadHistory();
+      } else {
+        statusBadge.textContent = t('assistant.status_disabled') || 'Wyłączony';
+        statusBadge.className = 'c-pill err';
+        showStatus(t('assistant.service_disabled') || 'Usługa Google Assistant jest wyłączona. Ustaw GOOGLE_ASSISTANT_ENABLED=true w .env', 'err');
+      }
+    }catch(e){
+      const statusBadge = qs('#statusBadge');
+      statusBadge.textContent = t('assistant.status_error') || 'Błąd';
+      statusBadge.className = 'c-pill err';
+      showStatus(t('assistant.error_status', {msg: e.message}) || `Błąd: ${e.message}`, 'err');
+    }
+  }
+
+  // --- Load devices
+  async function loadDevices(){
+    const devicesList = qs('#devicesList');
+    devicesList.innerHTML = `<div class="muted"><span class="spinner"></span> ${t('meta.loading') || 'Ładowanie...'}</div>`;
+    
+    try{
+      const result = await httpGet('/api/assistant/devices');
+      
+      if(!result.ok){
+        throw new Error(result.error || 'Nie udało się załadować urządzeń');
+      }
+      
+      const devices = result.devices || [];
+      
+      if(devices.length === 0){
+        devicesList.innerHTML = `<div class="note">${t('assistant.no_devices') || 'Brak skonfigurowanych urządzeń'}</div>`;
+        return;
+      }
+      
+      devicesList.innerHTML = '';
+      devices.forEach(device => renderDevice(device));
+      
+    }catch(e){
+      devicesList.innerHTML = `<div class="err">${t('assistant.error_devices', {msg: e.message}) || `Błąd: ${e.message}`}</div>`;
+    }
+  }
+
+  // --- Render a device
+  function renderDevice(device){
+    const devicesList = qs('#devicesList');
+    
+    const card = document.createElement('div');
+    card.className = 'device-card c-card';
+    card.dataset.deviceId = device.id;
+    
+    const statusClass = device.status === 'on' ? 'is-ok' : 
+                        device.status === 'off' ? 'is-disconnected' : 
+                        device.status === 'unknown' ? 'status-unknown' : '';
+    
+    let html = `
+      <div class="device-header">
+        <span class="status-dot ${statusClass}"></span>
+        <div class="device-info">
+          <div class="device-name">${escapeHtml(device.label)}</div>
+          <div class="device-room">${escapeHtml(device.room || '')}</div>
+        </div>
+      </div>
+      <div class="device-category">${getCategoryIcon(device.category)} ${escapeHtml(device.category)}</div>
+      <div class="device-controls">
+    `;
+    
+    // ON/OFF buttons
+    if(device.on_command){
+      html += `
+        <button class="c-btn-sm btn-on" data-action="on" data-device="${escapeHtml(device.id)}">
+          ${t('assistant.btn_on') || 'Włącz'}
+        </button>
+      `;
+    }
+    
+    if(device.off_command){
+      html += `
+        <button class="c-btn-sm btn-off" data-action="off" data-device="${escapeHtml(device.id)}">
+          ${t('assistant.btn_off') || 'Wyłącz'}
+        </button>
+      `;
+    }
+    
+    // Brightness slider
+    if(device.supports_brightness){
+      html += `
+        <div class="brightness-row">
+          <label class="control-label">
+            <span>${t('assistant.brightness') || 'Jasność'}:</span>
+            <input type="range" min="0" max="100" value="50" 
+                   data-action="brightness" data-device="${escapeHtml(device.id)}" />
+            <span class="brightness-value">50%</span>
+          </label>
+        </div>
+      `;
+    }
+    
+    // Dock button for vacuums
+    if(device.dock_command){
+      html += `
+        <button class="c-btn-sm btn-dock" data-action="dock" data-device="${escapeHtml(device.id)}">
+          ${t('assistant.btn_dock') || 'Do stacji'}
+        </button>
+      `;
+    }
+    
+    html += `</div>`;
+    card.innerHTML = html;
+    
+    // Add event listeners
+    card.querySelectorAll('[data-action="on"]').forEach(btn => {
+      btn.addEventListener('click', ()=> sendDeviceCommand(device.id, 'on'));
+    });
+    
+    card.querySelectorAll('[data-action="off"]').forEach(btn => {
+      btn.addEventListener('click', ()=> sendDeviceCommand(device.id, 'off'));
+    });
+    
+    card.querySelectorAll('[data-action="brightness"]').forEach(slider => {
+      slider.addEventListener('change', (e)=> {
+        const value = parseInt(e.target.value);
+        sendDeviceCommand(device.id, 'brightness', {value});
+      });
+      
+      slider.addEventListener('input', (e)=> {
+        const valueSpan = slider.parentElement.querySelector('.brightness-value');
+        if(valueSpan) valueSpan.textContent = e.target.value + '%';
+      });
+    });
+    
+    card.querySelectorAll('[data-action="dock"]').forEach(btn => {
+      btn.addEventListener('click', ()=> sendDeviceCommand(device.id, 'dock'));
+    });
+    
+    devicesList.appendChild(card);
+  }
+
+  function getCategoryIcon(category){
+    const icons = {
+      'lights': '💡',
+      'air_purifier': '🌬️',
+      'vacuum': '🧹',
+      'camera': '📷',
+      'scene': '🎬',
+      'thermostat': '🌡️',
+    };
+    return icons[category] || '📱';
+  }
+
+  // --- Send device command
+  async function sendDeviceCommand(deviceId, action, params = {}){
+    try{
+      showStatus(t('assistant.sending_command') || 'Wysyłam komendę...', 'ok');
+      
+      // Optimistic status update
+      const card = qs(`[data-device-id="${deviceId}"]`);
+      if(card){
+        const dot = card.querySelector('.status-dot');
+        if(dot){
+          dot.classList.remove('is-ok', 'is-disconnected');
+          if(action === 'on') dot.classList.add('is-ok');
+          // dla 'off' nie dodajemy klasy .is-disconnected; można dodać .is-off jeśli istnieje styl
+        }
+      }
+      
+      const result = await httpPost('/api/assistant/command', {
+        device_id: deviceId,
+        action: action,
+        params: params
+      });
+      
+      if(!result.ok){
+        throw new Error(result.error || 'Komenda nie powiodła się');
+      }
+      
+      showStatus(t('assistant.command_success') || 'Komenda wysłana pomyślnie', 'ok');
+      
+      // Refresh history
+      setTimeout(()=> loadHistory(), 500);
+      
+    }catch(e){
+      showStatus(t('assistant.error_command', {msg: e.message}) || `Błąd: ${e.message}`, 'err');
+    }
+  }
+
+  // --- Send custom command
+  async function sendCustomCommand(){
+    const input = qs('#customInput');
+    const text = (input.value || '').trim();
+    
+    if(!text){
+      showStatus(t('assistant.error_empty') || 'Wpisz komendę', 'err');
+      return;
+    }
+    
+    try{
+      showStatus(t('assistant.sending_command') || 'Wysyłam komendę...', 'ok');
+      
+      const result = await httpPost('/api/assistant/custom', { text });
+      
+      if(!result.ok){
+        throw new Error(result.error || 'Komenda nie powiodła się');
+      }
+      
+      showStatus(t('assistant.command_success') || 'Komenda wysłana pomyślnie', 'ok');
+      input.value = '';
+      
+      // Refresh history
+      setTimeout(()=> loadHistory(), 500);
+      
+    }catch(e){
+      showStatus(t('assistant.error_command', {msg: e.message}) || `Błąd: ${e.message}`, 'err');
+    }
+  }
+
+  // --- Load history
+  async function loadHistory(){
+    const historyList = qs('#historyList');
+    
+    try{
+      const result = await httpGet('/api/assistant/history?limit=10');
+      
+      if(!result.ok || !result.history || result.history.length === 0){
+        historyList.innerHTML = `<div class="muted">${t('assistant.no_history') || 'Brak historii'}</div>`;
+        return;
+      }
+      
+      historyList.innerHTML = '';
+      result.history.forEach(entry => {
+        const item = document.createElement('div');
+        item.className = `history-item ${entry.success ? 'success' : 'failed'}`;
+        
+        const time = new Date(entry.timestamp * 1000).toLocaleTimeString('pl-PL');
+        
+        item.innerHTML = `
+          <span class="history-time">${time}</span>
+          <span class="history-command">${escapeHtml(entry.command_text)}</span>
+          <span class="history-status">${entry.success ? '✓' : '✗'}</span>
+        `;
+        historyList.appendChild(item);
+      });
+      
+    }catch(e){
+      historyList.innerHTML = `<div class="err">${t('assistant.error_history') || 'Błąd ładowania historii'}</div>`;
+    }
+  }
+
+  // --- Reload config
+  async function reloadConfig(){
+    try{
+      showStatus(t('assistant.reloading') || 'Przeładowuję konfigurację...', 'ok');
+      
+      const result = await httpPost('/api/assistant/reload', {});
+      
+      if(!result.ok){
+        throw new Error(result.error || 'Nie udało się przeładować');
+      }
+      
+      showStatus(t('assistant.reload_success', {count: result.devices_count}) || `Załadowano ${result.devices_count} urządzeń`, 'ok');
+      loadDevices();
+      
+    }catch(e){
+      showStatus(t('assistant.error_reload', {msg: e.message}) || `Błąd: ${e.message}`, 'err');
+    }
+  }
+
+  // --- Utility
+  function escapeHtml(text){
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+  }
+
+  // --- Event listeners
+  qs('#btnRefresh').addEventListener('click', ()=> loadDevices());
+  qs('#btnReload').addEventListener('click', ()=> reloadConfig());
+  qs('#btnSendCustom').addEventListener('click', ()=> sendCustomCommand());
+  
+  qs('#customInput').addEventListener('keypress', (e)=> {
+    if(e.key === 'Enter') sendCustomCommand();
+  });
+
+  // --- Initialize
+  checkStatus();
+</script>
+<script type="module" src="/web/assets/menu.js"></script>
+<script type="module" src="/web/assets/footer.js"></script>
+
+</body>
+</html>
