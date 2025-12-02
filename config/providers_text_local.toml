@@ -18,7 +18,7 @@
 #   - llama3.2:3b  - lepszy bilans jakości/szybkości
 #   - mistral:7b   - wyższa jakość, wolniejszy
 #   - codellama:7b - specjalizowany dla kodu
-model = "llama3.2:1b"
+model = "llama3.1:8b"
 
 # Maksymalna liczba tokenów w odpowiedzi
 max_tokens = 512
@@ -31,7 +31,7 @@ top_p = 0.9
 top_k = 40
 
 # Adres serwera Ollama
-ollama_host = "http://localhost:11434"
+ollama_host = "http://127.0.0.1:11434"
 
 # Tryb mock (true = symulacja bez Ollama)
 use_mock = false
