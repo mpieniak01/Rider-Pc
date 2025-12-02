@@ -59,7 +59,7 @@
   box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
 
-/* Device header - uses global .status-dot with .is-ok/.is-error */
+/* Device header - uses global .status-dot with .is-ok/.is-disconnected */
 .page-assistant .device-header {
   display: flex;
   align-items: center;
@@ -67,8 +67,9 @@
 }
 
 .page-assistant .device-header .status-dot {
-  width: 12px;
-  height: 12px;
+  --status-dot-size: 12px;
+  width: var(--status-dot-size);
+  height: var(--status-dot-size);
   flex-shrink: 0;
 }
 
