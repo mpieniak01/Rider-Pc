@@ -105,6 +105,13 @@ export const I18N = {
       mem:   { pl: "mem%", en: "mem%" },
     },
     history_pc_title: { pl: "Historia (60 s) — PC CPU / MEM", en: "History (60 s) — PC CPU / MEM" },
+    history_gpu_util_title: { pl: "Historia (60 s) — GPU (%)", en: "History (60 s) — GPU (%)" },
+    history_gpu_mem_title: { pl: "Historia (60 s) — GPU pamięć", en: "History (60 s) — GPU Memory" },
+    gpu: {
+      card_title: { pl: "GPU (60 s)", en: "GPU (60 s)" },
+      util_label: { pl: "gpu%", en: "gpu%" },
+      mem_label: { pl: "mem%", en: "mem%" },
+    },
 
     obstacle: {
       title:      { pl: "Przeszkoda", en: "Obstacle" },
@@ -151,6 +158,8 @@ export const I18N = {
       load:    { pl: "Load (1/5/15)", en: "Load (1/5/15)" },
       mem:     { pl: "Pamięć", en: "Memory" },
       disk:    { pl: "Dysk", en: "Disk" },
+      gpu_util: { pl: "GPU (%)", en: "GPU (%)" },
+      gpu_mem:  { pl: "Pamięć GPU", en: "GPU Memory" },
       os:      { pl: "System", en: "System" },
       distro:  { pl: "Dystrybucja", en: "Distribution" },
       uptime:  { pl: "Uptime", en: "Uptime" },
@@ -163,6 +172,26 @@ export const I18N = {
       hint:    { pl: "Status lokalnych endpointów Rider-PC.", en: "Status of local Rider-PC endpoints." },
       empty:   { pl: "Brak danych", en: "No data" },
       no_auto: { pl: "• brak automatycznej kontroli", en: "• no automatic check" },
+    },
+
+    mcp: {
+      title:         { pl: "MCP Tools", en: "MCP Tools" },
+      total_tools:   { pl: "Narzędzia", en: "Tools" },
+      invocations:   { pl: "Wywołania", en: "Invocations" },
+      last_tool:     { pl: "Ostatnie", en: "Last" },
+      status:        { pl: "Status", en: "Status" },
+      hint:          { pl: "Model Context Protocol – narzędzia AI.", en: "Model Context Protocol – AI tools." },
+      tools_list:    { pl: "Lista narzędzi", en: "Tools list" },
+      loading:       { pl: "Ładowanie...", en: "Loading..." },
+      no_tools:      { pl: "Brak narzędzi", en: "No tools" },
+      recent_calls:  { pl: "Ostatnie wywołania", en: "Recent calls" },
+      no_calls:      { pl: "Brak wywołań", en: "No calls" },
+      config:        { pl: "Konfiguracja MCP", en: "MCP Configuration" },
+      standalone:    { pl: "Standalone", en: "Standalone" },
+      port:          { pl: "Port", en: "Port" },
+      config_hint:   { pl: "Ustawienia MCP z /api/mcp/resources.", en: "MCP settings from /api/mcp/resources." },
+      status_active: { pl: "aktywny", en: "active" },
+      status_error:  { pl: "błąd", en: "error" },
     },
 
     camera: {
@@ -216,13 +245,6 @@ export const I18N = {
       offset_none: { pl: "offset: brak danych", en: "offset: n/a" },
       mode:        { pl: "tryb", en: "mode" },
       age:         { pl: "wiek", en: "age" },
-    },
-
-    // DODANE: sekcja repo używana przez kafel "Repozytorium"
-    repo: {
-      title:  { pl: "Repozytorium", en: "Repository" },
-      name:   { pl: "projekt",      en: "project" },
-      github: { pl: "GitHub",       en: "GitHub" },
     },
 
     status: {

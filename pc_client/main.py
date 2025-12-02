@@ -5,6 +5,8 @@ import sys
 import uvicorn
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from pc_client.config import Settings
 from pc_client.cache import CacheManager
 from pc_client.api import create_app
@@ -21,12 +23,25 @@ def setup_logging(log_level: str):
 
 def main():
     """Main entry point."""
+    project_root = Path(__file__).resolve().parent.parent
+    env_path = project_root / ".env"
+    dotenv_path = env_path if env_path.exists() else None
+    dotenv_loaded = load_dotenv(dotenv_path=dotenv_path)
+
     # Load settings
     settings = Settings()
 
     # Setup logging
     setup_logging(settings.log_level)
     logger = logging.getLogger(__name__)
+
+    if dotenv_loaded:
+        if dotenv_path:
+            logger.info("Loaded environment variables from %s", dotenv_path)
+        else:
+            logger.info(".env file loaded via automatic discovery")
+    else:
+        logger.info("No .env file found (looked for %s); using existing environment variables", env_path)
 
     logger.info("=" * 60)
     logger.info("Rider-PC Client Starting")

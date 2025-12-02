@@ -23,6 +23,7 @@ psutil==6.1.0
 # TOML parsing (Python 3.9 compatibility)
 tomli==2.0.1
 tomli-w==1.0.0
+python-dotenv==1.0.1
 
 # Google Assistant / OAuth
 google-auth==2.35.0

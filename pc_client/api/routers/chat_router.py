@@ -284,6 +284,39 @@ async def providers_text_status(request: Request) -> JSONResponse:
             "max_tokens": telemetry.get("max_tokens"),
             "temperature": telemetry.get("temperature"),
             "use_cache": telemetry.get("use_cache", False),
+            "mcp_tools_enabled": telemetry.get("mcp_tools_enabled", False),
+        }
+    )
+
+
+@router.get("/api/chat/pc/mcp-history")
+async def get_mcp_call_history(request: Request, limit: int = 20) -> JSONResponse:
+    """Zwróć historię wywołań narzędzi MCP z TextProvider.
+
+    Parametry:
+    - limit: Maksymalna liczba ostatnich wywołań do zwrócenia (domyślnie 20, max 100).
+
+    Odpowiedź:
+    - ok: Czy operacja się powiodła.
+    - history: Lista ostatnich wywołań narzędzi MCP.
+    - count: Liczba zwróconych wywołań.
+    """
+    provider = _get_text_provider(request)
+
+    if not provider:
+        return JSONResponse(
+            {"ok": False, "error": "TextProvider not available", "history": []},
+            status_code=503,
+        )
+
+    limit = min(max(1, limit), 100)
+    history = provider.get_mcp_call_history(limit=limit)
+
+    return JSONResponse(
+        {
+            "ok": True,
+            "history": history,
+            "count": len(history),
         }
     )
 

@@ -27,6 +27,7 @@ from pc_client.api.routers import (
     knowledge_router,
     home_router,
     assistant_router,
+    mcp_router,
 )
 from pc_client.api.sse_manager import SseManager
 from pc_client.services.google_assistant import GoogleAssistantService
@@ -213,6 +214,7 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
     app.include_router(knowledge_router.router)
     app.include_router(home_router.router)
     app.include_router(assistant_router.router)
+    app.include_router(mcp_router.router)
 
     class NoCacheStaticFiles(StaticFiles):
         """StaticFiles variant that disables conditional caching."""
