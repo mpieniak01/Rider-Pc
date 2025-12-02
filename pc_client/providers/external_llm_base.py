@@ -1,9 +1,8 @@
 """Base class for external LLM providers (Gemini, ChatGPT, etc.)."""
 
 import logging
-import time
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -99,22 +98,29 @@ class ExternalLLMProvider(ABC):
         """
         pass
 
+    @abstractmethod
+    async def close(self) -> None:
+        """Close connections and cleanup resources."""
+        pass
+
     def _get_cache_key(
         self,
         prompt: str,
         system_prompt: Optional[str],
         max_tokens: int,
         temperature: float,
+        tools: Optional[List[Dict[str, Any]]] = None,
     ) -> str:
         """Generate cache key for request."""
-        return f"{self.provider_name}:{prompt}:{system_prompt}:{max_tokens}:{temperature}"
+        tools_key = str(tools) if tools else "no_tools"
+        return f"{self.provider_name}:{prompt}:{system_prompt}:{max_tokens}:{temperature}:{tools_key}"
 
     def _get_cached_response(self, cache_key: str) -> Optional[LLMResponse]:
         """Get cached response if available."""
         if cache_key in self._cache:
             response = self._cache[cache_key]
-            response.from_cache = True
-            return response
+            # Create a copy to avoid mutating the cached object
+            return replace(response, from_cache=True)
         return None
 
     def _cache_response(self, cache_key: str, response: LLMResponse) -> None:

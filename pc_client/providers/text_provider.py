@@ -31,6 +31,7 @@ BACKEND_LOCAL = "local"
 BACKEND_GEMINI = "gemini"
 BACKEND_CHATGPT = "chatgpt"
 BACKEND_AUTO = "auto"
+BACKEND_MOCK = "mock"
 VALID_BACKENDS = {BACKEND_LOCAL, BACKEND_GEMINI, BACKEND_CHATGPT, BACKEND_AUTO}
 
 # Import AI libraries with fallback to mock mode
@@ -365,16 +366,14 @@ class TextProvider(BaseProvider):
         else:
             backends_to_try = [backend]
 
-        last_error = None
         for current_backend in backends_to_try:
             try:
                 text, messages = await self._generate_single_backend(
                     current_backend, prompt, system_prompt, max_tokens, temperature
                 )
-                if text:
-                    return text, current_backend, messages
+                # Accept empty strings as valid responses (content may be filtered)
+                return text, current_backend, messages
             except Exception as e:
-                last_error = e
                 self.logger.warning(f"[provider] Backend {current_backend} failed: {e}")
                 if backend != BACKEND_AUTO:
                     break  # Don't try other backends if specific one was requested
@@ -382,7 +381,7 @@ class TextProvider(BaseProvider):
         # All backends failed, return mock response
         self.logger.warning("[provider] All backends failed, using mock response")
         mock_text = f"Mock LLM response to: {prompt[:50]}..."
-        return mock_text, "mock", None
+        return mock_text, BACKEND_MOCK, None
 
     async def _generate_single_backend(
         self,
