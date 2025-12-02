@@ -133,9 +133,11 @@ class ModelManager:
             Path(providers_config_path) if providers_config_path else Path("config/providers.toml")
         )
         self._installed_models: List[ModelInfo] = []
+        self._seen_model_paths: set[Path] = set()
         self._active_models: Optional[ActiveModels] = None
         self._ollama_models: List[Dict[str, Any]] = []
         self._providers_config: Dict[str, Any] = {}
+        self._project_root = Path(__file__).resolve().parents[2]
         self._slot_field_map: Dict[str, tuple[str, str]] = {
             "vision": ("vision", "detection_model"),
             "voice_asr": ("voice", "asr_model"),
@@ -151,6 +153,7 @@ class ModelManager:
             List of detected ModelInfo objects
         """
         self._installed_models = []
+        self._seen_model_paths = set()
 
         if not self.models_dir.exists():
             logger.warning("Models directory does not exist: %s", self.models_dir)
@@ -163,12 +166,12 @@ class ModelManager:
                 ext = Path(file).suffix.lower()
                 if ext in self.MODEL_EXTENSIONS:
                     file_path = Path(root) / file
-                    model_info = self._create_model_info(file_path)
-                    self._installed_models.append(model_info)
-                    logger.debug("Found model: %s (%s)", model_info.name, model_info.category)
+                    self._register_model_file(file_path)
 
         if not self._installed_models and self._should_seed_demo_models():
             self._seed_demo_models()
+
+        self._include_active_config_models()
 
         logger.info("Scanned %d local models", len(self._installed_models))
         return self._installed_models
@@ -216,6 +219,69 @@ class ModelManager:
             size_mb=size_mb,
             format=ext,
         )
+
+    def _register_model_file(self, file_path: Path) -> None:
+        """Register a model file if it hasn't been seen yet."""
+        try:
+            resolved = file_path.resolve()
+        except OSError:
+            resolved = file_path
+        if resolved in self._seen_model_paths:
+            return
+
+        model_info = self._create_model_info(file_path)
+        self._installed_models.append(model_info)
+        self._seen_model_paths.add(resolved)
+        logger.debug("Found model: %s (%s)", model_info.name, model_info.category)
+
+    def _include_active_config_models(self) -> None:
+        """Ensure models referenced by providers.toml appear in the inventory even if stored outside data/models."""
+        if not self._providers_config:
+            self.get_active_models()
+
+        vision_config = self._providers_config.get("vision", {})
+        detection_model = vision_config.get("detection_model")
+        if detection_model:
+            for candidate in self._candidate_paths(detection_model):
+                if candidate.exists():
+                    self._register_model_file(candidate)
+                    break
+
+    def _candidate_paths(self, model_name: str) -> List[Path]:
+        """Generate possible filesystem paths for a configured model name."""
+        candidates: List[Path] = []
+        raw_path = Path(model_name)
+
+        possible_names: List[Path]
+        if raw_path.suffix:
+            possible_names = [raw_path]
+        else:
+            possible_names = [raw_path]
+            for ext in sorted(self.MODEL_EXTENSIONS):
+                possible_names.append(raw_path.with_suffix(ext))
+
+        search_bases = [self.models_dir, self._project_root]
+
+        for variant in possible_names:
+            if variant.is_absolute():
+                candidates.append(variant)
+                continue
+            for base in search_bases:
+                candidates.append(base / variant)
+
+        seen: set[Path] = set()
+        unique_candidates: List[Path] = []
+        for path in candidates:
+            try:
+                resolved = path.resolve()
+            except OSError:
+                resolved = path
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            unique_candidates.append(path)
+
+        return unique_candidates
 
     def _detect_category_and_type(self, name: str) -> tuple[str, str]:
         """Detect model category and type from filename."""
@@ -305,7 +371,16 @@ class ModelManager:
         """
         import httpx
 
-        host = ollama_host or "http://localhost:11434"
+        host = ollama_host
+        if not host:
+            if not self._active_models:
+                self.get_active_models()
+            host = (
+                (self._active_models.text or {}).get("ollama_host")
+                if self._active_models and isinstance(self._active_models.text, dict)
+                else None
+            )
+        host = host or "http://localhost:11434"
         self._ollama_models = []
 
         try:

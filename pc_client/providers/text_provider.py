@@ -1,6 +1,7 @@
 """Text provider for NLU/NLG and LLM tasks with MCP tool-call support."""
 
 import logging
+import os
 from collections import deque
 from typing import Dict, Any, List, Optional, Deque
 from pc_client.providers.base import BaseProvider, TaskEnvelope, TaskResult, TaskType, TaskStatus
@@ -66,6 +67,7 @@ class TextProvider(BaseProvider):
         self.max_tool_iterations = self.config.get("max_tool_iterations", 3)
         self._cache: Dict[str, str] = {}
         self.ollama_available = False
+        self.ollama_client = None
         # Użycie deque z maxlen dla automatycznego zarządzania rozmiarem historii
         self._mcp_call_history: Deque[Dict[str, Any]] = deque(maxlen=_MCP_HISTORY_MAX_SIZE)
 
@@ -80,11 +82,27 @@ class TextProvider(BaseProvider):
         # Check if Ollama is available and running
         if OLLAMA_AVAILABLE and not self.use_mock:
             try:
-                # Try to list models to verify connection
-                self.logger.info("[provider] Checking Ollama connection...")
-                ollama.list()
+                client_cls = getattr(ollama, "Client", None)
+                if client_cls is not None:
+                    self.logger.info(
+                        "[provider] Checking Ollama connection at %s ...",
+                        self.ollama_host,
+                    )
+                    self.ollama_client = client_cls(host=self.ollama_host)
+                    self.ollama_client.list()
+                else:
+                    # Fallback to module-level API (set env for custom host)
+                    if self.ollama_host:
+                        os.environ["OLLAMA_HOST"] = self.ollama_host
+                    self.logger.info("[provider] Checking Ollama connection...")
+                    ollama.list()
+
                 self.ollama_available = True
-                self.logger.info(f"[provider] Ollama connected, using model: {self.model}")
+                self.logger.info(
+                    "[provider] Ollama connected at %s, using model: %s",
+                    self.ollama_host,
+                    self.model,
+                )
             except Exception as e:
                 self.logger.warning(f"[provider] Ollama not available: {e}")
                 self.logger.warning("[provider] Falling back to mock LLM")
@@ -173,7 +191,8 @@ class TextProvider(BaseProvider):
                     messages.append({"role": "user", "content": prompt})
 
                     # Call Ollama API
-                    response = ollama.chat(
+                    client = self.ollama_client or ollama
+                    response = client.chat(
                         model=self.model,
                         messages=messages,
                         options={"temperature": temperature, "num_predict": max_tokens},

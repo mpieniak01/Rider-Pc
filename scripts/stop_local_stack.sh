@@ -39,6 +39,7 @@ if [[ -f "${panel_log}" ]]; then
 fi
 stop_pid "prometheus"
 stop_pid "grafana"
+stop_pid "ollama"
 
 # Redis writes its own pid when daemonized; use redis-cli if available.
 if [[ -f "${PID_DIR}/redis.pid" ]]; then

@@ -28,6 +28,16 @@ warn() {
   printf "[start-stack] WARNING: %s\n" "$*" >&2
 }
 
+# Load .env once so every service (including helpers like Ollama) sees the same configuration
+if [[ -f "${ROOT_DIR}/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "${ROOT_DIR}/.env"
+  set +a
+else
+  warn "Missing .env file. Copy .env.example to .env and fill in your Rider-PI settings."
+fi
+
 ensure_venv() {
   if [[ ! -d "${ROOT_DIR}/.venv" ]]; then
     info "Creating Python virtualenv (.venv)"
@@ -109,6 +119,66 @@ start_grafana() {
   echo $! > "${pid_file}"
 }
 
+_detect_ollama_binding() {
+  local config_path="${TEXT_PROVIDER_CONFIG:-${ROOT_DIR}/config/providers.toml}"
+  python3 - <<'PY' "${config_path}" 2>/dev/null || true
+import sys
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib  # type: ignore
+from urllib.parse import urlparse
+
+config_path = sys.argv[1]
+default_url = "http://127.0.0.1:11434"
+host = None
+try:
+    with open(config_path, "rb") as fp:
+        data = tomllib.load(fp)
+        host = (data.get("text") or {}).get("ollama_host") or None
+except Exception:
+    host = None
+
+host = host or default_url
+if "://" not in host:
+    host = f"http://{host}"
+parsed = urlparse(host)
+hostname = parsed.hostname or "127.0.0.1"
+port = parsed.port or 11434
+netloc = f"{hostname}:{port}"
+is_local = hostname in ("127.0.0.1", "localhost", "::1", "0.0.0.0")
+print(f"{netloc}|{1 if is_local else 0}")
+PY
+}
+
+start_ollama() {
+  local pid_file="${PID_DIR}/ollama.pid"
+  if [[ -f "${pid_file}" ]] && kill -0 "$(cat "${pid_file}")" 2>/dev/null; then
+    info "Ollama already running (PID $(cat "${pid_file}"))"
+    return
+  fi
+
+  if ! command -v ollama >/dev/null 2>&1; then
+    warn "ollama CLI not found. Install it from https://ollama.com/ to enable lokalny LLM."
+    return
+  fi
+
+  local binding
+  binding="$(_detect_ollama_binding)"
+  local addr="${binding%|*}"
+  local is_local="${binding#*|}"
+  if [[ "${is_local}" != "1" ]]; then
+    info "Skipping lokalne uruchomienie Ollamy (konfiguracja wskazuje host ${addr})."
+    return
+  fi
+
+  mkdir -p "${LOG_DIR}"
+  local ollama_log="${LOG_DIR}/ollama.log"
+  info "Starting Ollama server on ${addr} (logs: ${ollama_log})"
+  OLLAMA_HOST="${addr}" ollama serve >"${ollama_log}" 2>&1 &
+  echo $! > "${pid_file}"
+}
+
 start_rider_pc() {
   local pid_file="${PID_DIR}/rider-pc.pid"
   if [[ -f "${pid_file}" ]] && kill -0 "$(cat "${pid_file}")" 2>/dev/null; then
@@ -116,15 +186,7 @@ start_rider_pc() {
     return
   fi
 
-  if [[ ! -f "${ROOT_DIR}/.env" ]]; then
-    warn "Missing .env file. Copy .env.example to .env and fill in your Rider-PI settings."
-  fi
-
   ensure_venv
-  set -a
-  # shellcheck disable=SC1090
-  source "${ROOT_DIR}/.env"
-  set +a
 
   local server_port="${PANEL_PORT}"
   local rider_log="${LOG_DIR}/panel-${server_port}.log"
@@ -138,6 +200,7 @@ start_rider_pc() {
 start_redis
 start_prometheus
 start_grafana
+start_ollama
 start_rider_pc
 
 info "All available services started (see ${LOG_DIR} for logs)."
