@@ -37,3 +37,29 @@ provider_initialized = Gauge(
 cache_hits_total = Counter('cache_hits_total', 'Total cache hits', ['cache_type'])
 
 cache_misses_total = Counter('cache_misses_total', 'Total cache misses', ['cache_type'])
+
+# External LLM provider metrics
+llm_requests_total = Counter(
+    'llm_requests_total',
+    'Total number of LLM API requests',
+    ['provider', 'model', 'status'],
+)
+
+llm_tokens_used_total = Counter(
+    'llm_tokens_used_total',
+    'Total tokens used by LLM providers',
+    ['provider', 'model', 'token_type'],
+)
+
+llm_latency_seconds = Histogram(
+    'llm_latency_seconds',
+    'LLM API request latency in seconds',
+    ['provider', 'model'],
+    buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0],
+)
+
+llm_errors_total = Counter(
+    'llm_errors_total',
+    'Total number of LLM API errors',
+    ['provider', 'model', 'error_type'],
+)

@@ -236,6 +236,12 @@ class ModelManager:
 
     def _include_active_config_models(self) -> None:
         """Ensure models referenced by providers.toml appear in the inventory even if stored outside data/models."""
+        # Only extend inventory with configured models when using default models directory.
+        # Custom/test directories should reflect their own contents without pulling files
+        # from the project root (e.g., yolov8n.pt).
+        if not self._using_default_models_dir:
+            return
+
         if not self._providers_config:
             self.get_active_models()
 

@@ -81,6 +81,16 @@
     </div>
   </section>
 
+  <!-- External AI Providers Section -->
+  <section class="models-section c-card c-section">
+    <h2 class="section-title">☁️ Zewnętrzne Providery AI</h2>
+    <p class="section-desc">Status i konfiguracja zewnętrznych API (Gemini, ChatGPT). Klucze API konfiguruj w <code>.env</code> lub <code>~/.config/rider-pc/ai_credentials.toml</code>.</p>
+    <div class="external-providers l-grid" id="external-providers-grid">
+      <div class="loading-placeholder c-status-msg">Ładowanie statusu providerów...</div>
+    </div>
+    <div class="external-providers-note" id="external-providers-note"></div>
+  </section>
+
   <!-- Installed Files -->
   <section class="models-section c-card c-section">
     <h2 class="section-title">📁 Zainstalowane Pliki Modeli</h2>
@@ -156,6 +166,8 @@ const installedTbody = document.getElementById('installed-models-tbody');
 const remoteTbody = document.getElementById('remote-models-tbody');
 const providerStateGrid = document.getElementById('provider-state-grid');
 const providerNote = document.getElementById('provider-note');
+const externalProvidersGrid = document.getElementById('external-providers-grid');
+const externalProvidersNote = document.getElementById('external-providers-note');
 const urlParams = new URLSearchParams(window.location.search);
 const auditMode = urlParams.get('audit') === '1';
 
@@ -570,6 +582,120 @@ function renderCategoryModels(local, ollama) {
   }
 }
 
+function createExternalProviderCard(provider, status) {
+  const card = document.createElement('div');
+  card.className = 'provider-card c-card external-provider-card';
+
+  const name = provider === 'gemini' ? 'Gemini' : 'ChatGPT';
+  const icon = provider === 'gemini' ? '🔷' : '💚';
+  const isConfigured = status.configured || false;
+  const isAvailable = status.available || false;
+  const model = escapeHtml(status.model || 'Nie skonfigurowany');
+
+  let statusClass = 'is-off';
+  let statusText = 'Niedostępny';
+  let statusDetail = 'Brak klucza API';
+
+  if (status.use_mock) {
+    statusClass = 'is-warn';
+    statusText = 'Mock';
+    statusDetail = 'Tryb testowy (bez API)';
+  } else if (isAvailable) {
+    statusClass = 'is-ok';
+    statusText = 'Dostępny';
+    statusDetail = `Gotowy do użycia`;
+  } else if (isConfigured) {
+    statusClass = 'is-warn';
+    statusText = 'Skonfigurowany';
+    statusDetail = 'Klucz API ustawiony';
+  }
+
+  card.innerHTML = `
+    <div class="provider-card-head">
+      <div>
+        <div class="provider-domain">${icon} ${name}</div>
+      </div>
+      <span class="c-pill provider-mode ${statusClass}">${escapeHtml(statusText)}</span>
+    </div>
+    <div class="provider-card-body">
+      <div class="c-data-list">
+        <div class="c-data-list__item">
+          <span class="c-data-list__label">Model</span>
+          <span class="c-data-list__value model-name-mono">${model}</span>
+        </div>
+        <div class="c-data-list__item">
+          <span class="c-data-list__label">Status</span>
+          <span class="c-data-list__value">${escapeHtml(statusDetail)}</span>
+        </div>
+        ${status.has_api_key ? `
+        <div class="c-data-list__item">
+          <span class="c-data-list__label">API Key</span>
+          <span class="c-data-list__value">✓ Skonfigurowany</span>
+        </div>
+        ` : `
+        <div class="c-data-list__item">
+          <span class="c-data-list__label">API Key</span>
+          <span class="c-data-list__value c-text-warn">✗ Brak klucza</span>
+        </div>
+        `}
+      </div>
+    </div>
+  `;
+  return card;
+}
+
+function renderExternalProviders(data) {
+  if (!externalProvidersGrid) return;
+
+  if (!data || !data.ok) {
+    externalProvidersGrid.innerHTML = '<div class="no-models c-status-msg">Nie można pobrać statusu providerów.</div>';
+    return;
+  }
+
+  externalProvidersGrid.innerHTML = '';
+
+  // Render Gemini card
+  if (data.gemini) {
+    externalProvidersGrid.appendChild(createExternalProviderCard('gemini', data.gemini));
+  }
+
+  // Render ChatGPT card
+  if (data.chatgpt) {
+    externalProvidersGrid.appendChild(createExternalProviderCard('chatgpt', data.chatgpt));
+  }
+
+  // Show active backend info
+  if (externalProvidersNote && data.active_backend) {
+    const backendNames = { local: 'Lokalny', gemini: 'Gemini', chatgpt: 'ChatGPT', auto: 'Auto' };
+    const backends = (data.available_backends || []).map(b => backendNames[b] || b).join(', ');
+    externalProvidersNote.textContent = `Aktywny backend LLM: ${backendNames[data.active_backend] || data.active_backend}. Dostępne: ${backends || 'brak'}`;
+  }
+}
+
+async function loadExternalProvidersStatus() {
+  if (auditMode) {
+    renderExternalProviders({
+      ok: true,
+      gemini: { configured: true, available: true, model: 'gemini-2.0-flash', use_mock: false, has_api_key: true },
+      chatgpt: { configured: false, available: false, model: 'gpt-4o-mini', use_mock: false, has_api_key: false },
+      active_backend: 'local',
+      available_backends: ['local', 'gemini'],
+    });
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/providers/text/external', { cache: 'no-store' });
+    const data = await res.json();
+    renderExternalProviders(data);
+  } catch (err) {
+    console.error('External providers status error:', err);
+    if (externalProvidersGrid) {
+      externalProvidersGrid.innerHTML = '<div class="no-models c-status-msg">Błąd ładowania statusu providerów.</div>';
+    }
+  }
+}
+
 async function activateModel(slot, provider, model) {
   const domain = slotToDomain(slot);
   const domainLabel = domainLabels[domain] || categoryNames[slot] || slot;
@@ -674,6 +800,9 @@ async function loadModelsData() {
     renderInstalledModels(installedData.local || [], installedData.ollama || [], installedData.remote || []);
     renderProviderState(providerState);
     
+    // Load external providers status
+    await loadExternalProvidersStatus();
+    
     const timestamp = new Date().toLocaleTimeString();
     const localCount = (installedData.local || []).length;
     const ollamaCount = (installedData.ollama || []).length;
@@ -720,6 +849,8 @@ function seedAuditModels() {
   renderCategoryModels(localModels, ollamaModels);
   renderInstalledModels(localModels, ollamaModels, remoteModels);
   renderProviderState(providerState);
+  // Seed external providers for audit mode
+  loadExternalProvidersStatus();
   statusLine.textContent = 'Tryb audytu CSS – przykładowe dane modeli';
   statusLine.className = 'status-line c-statusbar';
 }
