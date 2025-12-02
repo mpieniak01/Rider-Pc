@@ -526,3 +526,71 @@ async def test_text_provider_external_status():
     assert "available_backends" in external_status
 
     await provider.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_external_llm_provider_log_cost():
+    """Test ExternalLLMProvider log_cost method."""
+    from pc_client.providers.gemini_provider import GeminiProvider
+    from pc_client.providers.external_llm_base import LLMResponse
+    from unittest.mock import patch, MagicMock
+
+    provider = GeminiProvider(
+        api_key="test_key",
+        model="gemini-2.0-flash",
+        use_mock=True,
+    )
+
+    response = LLMResponse(
+        text="Test response",
+        model="gemini-2.0-flash",
+        provider="gemini",
+        tokens_used=150,
+        prompt_tokens=100,
+        completion_tokens=50,
+        latency_ms=150.0,
+        from_cache=False,
+    )
+
+    # Test that log_cost doesn't raise exception
+    with patch("pc_client.telemetry.cost_logger.log_api_cost") as mock_log:
+        provider.log_cost(response, task_id="test-task-123")
+        mock_log.assert_called_once()
+
+    await provider.close()
+
+
+@pytest.mark.asyncio
+async def test_external_llm_provider_log_cost_with_error():
+    """Test ExternalLLMProvider log_cost with error response."""
+    from pc_client.providers.chatgpt_provider import ChatGPTProvider
+    from pc_client.providers.external_llm_base import LLMResponse
+    from unittest.mock import patch
+
+    provider = ChatGPTProvider(
+        api_key="test_key",
+        model="gpt-4o-mini",
+        use_mock=True,
+    )
+
+    response = LLMResponse(
+        text=None,
+        model="gpt-4o-mini",
+        provider="chatgpt",
+        tokens_used=0,
+        prompt_tokens=100,
+        completion_tokens=0,
+        latency_ms=50.0,
+        from_cache=False,
+        error="API Error",
+    )
+
+    with patch("pc_client.telemetry.cost_logger.log_api_cost") as mock_log:
+        provider.log_cost(response)
+        mock_log.assert_called_once()
+        # Verify error was passed
+        call_kwargs = mock_log.call_args[1]
+        assert call_kwargs["success"] is False
+        assert call_kwargs["error"] == "API Error"
+
+    await provider.close()

@@ -37,7 +37,6 @@ def _load_ai_credentials() -> dict:
             AI_CREDENTIALS_PATH,
         )
         # Still load but warn - allows graceful migration
-        pass
 
     try:
         import tomllib
@@ -56,6 +55,10 @@ def _load_ai_credentials() -> dict:
         _settings_logger.warning("Failed to load ai_credentials.toml: %s", e)
 
     return credentials
+
+
+# Cache credentials at module level to avoid repeated file reads
+_ai_credentials_cache = _load_ai_credentials()
 
 
 def _get_api_key(env_var: str, credentials: dict) -> Optional[str]:
@@ -258,7 +261,7 @@ class Settings:
     weather_default_location: str = field(default_factory=lambda: os.getenv("WEATHER_DEFAULT_LOCATION", "Warsaw,PL"))
 
     # Gemini API configuration
-    gemini_api_key: Optional[str] = field(default_factory=lambda: _get_api_key("GEMINI_API_KEY", _load_ai_credentials()))
+    gemini_api_key: Optional[str] = field(default_factory=lambda: _get_api_key("GEMINI_API_KEY", _ai_credentials_cache))
     gemini_model: str = field(default_factory=lambda: os.getenv("GEMINI_MODEL", "gemini-2.0-flash"))
     gemini_endpoint: str = field(
         default_factory=lambda: os.getenv(
@@ -267,7 +270,7 @@ class Settings:
     )
 
     # OpenAI ChatGPT API configuration
-    openai_api_key: Optional[str] = field(default_factory=lambda: _get_api_key("OPENAI_API_KEY", _load_ai_credentials()))
+    openai_api_key: Optional[str] = field(default_factory=lambda: _get_api_key("OPENAI_API_KEY", _ai_credentials_cache))
     openai_model: str = field(default_factory=lambda: os.getenv("OPENAI_MODEL", "gpt-4o-mini"))
     openai_base_url: str = field(
         default_factory=lambda: os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")

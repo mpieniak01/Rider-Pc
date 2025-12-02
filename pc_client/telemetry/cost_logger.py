@@ -6,7 +6,6 @@ for billing analysis and monitoring.
 """
 
 import logging
-import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -180,16 +179,19 @@ def get_daily_summary(date: Optional[datetime] = None) -> Dict[str, Any]:
                         try:
                             tokens_in = int(part.split(":")[1])
                         except (ValueError, IndexError):
+                            # Malformed log line - skip this value silently
                             pass
                     elif part.startswith("out:"):
                         try:
                             tokens_out = int(part.split(":")[1])
                         except (ValueError, IndexError):
+                            # Malformed log line - skip this value silently
                             pass
                     elif part.startswith("$"):
                         try:
                             cost = float(part[1:])
                         except (ValueError, IndexError):
+                            # Malformed cost value - skip this value silently
                             pass
 
                 # Update summary
