@@ -4,8 +4,8 @@
 Zapewnić Rider-PC dostęp do dwóch niezależnych providerów modeli językowych:
 
 1. **Gemini API (najnowsze wydanie)** – wykorzystywane do zadań konwersacyjnych, RAG oraz generowania PR.
-   - **Wspierane modele**: `gemini-1.5-pro`, `gemini-1.5-flash`, `gemini-1.5-pro-vision` (multimodalny). Lista modeli będzie rozszerzana zgodnie z dokumentacją Google.
-2. **OpenAI ChatGPT API** – fallback lub alternatywa dla lokalnych modeli oraz Gemini, z obsługą funkcji reasoning/tool-call.
+   - **Wspierane modele**: np `gemini-2.5-flash-lite`, `gemini-2.0-flash` (multimodalny). Lista modeli będzie rozszerzana zgodnie z dokumentacją Google.
+2. **OpenAI ChatGPT API** – np 'gpt-4.1-nano', fallback lub alternatywa dla lokalnych modeli oraz Gemini, z obsługą funkcji reasoning/tool-call.
 
 Docelowo UI (Chat PC, PR Assistant, Benchmark) ma umożliwiać wybór źródła odpowiedzi i raportować koszt/czas.
 
@@ -120,7 +120,7 @@ Aby agent kodowania (np. GitHub Copilot) mógł automatycznie rozszerzać Rider-
    - Payload:
      ```json
      {
-       "model": "gpt-4o",
+       "model": "gpt-4.1-nano",
        "messages": [
          {"role": "system", "content": "<system prompt + MCP>"},
          {"role": "user", "content": "<prompt>"}
