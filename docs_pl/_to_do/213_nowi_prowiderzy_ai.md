@@ -34,6 +34,11 @@ Docelowo UI (Chat PC, PR Assistant, Benchmark) ma umożliwiać wybór źródła 
    > - W plikach konfiguracyjnych (`.env`, `providers.toml`) oraz identyfikatorach kodowych używamy wyłącznie małych liter: `"local"`, `"gemini"`, `"chatgpt"`.
    > - W UI oraz dokumentacji wyświetlamy nazwy providerów w formacie CamelCase: `"Gemini"`, `"ChatGPT"`, `"Local"`.
    > - Dzięki temu unikamy niejednoznaczności i błędów przy mapowaniu wartości między warstwami systemu.
+
+   > **Uwaga dot. nazewnictwa providerów AI:**
+   > - W plikach konfiguracyjnych (`.env`, `providers.toml`) oraz identyfikatorach kodowych używamy wyłącznie małych liter: `"local"`, `"gemini"`, `"chatgpt"`.
+   > - W UI oraz dokumentacji wyświetlamy nazwy providerów w formacie CamelCase: `"Gemini"`, `"ChatGPT"`, `"Local"`.
+   > - Dzięki temu unikamy niejednoznaczności i błędów przy mapowaniu wartości między warstwami systemu.
 2. **Providerzy**
    - `GeminiProvider` – klasa w `pc_client/providers` z obsługą:
      - OAuth/API key.
