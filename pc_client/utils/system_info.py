@@ -108,6 +108,59 @@ def _collect_os_release_meta() -> Dict[str, str]:
     return result
 
 
+def _collect_gpu_metrics() -> Dict[str, Any]:
+    """
+    Collect GPU utilization/memory statistics if nvidia-smi is available.
+
+    Returns:
+        Dict with gpu_util_pct, gpu_mem_used_mb, gpu_mem_total_mb, gpu_mem_pct
+    """
+    nvidia_smi = shutil.which("nvidia-smi")
+    if not nvidia_smi:
+        return {}
+
+    query = ["memory.used", "memory.total", "utilization.gpu"]
+    try:
+        output = subprocess.check_output(
+            [nvidia_smi, f"--query-gpu={','.join(query)}", "--format=csv,noheader,nounits"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+    except (subprocess.SubprocessError, FileNotFoundError, PermissionError):
+        return {}
+
+    lines = [line.strip() for line in output.splitlines() if line.strip()]
+    if not lines:
+        return {}
+
+    parts = [part.strip() for part in lines[0].split(",")]
+    if len(parts) < 3:
+        return {}
+
+    def _to_float(value: str) -> Optional[float]:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    used_mb = _to_float(parts[0])
+    total_mb = _to_float(parts[1])
+    util_pct = _to_float(parts[2])
+
+    gpu_data: Dict[str, Any] = {}
+    if util_pct is not None:
+        gpu_data["gpu_util_pct"] = util_pct
+    if used_mb is not None:
+        gpu_data["gpu_mem_used_mb"] = used_mb
+    if total_mb is not None and total_mb > 0:
+        gpu_data["gpu_mem_total_mb"] = total_mb
+        pct = (used_mb / total_mb) * 100 if used_mb is not None else None
+        if pct is not None:
+            gpu_data["gpu_mem_pct"] = pct
+
+    return gpu_data
+
+
 def collect_system_metrics() -> Dict[str, Any]:
     """
     Gather system metrics for the PC host.
@@ -166,6 +219,10 @@ def collect_system_metrics() -> Dict[str, Any]:
         data["load15"] = load15
     except (OSError, AttributeError):
         pass
+
+    gpu_metrics = _collect_gpu_metrics()
+    if gpu_metrics:
+        data.update(gpu_metrics)
 
     return {k: v for k, v in data.items() if v is not None}
 

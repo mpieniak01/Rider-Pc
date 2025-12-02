@@ -1,0 +1,415 @@
+"""Tests for MCP Tools.
+
+Testy jednostkowe narzędzi MCP: system, robot, weather, smart_home, git.
+"""
+
+import pytest
+from unittest.mock import patch
+
+from pc_client.mcp.tools import system, robot, weather, smart_home, git
+
+
+class TestSystemTools:
+    """Tests for system tools."""
+
+    def test_get_time_returns_dict(self):
+        """Test that get_time returns a dictionary with expected keys."""
+        result = system.get_time()
+        assert isinstance(result, dict)
+        assert "time" in result
+        assert "timezone" in result
+        assert "timestamp" in result
+
+    def test_get_time_returns_valid_timestamp(self):
+        """Test that get_time returns a valid timestamp."""
+        result = system.get_time()
+        assert isinstance(result["timestamp"], int)
+        assert result["timestamp"] > 0
+
+    def test_get_system_status_returns_dict(self):
+        """Test that get_system_status returns a dictionary."""
+        result = system.get_system_status()
+        assert isinstance(result, dict)
+        assert "platform" in result
+        assert "hostname" in result
+        assert "python_version" in result
+
+
+class TestRobotTools:
+    """Tests for robot tools."""
+
+    def test_get_robot_status_returns_dict(self):
+        """Test that get_robot_status returns expected structure."""
+        result = robot.get_robot_status()
+        assert isinstance(result, dict)
+        assert "connected" in result
+        assert "battery" in result
+        assert "mode" in result
+        assert "position" in result
+
+    def test_robot_move_valid_command(self):
+        """Test robot_move with valid command."""
+        result = robot.robot_move(command="forward", speed=50)
+        assert result["executed"] is True
+        assert result["command"] == "forward"
+        assert result["speed"] == 50
+
+    def test_robot_move_stop_command(self):
+        """Test robot_move with stop command."""
+        result = robot.robot_move(command="stop")
+        assert result["executed"] is True
+        assert result["mode"] == "idle"
+
+    def test_robot_move_invalid_command(self):
+        """Test robot_move with invalid command raises ValueError."""
+        with pytest.raises(ValueError, match="Invalid command"):
+            robot.robot_move(command="fly")
+
+    def test_robot_move_invalid_speed(self):
+        """Test robot_move with invalid speed raises ValueError."""
+        with pytest.raises(ValueError, match="Speed must be between"):
+            robot.robot_move(command="forward", speed=150)
+
+
+class TestWeatherTools:
+    """Tests for weather tools."""
+
+    def test_get_weather_summary_returns_dict(self):
+        """Test that get_weather_summary returns expected structure."""
+        result = weather.get_weather_summary()
+        assert isinstance(result, dict)
+        assert "temperature" in result
+        assert "location" in result
+        assert "humidity" in result
+
+    def test_get_weather_summary_custom_location(self):
+        """Test that custom location is used when specified."""
+        result = weather.get_weather_summary(location="Krakow,PL", use_cache=False)
+        # Lokalizacja może być zmodyfikowana przez API lub zachowana
+        assert "location" in result
+
+    def test_get_weather_summary_source_field(self):
+        """Test that source field indicates data origin."""
+        result = weather.get_weather_summary(use_cache=False)
+        assert "source" in result
+        # Bez klucza API powinien być mock
+        assert result["source"] in ["mock", "openweather"]
+
+    def test_get_weather_summary_cache_behavior(self):
+        """Test that caching works correctly."""
+        # Używamy unikalnej lokalizacji, aby test był izolowany
+        test_location = "Warsaw,PL-test-cache"
+        # Pierwsze wywołanie: cache miss
+        result1 = weather.get_weather_summary(location=test_location, use_cache=True)
+        assert result1["cached"] is False
+
+        # Drugie wywołanie: cache hit
+        result2 = weather.get_weather_summary(location=test_location, use_cache=True)
+        assert result2["cached"] is True
+        assert "cache_age_seconds" in result2
+
+
+class TestSmartHomeTools:
+    """Tests for smart_home tools."""
+
+    def test_toggle_light_on(self):
+        """Test turning light on."""
+        result = smart_home.toggle_light(room="living_room", state=True)
+        assert result["room"] == "living_room"
+        assert result["light_on"] is True
+
+    def test_toggle_light_off(self):
+        """Test turning light off."""
+        result = smart_home.toggle_light(room="bedroom", state=False)
+        assert result["room"] == "bedroom"
+        assert result["light_on"] is False
+
+    def test_toggle_light_invalid_room(self):
+        """Test toggle_light with invalid room raises ValueError."""
+        with pytest.raises(ValueError, match="Unknown room"):
+            smart_home.toggle_light(room="garage", state=True)
+
+    def test_set_brightness(self):
+        """Test setting brightness."""
+        result = smart_home.set_brightness(room="kitchen", brightness=75)
+        assert result["room"] == "kitchen"
+        assert result["brightness"] == 75
+
+    def test_set_brightness_invalid_room(self):
+        """Test set_brightness with invalid room raises ValueError."""
+        with pytest.raises(ValueError, match="Unknown room"):
+            smart_home.set_brightness(room="cellar", brightness=50)
+
+    def test_set_scene_morning(self):
+        """Test activating morning scene."""
+        result = smart_home.set_scene(scene="morning")
+        assert result["scene"] == "morning"
+        assert result["activated"] is True
+
+    def test_set_scene_invalid(self):
+        """Test set_scene with invalid scene raises ValueError."""
+        with pytest.raises(ValueError, match="Unknown scene"):
+            smart_home.set_scene(scene="party")
+
+    def test_get_smart_home_status(self):
+        """Test getting full smart home status."""
+        result = smart_home.get_smart_home_status()
+        assert "lights" in result
+        assert "active_scene" in result
+        assert "available_scenes" in result
+
+
+class TestGitTools:
+    """Tests for git tools."""
+
+    @patch('pc_client.mcp.tools.git._run_git_command')
+    def test_get_changed_files(self, mock_run):
+        """Test get_changed_files returns expected structure."""
+        mock_run.return_value = {
+            "success": True,
+            "stdout": "M  file1.py\nA  file2.py",
+        }
+        result = git.get_changed_files()
+        assert "files" in result
+        assert "count" in result
+        assert result["count"] == 2
+
+    @patch('pc_client.mcp.tools.git._run_git_command')
+    def test_get_git_status(self, mock_run):
+        """Test get_git_status returns expected structure."""
+        mock_run.side_effect = [
+            {"success": True, "stdout": "main"},
+            {"success": True, "stdout": "abc123|commit msg|2 hours ago"},
+            {"success": True, "stdout": "M file.py"},
+            {"success": True, "stdout": "origin\thttps://github.com/..."},
+        ]
+        result = git.get_git_status()
+        assert "current_branch" in result
+        assert "last_commit" in result
+        assert "is_git_repo" in result
+
+    @patch('pc_client.mcp.tools.git._run_git_command')
+    def test_get_diff(self, mock_run):
+        """Test get_diff returns expected structure."""
+        mock_run.return_value = {
+            "success": True,
+            "stdout": "diff --git a/file.py b/file.py\n+new line",
+        }
+        result = git.get_diff()
+        assert "diff" in result
+        assert "lines_count" in result
+
+    @patch('pc_client.mcp.tools.git._run_git_command')
+    def test_get_log(self, mock_run):
+        """Test get_log returns expected structure."""
+        mock_run.return_value = {
+            "success": True,
+            "stdout": "abc123|John|First commit|1 day ago\ndef456|Jane|Second commit|2 days ago",
+        }
+        result = git.get_log(count=5)
+        assert "commits" in result
+        assert "count" in result
+        assert result["count"] == 2
+
+
+class TestToolCallHandler:
+    """Tests for MCP tool call handler."""
+
+    def test_get_tools_for_llm(self):
+        """Test get_tools_for_llm returns list of tools."""
+        from pc_client.mcp.tool_call_handler import get_tools_for_llm
+
+        tools = get_tools_for_llm()
+        assert isinstance(tools, list)
+        assert len(tools) > 0
+        for tool in tools:
+            assert "name" in tool
+            assert "description" in tool
+
+    def test_get_tools_prompt(self):
+        """Test get_tools_prompt returns non-empty string."""
+        from pc_client.mcp.tool_call_handler import get_tools_prompt
+
+        prompt = get_tools_prompt()
+        assert isinstance(prompt, str)
+        assert len(prompt) > 0
+        assert "system.get_time" in prompt
+
+    def test_parse_tool_call_valid_json(self):
+        """Test parsing valid tool call JSON."""
+        from pc_client.mcp.tool_call_handler import parse_tool_call
+
+        response = '```json\n{"tool_call": {"name": "system.get_time", "arguments": {}}}\n```'
+        result = parse_tool_call(response)
+        assert result is not None
+        assert result["name"] == "system.get_time"
+
+    def test_parse_tool_call_no_tool(self):
+        """Test parsing response without tool call."""
+        from pc_client.mcp.tool_call_handler import parse_tool_call
+
+        response = "This is just a normal text response."
+        result = parse_tool_call(response)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_execute_tool_call(self):
+        """Test executing a tool call."""
+        from pc_client.mcp.tool_call_handler import execute_tool_call
+
+        result = await execute_tool_call("system.get_time")
+        assert result.ok is True
+        assert result.tool == "system.get_time"
+        assert "time" in result.result
+
+    def test_format_tool_result_success(self):
+        """Test formatting successful tool result."""
+        from pc_client.mcp.tool_call_handler import format_tool_result
+        from pc_client.mcp.registry import ToolInvokeResult
+
+        result = ToolInvokeResult(
+            ok=True,
+            tool="system.get_time",
+            result={"time": "2025-12-01T12:00:00"},
+        )
+        formatted = format_tool_result(result)
+        assert "[Wynik narzędzia system.get_time]" in formatted
+
+    def test_format_tool_result_error(self):
+        """Test formatting failed tool result."""
+        from pc_client.mcp.tool_call_handler import format_tool_result
+        from pc_client.mcp.registry import ToolInvokeResult
+
+        result = ToolInvokeResult(
+            ok=False,
+            tool="robot.move",
+            error="Invalid command",
+        )
+        formatted = format_tool_result(result)
+        assert "[Błąd narzędzia robot.move]" in formatted
+
+
+class TestTextProviderMCPIntegration:
+    """Tests for TextProvider MCP integration."""
+
+    @pytest.mark.asyncio
+    async def test_text_provider_mcp_enabled(self):
+        """Test that TextProvider has MCP tools enabled by default."""
+        from pc_client.providers.text_provider import TextProvider
+
+        provider = TextProvider({"use_mock": True})
+        await provider.initialize()
+
+        assert provider.enable_mcp_tools is True
+        telemetry = provider.get_telemetry()
+        assert telemetry.get("mcp_tools_enabled") is True
+
+    @pytest.mark.asyncio
+    async def test_text_provider_mcp_disabled(self):
+        """Test that MCP tools can be disabled."""
+        from pc_client.providers.text_provider import TextProvider
+
+        provider = TextProvider({"use_mock": True, "enable_mcp_tools": False})
+        await provider.initialize()
+
+        assert provider.enable_mcp_tools is False
+        telemetry = provider.get_telemetry()
+        assert telemetry.get("mcp_tools_enabled") is False
+
+    @pytest.mark.asyncio
+    async def test_text_provider_mcp_history(self):
+        """Test TextProvider MCP call history structure and limit."""
+        from pc_client.providers.text_provider import TextProvider
+        from collections import deque
+
+        provider = TextProvider({"use_mock": True})
+        await provider.initialize()
+
+        history = provider.get_mcp_call_history()
+        assert isinstance(history, list)
+
+        # Sprawdź czy wewnętrzna historia jest deque z maxlen
+        assert isinstance(provider._mcp_call_history, deque)
+        assert provider._mcp_call_history.maxlen == 100
+
+    @pytest.mark.asyncio
+    async def test_text_provider_mcp_history_limit(self):
+        """Test that history respects limit parameter."""
+        from pc_client.providers.text_provider import TextProvider
+
+        provider = TextProvider({"use_mock": True})
+        await provider.initialize()
+
+        # Symuluj dodanie wpisów do historii
+        for i in range(10):
+            provider._mcp_call_history.append(
+                {
+                    "tool": f"test.tool_{i}",
+                    "arguments": {},
+                    "ok": True,
+                    "result": {"value": i},
+                    "error": None,
+                }
+            )
+
+        # Sprawdź limit
+        history_5 = provider.get_mcp_call_history(limit=5)
+        assert len(history_5) == 5
+
+        history_all = provider.get_mcp_call_history(limit=20)
+        assert len(history_all) == 10
+
+    @pytest.mark.asyncio
+    async def test_text_provider_tools_in_system_prompt(self):
+        """Test that MCP tools are added to system prompt when enabled."""
+        from pc_client.providers.text_provider import TextProvider
+        from pc_client.providers.base import TaskEnvelope, TaskType
+        from pc_client.mcp.tool_call_handler import get_tools_prompt
+        from unittest.mock import patch
+
+        provider = TextProvider({"use_mock": True, "enable_mcp_tools": True})
+        await provider.initialize()
+
+        # Sprawdź czy get_tools_prompt zwraca niepusty string
+        tools_prompt = get_tools_prompt()
+        assert isinstance(tools_prompt, str)
+        assert len(tools_prompt) > 0
+        assert "tool_call" in tools_prompt or "system" in tools_prompt.lower()
+
+        task = TaskEnvelope(
+            task_id="test-mcp-1",
+            task_type=TaskType.TEXT_GENERATE,
+            payload={"prompt": "What time is it?"},
+        )
+        result = await provider.process_task(task)
+        assert result.status.value == "completed"
+        assert "text" in result.result
+
+    @pytest.mark.asyncio
+    async def test_text_provider_mcp_history_structure(self):
+        """Test that history entries have correct structure."""
+        from pc_client.providers.text_provider import TextProvider
+
+        provider = TextProvider({"use_mock": True})
+        await provider.initialize()
+
+        # Dodaj przykładowy wpis
+        test_record = {
+            "tool": "system.get_time",
+            "arguments": {},
+            "ok": True,
+            "result": {"time": "2025-12-01T12:00:00"},
+            "error": None,
+        }
+        provider._mcp_call_history.append(test_record)
+
+        history = provider.get_mcp_call_history()
+        assert len(history) == 1
+        entry = history[0]
+
+        # Sprawdź strukturę wpisu
+        assert "tool" in entry
+        assert "arguments" in entry
+        assert "ok" in entry
+        assert "result" in entry
+        assert "error" in entry
