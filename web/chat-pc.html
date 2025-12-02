@@ -48,6 +48,10 @@
             <dt>Silnik</dt>
             <dd id="prov-engine">—</dd>
           </div>
+          <div>
+            <dt>Backend</dt>
+            <dd id="prov-backend">—</dd>
+          </div>
         </dl>
       </div>
       <div class="chat-pc-status__actions">
@@ -283,6 +287,16 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
   const provStatus = document.getElementById('prov-status');
   const provModel = document.getElementById('prov-model');
   const provEngine = document.getElementById('prov-engine');
+  const provBackend = document.getElementById('prov-backend');
+
+  // Backend display names
+  const backendDisplayNames = {
+    local: 'Lokalny (Ollama)',
+    gemini: 'Gemini',
+    chatgpt: 'ChatGPT',
+    auto: 'Auto',
+    mock: 'Mock'
+  };
 
   // State
   let currentMode = 'pc';
@@ -297,7 +311,7 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
   // History storage (separate from classic chat)
   const STORAGE_KEY = 'chat_pc_history';
   const history = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '[]');
-  for (const item of history) appendMessage(item.role, item.text, item.error, item.source);
+  for (const item of history) appendMessage(item.role, item.text, item.error, item.source, item.backend);
 
   // Helpers
   function setStatus(text, state) {
@@ -326,8 +340,8 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
   }
 
   let saveTimeout;
-  function save(role, text, error, source) {
-    history.push({ role, text, error: !!error, source });
+  function save(role, text, error, source, backend) {
+    history.push({ role, text, error: !!error, source, backend });
     if (history.length > 200) history.shift();
     // Debounce zapisu do sessionStorage: zapis po 500ms od ostatniej zmiany
     clearTimeout(saveTimeout);
@@ -336,7 +350,7 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
     }, 500);
   }
 
-  function appendMessage(role, text, isError, source) {
+  function appendMessage(role, text, isError, source, backend) {
     const el = document.createElement('div');
     let cls = 'msg ' + (role === 'you' ? 'you' : 'bot');
     if (isError) cls += ' err';
@@ -346,7 +360,11 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
     if (source && role === 'bot') {
       const meta = document.createElement('div');
       meta.className = 'msg-meta';
-      meta.textContent = `Źródło: ${source === 'pc' ? 'lokalny model' : 'Rider-Pi proxy'}`;
+      let sourceLabel = source === 'pc' ? 'lokalny model' : 'Rider-Pi proxy';
+      if (backend && backendDisplayNames[backend]) {
+        sourceLabel = `${backendDisplayNames[backend]}`;
+      }
+      meta.textContent = `Źródło: ${sourceLabel}`;
       el.appendChild(meta);
     }
     board.appendChild(el);
@@ -369,6 +387,7 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
       provStatus.textContent = 'ready';
       provModel.textContent = 'llama3.2:1b (mock)';
       provEngine.textContent = 'mock';
+      if (provBackend) provBackend.textContent = 'Lokalny';
       providerReady = true;
       setSourceBadge('pc', true);
       return;
@@ -380,6 +399,10 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
       provStatus.textContent = data.status || (providerReady ? 'ready' : 'offline');
       provModel.textContent = data.model || '—';
       provEngine.textContent = data.engine || '—';
+      if (provBackend) {
+        const backend = data.backend || 'local';
+        provBackend.textContent = backendDisplayNames[backend] || backend;
+      }
       setSourceBadge(currentMode === 'proxy' ? 'proxy' : 'pc', providerReady);
 
       // Disable PC mode if provider not ready

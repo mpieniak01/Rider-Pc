@@ -37,6 +37,9 @@ max_concurrent_tasks = 2
 timeout_seconds = 30
 enable_cache = true
 cache_ttl_seconds = 3600
+# Backend selection: local | gemini | chatgpt
+asr_backend = "local"
+tts_backend = "local"
 
 [text]
 model = "llama3.1:8b"
@@ -59,8 +62,30 @@ nlu_tasks = [
     "entities",
     "sentiment",
 ]
+# Backend selection: local | gemini | chatgpt | auto
+llm_backend = "local"
 
 [text.system_prompts]
 default = "You are a helpful AI assistant for a robot navigation system."
 navigation = "You are an AI assistant helping with robot navigation. Be concise and clear."
 conversation = "You are a friendly conversational AI for a robot. Be helpful and engaging."
+
+# Gemini API configuration
+[gemini]
+enabled = false
+# API key loaded from env: GEMINI_API_KEY
+model = "gemini-2.0-flash"
+endpoint = "https://generativelanguage.googleapis.com/v1beta"
+timeout_seconds = 60
+max_retries = 3
+use_mock = false
+
+# OpenAI ChatGPT API configuration
+[chatgpt]
+enabled = false
+# API key loaded from env: OPENAI_API_KEY
+model = "gpt-4o-mini"
+base_url = "https://api.openai.com/v1"
+timeout_seconds = 60
+max_retries = 3
+use_mock = false

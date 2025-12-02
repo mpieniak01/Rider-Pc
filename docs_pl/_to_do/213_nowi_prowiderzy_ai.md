@@ -62,11 +62,6 @@ Docelowo UI (Chat PC, PR Assistant, Benchmark) ma umożliwiać wybór źródła 
    > - W plikach konfiguracyjnych (`.env`, `providers.toml`) oraz identyfikatorach kodowych używamy wyłącznie małych liter: `"local"`, `"gemini"`, `"chatgpt"`.
    > - W UI oraz dokumentacji wyświetlamy nazwy providerów w formacie CamelCase: `"Gemini"`, `"ChatGPT"`, `"Local"`.
    > - Dzięki temu unikamy niejednoznaczności i błędów przy mapowaniu wartości między warstwami systemu.
-
-   > **Uwaga dot. nazewnictwa providerów AI:**
-   > - W plikach konfiguracyjnych (`.env`, `providers.toml`) oraz identyfikatorach kodowych używamy wyłącznie małych liter: `"local"`, `"gemini"`, `"chatgpt"`.
-   > - W UI oraz dokumentacji wyświetlamy nazwy providerów w formacie CamelCase: `"Gemini"`, `"ChatGPT"`, `"Local"`.
-   > - Dzięki temu unikamy niejednoznaczności i błędów przy mapowaniu wartości między warstwami systemu.
 2. **Providerzy**
    - `GeminiProvider` – klasa w `pc_client/providers` z obsługą:
      - OAuth/API key.
@@ -242,3 +237,23 @@ Chcemy traktować każdy etap pipeline’u jako niezależny provider z możliwo�
 1. Zbieranie pełnych wymagań API (dokumentacja Gemini i OpenAI).
 2. Przygotowanie konfiguracji środowiskowej i pipeline’u testów.
 3. Rozbicie na iteracje (np. najpierw Gemini, potem ChatGPT).
+
+## Zrealizowane w PR #213
+
+### Konfiguracja i klucze
+- [x] Zaktualizowano `config/providers.toml` o sekcje `[gemini]` i `[chatgpt]`
+- [x] Dodano opcje `asr_backend`, `tts_backend`, `llm_backend` do konfiguracji
+- [x] Zaimplementowano wsparcie dla `~/.config/rider-pc/ai_credentials.toml` z walidacją uprawnień
+
+### Pipeline i profile
+- [x] Stworzono `pc_client/providers/pipeline_config.py` z profilami: `local`, `hybrid-gemini`, `hybrid-chatgpt`, `auto`
+- [x] API do zarządzania konfiguracją pipeline'u per-komponent (ASR/LLM/TTS)
+
+### Telemetria i koszty
+- [x] Dodano `pc_client/telemetry/cost_logger.py` z logowaniem do `logs/providers-costs.log`
+- [x] Rozszerzono metryki Prometheus: `llm_requests_total`, `llm_tokens_used_total`, `llm_latency_seconds`, `llm_errors_total`
+- [x] Dodano metodę `log_cost()` do `ExternalLLMProvider`
+
+### UI / UX
+- [x] Rozbudowano `web/models.html` o sekcję "Zewnętrzne Providery AI" z kartami statusu
+- [x] Zaktualizowano `web/chat-pc.html` - wyświetlanie backendu i źródła odpowiedzi
