@@ -225,6 +225,24 @@ async def initialize_text_provider(app: FastAPI) -> None:
     if settings.text_model == "mock":
         text_config.setdefault("use_mock", True)
 
+    # Pass through backend/env configuration for external providers
+    if settings.text_provider_backend:
+        text_config.setdefault("backend", settings.text_provider_backend)
+
+    if settings.gemini_api_key:
+        text_config.setdefault("gemini_api_key", settings.gemini_api_key)
+    if settings.gemini_model:
+        text_config.setdefault("gemini_model", settings.gemini_model)
+    if settings.gemini_endpoint:
+        text_config.setdefault("gemini_endpoint", settings.gemini_endpoint)
+
+    if settings.openai_api_key:
+        text_config.setdefault("openai_api_key", settings.openai_api_key)
+    if settings.openai_model:
+        text_config.setdefault("openai_model", settings.openai_model)
+    if settings.openai_base_url:
+        text_config.setdefault("openai_base_url", settings.openai_base_url)
+
     provider = TextProvider(text_config)
 
     try:
