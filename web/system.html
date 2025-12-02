@@ -61,7 +61,7 @@
           <span id="internet-status">Sprawdzanie...</span>
           <span class="network-latency" id="internet-latency"></span>
         </div>
-        <div class="network-host" id="internet-host">8.8.8.8</div>
+        <div class="network-host" id="internet-host">—</div>
       </div>
     </div>
   </section>
@@ -204,6 +204,34 @@
     const logClearBtn = document.getElementById('log-clear-btn');
     const urlParams = new URLSearchParams(window.location.search);
     const auditMode = urlParams.get('audit') === '1';
+
+    const defaultNetworkConfig = {
+      riderPiHost: '',
+      riderPiPort: 8080,
+      internetHost: '8.8.8.8',
+      pcHost: '',
+    };
+    let networkConfig = { ...defaultNetworkConfig };
+
+    async function fetchNetworkConfig() {
+      try {
+        const resp = await fetch('/api/config/network', { cache: 'no-store' });
+        if (!resp.ok) {
+          return;
+        }
+        const data = await resp.json();
+        networkConfig = {
+          riderPiHost: data.rider_pi_host || networkConfig.riderPiHost,
+          riderPiPort: typeof data.rider_pi_port === 'number' ? data.rider_pi_port : networkConfig.riderPiPort,
+          internetHost: data.internet_probe_host || networkConfig.internetHost,
+          pcHost: data.pc_host || networkConfig.pcHost,
+        };
+      } catch (err) {
+        console.warn('Failed to load network config:', err);
+      }
+    }
+
+    const networkConfigPromise = fetchNetworkConfig();
 
     function statusClass(status) {
       switch ((status || '').toLowerCase()) {
@@ -456,7 +484,8 @@
       }
     }
 
-    function seedAuditGraph() {
+    async function seedAuditGraph() {
+      await networkConfigPromise;
       const nodes = [
         { unit: 'panel.service', label: 'Panel WWW', status: 'active', group: 'rider-pc', location: 'pc', edges_out: ['redis', 'grafana'], since: '00:12:32' },
         { unit: 'redis', label: 'Redis', status: 'active', group: 'rider-pc', location: 'pc', edges_out: ['panel.service'], since: '04:20:10' },
@@ -478,8 +507,10 @@
       noServices.textContent = 'Brak usług w tej grupie (audit)';
       piGraphEl.appendChild(noServices);
       setNetworkCardState('local-ip-card', '192.168.1.77', 'online', '—');
-      setNetworkCardState('rider-pi-card', '192.168.1.14', 'online', '12 ms');
-      setNetworkCardState('internet-card', '8.8.8.8', 'offline', 'n/a');
+      const riderHost = networkConfig.riderPiHost || 'Rider-Pi';
+      setNetworkCardState('rider-pi-card', riderHost, 'online', '12 ms');
+      const internetHost = networkConfig.internetHost || defaultNetworkConfig.internetHost;
+      setNetworkCardState('internet-card', internetHost, 'offline', 'n/a');
       logTerminal.innerHTML = `
         <div class="log-entry log-info"><span class="log-timestamp">[12:00:01]</span> <span class="log-level">INFO</span> Audit mode: sample data rendered.</div>
         <div class="log-entry log-warn"><span class="log-timestamp">[12:00:05]</span> <span class="log-level">WARN</span> Prometheus restarted (audit).</div>
@@ -488,6 +519,7 @@
       renderVersionInfo({ available: true, branch: 'audit/main', commit: 'abc1234', dirty: true, message: 'Audit seed commit' });
       statusEl.textContent = 'Tryb audytu CSS – dane przykładowe';
       statusEl.className = 'status-line c-statusbar is-success';
+      await loadNetworkStatus();
     }
 
     function setNetworkCardState(cardId, hostText, state, latency) {
@@ -528,10 +560,13 @@
     }
 
     if (auditMode) {
-      seedAuditGraph();
+      seedAuditGraph().catch((err) => console.error('Audit seed failed:', err));
     } else {
       loadGraph();
       setInterval(loadGraph, 5000);
+      networkConfigPromise.then(() => {
+        startNetworkPolling();
+      });
     }
 
     // Log Panel functionality
@@ -698,7 +733,8 @@
       // Update Local IP
       const localIpEl = document.getElementById('local-ip-value');
       if (localIpEl) {
-        localIpEl.textContent = data.local_ip || '---.---.---.---';
+        const preferredHost = networkConfig.pcHost || data.local_ip;
+        localIpEl.textContent = preferredHost || '---.---.---.---';
       }
 
       // Update Rider-Pi status
@@ -775,15 +811,17 @@
         // Set all indicators to offline on error
         updateNetworkUI({
           local_ip: '---.---.---.---',
-          rider_pi: { status: 'offline', host: '' },
-          internet: { status: 'offline', host: '8.8.8.8' }
+          rider_pi: { status: 'offline', host: networkConfig.riderPiHost || '' },
+          internet: { status: 'offline', host: networkConfig.internetHost || defaultNetworkConfig.internetHost }
         });
       }
     }
 
     // Load network status on page load and poll every 10 seconds
-    loadNetworkStatus();
-    setInterval(loadNetworkStatus, NETWORK_POLL_INTERVAL_MS);
+    function startNetworkPolling() {
+      loadNetworkStatus();
+      setInterval(loadNetworkStatus, NETWORK_POLL_INTERVAL_MS);
+    }
   </script>
   <script type="module" src="/web/assets/menu.js"></script>
   <script type="module" src="/web/assets/footer.js"></script>

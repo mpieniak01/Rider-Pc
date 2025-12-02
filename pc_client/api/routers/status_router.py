@@ -13,12 +13,15 @@ from pc_client.cache import CacheManager
 from pc_client.utils.system_info import collect_system_metrics
 from pc_client.utils.network import get_local_ip, check_connectivity
 from pc_client.adapters.git_adapter import GitAdapter
+from pc_client.config.settings import Settings
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 PC_SYSINFO_CACHE_KEY = "pc_sysinfo"
 PC_SYSINFO_TTL = 5
+INTERNET_PROBE_HOST = "8.8.8.8"
 
 # Git adapter singleton for version info (caching handled internally)
 _git_adapter: Optional[GitAdapter] = None
@@ -30,6 +33,25 @@ def get_git_adapter() -> GitAdapter:
     if _git_adapter is None:
         _git_adapter = GitAdapter()
     return _git_adapter
+
+
+def _get_settings(request: Request) -> Settings:
+    """Safely obtain Settings instance from the app state."""
+    settings = getattr(request.app.state, "settings", None)
+    if settings is None:
+        settings = Settings()
+    return settings
+
+
+def _extract_public_host(settings: Settings) -> Optional[str]:
+    url = settings.pc_public_base_url
+    if not url:
+        return None
+    try:
+        parsed = urlparse(url if "://" in url else f"http://{url}")
+        return parsed.hostname
+    except ValueError:
+        return None
 
 
 @router.get("/healthz")
@@ -216,6 +238,21 @@ async def version_info() -> JSONResponse:
     return JSONResponse(content=data)
 
 
+@router.get("/api/config/network")
+async def network_config(request: Request) -> JSONResponse:
+    """Return static network configuration derived from application settings."""
+    settings = _get_settings(request)
+    public_host = _extract_public_host(settings)
+    return JSONResponse(
+        content={
+            "rider_pi_host": settings.rider_pi_host,
+            "rider_pi_port": settings.rider_pi_port,
+            "internet_probe_host": INTERNET_PROBE_HOST,
+            "pc_host": public_host,
+        }
+    )
+
+
 @router.get("/api/status/network")
 async def network_status(request: Request) -> JSONResponse:
     """
@@ -231,14 +268,14 @@ async def network_status(request: Request) -> JSONResponse:
     - internet: Connection status to internet with latency
     - timestamp: Unix timestamp when the check was performed
     """
-    settings = getattr(request.app.state, "settings", None)
-    rider_pi_host = getattr(settings, "rider_pi_host", "localhost") if settings else "localhost"
+    settings = _get_settings(request)
+    rider_pi_host = settings.rider_pi_host
 
     # Run connectivity checks in parallel for faster response
     local_ip = get_local_ip()
     rider_pi_check, internet_check = await asyncio.gather(
         check_connectivity(rider_pi_host),
-        check_connectivity("8.8.8.8"),
+        check_connectivity(INTERNET_PROBE_HOST),
     )
 
     # Build response structure matching the issue specification
@@ -249,7 +286,7 @@ async def network_status(request: Request) -> JSONResponse:
             "status": rider_pi_check.get("status", "offline"),
         },
         "internet": {
-            "host": "8.8.8.8",
+            "host": INTERNET_PROBE_HOST,
             "status": internet_check.get("status", "offline"),
         },
         "timestamp": int(time.time()),

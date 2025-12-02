@@ -7,6 +7,10 @@ import json
 import logging
 import time
 
+from dotenv import load_dotenv
+
+from pc_client.config.settings import Settings
+
 try:
     import zmq
 except ImportError:  # pragma: no cover
@@ -32,9 +36,12 @@ def main() -> None:
     if zmq is None:
         raise SystemExit("pyzmq is required (pip install pyzmq)")
 
+    load_dotenv()
+    settings = Settings()
+
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--host", default="192.168.1.14", help="Rider-Pi ZMQ host")
-    parser.add_argument("--port", type=int, default=5555, help="ZMQ PUB port")
+    parser.add_argument("--host", default=settings.rider_pi_host, help="Rider-Pi ZMQ host")
+    parser.add_argument("--port", type=int, default=settings.zmq_pub_port, help="ZMQ PUB port")
     parser.add_argument("--topic", default="vision.frame.offload", help="Topic to subscribe")
     parser.add_argument("--count", type=int, default=0, help="Stop after consuming this many frames (0=infinite)")
     parser.add_argument("--timeout", type=float, default=5.0, help="Receive timeout (seconds)")
