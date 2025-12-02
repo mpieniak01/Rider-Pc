@@ -30,7 +30,7 @@
 
   <!-- STATUS SECTION -->
   <div id="statusSection" class="c-card">
-    <div id="statusMsg" class="c-status-msg hidden"></div>
+    <div id="statusMsg" class="c-status-msg u-hidden"></div>
   </div>
 
   <!-- CUSTOM COMMAND SECTION -->
@@ -99,8 +99,8 @@ import { initI18n, applyDom, t } from '/web/assets/i18n.js';
     const statusMsg = qs('#statusMsg');
     statusMsg.textContent = msg;
     statusMsg.className = `c-status-msg ${type}`;
-    statusMsg.classList.remove('hidden');
-    setTimeout(()=> statusMsg.classList.add('hidden'), 5000);
+    statusMsg.classList.remove('u-hidden');
+    setTimeout(()=> statusMsg.classList.add('u-hidden'), 5000);
   }
 
   async function httpGet(url){
@@ -185,12 +185,13 @@ import { initI18n, applyDom, t } from '/web/assets/i18n.js';
     card.className = 'device-card c-card';
     card.dataset.deviceId = device.id;
     
-    const statusClass = device.status === 'on' ? 'status-on' : 
-                        device.status === 'off' ? 'status-off' : 'status-unknown';
+    const statusClass = device.status === 'on' ? 'is-ok' : 
+                        device.status === 'off' ? 'is-disconnected' : 
+                        device.status === 'unknown' ? 'status-unknown' : '';
     
     let html = `
       <div class="device-header">
-        <span class="device-status-dot ${statusClass}"></span>
+        <span class="status-dot ${statusClass}"></span>
         <div class="device-info">
           <div class="device-name">${escapeHtml(device.label)}</div>
           <div class="device-room">${escapeHtml(device.room || '')}</div>
@@ -291,12 +292,11 @@ import { initI18n, applyDom, t } from '/web/assets/i18n.js';
       // Optimistic status update
       const card = qs(`[data-device-id="${deviceId}"]`);
       if(card){
-        const dot = card.querySelector('.device-status-dot');
+        const dot = card.querySelector('.status-dot');
         if(dot){
-          dot.classList.remove('status-on', 'status-off', 'status-unknown');
-          if(action === 'on') dot.classList.add('status-on');
-          else if(action === 'off') dot.classList.add('status-off');
-          else dot.classList.add('status-unknown');
+          dot.classList.remove('is-ok', 'is-disconnected');
+          if(action === 'on') dot.classList.add('is-ok');
+          // dla 'off' nie dodajemy klasy .is-disconnected; można dodać .is-off jeśli istnieje styl
         }
       }
       
