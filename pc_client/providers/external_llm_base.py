@@ -195,6 +195,76 @@ class ExternalLLMProvider(ABC):
             meta={"mock": True},
         )
 
+    def log_cost(
+        self,
+        response: LLMResponse,
+        task_id: Optional[str] = None,
+    ) -> None:
+        """Log API cost for the response.
+
+        Args:
+            response: LLMResponse with token usage information
+            task_id: Optional task identifier for tracking
+        """
+        try:
+            from pc_client.telemetry.cost_logger import log_api_cost
+            from pc_client.telemetry.metrics import (
+                llm_requests_total,
+                llm_tokens_used_total,
+                llm_latency_seconds,
+                llm_errors_total,
+            )
+
+            # Log to cost file
+            log_api_cost(
+                provider=self.provider_name,
+                model=response.model,
+                prompt_tokens=response.prompt_tokens,
+                completion_tokens=response.completion_tokens,
+                latency_ms=response.latency_ms,
+                task_id=task_id,
+                success=response.error is None,
+                error=response.error,
+            )
+
+            # Update Prometheus metrics
+            status = "success" if response.error is None else "error"
+            llm_requests_total.labels(
+                provider=self.provider_name,
+                model=response.model,
+                status=status,
+            ).inc()
+
+            if response.prompt_tokens > 0:
+                llm_tokens_used_total.labels(
+                    provider=self.provider_name,
+                    model=response.model,
+                    token_type="input",
+                ).inc(response.prompt_tokens)
+
+            if response.completion_tokens > 0:
+                llm_tokens_used_total.labels(
+                    provider=self.provider_name,
+                    model=response.model,
+                    token_type="output",
+                ).inc(response.completion_tokens)
+
+            if response.latency_ms > 0:
+                llm_latency_seconds.labels(
+                    provider=self.provider_name,
+                    model=response.model,
+                ).observe(response.latency_ms / 1000.0)
+
+            if response.error:
+                llm_errors_total.labels(
+                    provider=self.provider_name,
+                    model=response.model,
+                    error_type="api_error",
+                ).inc()
+
+        except Exception as e:
+            self.logger.debug("Failed to log cost: %s", e)
+
     def get_status(self) -> Dict[str, Any]:
         """Get provider status information."""
         return {

@@ -2,10 +2,81 @@
 
 import logging
 import os
+import stat
+from pathlib import Path
 from typing import List, Optional
 from dataclasses import dataclass, field
 
 _settings_logger = logging.getLogger(__name__)
+
+# Path to ai_credentials.toml for fallback API key loading
+AI_CREDENTIALS_PATH = Path.home() / ".config" / "rider-pc" / "ai_credentials.toml"
+
+
+def _load_ai_credentials() -> dict:
+    """Load AI API keys from ai_credentials.toml if available.
+
+    The file should be located at ~/.config/rider-pc/ai_credentials.toml
+    and have permissions 0600 (only owner can read/write).
+
+    Returns:
+        Dictionary with API keys (GEMINI_API_KEY, OPENAI_API_KEY).
+        Empty dict if file doesn't exist or has incorrect permissions.
+    """
+    credentials = {}
+
+    if not AI_CREDENTIALS_PATH.exists():
+        return credentials
+
+    # Check file permissions (should be 0600)
+    file_mode = AI_CREDENTIALS_PATH.stat().st_mode
+    if (file_mode & (stat.S_IRWXG | stat.S_IRWXO)) != 0:
+        _settings_logger.warning(
+            "ai_credentials.toml has insecure permissions (should be 0600). "
+            "Run: chmod 600 %s",
+            AI_CREDENTIALS_PATH,
+        )
+        # Still load but warn - allows graceful migration
+        pass
+
+    try:
+        import tomllib
+    except ImportError:
+        try:
+            import tomli as tomllib
+        except ImportError:
+            _settings_logger.debug("tomllib/tomli not available, skipping ai_credentials.toml")
+            return credentials
+
+    try:
+        with open(AI_CREDENTIALS_PATH, "rb") as f:
+            credentials = tomllib.load(f)
+        _settings_logger.debug("Loaded AI credentials from %s", AI_CREDENTIALS_PATH)
+    except Exception as e:
+        _settings_logger.warning("Failed to load ai_credentials.toml: %s", e)
+
+    return credentials
+
+
+def _get_api_key(env_var: str, credentials: dict) -> Optional[str]:
+    """Get API key from environment variable, falling back to credentials file.
+
+    Priority: .env > ai_credentials.toml
+
+    Args:
+        env_var: Environment variable name.
+        credentials: Dictionary from ai_credentials.toml.
+
+    Returns:
+        API key string or None if not found.
+    """
+    # First check environment variable
+    env_value = os.getenv(env_var)
+    if env_value:
+        return env_value
+
+    # Fallback to credentials file
+    return credentials.get(env_var)
 
 
 def _safe_int(env_var: str, default: str) -> int:
@@ -187,7 +258,7 @@ class Settings:
     weather_default_location: str = field(default_factory=lambda: os.getenv("WEATHER_DEFAULT_LOCATION", "Warsaw,PL"))
 
     # Gemini API configuration
-    gemini_api_key: Optional[str] = field(default_factory=lambda: os.getenv("GEMINI_API_KEY"))
+    gemini_api_key: Optional[str] = field(default_factory=lambda: _get_api_key("GEMINI_API_KEY", _load_ai_credentials()))
     gemini_model: str = field(default_factory=lambda: os.getenv("GEMINI_MODEL", "gemini-2.0-flash"))
     gemini_endpoint: str = field(
         default_factory=lambda: os.getenv(
@@ -196,7 +267,7 @@ class Settings:
     )
 
     # OpenAI ChatGPT API configuration
-    openai_api_key: Optional[str] = field(default_factory=lambda: os.getenv("OPENAI_API_KEY"))
+    openai_api_key: Optional[str] = field(default_factory=lambda: _get_api_key("OPENAI_API_KEY", _load_ai_credentials()))
     openai_model: str = field(default_factory=lambda: os.getenv("OPENAI_MODEL", "gpt-4o-mini"))
     openai_base_url: str = field(
         default_factory=lambda: os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
