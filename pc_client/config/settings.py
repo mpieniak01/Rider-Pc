@@ -32,8 +32,7 @@ def _load_ai_credentials() -> dict:
     file_mode = AI_CREDENTIALS_PATH.stat().st_mode
     if (file_mode & (stat.S_IRWXG | stat.S_IRWXO)) != 0:
         _settings_logger.warning(
-            "ai_credentials.toml has insecure permissions (should be 0600). "
-            "Run: chmod 600 %s",
+            "ai_credentials.toml has insecure permissions (should be 0600). " "Run: chmod 600 %s",
             AI_CREDENTIALS_PATH,
         )
         # Still load but warn - allows graceful migration

@@ -132,7 +132,7 @@ class TestGetDailySummary:
                 mock_file = MagicMock()
                 mock_file.exists.return_value = True
                 mock_path.return_value = mock_file
-                
+
                 summary = get_daily_summary()
                 assert summary["total_cost"] == 0.0
         finally:
