@@ -1,6 +1,7 @@
 /**
  * Google Assistant Page Styles - Rider-PC Dashboard
- * Assistant control panel page-specific styles
+ * Panel sterowania Google Assistant (~110 linii)
+ * Korzysta z komponentów globalnych: .status-dot, .c-status-msg, .u-hidden
  * ------------------------------------------------------------------
  */
 
@@ -35,9 +36,7 @@
   border-color: var(--color-ok);
 }
 
-.page-assistant .custom-input::placeholder {
-  color: var(--color-fg-secondary);
-}
+.page-assistant .custom-input::placeholder { color: var(--color-fg-secondary); }
 
 /* Device grid */
 .page-assistant .device-grid {
@@ -60,57 +59,38 @@
   box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
 
-/* Device header */
+/* Device header - uses global .status-dot with .is-ok/.is-error */
 .page-assistant .device-header {
   display: flex;
   align-items: center;
   gap: var(--space-md);
 }
 
-.page-assistant .device-status-dot {
+.page-assistant .device-header .status-dot {
   width: 12px;
   height: 12px;
-  border-radius: 50%;
   flex-shrink: 0;
-  background: var(--color-fg-secondary);
-  transition: background var(--transition-fast);
 }
 
-.page-assistant .device-status-dot.status-on {
-  background: var(--color-ok);
-  box-shadow: 0 0 8px var(--color-ok);
-}
-
-.page-assistant .device-status-dot.status-off {
-  background: #555;
-}
-
-.page-assistant .device-status-dot.status-unknown {
-  background: var(--color-warn);
-}
-
-.page-assistant .device-info {
-  flex: 1;
-}
+.page-assistant .device-info { flex: 1; }
 
 .page-assistant .device-name {
   font-weight: var(--font-weight-semibold);
   font-size: 15px;
 }
 
-.page-assistant .device-room {
+.page-assistant .device-room,
+.page-assistant .device-category {
   font-size: var(--font-size-xs);
   color: var(--color-fg-secondary);
 }
 
 .page-assistant .device-category {
-  font-size: var(--font-size-xs);
-  color: var(--color-fg-secondary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
-/* Device controls */
+/* Device controls - action buttons */
 .page-assistant .device-controls {
   display: flex;
   flex-wrap: wrap;
@@ -118,35 +98,18 @@
   margin-top: auto;
 }
 
-.page-assistant .btn-on {
-  background: var(--color-ok);
-  border-color: var(--color-ok);
-  color: #fff;
-}
+.page-assistant .btn-on,
+.page-assistant .btn-off,
+.page-assistant .btn-dock { color: #fff; }
 
-.page-assistant .btn-on:hover {
-  background: #2ecc71;
-}
+.page-assistant .btn-on { background: var(--color-ok); border-color: var(--color-ok); }
+.page-assistant .btn-on:hover { background: #2ecc71; }
 
-.page-assistant .btn-off {
-  background: #555;
-  border-color: #555;
-  color: #fff;
-}
+.page-assistant .btn-off { background: #555; border-color: #555; }
+.page-assistant .btn-off:hover { background: #666; }
 
-.page-assistant .btn-off:hover {
-  background: #666;
-}
-
-.page-assistant .btn-dock {
-  background: #3498db;
-  border-color: #3498db;
-  color: #fff;
-}
-
-.page-assistant .btn-dock:hover {
-  background: #2980b9;
-}
+.page-assistant .btn-dock { background: #3498db; border-color: #3498db; }
+.page-assistant .btn-dock:hover { background: #2980b9; }
 
 /* Brightness row */
 .page-assistant .brightness-row {
@@ -161,10 +124,7 @@
   font-size: var(--font-size-sm);
 }
 
-.page-assistant input[type="range"] {
-  width: 120px;
-  accent-color: var(--color-ok);
-}
+.page-assistant input[type="range"] { width: 120px; accent-color: var(--color-ok); }
 
 .page-assistant .brightness-value {
   font-size: var(--font-size-xs);
@@ -191,13 +151,8 @@
   border: 1px solid var(--color-off-border);
 }
 
-.page-assistant .history-item.success {
-  border-left: 3px solid var(--color-ok);
-}
-
-.page-assistant .history-item.failed {
-  border-left: 3px solid var(--color-error);
-}
+.page-assistant .history-item.success { border-left: 3px solid var(--color-ok); }
+.page-assistant .history-item.failed { border-left: 3px solid var(--color-error); }
 
 .page-assistant .history-time {
   font-size: var(--font-size-xs);
@@ -213,35 +168,11 @@
   text-overflow: ellipsis;
 }
 
-.page-assistant .history-status {
-  font-size: var(--font-size-md);
-}
+.page-assistant .history-status { font-size: var(--font-size-md); }
+.page-assistant .history-item.success .history-status { color: var(--color-ok); }
+.page-assistant .history-item.failed .history-status { color: var(--color-error); }
 
-.page-assistant .history-item.success .history-status {
-  color: var(--color-ok);
-}
-
-.page-assistant .history-item.failed .history-status {
-  color: var(--color-error);
-}
-
-/* Status messages */
-.page-assistant .c-status-msg {
-  margin-bottom: var(--space-md);
-  border: 1px solid #1c3349;
-  background: var(--color-bg-elevated);
-}
-
-.page-assistant .c-status-msg.ok {
-  border-color: var(--color-ok-border);
-  color: var(--color-ok);
-}
-
-.page-assistant .c-status-msg.err {
-  border-color: var(--color-error-border);
-  color: #ff9f9f;
-}
-
-.page-assistant .hidden {
-  display: none !important;
-}
+/* Status messages - extends global .c-status-msg */
+.page-assistant .c-status-msg { margin-bottom: var(--space-md); }
+.page-assistant .c-status-msg.ok { border-color: var(--color-ok-border); color: var(--color-ok); }
+.page-assistant .c-status-msg.err { border-color: var(--color-error-border); color: #ff9f9f; }
