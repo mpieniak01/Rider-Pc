@@ -186,7 +186,8 @@ import { initI18n, applyDom, t } from '/web/assets/i18n.js';
     card.dataset.deviceId = device.id;
     
     const statusClass = device.status === 'on' ? 'is-ok' : 
-                        device.status === 'off' ? 'is-disconnected' : '';
+                        device.status === 'off' ? 'is-disconnected' : 
+                        device.status === 'unknown' ? 'status-unknown' : '';
     
     let html = `
       <div class="device-header">
