@@ -84,7 +84,7 @@ Aby agent kodowania (np. GitHub Copilot) mógł automatycznie rozszerzać Rider-
 ### OpenAI ChatGPT
 1. **Autoryzacja**
    - `OPENAI_API_KEY` w `.env`.
-   - Nagłówki: `Authorization: Bearer <key>`, `OpenAI-Beta: assistants=v2` (dla reasoning).
+   - Nagłówki: `Authorization: Bearer <key>`.
 2. **Wysyłanie żądań**
    - Tekst: `POST https://api.openai.com/v1/chat/completions`.
    - Audio: `POST https://api.openai.com/v1/audio/transcriptions` lub `/speech`.
