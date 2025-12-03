@@ -652,6 +652,28 @@ class TextProvider(BaseProvider):
         """Get list of supported task types."""
         return [TaskType.TEXT_GENERATE, TaskType.TEXT_NLU]
 
+    def _backend_is_available(self, backend: str) -> bool:
+        """Check if backend can be used."""
+        if backend == BACKEND_LOCAL:
+            return self.ollama_available
+        if backend == BACKEND_GEMINI:
+            return bool(self._gemini_provider and self._gemini_provider.is_available)
+        if backend == BACKEND_CHATGPT:
+            return bool(self._chatgpt_provider and self._chatgpt_provider.is_available)
+        if backend == BACKEND_AUTO:
+            return True
+        return False
+
+    def set_default_backend(self, backend: str) -> None:
+        """Update preferred backend for future requests."""
+        backend = (backend or "").lower()
+        if backend not in VALID_BACKENDS:
+            raise ValueError(f"Nieobsługiwany backend '{backend}'")
+        if not self._backend_is_available(backend):
+            raise ValueError(f"Backend '{backend}' jest niedostępny")
+        self.backend = backend
+        self.logger.info("[provider] Default backend changed to %s", backend)
+
     def get_telemetry(self) -> Dict[str, Any]:
         """Get text provider telemetry."""
         base_telemetry = super().get_telemetry()
@@ -664,6 +686,8 @@ class TextProvider(BaseProvider):
             available_backends.append(BACKEND_GEMINI)
         if self._chatgpt_provider and self._chatgpt_provider.is_available:
             available_backends.append(BACKEND_CHATGPT)
+        if BACKEND_AUTO not in available_backends:
+            available_backends.append(BACKEND_AUTO)
 
         base_telemetry.update(
             {

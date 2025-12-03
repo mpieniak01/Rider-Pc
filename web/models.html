@@ -89,6 +89,16 @@
       <div class="loading-placeholder c-status-msg">Ładowanie statusu providerów...</div>
     </div>
     <div class="external-providers-note" id="external-providers-note"></div>
+    <div class="external-backend-control">
+      <label for="llm-backend-select">Preferowany backend LLM</label>
+      <div class="external-backend-row">
+        <select id="llm-backend-select" aria-label="Wybierz backend LLM" disabled>
+          <option>Ładowanie…</option>
+        </select>
+        <button class="c-btn c-btn-sm" id="btnBackendApply" disabled>Ustaw</button>
+      </div>
+      <p class="c-hint" id="backend-feedback"></p>
+    </div>
   </section>
 
   <!-- Installed Files -->
@@ -168,6 +178,15 @@ const providerStateGrid = document.getElementById('provider-state-grid');
 const providerNote = document.getElementById('provider-note');
 const externalProvidersGrid = document.getElementById('external-providers-grid');
 const externalProvidersNote = document.getElementById('external-providers-note');
+const backendSelect = document.getElementById('llm-backend-select');
+const backendApplyBtn = document.getElementById('btnBackendApply');
+const backendFeedback = document.getElementById('backend-feedback');
+const backendNameMap = { local: 'Lokalny', gemini: 'Gemini', chatgpt: 'ChatGPT', auto: 'Auto' };
+let activeLLMBackend = null;
+
+function backendDisplayName(id) {
+  return backendNameMap[id] || id;
+}
 const urlParams = new URLSearchParams(window.location.search);
 const auditMode = urlParams.get('audit') === '1';
 
@@ -237,6 +256,12 @@ const domainLabels = {
   text: 'Tekst'
 };
 
+const domainDescriptions = {
+  voice: 'Kanał mowy: ASR (mowa → tekst) i TTS (tekst → mowa) dla Chat PC.',
+  text: 'Kanał tekstowy / LLM: odpowiedzi czatu, generowanie PR, narzędzia MCP.',
+  vision: 'Kanał wizji: detekcja obiektów i analiza klatek.'
+};
+
 function createProviderCard(domain, state) {
   const card = document.createElement('div');
   card.className = 'provider-card c-card';
@@ -259,6 +284,23 @@ function createProviderCard(domain, state) {
       <div class="provider-meta">
         <span class="meta-item">⏱️ ${changed}</span>
         ${reason ? `<span class="meta-item">ℹ️ ${reason}</span>` : ''}
+      </div>
+      <p class="provider-description">${escapeHtml(domainDescriptions[domain] || '')}</p>
+      <div class="provider-controls" role="group" aria-label="Przełącz źródło providera">
+        <button
+          class="c-btn c-btn-sm provider-switch-btn ${mode === 'local' ? 'is-active' : ''}"
+          data-domain="${escapeHtml(domain)}"
+          data-target="local"
+        >
+          Rider-Pi lokalnie
+        </button>
+        <button
+          class="c-btn c-btn-sm provider-switch-btn ${mode === 'pc' ? 'is-active' : ''}"
+          data-domain="${escapeHtml(domain)}"
+          data-target="pc"
+        >
+          PC (offload)
+        </button>
       </div>
     </div>
   `;
@@ -324,6 +366,19 @@ function createActiveModelCard(category, config) {
       </div>
     </div>
   `;
+
+  if (category === 'text') {
+    const dataList = card.querySelector('.c-data-list');
+    if (dataList) {
+      const backendRow = document.createElement('div');
+      backendRow.className = 'c-data-list__item';
+      backendRow.innerHTML = `
+        <span class="c-data-list__label">Backend</span>
+        <span class="c-data-list__value" id="active-llm-backend">${activeLLMBackend ? backendDisplayName(activeLLMBackend) : '—'}</span>
+      `;
+      dataList.appendChild(backendRow);
+    }
+  }
   
   return card;
 }
@@ -412,7 +467,7 @@ function formatSize(bytes) {
 
 function renderActiveModels(active) {
   activeModelsGrid.innerHTML = '';
-  
+
   const categories = ['vision', 'voice_asr', 'voice_tts', 'text'];
   categories.forEach(cat => {
     const config = active[cat];
@@ -421,6 +476,7 @@ function renderActiveModels(active) {
       activeModelsGrid.appendChild(card);
     }
   });
+  updateActiveBackendBadge();
 }
 
 function renderInstalledModels(local, ollama, remote) {
@@ -649,6 +705,13 @@ function renderExternalProviders(data) {
 
   if (!data || !data.ok) {
     externalProvidersGrid.innerHTML = '<div class="no-models c-status-msg">Nie można pobrać statusu providerów.</div>';
+    if (backendSelect) {
+      backendSelect.innerHTML = '<option>Brak dostępnych backendów</option>';
+      backendSelect.disabled = true;
+    }
+    if (backendApplyBtn) backendApplyBtn.disabled = true;
+    activeLLMBackend = null;
+    updateActiveBackendBadge();
     return;
   }
 
@@ -666,10 +729,34 @@ function renderExternalProviders(data) {
 
   // Show active backend info
   if (externalProvidersNote && data.active_backend) {
-    const backendNames = { local: 'Lokalny', gemini: 'Gemini', chatgpt: 'ChatGPT', auto: 'Auto' };
-    const backends = (data.available_backends || []).map(b => backendNames[b] || b).join(', ');
-    externalProvidersNote.textContent = `Aktywny backend LLM: ${backendNames[data.active_backend] || data.active_backend}. Dostępne: ${backends || 'brak'}`;
+    const backends = (data.available_backends || []).map(b => backendDisplayName(b)).join(', ');
+    externalProvidersNote.textContent = `Aktywny backend LLM: ${backendDisplayName(data.active_backend)}. Dostępne: ${backends || 'brak'}`;
   }
+  activeLLMBackend = data.active_backend || null;
+  updateActiveBackendBadge();
+
+  if (backendSelect) {
+    const options = data.available_backends || [];
+    backendSelect.innerHTML = '';
+    if (!options.length) {
+      backendSelect.innerHTML = '<option>Brak backendów</option>';
+      backendSelect.disabled = true;
+      if (backendApplyBtn) backendApplyBtn.disabled = true;
+    } else {
+      for (const backend of options) {
+        const opt = document.createElement('option');
+        opt.value = backend;
+        opt.textContent = backendDisplayName(backend);
+        backendSelect.appendChild(opt);
+      }
+      backendSelect.value = data.active_backend && options.includes(data.active_backend)
+        ? data.active_backend
+        : options[0];
+      backendSelect.disabled = false;
+      if (backendApplyBtn) backendApplyBtn.disabled = false;
+    }
+  }
+  if (backendFeedback) backendFeedback.textContent = '';
 }
 
 async function loadExternalProvidersStatus() {
@@ -694,6 +781,57 @@ async function loadExternalProvidersStatus() {
       externalProvidersGrid.innerHTML = '<div class="no-models c-status-msg">Błąd ładowania statusu providerów.</div>';
     }
   }
+}
+
+function updateActiveBackendBadge() {
+  const el = document.getElementById('active-llm-backend');
+  if (!el) return;
+  el.textContent = activeLLMBackend ? backendDisplayName(activeLLMBackend) : '—';
+}
+
+async function updateBackendPreference(backend) {
+  if (!backend || !backendSelect || !backendApplyBtn) return;
+  if (backendFeedback) {
+    backendFeedback.textContent = `Ustawiam backend ${backendDisplayName(backend)}...`;
+    backendFeedback.classList.remove('c-text-warn');
+  }
+  backendSelect.disabled = true;
+  backendApplyBtn.disabled = true;
+  try {
+    const res = await fetch('/api/providers/text/backend', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ backend })
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      throw new Error(data.error || `HTTP ${res.status}`);
+    }
+    if (backendFeedback) {
+      backendFeedback.textContent = `Backend ustawiony na ${backendDisplayName(data.backend)}.`;
+      backendFeedback.classList.remove('c-text-warn');
+    }
+    await loadExternalProvidersStatus();
+  } catch (err) {
+    if (backendFeedback) {
+      backendFeedback.textContent = `Nie udało się ustawić backendu: ${err.message}`;
+      backendFeedback.classList.add('c-text-warn');
+    }
+  } finally {
+    backendSelect.disabled = false;
+    backendApplyBtn.disabled = false;
+  }
+}
+
+if (backendApplyBtn && backendSelect) {
+  backendApplyBtn.addEventListener('click', () => {
+    const backend = backendSelect.value;
+    updateBackendPreference(backend);
+  });
+  backendSelect.addEventListener('change', () => {
+    const backend = backendSelect.value;
+    updateBackendPreference(backend);
+  });
 }
 
 async function activateModel(slot, provider, model) {
@@ -779,6 +917,47 @@ document.addEventListener('click', (e) => {
     }
   }
 });
+
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.provider-switch-btn');
+  if (!btn) return;
+  const domain = btn.dataset.domain;
+  const target = btn.dataset.target;
+  if (!domain || !target) return;
+  setProviderTarget(domain, target, btn);
+});
+
+async function setProviderTarget(domain, target, button) {
+  const domainLabel = domainLabels[domain] || domain;
+  const targetLabel = target === 'pc' ? 'PC (offload)' : 'Rider-Pi lokalnie';
+  try {
+    if (button) button.disabled = true;
+    statusLine.textContent = `Przełączam domenę ${domainLabel} na ${targetLabel}...`;
+    statusLine.className = 'status-line c-statusbar is-working';
+
+    const response = await fetch(`/api/providers/${encodeURIComponent(domain)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target })
+    });
+    const result = await response.json();
+
+    if (response.ok && !result.error) {
+      statusLine.textContent = `✅ ${domainLabel} korzysta teraz z trybu ${targetLabel}`;
+      statusLine.className = 'status-line c-statusbar is-success';
+      setTimeout(loadModelsData, 800);
+    } else {
+      statusLine.textContent = `❌ Nie udało się przełączyć ${domainLabel}: ${result.error || 'nieznany błąd'}`;
+      statusLine.className = 'status-line c-statusbar is-error';
+    }
+  } catch (error) {
+    console.error('Provider toggle error:', error);
+    statusLine.textContent = `❌ Błąd przełączania domeny ${domainLabel}: ${error.message}`;
+    statusLine.className = 'status-line c-statusbar is-error';
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
 
 async function loadModelsData() {
   try {

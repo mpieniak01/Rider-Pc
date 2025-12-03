@@ -12,6 +12,7 @@ from pc_client.adapters import RestAdapter
 from pc_client.cache import CacheManager
 from pc_client.config import Settings
 from pc_client.providers import TextProvider
+from pc_client.providers.text_provider import VALID_BACKENDS
 from pc_client.providers.base import TaskEnvelope, TaskType, TaskStatus
 from pc_client.api.config_utils import get_provider_capabilities
 
@@ -21,6 +22,11 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _get_text_provider(request: Request) -> Optional[TextProvider]:
+    provider = getattr(request.app.state, "text_provider", None)
+    return provider if isinstance(provider, TextProvider) else None
 
 
 @router.get("/providers/capabilities")
@@ -39,7 +45,7 @@ async def providers_capabilities_api(request: Request) -> JSONResponse:
 @router.post("/providers/text/generate")
 async def providers_text_generate(request: Request, payload: Dict[str, Any]) -> JSONResponse:
     """Generate text via TextProvider (chat/NLU)."""
-    provider: Optional[TextProvider] = request.app.state.text_provider
+    provider: Optional[TextProvider] = _get_text_provider(request)
     if provider is None:
         raise HTTPException(status_code=503, detail="Text provider not initialized")
 
@@ -76,6 +82,35 @@ async def providers_text_generate(request: Request, payload: Dict[str, Any]) -> 
 @router.post("/api/providers/text/generate")
 async def providers_text_generate_api(request: Request, payload: Dict[str, Any]) -> JSONResponse:
     return await providers_text_generate(request, payload)
+
+
+@router.patch("/api/providers/text/backend")
+async def update_text_provider_backend(request: Request, payload: Dict[str, Any]) -> JSONResponse:
+    """Update default backend for TextProvider."""
+    provider = _get_text_provider(request)
+    if not provider:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "TextProvider not initialized"},
+        )
+    backend = str(payload.get("backend") or "").lower()
+    if backend not in VALID_BACKENDS:
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"Invalid backend '{backend}'. Allowed: {sorted(VALID_BACKENDS)}"},
+        )
+    try:
+        provider.set_default_backend(backend)
+    except ValueError as exc:
+        return JSONResponse(status_code=400, content={"error": str(exc)})
+    telemetry = provider.get_telemetry()
+    return JSONResponse(
+        {
+            "ok": True,
+            "backend": telemetry.get("backend"),
+            "available_backends": telemetry.get("available_backends", []),
+        }
+    )
 
 
 def _default_provider_state() -> Dict[str, Any]:

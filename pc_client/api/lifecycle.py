@@ -577,8 +577,12 @@ async def startup_event(app: FastAPI):
 
     settings: Settings = app.state.settings
 
-    # Initialize REST adapter (mock or real based on test_mode)
-    if settings.test_mode:
+    # Initialize REST adapter (mock, real or disabled based on settings)
+    pi_rest_disabled = settings.disable_rider_pi_adapter
+    if pi_rest_disabled:
+        app.state.rest_adapter = None
+        logger.info("REST adapter disabled via DISABLE_RIDER_PI_ADAPTER")
+    elif settings.test_mode:
         from pc_client.adapters import MockRestAdapter
 
         app.state.rest_adapter = MockRestAdapter()
@@ -598,8 +602,8 @@ async def startup_event(app: FastAPI):
     await initialize_voice_pipeline(app)
     await initialize_text_provider(app)
 
-    # Initialize ZMQ subscriber (skip in test mode)
-    if not settings.test_mode:
+    # Initialize ZMQ subscriber (skip in test mode or when Rider-PI adapter disabled)
+    if not settings.test_mode and not pi_rest_disabled:
         from pc_client.adapters import ZmqSubscriber
 
         app.state.zmq_subscriber = ZmqSubscriber(
@@ -624,23 +628,32 @@ async def startup_event(app: FastAPI):
         # Start ZMQ subscriber in background
         asyncio.create_task(app.state.zmq_subscriber.start())
         logger.info("ZMQ subscriber started")
-    else:
+    elif settings.test_mode:
         logger.info("ZMQ subscriber skipped in TEST MODE")
+    else:
+        logger.info("ZMQ subscriber skipped (DISABLE_RIDER_PI_ADAPTER=true)")
 
-    # Skip provider heartbeat in test mode
-    if not settings.test_mode:
+    # Skip provider heartbeat in test mode or when adapter disabled
+    if not settings.test_mode and not pi_rest_disabled:
         await start_provider_heartbeat(app)
+    elif pi_rest_disabled:
+        logger.info("Provider heartbeat disabled (DISABLE_RIDER_PI_ADAPTER=true)")
 
-    if app.state.camera_sync_task:
-        app.state.camera_sync_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await app.state.camera_sync_task
-    app.state.camera_sync_task = asyncio.create_task(sync_camera_frame_periodically(app))
-    logger.info("Camera frame sync task started")
+    if not pi_rest_disabled:
+        if app.state.camera_sync_task:
+            app.state.camera_sync_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await app.state.camera_sync_task
+        app.state.camera_sync_task = asyncio.create_task(sync_camera_frame_periodically(app))
+        logger.info("Camera frame sync task started")
 
-    # Start background sync task
-    app.state.sync_task = asyncio.create_task(sync_data_periodically(app))
-    logger.info("Background sync task started")
+        # Start background sync task
+        app.state.sync_task = asyncio.create_task(sync_data_periodically(app))
+        logger.info("Background sync task started")
+    else:
+        app.state.camera_sync_task = None
+        app.state.sync_task = None
+        logger.info("Rider-PI sync tasks skipped (adapter disabled)")
 
     # Initialize and start ServiceWatchdog if enabled
     app.state.service_watchdog = None

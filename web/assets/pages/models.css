@@ -66,6 +66,50 @@
   color: var(--color-ok);
 }
 
+.page-models .external-backend-control {
+  margin-top: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.page-models .external-backend-row {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.page-models #llm-backend-select {
+  min-width: 200px;
+  flex: 1;
+}
+
+.page-models .provider-description {
+  margin-top: var(--space-sm);
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.page-models .provider-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.page-models .provider-switch-btn {
+  flex: 1;
+  min-width: 140px;
+  border-color: rgba(255,255,255,0.15);
+}
+
+.page-models .provider-switch-btn.is-active {
+  border-color: var(--color-accent-border);
+  background: rgba(87,120,255,0.12);
+  color: var(--color-fg-base);
+}
+
 /* Active model card */
 .page-models .active-model-card {
   transition: border-color var(--transition-normal), box-shadow var(--transition-normal);

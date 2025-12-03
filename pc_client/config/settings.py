@@ -128,6 +128,9 @@ class Settings:
     # Rider-PI connection
     rider_pi_host: str = field(default_factory=lambda: os.getenv("RIDER_PI_HOST", "localhost"))
     rider_pi_port: int = field(default_factory=lambda: int(os.getenv("RIDER_PI_PORT", "8080")))
+    disable_rider_pi_adapter: bool = field(
+        default_factory=lambda: os.getenv("DISABLE_RIDER_PI_ADAPTER", "false").lower() == "true"
+    )
 
     # ZMQ configuration
     zmq_pub_port: int = field(default_factory=lambda: int(os.getenv("ZMQ_PUB_PORT", "5555")))

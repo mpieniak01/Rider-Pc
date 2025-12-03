@@ -53,6 +53,14 @@
             <dd id="prov-backend">—</dd>
           </div>
         </dl>
+        <div class="chat-pc-backend-control" id="chat-backend-control" hidden>
+          <label for="chatBackendSelect">Preferowany backend LLM</label>
+          <div class="chat-pc-backend-row">
+            <select id="chatBackendSelect"></select>
+            <button class="c-btn c-btn-sm" id="chatBackendApply">Zmień</button>
+          </div>
+          <p class="c-hint" id="chatBackendHint"></p>
+        </div>
       </div>
       <div class="chat-pc-status__actions">
         <span id="source-badge" class="chat-pc-pill chat-pc-pill--offline">Offline</span>
@@ -314,6 +322,10 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
   const provModel = document.getElementById('prov-model');
   const provEngine = document.getElementById('prov-engine');
   const provBackend = document.getElementById('prov-backend');
+  const chatBackendControl = document.getElementById('chat-backend-control');
+  const chatBackendSelect = document.getElementById('chatBackendSelect');
+  const chatBackendApply = document.getElementById('chatBackendApply');
+  const chatBackendHint = document.getElementById('chatBackendHint');
 
   // Backend display names
   const backendDisplayNames = {
@@ -735,6 +747,7 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
         const backend = data.backend || 'local';
         provBackend.textContent = backendDisplayNames[backend] || backend;
       }
+      updateChatBackendControl(data);
       setSourceBadge(currentMode === 'proxy' ? 'proxy' : 'pc', providerReady);
 
       // Disable PC mode if provider not ready
@@ -750,6 +763,55 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
       providerReady = false;
       setSourceBadge('offline', false);
     }
+  }
+
+  function updateChatBackendControl(data) {
+    if (!chatBackendControl || !chatBackendSelect || !chatBackendApply) return;
+    const options = data.available_backends || [];
+    if (!options.length) {
+      chatBackendControl.hidden = true;
+      return;
+    }
+    chatBackendControl.hidden = false;
+    chatBackendSelect.innerHTML = '';
+    options.forEach((backend) => {
+      const opt = document.createElement('option');
+      opt.value = backend;
+      opt.textContent = backendDisplayNames[backend] || backend;
+      chatBackendSelect.appendChild(opt);
+    });
+    const current = data.backend || options[0];
+    chatBackendSelect.value = options.includes(current) ? current : options[0];
+    chatBackendApply.disabled = false;
+    if (chatBackendHint) chatBackendHint.textContent = '';
+  }
+
+  async function applyChatBackend(backend) {
+    if (!backend || !chatBackendApply || !chatBackendSelect) return;
+    chatBackendApply.disabled = true;
+    chatBackendSelect.disabled = true;
+    if (chatBackendHint) chatBackendHint.textContent = `Ustawiam backend ${backendDisplayNames[backend] || backend}...`;
+    try {
+      const res = await fetch('/api/providers/text/backend', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ backend })
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+      if (chatBackendHint) chatBackendHint.textContent = `Backend ustawiony na ${backendDisplayNames[data.backend] || data.backend}.`;
+      await refreshProviderStatus();
+    } catch (err) {
+      if (chatBackendHint) chatBackendHint.textContent = `Nie udało się ustawić backendu: ${err.message}`;
+    } finally {
+      chatBackendApply.disabled = false;
+      chatBackendSelect.disabled = false;
+    }
+  }
+
+  if (chatBackendApply && chatBackendSelect) {
+    chatBackendApply.addEventListener('click', () => applyChatBackend(chatBackendSelect.value));
+    chatBackendSelect.addEventListener('change', () => applyChatBackend(chatBackendSelect.value));
   }
 
   // Chat API

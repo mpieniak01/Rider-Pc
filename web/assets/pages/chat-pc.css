@@ -71,6 +71,9 @@
 .chat-pc-knowledge { width:100%; min-height:70px; resize:vertical; }
 .page-chat-pc #provider-hint { margin-top:var(--space-md); display:block; word-break:break-word; }
 .page-chat-pc #provider-hint[hidden] { display:none; }
+.chat-pc-backend-control { margin-top:var(--space-md); display:flex; flex-direction:column; gap:var(--space-xs); }
+.chat-pc-backend-row { display:flex; flex-wrap:wrap; gap:var(--space-sm); align-items:center; }
+.chat-pc-backend-row select { min-width:160px; }
 
 .page-chat-pc .providers-card {
   margin-top:var(--space-lg);
