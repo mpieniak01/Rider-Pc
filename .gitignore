@@ -31,6 +31,7 @@ venv/
 env/
 ENV/
 .venv
+.venv-agent/
 
 # IDEs
 .vscode/
