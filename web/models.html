@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="/web/assets/dashboard-common.css">
   <link rel="stylesheet" href="/web/assets/themes/classic/theme.css" data-theme-skin="classic">
   <link rel="stylesheet" href="/web/assets/themes/classic-plus/theme.css" data-theme-skin="classic-plus" disabled>
-
+  <link rel="stylesheet" href="/web/assets/themes/v2/theme.css" data-theme-skin="v2" disabled>
   <link rel="stylesheet" href="/web/assets/themes/v3/theme.css" data-theme-skin="v3" disabled>
   <link rel="stylesheet" href="/web/assets/pages/models-base.css">
   <link rel="stylesheet" href="/web/assets/pages/models-v2.css" data-theme-page="v2" disabled>
@@ -392,7 +392,7 @@ function refreshEntireUI() {
                  }
             }
         } else if (domain === 'text') {
-            // Stan domyślny dla Vision/Voice lub gdy brak konfigu
+            // Stan domyślny dla text gdy brak providera
             populateModelSelect(card, sourceSelect.value);
         }
     });
@@ -453,13 +453,16 @@ function populateModelSelect(card, source) {
     if(optionsBuilder.length === 0) {
          modelSelect.innerHTML = '<option disabled selected>Brak dostępnych modeli</option>';
     } else {
+        let currentGroup = null;
         optionsBuilder.forEach(opt => {
             if(opt.optgroup) {
-                const group = document.createElement('optgroup'); group.label = opt.optgroup; modelSelect.appendChild(group);
+                currentGroup = document.createElement('optgroup');
+                currentGroup.label = opt.optgroup;
+                modelSelect.appendChild(currentGroup);
             } else {
                 const el = document.createElement('option');
                 el.value = opt.val; el.textContent = opt.text;
-                modelSelect.appendChild(el);
+                (currentGroup || modelSelect).appendChild(el);
             }
         });
     }
@@ -613,11 +616,13 @@ function renderPcEngineStatus(hasOllama) {
 function renderPiHealth(data) {
     const pingEl = document.getElementById('pi-health-ping');
     const cpuEl = document.getElementById('pi-health-cpu');
+    const tempEl = document.getElementById('pi-health-temp');
     if(data) {
         pingEl.textContent = (data.latency_ms || 15) + 'ms';
         cpuEl.textContent = (data.cpu_usage || 5) + '%';
+        tempEl.textContent = data.temp_c != null ? data.temp_c + '°C' : '—';
     } else {
-        pingEl.textContent = "—"; cpuEl.textContent = "—";
+        pingEl.textContent = "—"; cpuEl.textContent = "—"; tempEl.textContent = "—";
     }
 }
 
