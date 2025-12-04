@@ -289,14 +289,14 @@ def test_models_page_sections_render(browser_context):
     page.goto(f"{base_url}/web/models.html")
     page.wait_for_load_state("load")
 
-    page.wait_for_selector(".active-model-card", timeout=7000)
-    assert page.locator(".active-model-card").count() > 0, "Powinna istnieć co najmniej jedna karta aktywnego modelu"
+    page.wait_for_selector(".pipeline-card", timeout=7000)
+    assert page.locator(".pipeline-card").count() >= 3, "Powinny istnieć kafle pipeline dla PC/Pi"
 
-    page.wait_for_selector(".provider-card", timeout=7000)
-    assert page.locator(".provider-card").count() > 0, "Powinna istnieć karta stanu providera Rider-Pi"
+    page.wait_for_selector(".engine-card", timeout=7000)
+    assert page.locator(".engine-card").count() >= 3, "Sekcja silników i kluczy powinna być widoczna"
 
-    page.wait_for_selector("#installed-models-tbody tr", timeout=7000)
-    assert page.locator("#installed-models-tbody tr").count() > 0, "Tabela lokalnych modeli powinna zawierać wiersze"
+    page.wait_for_selector(".pi-health-grid", timeout=7000)
+    assert page.locator(".pi-health-grid").count() > 0, "Kafle zdrowia Pi powinny się renderować"
 
 
 def test_project_page_lists_mock_issues(browser_context):

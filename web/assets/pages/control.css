@@ -49,8 +49,8 @@
 .page-control .cam-card .cam {
   width: 100%;
   border-radius: var(--radius-xl);
-  border: 1px solid #1a2c43;
-  background: #08111c;
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
 }
 
 .page-control .cam-card .media-frame {
@@ -112,7 +112,7 @@
 
 .page-control .svc-table th,
 .page-control .svc-table td {
-  border-top: 1px solid #1c3349;
+  border-top: 1px solid var(--card-border);
   padding: var(--space-sm) var(--space-xs);
   text-align: left;
 }
@@ -141,7 +141,7 @@
 
 /* Service controls toolbar */
 .page-control .svc-controls { display: flex; align-items: center; gap: var(--space-lg); flex-wrap: wrap; margin-top: var(--space-xs); }
-.page-control .svc-control { display: inline-flex; align-items: center; gap: var(--space-xs); padding: var(--space-xxs) var(--space-sm); border-radius: var(--radius-sm); background: rgba(255, 255, 255, 0.04); border: 1px solid var(--color-border-subtle); color: #cfd4dd; font-size: var(--font-size-sm); }
+.page-control .svc-control { display: inline-flex; align-items: center; gap: var(--space-xs); padding: var(--space-xxs) var(--space-sm); border-radius: var(--radius-sm); background: var(--color-bg-input); border: 1px solid var(--card-border); color: var(--color-fg-secondary); font-size: var(--font-size-sm); }
 .page-control .svc-icon { width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.14); display: inline-flex; align-items: center; justify-content: center; font-size: var(--font-size-xs); background: rgba(255, 255, 255, 0.1); }
 
 .page-control .res-status {

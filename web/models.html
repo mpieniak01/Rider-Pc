@@ -1,1049 +1,723 @@
 <!doctype html>
-<!--
-  Migrated to dashboard_base.html template structure
-  Uses shared layout classes: .layout-header, .layout-main, .layout-footer
--->
 <html lang="pl">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Rider-PC: Modele AI</title>
+  <title>Rider-PC: AI Command Center</title>
+  <script src="/web/assets/theme-loader.js" defer></script>
   <link rel="stylesheet" href="/web/assets/dashboard-common.css">
-  <link rel="stylesheet" href="/web/assets/pages/models.css">
+  <link rel="stylesheet" href="/web/assets/themes/classic/theme.css" data-theme-skin="classic">
+  <link rel="stylesheet" href="/web/assets/themes/classic-plus/theme.css" data-theme-skin="classic-plus" disabled>
+  <link rel="stylesheet" href="/web/assets/themes/v2/theme.css" data-theme-skin="v2" disabled>
+  <link rel="stylesheet" href="/web/assets/themes/v3/theme.css" data-theme-skin="v3" disabled>
+  <link rel="stylesheet" href="/web/assets/pages/models-base.css">
+  <link rel="stylesheet" href="/web/assets/pages/models-v2.css" data-theme-page="v2" disabled>
+  <link rel="stylesheet" href="/web/assets/pages/models-v3.css" data-theme-page="v3" disabled>
 </head>
 <body data-page="models" class="page page-models">
-  <!-- Header with Menu -->
   <header class="layout-header" data-dashboard-menu-target></header>
 
-  <!-- Main content -->
   <main class="layout-main layout-main--wide">
-  <header class="page-header">
-    <div class="page-header__titles">
-      <h1 class="page-title"><span class="brand-accent">Rider-PC</span>: <span class="page-title-text">Modele AI</span></h1>
-      <p class="page-subtitle text-secondary">Zarządzanie modelami sztucznej inteligencji</p>
-    </div>
-  </header>
+    <header class="page-header">
+      <div class="page-header__titles">
+        <h1 class="page-title">AI Command Center</h1>
+        <p class="page-subtitle text-secondary">Centralne zarządzanie mózgiem (PC) i robotem (Pi).</p>
+      </div>
+      <div class="page-header__actions">
+        <div id="global-status" class="c-pill is-working">Inicjalizacja...</div>
+      </div>
+    </header>
 
-<p id="status-line" class="status-line c-statusbar is-working">Ładowanie danych modeli...</p>
-
-  <!-- Active Models Section -->
-  <section class="models-section c-card c-section">
-    <h2 class="section-title">📊 Aktywne Modele</h2>
-    <div class="models-grid l-grid" id="active-models-grid">
-      <!-- Active model cards will be dynamically inserted -->
-    </div>
-  </section>
-
-  <!-- Provider State -->
-  <section class="models-section c-card c-section">
-    <h2 class="section-title">🛰️ Stan Rider-Pi</h2>
-    <p class="section-desc">Informacje z rejestru providera Rider-Pi: gdzie wykonywane są obecnie zadania Vision / Voice / Text.</p>
-    <div class="provider-grid l-grid" id="provider-state-grid">
-      <div class="loading-placeholder c-status-msg">Oczekiwanie na dane z Rider-Pi...</div>
-    </div>
-    <p class="provider-note" id="provider-note"></p>
-  </section>
-
-  <!-- Vision Models -->
-  <section class="models-section c-card c-section">
-    <h2 class="section-title">👁️ Wizja (Vision)</h2>
-    <p class="section-desc">Modele detekcji obiektów i analizy obrazu</p>
-    <div class="model-category l-grid" id="vision-models">
-      <div class="loading-placeholder c-status-msg">Skanowanie modeli wizji...</div>
-    </div>
-  </section>
-
-  <!-- Voice Models -->
-  <section class="models-section c-card c-section">
-    <h2 class="section-title">🗣️ Mowa (Audio)</h2>
-    <div class="voice-subsections l-grid">
-      <div class="voice-subsection">
-        <h3 class="subsection-title">🎤 ASR (Rozpoznawanie mowy)</h3>
-        <div class="model-category l-grid" id="voice-asr-models">
-          <div class="loading-placeholder c-status-msg">Skanowanie modeli ASR...</div>
+    <section class="c-section pipeline-section section-pc">
+      <div class="section-header-flex">
+         <h2 class="section-title">🖥️ Rider-PC Pipeline (Mózg)</h2>
+      </div>
+      
+      <div class="l-grid l-grid--3-cols">
+        
+        <div class="c-card pipeline-card pc-card" id="card-pc-text" data-domain="text" data-device="pc">
+          <div class="pipeline-card-header">
+            <span class="icon">💬</span> Text / LLM (PC)
+          </div>
+          <div class="pipeline-card-body">
+             <div class="active-status-bar">
+                <span class="label">Aktywny:</span> <strong class="value status-value">Ładowanie...</strong>
+             </div>
+             
+             <div class="control-group u-mt-md">
+               <label class="c-label-sm">Źródło (Source)</label>
+               <select class="c-select source-select">
+                 <option value="local" selected>🖥️ Lokalny (Ollama/GPU)</option>
+                 <option value="cloud">☁️ Chmura (API)</option>
+               </select>
+             </div>
+             <div class="control-group">
+               <label class="c-label-sm">Model</label>
+               <select class="c-select model-select">
+                 <option>Ładowanie danych...</option>
+               </select>
+             </div>
+             <button class="c-btn c-btn--primary c-btn-sm save-btn">Zapisz konfigurację PC</button>
+          </div>
         </div>
-      </div>
-      <div class="voice-subsection">
-        <h3 class="subsection-title">🔊 TTS (Synteza mowy)</h3>
-        <div class="model-category l-grid" id="voice-tts-models">
-          <div class="loading-placeholder c-status-msg">Skanowanie modeli TTS...</div>
+
+        <div class="c-card pipeline-card pc-card" id="card-pc-vision" data-domain="vision" data-device="pc">
+          <div class="pipeline-card-header">
+            <span class="icon">👁️</span> Vision (PC)
+          </div>
+          <div class="pipeline-card-body">
+             <div class="active-status-bar">
+                <span class="label">Aktywny:</span> <strong class="value status-value">Ładowanie...</strong>
+             </div>
+             <div class="control-group u-mt-md">
+               <label class="c-label-sm">Źródło (Source)</label>
+               <select class="c-select source-select">
+                 <option value="local" selected>🖥️ Lokalny (YOLO/ONNX)</option>
+                 <option value="cloud" disabled>☁️ Chmura (Wkrótce)</option>
+               </select>
+             </div>
+             <div class="control-group">
+               <label class="c-label-sm">Model</label>
+               <select class="c-select model-select">
+                 <option value="yolo-v8-m" selected>yolo-v8-m (Default)</option>
+               </select>
+             </div>
+             <button class="c-btn c-btn--primary c-btn-sm save-btn">Zapisz konfigurację PC</button>
+          </div>
         </div>
-      </div>
-    </div>
-  </section>
 
-  <!-- Text/LLM Models -->
-  <section class="models-section c-card c-section">
-    <h2 class="section-title">💬 Tekst (LLM)</h2>
-    <p class="section-desc">Modele językowe do generowania tekstu i NLU</p>
-    <div class="model-category l-grid" id="text-models">
-      <div class="loading-placeholder c-status-msg">Skanowanie modeli LLM...</div>
-    </div>
-  </section>
-
-  <!-- External AI Providers Section -->
-  <section class="models-section c-card c-section">
-    <h2 class="section-title">☁️ Zewnętrzne Providery AI</h2>
-    <p class="section-desc">Status i konfiguracja zewnętrznych API (Gemini, ChatGPT). Klucze API konfiguruj w <code>.env</code> lub <code>~/.config/rider-pc/ai_credentials.toml</code>.</p>
-    <div class="external-providers l-grid" id="external-providers-grid">
-      <div class="loading-placeholder c-status-msg">Ładowanie statusu providerów...</div>
-    </div>
-    <div class="external-providers-note" id="external-providers-note"></div>
-    <div class="external-backend-control">
-      <label for="llm-backend-select">Preferowany backend LLM</label>
-      <div class="external-backend-row">
-        <select id="llm-backend-select" aria-label="Wybierz backend LLM" disabled>
-          <option>Ładowanie…</option>
-        </select>
-        <button class="c-btn c-btn-sm" id="btnBackendApply" disabled>Ustaw</button>
-      </div>
-      <p class="c-hint" id="backend-feedback"></p>
-    </div>
-  </section>
-
-  <!-- Installed Files -->
-  <section class="models-section c-card c-section">
-    <h2 class="section-title">📁 Zainstalowane Pliki Modeli</h2>
-    <p class="section-desc">Pliki modeli wykryte w katalogu <code>data/models/</code></p>
-    <div class="installed-columns">
-      <div class="installed-column">
-        <h3 class="subsection-title">💻 Rider-PC</h3>
-        <p class="section-desc">Pliki lokalne używane przez providera PC. Kliknięcie „Aktywuj” zapisuje konfigurację i przełącza Rider-Pi w tryb PC.</p>
-        <div class="installed-models-table-wrapper">
-          <table class="installed-models-table c-table" id="installed-models-table">
-            <thead>
-              <tr>
-                <th>Nazwa</th>
-                <th>Kategoria</th>
-                <th>Typ</th>
-                <th>Format</th>
-                <th>Rozmiar</th>
-                <th>Akcje</th>
-              </tr>
-            </thead>
-            <tbody id="installed-models-tbody">
-              <tr>
-                <td colspan="6" class="empty-message">Skanowanie plików...</td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="c-card pipeline-card pc-card" id="card-pc-voice" data-domain="voice" data-device="pc">
+          <div class="pipeline-card-header">
+            <span class="icon">🗣️</span> Voice ASR/TTS (PC)
+          </div>
+          <div class="pipeline-card-body">
+             <div class="active-status-bar">
+                <span class="label">Aktywny:</span> <strong class="value status-value">Ładowanie...</strong>
+             </div>
+             <div class="control-group u-mt-md">
+               <label class="c-label-sm">Źródło (Source)</label>
+               <select class="c-select source-select">
+                 <option value="local" selected>🖥️ Lokalny (Whisper)</option>
+                 <option value="cloud">☁️ Chmura (OpenAI)</option>
+               </select>
+             </div>
+              <div class="control-group">
+               <label class="c-label-sm">Model</label>
+               <select class="c-select model-select">
+                 <option value="whisper-base">whisper-base (ASR)</option>
+               </select>
+             </div>
+             <button class="c-btn c-btn--primary c-btn-sm save-btn">Zapisz konfigurację PC</button>
+          </div>
         </div>
-      </div>
-      <div class="installed-column">
-        <h3 class="subsection-title">🤖 Rider-Pi</h3>
-        <p class="section-desc">Lista plików zgłaszanych przez API <code>/api/models/installed</code> na Rider-Pi. Przycisk „Ustaw lokalnie” przełącza domenę na tryb lokalny.</p>
-        <div class="installed-models-table-wrapper">
-          <table class="installed-models-table c-table" id="remote-models-table">
-            <thead>
-              <tr>
-                <th>Nazwa</th>
-                <th>Kategoria</th>
-                <th>Typ</th>
-                <th>Format</th>
-                <th>Rozmiar</th>
-                <th>Akcje</th>
-              </tr>
-            </thead>
-            <tbody id="remote-models-tbody">
-              <tr>
-                <td colspan="6" class="empty-message">Brak danych z Rider-Pi...</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </section>
 
-  <div class="models-style-preview" aria-hidden="true" style="display:none">
-    <div class="c-status-msg loading-placeholder">Loading…</div>
-    <div class="c-status-msg no-models">No models</div>
-  </div>
+      </div>
+    </section>
+
+    <section class="c-section pipeline-section section-pi u-mt-xl">
+      <div class="section-header-flex">
+          <h2 class="section-title">🤖 Rider-Pi Pipeline (Robot)</h2>
+          <div class="c-pill is-off" id="pi-connection-status">Pi Offline</div>
+      </div>
+      
+      <div class="l-grid l-grid--3-cols">
+        
+        <div class="c-card pipeline-card pi-card" id="card-pi-text" data-domain="text" data-device="pi">
+          <div class="pipeline-card-header">
+            <span class="icon">💬</span> Text / LLM (Pi Edge)
+          </div>
+          <div class="pipeline-card-body">
+             <div class="active-status-bar">
+                <span class="label">Aktywny:</span> <strong class="value status-value">—</strong>
+             </div>
+             <div class="control-group u-mt-md">
+               <label class="c-label-sm">Źródło (Source)</label>
+               <select class="c-select source-select" disabled>
+                 <option value="local" selected>🤖 Lokalny (Edge CPU)</option>
+               </select>
+             </div>
+             <div class="control-group">
+               <label class="c-label-sm">Model</label>
+               <select class="c-select model-select" disabled>
+                 <option>Brak połączenia</option>
+               </select>
+             </div>
+             <button class="c-btn c-btn--primary c-btn-sm save-btn" disabled>Wyślij do Pi</button>
+          </div>
+        </div>
+
+        <div class="c-card pipeline-card pi-card disabled-card">
+          <div class="pipeline-card-header">
+            <span class="icon">👁️</span> Vision (Pi Edge)
+          </div>
+           <div class="pipeline-card-body">
+             <div class="active-status-bar"><span class="label">Aktywny:</span> <strong class="value">—</strong></div>
+             <p class="c-hint u-mt-md">Pi używa wbudowanego, lekkiego modelu detekcji (niekonfigurowalne).</p>
+          </div>
+        </div>
+
+        <div class="c-card pipeline-card pi-card disabled-card">
+          <div class="pipeline-card-header">
+            <span class="icon">🗣️</span> Voice (Pi Edge)
+          </div>
+          <div class="pipeline-card-body">
+             <div class="active-status-bar"><span class="label">Aktywny:</span> <strong class="value">—</strong></div>
+             <p class="c-hint u-mt-md">Pi używa wbudowanego silnika komend głosowych (niekonfigurowalne).</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <section class="c-section u-mt-xl">
+      <h2 class="section-title">⚙️ Engines & Keys (Zaplecze)</h2>
+      <div class="l-grid l-grid--3-cols">
+          
+          <div class="c-card engine-card">
+              <h3 class="engine-title">☁️ Klucze API Chmury</h3>
+              <div class="engine-body">
+                  <div class="key-status-row">
+                      <span>Google Gemini:</span>
+                      <span class="c-pill c-pill--sm is-off" id="key-status-gemini">Brak</span>
+                  </div>
+                  <div class="key-status-row">
+                      <span>OpenAI (GPT):</span>
+                      <span class="c-pill c-pill--sm is-off" id="key-status-chatgpt">Brak</span>
+                  </div>
+                  <p class="c-hint u-mt-md">Status kluczy zdefiniowanych w pliku `.env` na PC.</p>
+              </div>
+          </div>
+
+           <div class="c-card engine-card">
+              <h3 class="engine-title">🖥️ Silnik PC (Ollama/GPU)</h3>
+              <div class="engine-body">
+                  <div id="pc-engine-status" class="u-mb-md">Sprawdzanie...</div>
+                  <button class="c-btn c-btn-sm c-btn--ghost" onclick="loadAllData()">Odśwież status</button>
+              </div>
+          </div>
+
+           <div class="c-card engine-card">
+              <div class="section-header-flex u-mb-sm">
+                  <h3 class="engine-title u-mb-0">🤖 Silnik Rider-Pi (Health)</h3>
+                  <button class="c-btn c-btn-sm c-btn--ghost icon-only" id="btn-refresh-pi" disabled title="Odśwież Pi">🔄</button>
+              </div>
+              <div class="engine-body">
+                  <div class="pi-health-grid">
+                      <div><span>Ping</span><strong id="pi-health-ping">—</strong></div>
+                      <div><span>CPU</span><strong id="pi-health-cpu">—</strong></div>
+                      <div><span>Temp</span><strong id="pi-health-temp">—</strong></div> 
+                  </div>
+              </div>
+          </div>
+
+      </div>
+    </section>
+
   </main>
-
-  <!-- Footer -->
   <footer class="layout-footer" data-dashboard-footer-target></footer>
 
-
 <script>
-const statusLine = document.getElementById('status-line');
-const activeModelsGrid = document.getElementById('active-models-grid');
-const visionModels = document.getElementById('vision-models');
-const voiceAsrModels = document.getElementById('voice-asr-models');
-const voiceTtsModels = document.getElementById('voice-tts-models');
-const textModels = document.getElementById('text-models');
-const installedTbody = document.getElementById('installed-models-tbody');
-const remoteTbody = document.getElementById('remote-models-tbody');
-const providerStateGrid = document.getElementById('provider-state-grid');
-const providerNote = document.getElementById('provider-note');
-const externalProvidersGrid = document.getElementById('external-providers-grid');
-const externalProvidersNote = document.getElementById('external-providers-note');
-const backendSelect = document.getElementById('llm-backend-select');
-const backendApplyBtn = document.getElementById('btnBackendApply');
-const backendFeedback = document.getElementById('backend-feedback');
-const backendNameMap = { local: 'Lokalny', gemini: 'Gemini', chatgpt: 'ChatGPT', auto: 'Auto' };
-let activeLLMBackend = null;
-
-function backendDisplayName(id) {
-  return backendNameMap[id] || id;
-}
-const urlParams = new URLSearchParams(window.location.search);
-const auditMode = urlParams.get('audit') === '1';
-
-// HTML escape function to prevent XSS
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = String(text ?? '');
-  return div.innerHTML;
-}
-
-const categoryIcons = {
-  vision: '👁️',
-  voice_asr: '🎤',
-  voice_tts: '🔊',
-  text: '💬',
-  unknown: '❓'
-};
-
-const categoryNames = {
-  vision: 'Wizja',
-  voice_asr: 'ASR',
-  voice_tts: 'TTS',
-  text: 'LLM',
-  unknown: 'Nieznany'
-};
-
-const providerNames = {
-  yolo: 'YOLO',
-  whisper: 'Whisper',
-  piper: 'Piper',
-  ollama: 'Ollama',
-  openai: 'OpenAI',
-  gemini: 'Gemini'
-};
-
-const slotDomainMap = {
-  vision: 'vision',
-  voice_asr: 'voice',
-  voice_tts: 'voice',
-  text: 'text'
-};
-
-function slotToDomain(slot) {
-  return slotDomainMap[slot] || slot || 'unknown';
-}
-
-function formatRelativeTime(timestamp) {
-  if (!timestamp) return '---';
-  try {
-    const date = new Date(timestamp * 1000);
-    const diffMs = Date.now() - date.getTime();
-    const diffMinutes = Math.round(diffMs / 60000);
-    if (diffMinutes < 1) return 'przed chwilą';
-    if (diffMinutes === 1) return 'minutę temu';
-    if (diffMinutes < 60) return `${diffMinutes} min temu`;
-    const diffHours = Math.round(diffMinutes / 60);
-    if (diffHours === 1) return 'godzinę temu';
-    return `${diffHours} h temu`;
-  } catch (err) {
-    return '---';
-  }
-}
-
-const domainLabels = {
-  vision: 'Wizja',
-  voice: 'Mowa',
-  text: 'Tekst'
-};
-
-const domainDescriptions = {
-  voice: 'Kanał mowy: ASR (mowa → tekst) i TTS (tekst → mowa) dla Chat PC.',
-  text: 'Kanał tekstowy / LLM: odpowiedzi czatu, generowanie PR, narzędzia MCP.',
-  vision: 'Kanał wizji: detekcja obiektów i analiza klatek.'
-};
-
-function createProviderCard(domain, state) {
-  const card = document.createElement('div');
-  card.className = 'provider-card c-card';
-  const mode = (state.mode || 'local').toLowerCase() === 'pc' ? 'pc' : 'local';
-  const status = (state.status || 'unknown').replace('_', ' ');
-  const modeLabel = mode === 'pc' ? 'PC (offload)' : 'Lokalny';
-  const modeClass = mode === 'pc' ? 'mode-pc' : 'mode-local';
-  const changed = formatRelativeTime(state.changed_ts);
-  const reason = escapeHtml(state.reason || '');
-
-  card.innerHTML = `
-    <div class="provider-card-head">
-      <div>
-        <div class="provider-domain">${escapeHtml(domainLabels[domain] || domain)}</div>
-        <div class="provider-status-pill">${escapeHtml(status)}</div>
-      </div>
-      <span class="provider-mode"></span>
-    </div>
-    <div class="provider-card-body">
-      <div class="provider-meta">
-        <span class="meta-item">⏱️ ${changed}</span>
-        ${reason ? `<span class="meta-item">ℹ️ ${reason}</span>` : ''}
-      </div>
-      <p class="provider-description">${escapeHtml(domainDescriptions[domain] || '')}</p>
-      <div class="provider-controls" role="group" aria-label="Przełącz źródło providera">
-        <button
-          class="c-btn c-btn-sm provider-switch-btn ${mode === 'local' ? 'is-active' : ''}"
-          data-domain="${escapeHtml(domain)}"
-          data-target="local"
-        >
-          Rider-Pi lokalnie
-        </button>
-        <button
-          class="c-btn c-btn-sm provider-switch-btn ${mode === 'pc' ? 'is-active' : ''}"
-          data-domain="${escapeHtml(domain)}"
-          data-target="pc"
-        >
-          PC (offload)
-        </button>
-      </div>
-    </div>
-  `;
-  const providerModeEl = card.querySelector('.provider-mode');
-  providerModeEl.textContent = modeLabel;
-  providerModeEl.className = `c-pill provider-mode ${modeClass}`;
-  return card;
-}
-
-function renderProviderState(payload) {
-  if (!payload || !payload.domains) {
-    providerStateGrid.innerHTML = '<div class="no-models c-status-msg">Brak danych z Rider-Pi.</div>';
-    providerNote.textContent = '';
-    return;
-  }
-
-  providerStateGrid.innerHTML = '';
-  Object.entries(payload.domains).forEach(([domain, state]) => {
-    providerStateGrid.appendChild(createProviderCard(domain, state || {}));
-  });
-
-  const health = payload.pc_health || {};
-  const reachable = health.reachable ? 'połączony' : 'offline';
-  const latency = typeof health.latency_ms === 'number' ? `${health.latency_ms.toFixed(0)} ms` : '---';
-  providerNote.textContent = `PC według Rider-Pi: ${reachable} (status ${health.status || 'unknown'}, RTT ${latency})`;
-}
-
-function createActiveModelCard(category, config) {
-  const card = document.createElement('div');
-  card.className = 'active-model-card c-card';
-  
-  const enabled = config.enabled !== false;
-  const useMock = config.use_mock === true;
-  
-  let statusClass = 'is-off';
-  let statusText = 'Wyłączony';
-  if (useMock) {
-    statusClass = 'is-warn';
-    statusText = 'Mock';
-  } else if (enabled) {
-    statusClass = 'is-ok';
-    statusText = 'Aktywny';
-  }
-  
-  const safeCategory = escapeHtml(categoryNames[category] || category);
-  const safeModel = escapeHtml(config.model || 'N/A');
-  const safeProvider = escapeHtml(providerNames[config.provider] || config.provider || 'N/A');
-  
-  card.innerHTML = `
-    <div class="active-model-header">
-      <span class="active-model-icon">${categoryIcons[category] || '🤖'}</span>
-      <span class="active-model-category">${safeCategory}</span>
-      <span class="c-pill active-model-status ${statusClass}">${escapeHtml(statusText)}</span>
-    </div>
-    <div class="c-data-list">
-      <div class="c-data-list__item">
-        <span class="c-data-list__label">Model</span>
-        <span class="c-data-list__value model-name-mono">${safeModel}</span>
-      </div>
-      <div class="c-data-list__item">
-        <span class="c-data-list__label">Provider</span>
-        <span class="c-data-list__value model-provider">${safeProvider}</span>
-      </div>
-    </div>
-  `;
-
-  if (category === 'text') {
-    const dataList = card.querySelector('.c-data-list');
-    if (dataList) {
-      const backendRow = document.createElement('div');
-      backendRow.className = 'c-data-list__item';
-      backendRow.innerHTML = `
-        <span class="c-data-list__label">Backend</span>
-        <span class="c-data-list__value" id="active-llm-backend">${activeLLMBackend ? backendDisplayName(activeLLMBackend) : '—'}</span>
-      `;
-      dataList.appendChild(backendRow);
-    }
-  }
-  
-  return card;
-}
-
-function createOllamaModelCard(model) {
-  const card = document.createElement('div');
-  card.className = 'model-card c-card ollama-model';
-  
-  const name = model.name || model.model || 'Unknown';
-  const size = model.size ? formatSize(model.size) : 'N/A';
-  const modified = model.modified_at ? new Date(model.modified_at).toLocaleDateString() : '';
-  
-  const safeName = escapeHtml(name);
-  const safeSize = escapeHtml(size);
-  const safeModified = escapeHtml(modified);
-  
-  card.innerHTML = `
-    <div class="model-card-header">
-      <span class="model-name">${safeName}</span>
-      <span class="model-provider c-pill">Ollama</span>
-    </div>
-    <div class="c-data-list">
-      <div class="c-data-list__item">
-        <span class="c-data-list__label">Rozmiar</span>
-        <span class="c-data-list__value">${safeSize}</span>
-      </div>
-      ${
-        safeModified
-          ? `<div class="c-data-list__item"><span class="c-data-list__label">Zmodyfikowano</span><span class="c-data-list__value">${safeModified}</span></div>`
-          : ''
-      }
-    </div>
-    <div class="l-row l-row--start">
-      <button class="c-btn c-btn-sm btn-activate" data-origin="pc" data-model="${safeName}" data-provider="ollama" data-slot="text">
-        Aktywuj
-      </button>
-    </div>
-  `;
-  
-  return card;
-}
-
-function createLocalModelCard(model) {
-  const card = document.createElement('div');
-  card.className = 'model-card c-card local-model';
-  
-  const safeName = escapeHtml(model.name);
-  const safeFormat = escapeHtml(model.format);
-  const safePath = escapeHtml(model.path);
-  const safeType = escapeHtml(model.type);
-  const safeCategory = escapeHtml(model.category);
-  const safeSize = escapeHtml(model.size_mb.toFixed(1));
-  
-  card.innerHTML = `
-    <div class="model-card-header">
-      <span class="model-name">${safeName}</span>
-      <span class="model-format">.${safeFormat}</span>
-    </div>
-    <div class="c-data-list">
-      <div class="c-data-list__item">
-        <span class="c-data-list__label">Ścieżka</span>
-        <span class="c-data-list__value">${safePath}</span>
-      </div>
-      <div class="c-data-list__item">
-        <span class="c-data-list__label">Rozmiar</span>
-        <span class="c-data-list__value">${safeSize} MB</span>
-      </div>
-    </div>
-    <div class="l-row l-row--start">
-      <button class="c-btn c-btn-sm btn-activate" data-origin="pc" data-model="${safeName}" data-provider="${safeType}" data-slot="${safeCategory}">
-        Aktywuj
-      </button>
-    </div>
-  `;
-  
-  return card;
-}
-
-function formatSize(bytes) {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-}
-
-function renderActiveModels(active) {
-  activeModelsGrid.innerHTML = '';
-
-  const categories = ['vision', 'voice_asr', 'voice_tts', 'text'];
-  categories.forEach(cat => {
-    const config = active[cat];
-    if (config) {
-      const card = createActiveModelCard(cat, config);
-      activeModelsGrid.appendChild(card);
-    }
-  });
-  updateActiveBackendBadge();
-}
-
-function renderInstalledModels(local, ollama, remote) {
-  installedTbody.innerHTML = '';
-  
-  if (!local.length && !ollama.length) {
-    installedTbody.innerHTML = `
-      <tr>
-        <td colspan="6" class="empty-message">
-          Brak wykrytych plików modeli w katalogu <code>data/models/</code>
-        </td>
-      </tr>
-    `;
-    return;
-  }
-  
-  // Add local models
-  local.forEach(model => {
-    const safeName = escapeHtml(model.name);
-    const safeCategory = escapeHtml(categoryNames[model.category] || model.category);
-    const safeCategoryClass = escapeHtml(model.category);
-    const safeType = escapeHtml(model.type);
-    const safeFormat = escapeHtml(model.format);
-    const safeSize = escapeHtml(model.size_mb.toFixed(1));
-    
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><span class="model-name-cell">${safeName}</span></td>
-      <td><span class="c-pill category-badge ${safeCategoryClass}">${safeCategory}</span></td>
-      <td>${safeType}</td>
-      <td><code>.${safeFormat}</code></td>
-      <td>${safeSize} MB</td>
-      <td>
-        <button class="c-btn c-btn-sm btn-activate" data-origin="pc" data-model="${safeName}" data-slot="${safeCategoryClass}">
-          Aktywuj
-        </button>
-      </td>
-    `;
-    installedTbody.appendChild(tr);
-  });
-  
-  // Add Ollama models
-  ollama.forEach(model => {
-    const name = model.name || model.model || 'Unknown';
-    const size = model.size ? formatSize(model.size) : 'N/A';
-    
-    const safeName = escapeHtml(name);
-    const safeSize = escapeHtml(size);
-    
-    const tr = document.createElement('tr');
-    tr.classList.add('ollama-row');
-    tr.innerHTML = `
-      <td><span class="model-name-cell">${safeName}</span></td>
-      <td><span class="c-pill category-badge text">LLM</span></td>
-      <td>ollama</td>
-      <td><code>gguf</code></td>
-      <td>${safeSize}</td>
-      <td>
-        <button class="c-btn c-btn-sm btn-activate" data-origin="pc" data-model="${safeName}" data-provider="ollama" data-slot="text">
-          Aktywuj
-        </button>
-      </td>
-    `;
-    installedTbody.appendChild(tr);
-  });
-
-  renderRemoteModels(remote);
-}
-
-function renderRemoteModels(remote) {
-  remoteTbody.innerHTML = '';
-
-  if (!remote.length) {
-    remoteTbody.innerHTML = `
-      <tr>
-        <td colspan="6" class="empty-message">
-          Brak danych zwróconych przez Rider-Pi. Upewnij się, że API /api/models/installed jest dostępne.
-        </td>
-      </tr>
-    `;
-    return;
-  }
-
-  remote.forEach(model => {
-    const safeName = escapeHtml(model.name || 'Unknown');
-    const slot = escapeHtml(model.category || 'unknown');
-    const safeType = escapeHtml(model.type || 'unknown');
-    const safeFormat = escapeHtml(model.format || '?');
-    const sizeValue =
-      typeof model.size_mb === 'number' ? `${model.size_mb.toFixed(1)} MB` : escapeHtml(String(model.size_mb || '---'));
-
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><span class="model-name-cell">${safeName}</span></td>
-      <td><span class="c-pill category-badge ${slot}">${escapeHtml(categoryNames[model.category] || model.category || '---')}</span></td>
-      <td>${safeType}</td>
-      <td><code>.${safeFormat}</code></td>
-      <td>${sizeValue}</td>
-      <td>
-        <button class="c-btn c-btn-sm btn-activate" data-origin="rider-pi" data-slot="${slot}" data-model="${safeName}">
-          Ustaw lokalnie
-        </button>
-      </td>
-    `;
-    remoteTbody.appendChild(tr);
-  });
-}
-
-function renderCategoryModels(local, ollama) {
-  // Vision models
-  const visionLocal = local.filter(m => m.category === 'vision');
-  if (visionLocal.length > 0) {
-    visionModels.innerHTML = '';
-    visionLocal.forEach(m => {
-      visionModels.appendChild(createLocalModelCard(m));
-    });
-  } else {
-    visionModels.innerHTML = '<div class="no-models c-status-msg">Brak lokalnych modeli wizji. Konfiguracja z providers.toml.</div>';
-  }
-  
-  // Voice ASR models
-  const asrLocal = local.filter(m => m.category === 'voice_asr');
-  if (asrLocal.length > 0) {
-    voiceAsrModels.innerHTML = '';
-    asrLocal.forEach(m => {
-      voiceAsrModels.appendChild(createLocalModelCard(m));
-    });
-  } else {
-    voiceAsrModels.innerHTML = '<div class="no-models c-status-msg">Brak lokalnych modeli ASR. Konfiguracja z providers.toml.</div>';
-  }
-  
-  // Voice TTS models
-  const ttsLocal = local.filter(m => m.category === 'voice_tts');
-  if (ttsLocal.length > 0) {
-    voiceTtsModels.innerHTML = '';
-    ttsLocal.forEach(m => {
-      voiceTtsModels.appendChild(createLocalModelCard(m));
-    });
-  } else {
-    voiceTtsModels.innerHTML = '<div class="no-models c-status-msg">Brak lokalnych modeli TTS. Konfiguracja z providers.toml.</div>';
-  }
-  
-  // Text/LLM models (Ollama)
-  if (ollama.length > 0) {
-    textModels.innerHTML = '';
-    ollama.forEach(m => {
-      textModels.appendChild(createOllamaModelCard(m));
-    });
-  } else {
-    const textLocal = local.filter(m => m.category === 'text');
-    if (textLocal.length > 0) {
-      textModels.innerHTML = '';
-      textLocal.forEach(m => {
-        textModels.appendChild(createLocalModelCard(m));
-      });
-    } else {
-    textModels.innerHTML = '<div class="no-models c-status-msg">Brak modeli LLM. Ollama niedostępna lub brak modeli lokalnych.</div>';
-    }
-  }
-}
-
-function createExternalProviderCard(provider, status) {
-  const card = document.createElement('div');
-  card.className = 'provider-card c-card external-provider-card';
-
-  const name = provider === 'gemini' ? 'Gemini' : 'ChatGPT';
-  const icon = provider === 'gemini' ? '🔷' : '💚';
-  const isConfigured = status.configured || false;
-  const isAvailable = status.available || false;
-  const model = escapeHtml(status.model || 'Nie skonfigurowany');
-
-  let statusClass = 'is-off';
-  let statusText = 'Niedostępny';
-  let statusDetail = 'Brak klucza API';
-
-  if (status.use_mock) {
-    statusClass = 'is-warn';
-    statusText = 'Mock';
-    statusDetail = 'Tryb testowy (bez API)';
-  } else if (isAvailable) {
-    statusClass = 'is-ok';
-    statusText = 'Dostępny';
-    statusDetail = `Gotowy do użycia`;
-  } else if (isConfigured) {
-    statusClass = 'is-warn';
-    statusText = 'Skonfigurowany';
-    statusDetail = 'Klucz API ustawiony';
-  }
-
-  card.innerHTML = `
-    <div class="provider-card-head">
-      <div>
-        <div class="provider-domain">${icon} ${name}</div>
-      </div>
-      <span class="c-pill provider-mode ${statusClass}">${escapeHtml(statusText)}</span>
-    </div>
-    <div class="provider-card-body">
-      <div class="c-data-list">
-        <div class="c-data-list__item">
-          <span class="c-data-list__label">Model</span>
-          <span class="c-data-list__value model-name-mono">${model}</span>
-        </div>
-        <div class="c-data-list__item">
-          <span class="c-data-list__label">Status</span>
-          <span class="c-data-list__value">${escapeHtml(statusDetail)}</span>
-        </div>
-        ${status.has_api_key ? `
-        <div class="c-data-list__item">
-          <span class="c-data-list__label">API Key</span>
-          <span class="c-data-list__value">✓ Skonfigurowany</span>
-        </div>
-        ` : `
-        <div class="c-data-list__item">
-          <span class="c-data-list__label">API Key</span>
-          <span class="c-data-list__value c-text-warn">✗ Brak klucza</span>
-        </div>
-        `}
-      </div>
-    </div>
-  `;
-  return card;
-}
-
-function renderExternalProviders(data) {
-  if (!externalProvidersGrid) return;
-
-  if (!data || !data.ok) {
-    externalProvidersGrid.innerHTML = '<div class="no-models c-status-msg">Nie można pobrać statusu providerów.</div>';
-    if (backendSelect) {
-      backendSelect.innerHTML = '<option>Brak dostępnych backendów</option>';
-      backendSelect.disabled = true;
-    }
-    if (backendApplyBtn) backendApplyBtn.disabled = true;
-    activeLLMBackend = null;
-    updateActiveBackendBadge();
-    return;
-  }
-
-  externalProvidersGrid.innerHTML = '';
-
-  // Render Gemini card
-  if (data.gemini) {
-    externalProvidersGrid.appendChild(createExternalProviderCard('gemini', data.gemini));
-  }
-
-  // Render ChatGPT card
-  if (data.chatgpt) {
-    externalProvidersGrid.appendChild(createExternalProviderCard('chatgpt', data.chatgpt));
-  }
-
-  // Show active backend info
-  if (externalProvidersNote && data.active_backend) {
-    const backends = (data.available_backends || []).map(b => backendDisplayName(b)).join(', ');
-    externalProvidersNote.textContent = `Aktywny backend LLM: ${backendDisplayName(data.active_backend)}. Dostępne: ${backends || 'brak'}`;
-  }
-  activeLLMBackend = data.active_backend || null;
-  updateActiveBackendBadge();
-
-  if (backendSelect) {
-    const options = data.available_backends || [];
-    backendSelect.innerHTML = '';
-    if (!options.length) {
-      backendSelect.innerHTML = '<option>Brak backendów</option>';
-      backendSelect.disabled = true;
-      if (backendApplyBtn) backendApplyBtn.disabled = true;
-    } else {
-      for (const backend of options) {
-        const opt = document.createElement('option');
-        opt.value = backend;
-        opt.textContent = backendDisplayName(backend);
-        backendSelect.appendChild(opt);
-      }
-      backendSelect.value = data.active_backend && options.includes(data.active_backend)
-        ? data.active_backend
-        : options[0];
-      backendSelect.disabled = false;
-      if (backendApplyBtn) backendApplyBtn.disabled = false;
-    }
-  }
-  if (backendFeedback) backendFeedback.textContent = '';
-}
-
-async function loadExternalProvidersStatus() {
-  if (auditMode) {
-    renderExternalProviders({
-      ok: true,
-      gemini: { configured: true, available: true, model: 'gemini-2.0-flash', use_mock: false, has_api_key: true },
-      chatgpt: { configured: false, available: false, model: 'gpt-4o-mini', use_mock: false, has_api_key: false },
-      active_backend: 'local',
-      available_backends: ['local', 'gemini'],
-    });
-    return;
-  }
-
-  try {
-    const res = await fetch('/api/providers/text/external', { cache: 'no-store' });
-    const data = await res.json();
-    renderExternalProviders(data);
-  } catch (err) {
-    console.error('External providers status error:', err);
-    if (externalProvidersGrid) {
-      externalProvidersGrid.innerHTML = '<div class="no-models c-status-msg">Błąd ładowania statusu providerów.</div>';
-    }
-  }
-}
-
-function updateActiveBackendBadge() {
-  const el = document.getElementById('active-llm-backend');
-  if (!el) return;
-  el.textContent = activeLLMBackend ? backendDisplayName(activeLLMBackend) : '—';
-}
-
-async function updateBackendPreference(backend) {
-  if (!backend || !backendSelect || !backendApplyBtn) return;
-  if (backendFeedback) {
-    backendFeedback.textContent = `Ustawiam backend ${backendDisplayName(backend)}...`;
-    backendFeedback.classList.remove('c-text-warn');
-  }
-  backendSelect.disabled = true;
-  backendApplyBtn.disabled = true;
-  try {
-    const res = await fetch('/api/providers/text/backend', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ backend })
-    });
-    const data = await res.json();
-    if (!res.ok || data.error) {
-      throw new Error(data.error || `HTTP ${res.status}`);
-    }
-    if (backendFeedback) {
-      backendFeedback.textContent = `Backend ustawiony na ${backendDisplayName(data.backend)}.`;
-      backendFeedback.classList.remove('c-text-warn');
-    }
-    await loadExternalProvidersStatus();
-  } catch (err) {
-    if (backendFeedback) {
-      backendFeedback.textContent = `Nie udało się ustawić backendu: ${err.message}`;
-      backendFeedback.classList.add('c-text-warn');
-    }
-  } finally {
-    backendSelect.disabled = false;
-    backendApplyBtn.disabled = false;
-  }
-}
-
-if (backendApplyBtn && backendSelect) {
-  backendApplyBtn.addEventListener('click', () => {
-    const backend = backendSelect.value;
-    updateBackendPreference(backend);
-  });
-  backendSelect.addEventListener('change', () => {
-    const backend = backendSelect.value;
-    updateBackendPreference(backend);
-  });
-}
-
-async function activateModel(slot, provider, model) {
-  const domain = slotToDomain(slot);
-  const domainLabel = domainLabels[domain] || categoryNames[slot] || slot;
-  try {
-    statusLine.textContent = `Aktywuję model ${model} (domena ${domainLabel})...`;
-    statusLine.className = 'status-line c-statusbar is-working';
-    
-    const response = await fetch('/api/models/bind', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slot, provider, model })
-    });
-    
-    const result = await response.json();
-    
-    if (response.ok && result.success) {
-      if (result.provider_switch && result.provider_switch.error) {
-        statusLine.textContent = `⚠️ Model ${model} zapisany, ale przełączenie Rider-Pi nie powiodło się: ${result.provider_switch.error}`;
-        statusLine.className = 'status-line c-statusbar is-error';
-      } else {
-        statusLine.textContent = `✅ Model ${model} aktywowany dla ${domainLabel} (Rider-Pi przełączony na PC)`;
-        statusLine.className = 'status-line c-statusbar is-success';
-      }
-      setTimeout(loadModelsData, 1000);
-    } else {
-      statusLine.textContent = `❌ Błąd: ${result.error || 'Nie udało się aktywować modelu'}`;
-      statusLine.className = 'status-line c-statusbar is-error';
-    }
-  } catch (error) {
-    console.error('Activation error:', error);
-    statusLine.textContent = `❌ Błąd połączenia: ${error.message}`;
-    statusLine.className = 'status-line c-statusbar is-error';
-  }
-}
-
-async function switchProviderToLocal(slot, model) {
-  const domain = slotToDomain(slot);
-  const domainLabel = domainLabels[domain] || categoryNames[slot] || slot;
-  try {
-    statusLine.textContent = `Przełączam Rider-Pi na lokalny model ${model} (${domainLabel})...`;
-    statusLine.className = 'status-line c-statusbar is-working';
-    
-    const response = await fetch(`/api/providers/${domain}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ target: 'local', reason: 'models_ui' })
-    });
-    
-    const result = await response.json();
-    
-    if (response.ok && !result.error) {
-      statusLine.textContent = `✅ Domena ${domainLabel} ustawiona na Rider-Pi (lokalnie)`;
-      statusLine.className = 'status-line c-statusbar is-success';
-      // Refresh data
-      setTimeout(loadModelsData, 1000);
-    } else {
-      statusLine.textContent = `❌ Błąd przełączania Rider-Pi: ${result.error || 'Nieznany błąd'}`;
-      statusLine.className = 'status-line c-statusbar is-error';
-    }
-  } catch (error) {
-    console.error('Provider switch error:', error);
-    statusLine.textContent = `❌ Błąd połączenia z Rider-Pi: ${error.message}`;
-    statusLine.className = 'status-line c-statusbar is-error';
-  }
-}
-
-// Event delegation for activate buttons
-document.addEventListener('click', (e) => {
-  const btn = e.target.closest('.btn-activate');
-  if (btn) {
-    const model = btn.dataset.model;
-    const slot = btn.dataset.slot;
-    const origin = btn.dataset.origin || 'pc';
-    if (model && slot) {
-      if (origin === 'rider-pi') {
-        switchProviderToLocal(slot, model);
-      } else {
-        const provider = btn.dataset.provider || 'local';
-        activateModel(slot, provider, model);
-      }
-    }
-  }
-});
-
-document.addEventListener('click', (e) => {
-  const btn = e.target.closest('.provider-switch-btn');
-  if (!btn) return;
-  const domain = btn.dataset.domain;
-  const target = btn.dataset.target;
-  if (!domain || !target) return;
-  setProviderTarget(domain, target, btn);
-});
-
-async function setProviderTarget(domain, target, button) {
-  const domainLabel = domainLabels[domain] || domain;
-  const targetLabel = target === 'pc' ? 'PC (offload)' : 'Rider-Pi lokalnie';
-  try {
-    if (button) button.disabled = true;
-    statusLine.textContent = `Przełączam domenę ${domainLabel} na ${targetLabel}...`;
-    statusLine.className = 'status-line c-statusbar is-working';
-
-    const response = await fetch(`/api/providers/${encodeURIComponent(domain)}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ target })
-    });
-    const result = await response.json();
-
-    if (response.ok && !result.error) {
-      statusLine.textContent = `✅ ${domainLabel} korzysta teraz z trybu ${targetLabel}`;
-      statusLine.className = 'status-line c-statusbar is-success';
-      setTimeout(loadModelsData, 800);
-    } else {
-      statusLine.textContent = `❌ Nie udało się przełączyć ${domainLabel}: ${result.error || 'nieznany błąd'}`;
-      statusLine.className = 'status-line c-statusbar is-error';
-    }
-  } catch (error) {
-    console.error('Provider toggle error:', error);
-    statusLine.textContent = `❌ Błąd przełączania domeny ${domainLabel}: ${error.message}`;
-    statusLine.className = 'status-line c-statusbar is-error';
-  } finally {
-    if (button) button.disabled = false;
-  }
-}
-
-async function loadModelsData() {
-  try {
-    statusLine.textContent = 'Aktualizuję dane modeli...';
-    statusLine.className = 'status-line c-statusbar';
-    
-    const [installedResp, activeResp, providerResp] = await Promise.all([
-      fetch('/api/models/installed', { cache: 'no-store' }),
-      fetch('/api/models/active', { cache: 'no-store' }),
-      fetch('/api/providers/state', { cache: 'no-store' })
-    ]);
-    const installedData = installedResp.ok ? await installedResp.json() : { local: [], ollama: [], remote: [] };
-    const activeData = activeResp.ok ? await activeResp.json() : {};
-    const providerState = providerResp.ok ? await providerResp.json() : null;
-    
-    // Render UI
-    renderActiveModels(activeData);
-    renderCategoryModels(installedData.local || [], installedData.ollama || []);
-    renderInstalledModels(installedData.local || [], installedData.ollama || [], installedData.remote || []);
-    renderProviderState(providerState);
-    
-    // Load external providers status
-    await loadExternalProvidersStatus();
-    
-    const timestamp = new Date().toLocaleTimeString();
-    const localCount = (installedData.local || []).length;
-    const ollamaCount = (installedData.ollama || []).length;
-    const remoteCount = (installedData.remote || []).length;
-    statusLine.textContent = `Ostatnia aktualizacja: ${timestamp} | PC: ${localCount} | Ollama: ${ollamaCount} | Rider-Pi: ${remoteCount}`;
-    statusLine.className = 'status-line c-statusbar';
-    
-  } catch (error) {
-    console.error('Error loading models data:', error);
-    statusLine.textContent = `❌ Błąd podczas pobierania danych: ${error.message}`;
-    statusLine.className = 'status-line c-statusbar is-error';
-  }
-}
-
-function seedAuditModels() {
-  const localModels = [
-    { name: 'vision-demo.onnx', category: 'vision', type: 'onnx', format: 'onnx', size_mb: 18.4, path: 'data/models/vision-demo.onnx' },
-    { name: 'whisper-small', category: 'voice_asr', type: 'whisper', format: 'en', size_mb: 75.2, path: 'data/models/whisper-small.en' },
-    { name: 'piper-pl', category: 'voice_tts', type: 'piper', format: 'onnx', size_mb: 48.7, path: 'data/models/piper-pl.onnx' },
-    { name: 'embeddings-large', category: 'text', type: 'hf', format: 'gguf', size_mb: 220.1, path: 'data/models/embeddings-large.gguf' },
-  ];
-  const ollamaModels = [
-    { name: 'llama3.2:1b', size: 4_000_000_000, modified_at: Date.now() - 86400000 },
-  ];
-  const remoteModels = [
-    { name: 'pi-vision-prod', category: 'vision', type: 'onnx', format: 'onnx', size_mb: 32.1 },
-    { name: 'pi-asr-lo', category: 'voice_asr', type: 'whisper', format: 'en', size_mb: 42.4 },
-  ];
-  const activeConfig = {
-    vision: { model: 'vision-demo.onnx', provider: 'yolo', enabled: true },
-    voice_asr: { model: 'whisper-small', provider: 'whisper', enabled: true },
-    voice_tts: { model: 'piper-pl', provider: 'piper', enabled: true },
-    text: { model: 'llama3.2', provider: 'ollama', enabled: true },
-  };
-  const providerState = {
-    domains: {
-      vision: { mode: 'pc', status: 'active', changed_ts: Math.floor(Date.now() / 1000) - 120, reason: 'audit' },
-      voice: { mode: 'local', status: 'active', changed_ts: Math.floor(Date.now() / 1000) - 300, reason: 'audit' },
-      text: { mode: 'pc', status: 'active', changed_ts: Math.floor(Date.now() / 1000) - 30, reason: 'audit' },
+// --- 1. ZARZĄDZANIE STANEM APLIKACJI ---
+// Przechowujemy tu dane pobrane z API, aby nie pytać o nie przy każdej zmianie selecta.
+const AppState = {
+    pc: {
+        localModelsOllama: [], // Lista modeli z /api/models/installed
+        // Hardcoded lista modeli chmurowych (bo API zwraca tylko status kluczy)
+        cloudModels: {
+            gemini: ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'],
+            chatgpt: ['gpt-4o-mini', 'gpt-4o', 'o1-mini']
+        },
+        // Obecnie aktywna konfiguracja (z /api/models/active)
+        activeConfig: { text: {}, vision: {}, voice: {} },
+        textProviderStatus: null
     },
-    pc_health: { reachable: true, latency_ms: 12.5, status: 'ok' },
-  };
-  renderActiveModels(activeConfig);
-  renderCategoryModels(localModels, ollamaModels);
-  renderInstalledModels(localModels, ollamaModels, remoteModels);
-  renderProviderState(providerState);
-  // Seed external providers for audit mode
-  loadExternalProvidersStatus();
-  statusLine.textContent = 'Tryb audytu CSS – przykładowe dane modeli';
-  statusLine.className = 'status-line c-statusbar';
+    pi: {
+        isOnline: false,
+        localModels: [], // Modele dostępne na Pi (z proxy)
+        activeModelId: null // Aktualnie działający model na Pi
+    }
+};
+
+// Elementy DOM do szybkiego dostępu
+const DOM = {
+    globalStatus: document.getElementById('global-status'),
+    piConnectionStatus: document.getElementById('pi-connection-status'),
+    keyGemini: document.getElementById('key-status-gemini'),
+    keyChatgpt: document.getElementById('key-status-chatgpt'),
+    pcEngineStatus: document.getElementById('pc-engine-status'),
+    btnRefreshPi: document.getElementById('btn-refresh-pi')
+};
+
+const PROVIDER_LABELS = {
+    ollama: 'Lokalny (Ollama)',
+    local: 'Lokalny (Ollama)',
+    gemini: 'Google Gemini',
+    chatgpt: 'OpenAI GPT',
+    openai: 'OpenAI',
+    auto: 'Tryb Auto',
+    whisper: 'Whisper',
+    piper: 'Piper',
+    yolo: 'YOLO'
+};
+
+const LOCAL_PROVIDERS = new Set(['local', 'ollama', 'whisper', 'piper', 'yolo']);
+const CLOUD_PROVIDERS = new Set(['gemini', 'chatgpt', 'openai', 'auto']);
+
+
+// --- 2. INICJALIZACJA ---
+document.addEventListener('DOMContentLoaded', async () => {
+    setupEventListeners();
+    await loadAllData(); // Pierwsze ładowanie danych
+});
+
+function setupEventListeners() {
+    // Nasłuchuj zmian źródła (Local vs Cloud) w każdym kaflu
+    document.querySelectorAll('.source-select').forEach(select => {
+        select.addEventListener('change', handleSourceChange);
+    });
+
+    // Nasłuchuj przycisków "Zapisz"
+    document.querySelectorAll('.save-btn').forEach(btn => {
+        btn.addEventListener('click', handleSaveConfig);
+    });
+
+    // Przycisk odświeżania Pi
+    if(DOM.btnRefreshPi) DOM.btnRefreshPi.addEventListener('click', loadPiDataOnly);
 }
 
-if (auditMode) {
-  seedAuditModels();
-} else {
-  // Initial load
-  loadModelsData();
-  // Auto-refresh every 60 seconds (model data doesn't change często)
-  setInterval(loadModelsData, 60000);
+
+// --- 3. GŁÓWNA PĘTLA ŁADOWANIA DANYCH (Concurrent Fetch) ---
+async function loadAllData() {
+    updateGlobalStatus('working', 'Synchronizacja systemów...');
+    
+    try {
+        // Wykonujemy wszystkie zapytania równolegle dla szybkości.
+        // Promise.allSettled pozwala nam obsłużyć błąd Pi niezależnie od sukcesu PC.
+        const [installedRes, activeRes, cloudRes, piRes, textProviderRes] = await Promise.allSettled([
+            fetch('/api/models/installed'),     // Modele lokalne PC (Ollama)
+            fetch('/api/models/active'),        // Co jest teraz aktywne na PC?
+            fetch('/api/providers/text/external'), // Status kluczy API
+            fetch('/api/proxy/pi/status'),      // Proxy do Rider-Pi
+            fetch('/api/providers/text', { cache: 'no-store' }) // Telemetria providera tekstowego
+        ]);
+
+        // --- Przetwarzanie odpowiedzi PC ---
+        
+        // 1. Zainstalowane modele Ollama
+        if (installedRes.status === 'fulfilled' && installedRes.value.ok) {
+            const data = await installedRes.value.json();
+            AppState.pc.localModelsOllama = data.ollama || [];
+            renderPcEngineStatus(AppState.pc.localModelsOllama.length > 0);
+        }
+
+        // 2. Aktywna konfiguracja PC
+        if (activeRes.status === 'fulfilled' && activeRes.value.ok) {
+            AppState.pc.activeConfig = await activeRes.value.json();
+        }
+
+        // 3. Status kluczy w chmurze
+        if (cloudRes.status === 'fulfilled' && cloudRes.value.ok) {
+            const data = await cloudRes.value.json();
+            updateKeyStatus(DOM.keyGemini, data.gemini?.has_api_key);
+            updateKeyStatus(DOM.keyChatgpt, data.chatgpt?.has_api_key);
+        }
+
+        // 4. Status providera tekstowego (backend: lokalny/chmura)
+        if (textProviderRes.status === 'fulfilled' && textProviderRes.value.ok) {
+            AppState.pc.textProviderStatus = await textProviderRes.value.json();
+        } else {
+            AppState.pc.textProviderStatus = null;
+        }
+
+        // --- Przetwarzanie odpowiedzi Pi ---
+        if (piRes.status === 'fulfilled' && piRes.value.ok) {
+            // Pi jest online
+            const data = await piRes.value.json();
+            AppState.pi.isOnline = true;
+            AppState.pi.localModels = data.available_models || [];
+            AppState.pi.activeModelId = data.active_model;
+            updatePiConnectionStatus(true);
+            renderPiHealth(data);
+        } else {
+            // Pi jest offline lub błąd proxy
+            AppState.pi.isOnline = false;
+            updatePiConnectionStatus(false);
+            renderPiHealth(null);
+        }
+
+        // --- Finalizacja ---
+        syncTextConfigWithBackend();
+        // Po załadowaniu wszystkich danych, odświeżamy cały interfejs
+        refreshEntireUI();
+        updateGlobalStatus('success', 'Gotowy');
+
+    } catch (err) {
+        console.error("Critical Init Error:", err);
+        updateGlobalStatus('err', 'Błąd inicjalizacji API');
+    }
+}
+
+
+// --- 4. LOGIKA ODŚWIEŻANIA UI ---
+
+// Funkcja główna, która ustawia stan wszystkich kafli na podstawie AppState
+function refreshEntireUI() {
+    
+    // A. Odśwież kafle PC (Text, Vision, Voice)
+    ['text', 'vision', 'voice'].forEach(domain => {
+        const card = document.getElementById(`card-pc-${domain}`);
+        if (!card) return;
+
+        const activeConf = getEffectiveConfigForDomain(domain);
+        const sourceSelect = card.querySelector('.source-select');
+        const modelSelect = card.querySelector('.model-select');
+
+        // 1. Zaktualizuj pasek statusu "Aktywny:"
+        updateActiveStatusbar(card, activeConf);
+
+        // 2. Ustaw selecty na podstawie aktywnej konfiguracji (jeśli istnieje)
+        if (activeConf && activeConf.provider && domain === 'text') {
+            const isCloud = isCloudProvider(activeConf.provider);
+            sourceSelect.value = isCloud ? 'cloud' : 'local';
+            
+            // Wypełnij listę modeli na podstawie wybranego źródła
+            populateModelSelect(card, sourceSelect.value);
+
+            // Spróbuj zaznaczyć aktywny model na liście
+            if (activeConf.model) {
+                 modelSelect.value = activeConf.model;
+                 // Fallback: jeśli modelu nie ma na liście (np. błąd nazwy), wybierz pierwszy
+                 if(modelSelect.selectedIndex === -1 && modelSelect.options.length > 0) {
+                     modelSelect.selectedIndex = 0;
+                 }
+            }
+        } else if (domain === 'text') {
+            // Stan domyślny dla text gdy brak providera
+            populateModelSelect(card, sourceSelect.value);
+        }
+    });
+
+    // B. Odśwież kafle Pi (Włącz/Wyłącz w zależności od statusu online)
+    updatePiCardsState(AppState.pi.isOnline);
+}
+
+// Obsługa zmiany źródła (np. przełączenie z Local na Cloud)
+function handleSourceChange(event) {
+    const card = event.target.closest('.pipeline-card');
+    const newSource = event.target.value;
+    // Przeładuj listę modeli dla nowego źródła
+    populateModelSelect(card, newSource);
+}
+
+// Dynamiczne wypełnianie selecta z modelami
+function populateModelSelect(card, source) {
+    const modelSelect = card.querySelector('.model-select');
+    const domain = card.dataset.domain;
+    const device = card.dataset.device;
+
+    if (!((device === 'pc' && domain === 'text') || (device === 'pi' && domain === 'text'))) {
+        return; // Pozostaw domyślne opcje dla pozostałych kafli
+    }
+
+    modelSelect.innerHTML = ''; // Wyczyść obecną listę
+
+    let optionsBuilder = [];
+
+    if (device === 'pc') {
+        // --- Logika dla PC ---
+        if (domain === 'text') {
+            if (source === 'local') {
+                // Modele Ollama z AppState
+                optionsBuilder = AppState.pc.localModelsOllama.map(m => ({ val: m.name, text: `🦙 ${m.name}` }));
+            } else if (source === 'cloud') {
+                // Hardcoded modele chmurowe
+                optionsBuilder = [
+                    { optgroup: 'Google Gemini' },
+                    ...AppState.pc.cloudModels.gemini.map(m => ({ val: m, text: `🔷 ${m}` })),
+                    { optgroup: 'OpenAI ChatGPT' },
+                    ...AppState.pc.cloudModels.chatgpt.map(m => ({ val: m, text: `💚 ${m}` }))
+                ];
+            }
+        } 
+        // (Tutaj można dodać logikę dla Vision/Voice w przyszłości)
+
+    } else if (device === 'pi') {
+        // --- Logika dla Pi ---
+        if (domain === 'text' && source === 'local' && AppState.pi.isOnline) {
+             // Modele pobrane z Pi
+             optionsBuilder = AppState.pi.localModels.map(m => ({ val: m.id, text: `🤖 ${m.name}` }));
+        }
+    }
+
+    // Renderowanie opcji w selectcie
+    if(optionsBuilder.length === 0) {
+         modelSelect.innerHTML = '<option disabled selected>Brak dostępnych modeli</option>';
+    } else {
+        let currentGroup = null;
+        optionsBuilder.forEach(opt => {
+            if(opt.optgroup) {
+                currentGroup = document.createElement('optgroup');
+                currentGroup.label = opt.optgroup;
+                modelSelect.appendChild(currentGroup);
+            } else {
+                const el = document.createElement('option');
+                el.value = opt.val; el.textContent = opt.text;
+                (currentGroup || modelSelect).appendChild(el);
+            }
+        });
+    }
+}
+
+
+// --- 5. OBSŁUGA AKCJI (ZAPIS) ---
+
+async function handleSaveConfig(event) {
+    const btn = event.target;
+    const card = btn.closest('.pipeline-card');
+    const domain = card.dataset.domain; // text, vision, voice
+    const device = card.dataset.device; // pc, pi
+
+    const source = card.querySelector('.source-select').value;
+    const model = card.querySelector('.model-select').value;
+
+    if (!model || model.includes('Brak')) { alert("Wybierz poprawny model."); return; }
+
+    // UI Feedback
+    const originalText = btn.textContent;
+    btn.disabled = true; btn.textContent = "Zapisywanie...";
+    updateGlobalStatus('working', `Konfiguracja ${device.toUpperCase()}...`);
+
+    try {
+        if (device === 'pc') {
+            // --- Zapis na PC (/api/models/bind) ---
+            
+            // 1. Ustal providera na podstawie wyboru
+            let provider = 'local'; // default
+            if (source === 'cloud') {
+                if (model.includes('gemini')) {
+                    provider = 'gemini';
+                } else if (model.includes('gpt') || model.includes('o1')) {
+                    provider = 'chatgpt';
+                } else if (domain === 'voice') {
+                    provider = 'openai';
+                }
+            } else if (source === 'local' && domain === 'text') {
+                provider = 'ollama';
+            }
+            // Dla vision/voice 'local' jest ok.
+
+            // 2. Wyślij żądanie bind
+            const res = await fetch('/api/models/bind', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ slot: domain, provider: provider, model: model })
+            });
+            if (!res.ok) throw new Error(`API Error: ${res.status}`);
+
+            // 3. (Opcjonalnie) Jeśli zmieniamy text, wymuś też zmianę backendu
+            if(domain === 'text') {
+                 const backend = (provider === 'ollama') ? 'local' : provider;
+                 await fetch('/api/providers/text/backend', {
+                    method: 'PATCH', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ backend })
+                });
+            }
+
+        } else if (device === 'pi') {
+            // --- Zapis na Pi (Proxy) ---
+             const res = await fetch('/api/proxy/pi/set-model', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ domain: domain, model_id: model })
+            });
+             if (!res.ok) throw new Error("Pi rejected command");
+        }
+
+        // Sukces! Przeładuj dane, aby odświeżyć statusy
+        await loadAllData(); 
+        btn.textContent = "Zapisano ✓";
+        setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
+
+    } catch (e) {
+        console.error(e);
+        alert("Błąd zapisu: " + e.message);
+        btn.textContent = "Błąd ✗";
+        btn.disabled = false;
+        updateGlobalStatus('err', 'Niepowodzenie');
+    }
+}
+
+
+// --- 6. FUNKCJE POMOCNICZE UI ---
+
+// Aktualizuje kolorowy pasek statusu w kaflu
+function updateActiveStatusbar(card, config) {
+    const statusBar = card.querySelector('.active-status-bar');
+    const valueEl = statusBar.querySelector('.status-value');
+    
+    statusBar.classList.remove('is-active-local', 'is-active-cloud');
+
+    if (!config || !config.model) {
+        valueEl.textContent = "—"; return;
+    }
+
+    // Skróć nazwę, jeśli jest za długa
+    let displayName = config.model;
+    if (displayName.length > 28) displayName = displayName.substring(0, 25) + '...';
+
+    const providerLabel = config.providerLabel || formatProviderLabel(config.provider);
+    valueEl.textContent = `${displayName} (${providerLabel || 'n/a'})`;
+
+    // Kolorowanie paska
+    if (isLocalProvider(config.provider)) {
+        statusBar.classList.add('is-active-local'); // Zielony
+    } else if (isCloudProvider(config.provider)) {
+        statusBar.classList.add('is-active-cloud'); // Niebieski
+    }
+}
+
+// Aktywuje/dezaktywuje kafle Pi w zależności od połączenia
+function updatePiCardsState(isOnline) {
+    const piCard = document.getElementById('card-pi-text');
+    const inputs = piCard.querySelectorAll('.c-select, .save-btn');
+    const modelSel = piCard.querySelector('.model-select');
+    const statusVal = piCard.querySelector('.status-value');
+
+    inputs.forEach(el => el.disabled = !isOnline);
+    DOM.btnRefreshPi.disabled = !isOnline;
+
+    if(isOnline) {
+        // Jeśli online, znajdź aktywny model i ustaw go w statusie
+        const activeModel = AppState.pi.localModels.find(m => m.id === AppState.pi.activeModelId);
+        statusVal.textContent = activeModel ? activeModel.name : (AppState.pi.activeModelId || 'Nieznany');
+        
+        // Odśwież listę modeli (bo mogła być pusta jak był offline)
+        populateModelSelect(piCard, 'local');
+    } else {
+        modelSel.innerHTML = '<option>Brak połączenia</option>';
+        statusVal.textContent = "Offline";
+    }
+}
+
+// Renderuje statusy kluczy API
+function updateKeyStatus(el, hasKey) {
+    el.textContent = hasKey ? "Gotowy" : "Brak";
+    el.className = hasKey ? "c-pill c-pill--sm is-success" : "c-pill c-pill--sm is-off";
+}
+
+// Renderuje status silnika PC
+function renderPcEngineStatus(hasOllama) {
+    DOM.pcEngineStatus.innerHTML = hasOllama 
+        ? '<span class="c-text-success">✔ Ollama wykryta. Silnik gotowy.</span>'
+        : '<span class="c-text-err">✘ Brak modeli Ollama. Zainstaluj je w terminalu.</span>';
+}
+
+// Renderuje zdrowie Pi
+function renderPiHealth(data) {
+    const pingEl = document.getElementById('pi-health-ping');
+    const cpuEl = document.getElementById('pi-health-cpu');
+    const tempEl = document.getElementById('pi-health-temp');
+    if(data) {
+        pingEl.textContent = (data.latency_ms || 15) + 'ms';
+        cpuEl.textContent = (data.cpu_usage || 5) + '%';
+        tempEl.textContent = data.temp_c != null ? data.temp_c + '°C' : '—';
+    } else {
+        pingEl.textContent = "—"; cpuEl.textContent = "—"; tempEl.textContent = "—";
+    }
+}
+
+// Globalne statusy w nagłówkach
+function updateGlobalStatus(state, text) {
+    DOM.globalStatus.textContent = text;
+    DOM.globalStatus.className = `c-pill is-${state}`;
+}
+
+function updatePiConnectionStatus(isOnline) {
+    DOM.piConnectionStatus.textContent = isOnline ? "Pi Połączony" : "Pi Offline";
+    DOM.piConnectionStatus.className = isOnline ? "c-pill is-success" : "c-pill is-off";
+}
+
+// Wrapper do ręcznego odświeżania tylko Pi
+async function loadPiDataOnly() {
+    updateGlobalStatus('working', 'Odświeżanie Pi...');
+    try {
+        const res = await fetch('/api/proxy/pi/status');
+        if(res.ok) {
+             const data = await res.json();
+             AppState.pi.isOnline = true;
+             AppState.pi.localModels = data.available_models || [];
+             AppState.pi.activeModelId = data.active_model;
+             updatePiConnectionStatus(true);
+             renderPiHealth(data);
+        } else { throw new Error(); }
+    } catch(e) {
+         AppState.pi.isOnline = false;
+         updatePiConnectionStatus(false);
+         renderPiHealth(null);
+    }
+    refreshEntireUI();
+    updateGlobalStatus('success', 'Gotowy');
+}
+
+// --- 7. DODATKOWE FUNKCJE POMOCNICZE ---
+
+function syncTextConfigWithBackend() {
+    const status = AppState.pc.textProviderStatus || {};
+    const base = AppState.pc.activeConfig.text || {};
+    const normalizedBackend = normalizeProvider(status.backend);
+    AppState.pc.activeConfig.text = {
+        ...base,
+        provider: normalizedBackend || base.provider,
+        backend: normalizedBackend || base.backend,
+        model: status.model || base.model,
+        providerLabel: formatProviderLabel(normalizedBackend || base.provider)
+    };
+}
+
+function getEffectiveConfigForDomain(domain) {
+    const base = { ...(AppState.pc.activeConfig[domain] || {}) };
+    base.providerLabel = formatProviderLabel(base.provider);
+
+    if (domain === 'text') {
+        const status = AppState.pc.textProviderStatus;
+        if (status) {
+            const normalizedBackend = normalizeProvider(status.backend);
+            if (normalizedBackend) {
+                base.provider = normalizedBackend;
+                base.backend = normalizedBackend;
+                base.providerLabel = formatProviderLabel(normalizedBackend);
+            }
+            if (status.model) {
+                base.model = status.model;
+            }
+        }
+    }
+    return base;
+}
+
+function normalizeProvider(name) {
+    if (!name) return undefined;
+    const lower = name.toLowerCase();
+    if (lower === 'local') return 'ollama';
+    return lower;
+}
+
+function formatProviderLabel(name) {
+    if (!name) return '';
+    const lower = name.toLowerCase();
+    return PROVIDER_LABELS[lower] || name;
+}
+
+function isLocalProvider(name) {
+    if (!name) return false;
+    return LOCAL_PROVIDERS.has(name.toLowerCase());
+}
+
+function isCloudProvider(name) {
+    if (!name) return false;
+    return CLOUD_PROVIDERS.has(name.toLowerCase());
 }
 </script>
-
 <script type="module" src="/web/assets/menu.js"></script>
 <script type="module" src="/web/assets/footer.js"></script>
 </body>

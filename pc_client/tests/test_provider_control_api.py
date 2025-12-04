@@ -8,6 +8,7 @@ from pc_client.api.server import create_app
 from pc_client.cache import CacheManager
 from pc_client.config import Settings
 from pc_client.providers.base import TaskResult, TaskStatus, TaskEnvelope, TaskType
+from pc_client.providers.text_provider import TextProvider
 
 
 @pytest.fixture
@@ -36,13 +37,24 @@ def text_client():
         cache = CacheManager(db_path=str(db_path))
         app = create_app(settings, cache)
 
-        class DummyTextProvider:
-            async def process_task(self, task: TaskEnvelope) -> TaskResult:
+        class DummyTextProvider(TextProvider):
+            def __init__(self):
+                super().__init__({"use_mock": True})
+                self._initialized = True  # Skip heavy initialization logic
+
+            async def _initialize_impl(self) -> None:  # pragma: no cover - not used in tests
+                pass
+
+            async def _shutdown_impl(self) -> None:  # pragma: no cover - not used in tests
+                pass
+
+            async def _process_task_impl(self, task: TaskEnvelope) -> TaskResult:
                 assert task.task_type == TaskType.TEXT_GENERATE
+                prompt = task.payload.get("prompt", "")
                 return TaskResult(
                     task_id=task.task_id,
                     status=TaskStatus.COMPLETED,
-                    result={"text": task.payload.get("prompt") + " response", "tokens_used": 2, "from_cache": False},
+                    result={"text": f"{prompt} response", "tokens_used": 2, "from_cache": False},
                     meta={"model": "mock-text"},
                 )
 
