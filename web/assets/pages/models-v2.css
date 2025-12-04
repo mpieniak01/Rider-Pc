@@ -1,5 +1,4 @@
-.page-models[data-dashboard-theme="v2"],
-[data-dashboard-theme="v2"] .page-models {
+html[data-dashboard-theme="v2"] .page-models {
   --models-card-bg: var(--color-bg-elevated);
   --models-card-border: rgba(255, 255, 255, 0.08);
   --models-input-bg: rgba(8, 19, 32, 0.7);
