@@ -491,8 +491,13 @@ async function handleSaveConfig(event) {
             // 1. Ustal providera na podstawie wyboru
             let provider = 'local'; // default
             if (source === 'cloud') {
-                if (model.includes('gemini')) provider = 'gemini';
-                else if (model.includes('gpt') || model.includes('o1')) provider = 'chatgpt';
+                if (model.includes('gemini')) {
+                    provider = 'gemini';
+                } else if (model.includes('gpt') || model.includes('o1')) {
+                    provider = 'chatgpt';
+                } else if (domain === 'voice') {
+                    provider = 'openai';
+                }
             } else if (source === 'local' && domain === 'text') {
                 provider = 'ollama';
             }
