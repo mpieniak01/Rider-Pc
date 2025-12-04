@@ -32,6 +32,7 @@ HTML_WHITELIST = Path("config/css_dynamic_whitelist.json")
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+THEME = os.environ.get("CSS_AUDIT_THEME")
 
 import uvicorn
 from playwright.sync_api import Page, sync_playwright
@@ -116,6 +117,8 @@ def take_screenshots(base_url: str) -> tuple[list[dict[str, str]], set[str], set
     with sync_playwright() as p:
         browser = p.firefox.launch(headless=True)
         context = browser.new_context(viewport={"width": 1366, "height": 768})
+        if THEME:
+            context.add_init_script(f"window.localStorage.setItem('dashboard_theme', {json.dumps(THEME)});")
         page = context.new_page()
         for path in URLS:
             slug = path.split("/")[-1].replace(".html", "") or "root"

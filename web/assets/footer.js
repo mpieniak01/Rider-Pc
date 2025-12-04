@@ -27,10 +27,12 @@
           camMetaLabel: extractLabel(root.querySelector('[data-footer-camera-meta]'), 'fps'),
           branchEl: root.querySelector('[data-footer-branch]'),
           commitBtn: root.querySelector('[data-footer-commit]'),
+          themeSelect: root.querySelector('[data-footer-theme-select]'),
         };
       });
       initVersionBlocks(contexts);
       initStatusBlocks(contexts, pendingQueue);
+      initThemeSwitcher(contexts);
     })
     .catch((err) => {
       console.error('Nie udało się przygotować stopki:', err);
@@ -53,6 +55,39 @@
       });
   }
 
+  function initThemeSwitcher(contexts) {
+    const selects = contexts
+      .map((ctx) => ctx.themeSelect)
+      .filter((el) => el);
+    if (!selects.length) {
+      return;
+    }
+    const themeApi = window.dashboardTheme || null;
+    const knownThemes = ['classic', 'classic-plus', 'v2', 'v3'];
+    const normalize = (value) => (knownThemes.includes(value) ? value : 'classic');
+    const syncSelects = (value, source) => {
+      selects.forEach((sel) => {
+        if (sel !== source) {
+          sel.value = value;
+        }
+      });
+    };
+
+    const currentTheme = themeApi?.get ? themeApi.get() : document.documentElement.getAttribute('data-dashboard-theme') || 'classic';
+    selects.forEach((select) => {
+      select.value = normalize(currentTheme);
+      select.addEventListener('change', () => {
+        const chosen = normalize(select.value);
+        if (themeApi?.set) {
+          themeApi.set(chosen);
+        } else {
+          document.documentElement.setAttribute('data-dashboard-theme', chosen);
+        }
+        syncSelects(chosen, select);
+      });
+    });
+  }
+
   function getInlineTemplate() {
     return `
 <div class="c-statusbar" data-footer-root>
@@ -67,6 +102,16 @@
   <span class="u-sep">•</span>
   <span class="c-pill" data-footer-camera>CAM: —</span>
   <span class="muted" data-footer-camera-meta>fps: —</span>
+  <span class="u-sep">•</span>
+  <label class="footer-theme">
+    <span>Motyw</span>
+    <select data-footer-theme-select>
+      <option value="classic">Klasyczny</option>
+      <option value="classic-plus">Klasyczny +</option>
+      <option value="v2">Tryb V2</option>
+      <option value="v3">Neo (v3)</option>
+    </select>
+  </label>
   <span class="u-spacer"></span>
   <span class="footer-version">
     <span class="footer-version__label">Wersja</span>

@@ -1,18 +1,14 @@
 
 /* Page token overrides */
 .page-view {
-  --muted: #9fb7ce;
-  --accent: #87b7ff;
   --page-padding: 28px var(--space-xl) var(--space-xxxl);
-  --card-bg: #0f2233;
-  --card-border: #1d3548;
   --card-padding: var(--space-md);
   --card-radius: var(--radius-xl);
   --grid-gap: var(--space-xl);
   --grid-min: 240px;
   --stack-gap: var(--space-xl);
-  --label-color: #fff;
-  --value-color: #d7e2ee;
+  --view-label-color: var(--color-fg-primary);
+  --view-value-color: var(--color-fg-secondary);
 }
 
 .page-view .c-hint {
@@ -33,24 +29,24 @@
 
 /* Card title color */
 .page-view .c-card h3 {
-  color: #9cc8ff;
+  color: var(--color-accent);
 }
 
 /* Key-value styling */
 .page-view .c-kv div:nth-child(odd) {
   font-weight: var(--font-weight-normal);
-  color: var(--label-color);
+  color: var(--view-label-color);
 }
 
 .page-view .c-kv div:nth-child(even) {
-  color: var(--value-color);
+  color: var(--view-value-color);
 }
 
 /* Canvas styling */
 .page-view canvas {
   width: 100%;
   height: 140px;
-  background: #0c1b28;
+  background: var(--color-bg-input);
   border-radius: var(--radius-md);
   border: 1px solid var(--card-border);
 }
@@ -73,15 +69,15 @@
   border-radius: var(--radius-pill);
   font-size: var(--font-size-xs);
   margin-left: var(--space-sm);
-  border: 1px solid #2b5577;
-  background: #11263a;
+  border: 1px solid var(--card-border);
+  background: var(--color-bg-elevated);
   color: var(--color-fg-secondary);
 }
 
 .page-view .cam-badge.on {
   border-color: var(--color-ok-border);
-  color: #9be3b0;
-  background: #103226;
+  color: var(--color-ok);
+  background: var(--color-ok-bg);
 }
 
 /* PC service list */
@@ -96,7 +92,7 @@
   align-items: center;
   gap: var(--space-lg);
   padding: var(--space-xxs) 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .page-view .pc-service:last-child {
@@ -107,13 +103,13 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #4e6074;
+  background: var(--color-border-secondary);
   flex-shrink: 0;
 }
 
 .page-view .pc-service-dot.ok { background: #5fe39a; }
 .page-view .pc-service-name { font-weight: var(--font-weight-semibold); font-size: var(--font-size-sm); }
-.page-view .pc-service-meta { font-size: var(--font-size-xs); color: var(--value-color); }
+.page-view .pc-service-meta { font-size: var(--font-size-xs); color: var(--view-value-color); }
 
 /* MCP Tools list */
 .page-view .mcp-tools-list,
@@ -127,7 +123,7 @@
   display: flex;
   align-items: center;
   padding: var(--space-xxs) 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .page-view .mcp-tool-item:last-child {
@@ -137,7 +133,7 @@
 .page-view .mcp-tool-name {
   font-weight: var(--font-weight-semibold);
   font-size: var(--font-size-sm);
-  color: var(--accent);
+  color: var(--color-accent);
 }
 
 .page-view .mcp-call-item {
@@ -146,7 +142,7 @@
   justify-content: space-between;
   gap: var(--space-xs);
   padding: var(--space-xxs) 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .page-view .mcp-call-item:last-child {
@@ -165,7 +161,7 @@
 
 .page-view .mcp-call-args {
   font-size: var(--font-size-xs);
-  color: var(--value-color);
+  color: var(--view-value-color);
   margin-top: 2px;
   word-break: break-all;
 }
