@@ -63,7 +63,7 @@
       return;
     }
     const themeApi = window.dashboardTheme || null;
-    const knownThemes = ['classic', 'classic-plus', 'v2', 'v3'];
+    const knownThemes = themeApi?.options?.map(o => o.value) || ['classic', 'classic-plus', 'v2', 'v3'];
     const normalize = (value) => (knownThemes.includes(value) ? value : 'classic');
     const syncSelects = (value, source) => {
       selects.forEach((sel) => {
