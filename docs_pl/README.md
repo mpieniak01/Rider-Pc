@@ -1,4 +1,4 @@
-# Rider-PC Client
+# Rider-PC Client / Serwer
 
 > **Autonomiczny system typu Digital Twin** dla robota Rider-Pi z przetwarzaniem AI i offloadem zadań
 
