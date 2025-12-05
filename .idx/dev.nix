@@ -27,7 +27,6 @@
     }))
     python311Packages.google-auth
     python311Packages.google-auth-oauthlib
-    python311Packages.google-assistant-grpc
     python311Packages.grpcio
     python311Packages.protobuf
 
