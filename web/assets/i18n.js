@@ -175,7 +175,7 @@ export const I18N = {
     },
 
     mcp: {
-      title:         { pl: "MCP Tools", en: "MCP Tools" },
+      title:         { pl: "Narzędzia MCP", en: "MCP Tools" },
       total_tools:   { pl: "Narzędzia", en: "Tools" },
       invocations:   { pl: "Wywołania", en: "Invocations" },
       last_tool:     { pl: "Ostatnie", en: "Last" },

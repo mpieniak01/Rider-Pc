@@ -228,7 +228,7 @@ const AppState = {
             chatgpt: ['gpt-4o-mini', 'gpt-4o', 'o1-mini']
         },
         // Obecnie aktywna konfiguracja (z /api/models/active)
-        activeConfig: { text: {}, vision: {}, voice: {} },
+        activeConfig: { text: {}, vision: {}, voice_asr: {}, voice_tts: {} },
         textProviderStatus: null
     },
     pi: {
@@ -262,6 +262,9 @@ const PROVIDER_LABELS = {
 
 const LOCAL_PROVIDERS = new Set(['local', 'ollama', 'whisper', 'piper', 'yolo']);
 const CLOUD_PROVIDERS = new Set(['gemini', 'chatgpt', 'openai', 'auto']);
+const DOMAIN_SLOT_MAP = {
+    voice: 'voice_asr'
+};
 
 
 // --- 2. INICJALIZACJA ---
@@ -476,6 +479,7 @@ async function handleSaveConfig(event) {
     const card = btn.closest('.pipeline-card');
     const domain = card.dataset.domain; // text, vision, voice
     const device = card.dataset.device; // pc, pi
+    const slot = resolveSlot(domain);
 
     const source = card.querySelector('.source-select').value;
     const model = card.querySelector('.model-select').value;
@@ -498,10 +502,10 @@ async function handleSaveConfig(event) {
                     provider = 'gemini';
                 } else if (model.includes('gpt') || model.includes('o1')) {
                     provider = 'chatgpt';
-                } else if (domain === 'voice') {
+                } else if (slot === 'voice_asr') {
                     provider = 'openai';
                 }
-            } else if (source === 'local' && domain === 'text') {
+            } else if (source === 'local' && slot === 'text') {
                 provider = 'ollama';
             }
             // Dla vision/voice 'local' jest ok.
@@ -510,12 +514,12 @@ async function handleSaveConfig(event) {
             const res = await fetch('/api/models/bind', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ slot: domain, provider: provider, model: model })
+                body: JSON.stringify({ slot: slot, provider: provider, model: model })
             });
             if (!res.ok) throw new Error(`API Error: ${res.status}`);
 
             // 3. (Opcjonalnie) Jeśli zmieniamy text, wymuś też zmianę backendu
-            if(domain === 'text') {
+            if(slot === 'text') {
                  const backend = (provider === 'ollama') ? 'local' : provider;
                  await fetch('/api/providers/text/backend', {
                     method: 'PATCH', headers: {'Content-Type': 'application/json'},
@@ -675,7 +679,8 @@ function syncTextConfigWithBackend() {
 }
 
 function getEffectiveConfigForDomain(domain) {
-    const base = { ...(AppState.pc.activeConfig[domain] || {}) };
+    const slot = resolveSlot(domain);
+    const base = { ...(AppState.pc.activeConfig[slot] || {}) };
     base.providerLabel = formatProviderLabel(base.provider);
 
     if (domain === 'text') {
@@ -716,6 +721,10 @@ function isLocalProvider(name) {
 function isCloudProvider(name) {
     if (!name) return false;
     return CLOUD_PROVIDERS.has(name.toLowerCase());
+}
+
+function resolveSlot(domain) {
+    return DOMAIN_SLOT_MAP[domain] || domain;
 }
 </script>
 <script type="module" src="/web/assets/menu.js"></script>

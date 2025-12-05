@@ -120,10 +120,9 @@
 }
 
 .page-view .mcp-tool-item {
-  display: flex;
-  align-items: center;
-  padding: var(--space-xxs) 0;
-  border-bottom: 1px solid var(--color-border-subtle);
+  display: block;
+  padding: 0;
+  border-bottom: none;
 }
 
 .page-view .mcp-tool-item:last-child {
@@ -131,9 +130,10 @@
 }
 
 .page-view .mcp-tool-name {
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-normal);
   font-size: var(--font-size-sm);
-  color: var(--color-accent);
+  line-height: var(--line-height-normal);
+  color: var(--color-fg-primary);
 }
 
 .page-view .mcp-call-item {
