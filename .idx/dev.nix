@@ -21,9 +21,9 @@
     python311Packages.tomli-w
     (python311Packages.python-dotenv.overrideAttrs (old: {
       # Fix build issue in Nix: https://github.com/NixOS/nixpkgs/issues/231583
-      postInstall = ''
+      postInstall = '''
         mv $out/bin/dotenv $out/bin/python-dotenv
-      '';
+      ''';
     }))
     python311Packages.google-auth
     python311Packages.google-auth-oauthlib
@@ -31,7 +31,7 @@
     python311Packages.protobuf
 
     # Testing dependencies
-    python311Packages.ruff
+    ruff
     python311Packages.pytest
     python311Packages.pytest-asyncio
     python311Packages.pytest-timeout
