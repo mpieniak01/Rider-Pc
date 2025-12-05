@@ -1,0 +1,2 @@
+google-assistant-grpc==0.3.0
+playwright==1.48.0

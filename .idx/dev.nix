@@ -6,6 +6,7 @@
   packages = with pkgs; [
     gnumake
     python311
+    python311Packages.pip
     python311Packages.fastapi
     python311Packages.uvicorn
     python311Packages.httpx
@@ -21,7 +22,6 @@
     }))
     python311Packages.google-auth
     python311Packages.google-auth-oauthlib
-    python311Packages.google-assistant-grpc
     python311Packages.grpcio
     python311Packages.protobuf
     python311Packages.prometheus-client
@@ -57,7 +57,10 @@
       };
     };
     workspace = {
-      onStart = {};
+      # Uruchom instalację lokalnych pakietów przy starcie środowiska
+      onStart = {
+        install-local-deps = "echo 'Instalowanie lokalnych zależności Python...' && pip install -r requirements-local.txt";
+      };
     };
   };
 }
