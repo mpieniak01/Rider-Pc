@@ -1,9 +1,14 @@
-.PHONY: start stop reload lint lint-css format test css-size
+.PHONY: start stop reload lint lint-css format test css-size start-dev
 VENV_BIN ?= .venv/bin
 PY ?= $(if $(wildcard $(VENV_BIN)/python),$(VENV_BIN)/python,python3)
 
 start:
 	@bash scripts/start_local_stack.sh
+
+# Lightweight start command for development preview
+start-dev:
+	@echo "Starting Rider-PC server for development preview..."
+	@$(PY) -m pc_client.main
 
 stop:
 	@bash scripts/stop_local_stack.sh
@@ -21,11 +26,11 @@ format:
 	@$(PY) -m ruff format .
 
 test:
-	@PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTEST_ASYNCIO_MODE=auto \
-		$(PY) -m pytest pc_client/tests/ \
-		-q --maxfail=1 --tb=short \
-		-p pytest_asyncio.plugin \
-		-p pytest_timeout \
+	@PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTEST_ASYNCIO_MODE=auto \\\
+		$(PY) -m pytest pc_client/tests/ \\\
+		-q --maxfail=1 --tb=short \\\
+		-p pytest_asyncio.plugin \\\
+		-p pytest_timeout \\\
 		--timeout=30 --timeout-method=thread
 
 css-size:
