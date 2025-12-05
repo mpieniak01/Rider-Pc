@@ -21,24 +21,15 @@
     python311Packages.tomli-w
     (python311Packages.python-dotenv.overrideAttrs (old: {
       # Fix build issue in Nix: https://github.com/NixOS/nixpkgs/issues/231583
-      postInstall = ''
+      postInstall = '''
         mv $out/bin/dotenv $out/bin/python-dotenv
-      '';
+      ''';
     }))
     python311Packages.google-auth
     python311Packages.google-auth-oauthlib
-    python311Packages.google-assistant-grpc
+    python311Packages.google-assistant-library
     python311Packages.grpcio
-    (python311Packages.protobuf.overrideAttrs(old: {
-      # This specific version is needed by google-assistant-grpc
-      version = "3.20.3";
-      # Hash from https://pypi.org/project/protobuf/3.20.3/#files
-      src = pkgs.fetchPypi {
-        pname = "protobuf";
-        version = "3.20.3";
-        hash = "sha256-Nln0aA1zMLdFv4a1f+c+5lDjcj2t4aZ4c5aBf3eT1p4=";
-      };
-    }))
+    python311Packages.protobuf
 
     # Testing dependencies
     python311Packages.ruff
