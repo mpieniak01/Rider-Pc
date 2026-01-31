@@ -92,10 +92,12 @@ python -m pc_client.main
 - **[Service Management](docs/SERVICE_AND_RESOURCE_MANAGEMENT.md)** - Operations, monitoring, troubleshooting
 - **[Future Work](docs/FUTURE_WORK.md)** - Planned improvements and development
 
-## License
-
-This project is part of the Rider-PI ecosystem.
-
 ## See Also
 
 - [Rider-PI Repository](https://github.com/mpieniak01/Rider-Pi)
+
+  ## 📝 License
+
+Distributed under the MIT License. See [`LICENSE`](LICENSE) for more information.
+
+Copyright (c) 2025-2026 Maciej Pieniak
