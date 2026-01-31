@@ -96,7 +96,7 @@ python -m pc_client.main
 
 - [Rider-PI Repository](https://github.com/mpieniak01/Rider-Pi)
 
-  ## 📝 License
+## 📝 License
 
 Distributed under the MIT License. See [`LICENSE`](LICENSE) for more information.
 
