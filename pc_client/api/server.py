@@ -4,7 +4,7 @@ import asyncio
 import logging
 import time
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, cast
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -63,7 +63,7 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
     app.state.rest_adapter = None
     app.state.zmq_subscriber = None
     app.state.task_queue = None
-    app.state.providers: Dict[str, Any] = {}
+    app.state.providers = cast(Dict[str, Any], {})
     app.state.provider_worker = None
     app.state.provider_worker_task = None
     app.state.telemetry_publisher = None
@@ -78,55 +78,61 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
         "navigator": {"active": False, "strategy": "standard", "state": "idle"},
         "camera": {"vision_enabled": True, "on": True, "res": [1280, 720]},
     }
-    app.state.resources: Dict[str, Dict[str, Any]] = {
-        "mic": {"name": "mic", "free": True, "holders": [], "checked_at": time.time()},
-        "speaker": {"name": "speaker", "free": True, "holders": [], "checked_at": time.time()},
-        "camera": {
-            "name": "camera",
-            "free": False,
-            "holders": [{"pid": 4242, "cmd": "rider-cam", "service": "rider-cam-preview.service"}],
-            "checked_at": time.time(),
-        },
-        "lcd": {"name": "lcd", "free": True, "holders": [], "checked_at": time.time()},
-    }
-    app.state.services: List[Dict[str, Any]] = [
+    app.state.resources = cast(
+        Dict[str, Dict[str, Any]],
         {
-            "unit": "rider-cam-preview.service",
-            "desc": "Camera preview pipeline",
-            "active": "active",
-            "sub": "running",
-            "enabled": "enabled",
+            "mic": {"name": "mic", "free": True, "holders": [], "checked_at": time.time()},
+            "speaker": {"name": "speaker", "free": True, "holders": [], "checked_at": time.time()},
+            "camera": {
+                "name": "camera",
+                "free": False,
+                "holders": [{"pid": 4242, "cmd": "rider-cam", "service": "rider-cam-preview.service"}],
+                "checked_at": time.time(),
+            },
+            "lcd": {"name": "lcd", "free": True, "holders": [], "checked_at": time.time()},
         },
-        {
-            "unit": "rider-edge-preview.service",
-            "desc": "Edge detection preview",
-            "active": "inactive",
-            "sub": "dead",
-            "enabled": "enabled",
-        },
-        {
-            "unit": "rider-vision.service",
-            "desc": "Vision main stack",
-            "active": "active",
-            "sub": "running",
-            "enabled": "enabled",
-        },
-        {
-            "unit": "rider-tracker.service",
-            "desc": "Vision tracker",
-            "active": "inactive",
-            "sub": "dead",
-            "enabled": "enabled",
-        },
-        {
-            "unit": "rider-tracking-controller.service",
-            "desc": "Tracking controller",
-            "active": "inactive",
-            "sub": "dead",
-            "enabled": "enabled",
-        },
-    ]
-    app.state.motion_queue: List[Dict[str, Any]] = []
+    )
+    app.state.services = cast(
+        List[Dict[str, Any]],
+        [
+            {
+                "unit": "rider-cam-preview.service",
+                "desc": "Camera preview pipeline",
+                "active": "active",
+                "sub": "running",
+                "enabled": "enabled",
+            },
+            {
+                "unit": "rider-edge-preview.service",
+                "desc": "Edge detection preview",
+                "active": "inactive",
+                "sub": "dead",
+                "enabled": "enabled",
+            },
+            {
+                "unit": "rider-vision.service",
+                "desc": "Vision main stack",
+                "active": "active",
+                "sub": "running",
+                "enabled": "enabled",
+            },
+            {
+                "unit": "rider-tracker.service",
+                "desc": "Vision tracker",
+                "active": "inactive",
+                "sub": "dead",
+                "enabled": "enabled",
+            },
+            {
+                "unit": "rider-tracking-controller.service",
+                "desc": "Tracking controller",
+                "active": "inactive",
+                "sub": "dead",
+                "enabled": "enabled",
+            },
+        ],
+    )
+    app.state.motion_queue = cast(List[Dict[str, Any]], [])
     app.state.last_camera_frame = {
         "content": (
             b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x02\x00\x00\x00\x02"

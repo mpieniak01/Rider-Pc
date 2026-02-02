@@ -1,6 +1,5 @@
 """Knowledge base API endpoints for RAG functionality."""
 
-import asyncio
 import logging
 from typing import Any, Dict, Optional
 
@@ -10,6 +9,7 @@ from fastapi.responses import JSONResponse
 from pc_client.config.settings import settings
 from pc_client.core.knowledge.ingest import DocumentLoader, TextSplitter
 from pc_client.core.knowledge.store import VectorStore
+from pc_client.utils.async_helpers import run_sync
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ MAX_QUERY_LENGTH = 1000
 # Global vector store instance (lazy initialization)
 _vector_store: Optional[VectorStore] = None
 _reindex_in_progress = False
-_reindex_lock = asyncio.Lock()
+_reindex_lock: Optional[Any] = None
 
 
 def _get_vector_store() -> VectorStore:
@@ -43,6 +43,12 @@ async def _perform_reindex() -> Dict[str, Any]:
     """
     global _reindex_in_progress
 
+    global _reindex_lock
+    if _reindex_lock is None:
+        import asyncio
+
+        _reindex_lock = asyncio.Lock()
+
     async with _reindex_lock:
         if _reindex_in_progress:
             return {"ok": False, "error": "Reindexing already in progress"}
@@ -54,7 +60,7 @@ async def _perform_reindex() -> Dict[str, Any]:
 
         # Load documents
         loader = DocumentLoader(paths=docs_paths)
-        documents = await asyncio.to_thread(loader.load)
+        documents = await run_sync(loader.load)
 
         if not documents:
             return {
@@ -68,12 +74,12 @@ async def _perform_reindex() -> Dict[str, Any]:
             chunk_size=settings.rag_chunk_size,
             chunk_overlap=settings.rag_chunk_overlap,
         )
-        chunks = await asyncio.to_thread(splitter.split, documents)
+        chunks = await run_sync(splitter.split, documents)
 
         # Clear and add to vector store
         store = _get_vector_store()
-        await asyncio.to_thread(store.clear)
-        count = await asyncio.to_thread(store.add_documents, chunks)
+        await run_sync(store.clear)
+        count = await run_sync(store.add_documents, chunks)
 
         if count < 0:
             return {
@@ -183,7 +189,7 @@ async def search_knowledge_base(
 
     try:
         store = _get_vector_store()
-        results = await asyncio.to_thread(store.search, q, k)
+        results = await run_sync(store.search, q, k)
 
         return JSONResponse(
             {
@@ -227,7 +233,7 @@ async def knowledge_base_status() -> JSONResponse:
 
     try:
         store = _get_vector_store()
-        count = await asyncio.to_thread(store.count)
+        count = await run_sync(store.count)
 
         return JSONResponse(
             {

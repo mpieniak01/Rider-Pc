@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import time
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse
@@ -273,13 +273,15 @@ async def network_status(request: Request) -> JSONResponse:
 
     # Run connectivity checks in parallel for faster response
     local_ip = get_local_ip()
+    rider_pi_check: Dict[str, Any]
+    internet_check: Dict[str, Any]
     rider_pi_check, internet_check = await asyncio.gather(
         check_connectivity(rider_pi_host),
         check_connectivity(INTERNET_PROBE_HOST),
     )
 
     # Build response structure matching the issue specification
-    response = {
+    response: Dict[str, Any] = {
         "local_ip": local_ip,
         "rider_pi": {
             "host": rider_pi_host,

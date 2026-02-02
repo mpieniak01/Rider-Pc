@@ -29,7 +29,7 @@
     </div>
     <div class="page-header__actions page-header__actions--small text-legend">
       <span id="statusBadge" class="c-pill warn" data-i18n="assistant.status_checking">Sprawdzam…</span>
-      <button id="btnReload" class="c-btn-sm" title="Przeładuj konfigurację">⟳</button>
+      <button id="btnReload" class="c-btn-sm" title="Przeładuj konfigurację" data-i18n-attr="title:assistant.reload_title">⟳</button>
     </div>
   </header>
 
@@ -43,7 +43,7 @@
     <h2 class="c-card__title" data-i18n="assistant.custom_title">Własna komenda</h2>
     <div class="custom-command-row">
       <input type="text" id="customInput" class="custom-input" 
-             placeholder="Wpisz komendę, np. 'Włącz wszystkie światła'" />
+             placeholder="Wpisz komendę, np. 'Włącz wszystkie światła'" data-i18n-attr="placeholder:assistant.custom_placeholder" />
       <button id="btnSendCustom" class="c-btn" data-i18n="assistant.send_button">Wyślij</button>
     </div>
   </div>
@@ -76,17 +76,13 @@
 
   <!-- APP -->
 <script type="module">
-import { initI18n, applyDom, t } from '/web/assets/i18n.js';
+import { initI18nPage } from '/web/assets/i18n-loader.js';
 
   // --- Inicjalizacja języka
-  const urlLang = new URLSearchParams(location.search).get('lang');
-  const saved = localStorage.getItem('lang');
-  const browser = (navigator.language || '').slice(0,2).toLowerCase();
-  const pick = (v)=> v && v.toLowerCase().startsWith('en') ? 'en' : (v && v.toLowerCase().startsWith('pl') ? 'pl' : null);
-  const lang = pick(urlLang) || pick(saved) || pick(browser) || 'pl';
-  if (urlLang) localStorage.setItem('lang', lang);
-  await initI18n(lang);
-  applyDom();
+  const { lang, t } = await initI18nPage({
+    titleKey: 'assistant.page_title',
+    fallbackTitle: 'Rider-PC: Google Assistant',
+  });
   function syncLangMeta(code){
     document.documentElement.setAttribute('lang', code);
     document.title = t('assistant.page_title') || 'Rider-PC: Google Assistant';

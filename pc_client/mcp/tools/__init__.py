@@ -9,6 +9,7 @@ from pc_client.mcp.tools import robot
 from pc_client.mcp.tools import weather
 from pc_client.mcp.tools import smart_home
 from pc_client.mcp.tools import git
+from pc_client.mcp.tools.git import GitCommandResult
 
 __all__ = [
     "system",
@@ -16,4 +17,5 @@ __all__ = [
     "weather",
     "smart_home",
     "git",
+    "GitCommandResult",
 ]

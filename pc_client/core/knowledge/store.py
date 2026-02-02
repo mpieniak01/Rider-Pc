@@ -7,7 +7,7 @@ for storing and searching document embeddings.
 import hashlib
 import logging
 from pathlib import Path
-from typing import List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 from pc_client.core.knowledge.ingest import Document
 
@@ -63,12 +63,18 @@ class VectorStore:
             # Initialize ChromaDB with persistent storage
             self._client = chromadb.PersistentClient(path=str(self.persist_path))
 
-            # Create embedding function using sentence-transformers
-            self._embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
-                model_name=self.embedding_model
-            )
-
             # Get or create collection
+            embedding_ctor = getattr(
+                embedding_functions,
+                "SentenceTransformerEmbeddingFunction",
+                None,
+            )
+            if embedding_ctor is None:
+                raise ImportError(
+                    "SentenceTransformerEmbeddingFunction not available in chromadb.utils.embedding_functions"
+                )
+
+            self._embedding_fn = embedding_ctor(model_name=self.embedding_model)
             self._collection = self._client.get_or_create_collection(
                 name=self.collection_name,
                 embedding_function=self._embedding_fn,
@@ -100,6 +106,9 @@ class VectorStore:
             Number of documents added, or -1 on error.
         """
         if not self._ensure_initialized():
+            return -1
+
+        if self._collection is None:
             return -1
 
         if not documents:
@@ -146,6 +155,9 @@ class VectorStore:
             logger.warning("Empty search query")
             return []
 
+        if self._collection is None:
+            return []
+
         try:
             results = self._collection.query(
                 query_texts=[query],
@@ -155,7 +167,7 @@ class VectorStore:
             documents = []
             if results and results.get("documents"):
                 for i, doc_text in enumerate(results["documents"][0]):
-                    metadata = {}
+                    metadata: Dict[str, Any] = {}
                     if results.get("metadatas") and results["metadatas"][0]:
                         metadata = results["metadatas"][0][i] or {}
 
@@ -177,6 +189,9 @@ class VectorStore:
         if not self._ensure_initialized():
             return -1
 
+        if self._collection is None:
+            return -1
+
         try:
             return self._collection.count()
         except Exception as e:
@@ -190,6 +205,9 @@ class VectorStore:
             True if successful, False otherwise.
         """
         if not self._ensure_initialized():
+            return False
+
+        if self._client is None or self._collection is None or self._embedding_fn is None:
             return False
 
         try:

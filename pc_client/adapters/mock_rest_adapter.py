@@ -7,7 +7,7 @@ allowing local testing without requiring a real Rider-PI device.
 import copy
 import logging
 import time
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, cast
 
 logger = logging.getLogger(__name__)
 
@@ -33,15 +33,19 @@ class MockRestAdapter:
         self.timeout = timeout
         logger.info("MockRestAdapter initialized (TEST MODE)")
         now = time.time()
-        self._control_state = {
+        self._control_state: Dict[str, Any] = {
             "present": True,
             "mode": "auto",
             "tracking": {"mode": "none", "enabled": False, "target": None},
             "navigator": {"active": False, "strategy": "standard", "state": "idle"},
             "camera": {"vision_enabled": True, "on": True, "res": [1280, 720]},
         }
-        self._ai_mode = {"mode": "pc_offload", "available_modes": ["pc_offload", "local"], "changed_ts": now - 120}
-        self._provider_state = {
+        self._ai_mode: Dict[str, Any] = {
+            "mode": "pc_offload",
+            "available_modes": ["pc_offload", "local"],
+            "changed_ts": now - 120,
+        }
+        self._provider_state: Dict[str, Any] = {
             "domains": {
                 "vision": {"mode": "pc", "status": "ready", "changed_ts": now - 300, "reason": "mock"},
                 "voice": {"mode": "local", "status": "ready", "changed_ts": now - 600, "reason": "mock"},
@@ -49,7 +53,7 @@ class MockRestAdapter:
             },
             "pc_health": {"reachable": True, "status": "ok", "latency_ms": 12.4},
         }
-        self._provider_health = {
+        self._provider_health: Dict[str, Dict[str, Any]] = {
             "vision": {"status": "ok", "latency_ms": 11.2, "success_rate": 0.99, "last_check": now - 5},
             "voice": {"status": "warn", "latency_ms": 32.5, "success_rate": 0.93, "last_check": now - 15},
             "text": {"status": "ok", "latency_ms": 8.7, "success_rate": 0.98, "last_check": now - 9},
@@ -72,13 +76,13 @@ class MockRestAdapter:
                 "yaw": 0.2,
             },
         ]
-        self._remote_models = [
+        self._remote_models: list[Dict[str, Any]] = [
             {"name": "pi-vision-prod", "category": "vision", "type": "onnx", "format": "onnx", "size_mb": 32.1},
             {"name": "pi-asr-lo", "category": "voice_asr", "type": "whisper", "format": "en", "size_mb": 42.4},
             {"name": "pi-tts-hi", "category": "voice_tts", "type": "piper", "format": "onnx", "size_mb": 48.9},
             {"name": "pi-utils", "category": "unknown", "type": "custom", "format": "bin", "size_mb": 12.3},
         ]
-        self._services = [
+        self._services: list[Dict[str, Any]] = [
             {
                 "unit": "rider-cam-preview.service",
                 "desc": "Camera preview pipeline",
@@ -115,7 +119,7 @@ class MockRestAdapter:
                 "enabled": "enabled",
             },
         ]
-        self._logic_blueprints = [
+        self._logic_blueprints: list[Dict[str, Any]] = [
             {
                 "name": "s0_manual",
                 "scenario": "S0",
@@ -141,13 +145,15 @@ class MockRestAdapter:
                 "default_active": False,
             },
         ]
-        self._feature_state = {bp["name"]: bool(bp.get("default_active")) for bp in self._logic_blueprints}
-        self._home_state = {
+        self._feature_state: Dict[str, bool] = {
+            bp["name"]: bool(bp.get("default_active")) for bp in self._logic_blueprints
+        }
+        self._home_state: Dict[str, Any] = {
             "authenticated": True,
             "profile": {"email": "mock-user@rider.ai", "name": "Mock User"},
             "scopes": ["homegraph", "cloud-control"],
         }
-        self._home_devices = [
+        self._home_devices: list[Dict[str, Any]] = [
             {
                 "name": "devices/light/living-room",
                 "type": "action.devices.types.LIGHT",
@@ -360,9 +366,8 @@ class MockRestAdapter:
     async def patch_provider(self, domain: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Return success for provider update."""
         target = str(payload.get("target", "local")).lower()
-        state = self._provider_state.setdefault("domains", {}).setdefault(
-            domain, {"mode": "local", "status": "local_only", "changed_ts": None}
-        )
+        domains = cast(Dict[str, Dict[str, Any]], self._provider_state.setdefault("domains", {}))
+        state = domains.setdefault(domain, {"mode": "local", "status": "local_only", "changed_ts": None})
         state["mode"] = target
         state["status"] = "pc_active" if target == "pc" else "local_only"
         state["changed_ts"] = time.time()
@@ -556,27 +561,32 @@ class MockRestAdapter:
         device = next((d for d in self._home_devices if d.get("name") == device_id), None)
         if not device:
             return {"ok": False, "error": "device_not_found"}
-        traits = device.setdefault("traits", {})
+        traits = cast(Dict[str, Dict[str, Any]], device.setdefault("traits", {}))
+
+        def _trait_bucket(name: str) -> Dict[str, Any]:
+            return cast(Dict[str, Any], traits.setdefault(name, {}))
+
         if command == "action.devices.commands.OnOff":
-            traits.setdefault("sdm.devices.traits.OnOff", {})["on"] = bool(params.get("on"))
+            _trait_bucket("sdm.devices.traits.OnOff")["on"] = bool(params.get("on"))
         elif command == "action.devices.commands.BrightnessAbsolute":
-            traits.setdefault("sdm.devices.traits.Brightness", {})["brightness"] = int(params.get("brightness", 0))
+            _trait_bucket("sdm.devices.traits.Brightness")["brightness"] = int(params.get("brightness", 0))
         elif command == "action.devices.commands.ColorAbsolute":
-            traits.setdefault("sdm.devices.traits.ColorSetting", {})["color"] = params.get("color", {})
+            _trait_bucket("sdm.devices.traits.ColorSetting")["color"] = params.get("color", {})
         elif command == "action.devices.commands.ThermostatTemperatureSetpoint":
-            traits.setdefault("sdm.devices.traits.ThermostatTemperatureSetpoint", {}).update(params)
+            _trait_bucket("sdm.devices.traits.ThermostatTemperatureSetpoint").update(params)
         elif command == "action.devices.commands.StartStop":
-            traits.setdefault("sdm.devices.traits.StartStop", {}).update(
+            _trait_bucket("sdm.devices.traits.StartStop").update(
                 {"isRunning": bool(params.get("start")), "isPaused": False}
             )
         elif command == "action.devices.commands.PauseUnpause":
-            traits.setdefault("sdm.devices.traits.StartStop", {}).update({"isPaused": bool(params.get("pause"))})
+            _trait_bucket("sdm.devices.traits.StartStop").update({"isPaused": bool(params.get("pause"))})
         elif command == "action.devices.commands.Dock":
-            traits.setdefault("sdm.devices.traits.Dock", {})["lastDockTs"] = time.time()
+            _trait_bucket("sdm.devices.traits.Dock")["lastDockTs"] = time.time()
         return {"ok": True, "device": device_id, "command": command}
 
     async def post_home_auth(self) -> Dict[str, Any]:
         """Simulate successful Google auth."""
         self._home_state["authenticated"] = True
-        self._home_state.setdefault("profile", {})["updated_at"] = time.time()
+        profile = cast(Dict[str, Any], self._home_state.setdefault("profile", {}))
+        profile["updated_at"] = time.time()
         return {"ok": True, "profile": self._home_state.get("profile")}

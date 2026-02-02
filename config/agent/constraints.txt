@@ -1,9 +1,10 @@
 fastapi==0.115.5
-uvicorn==0.32.1
+uvicorn==0.29.0
+pip==26.0
 httpx==0.27.2
 pyzmq==26.4.0
-redis==5.0.1
-celery==5.3.4
+redis==5.0.4
+celery==5.4.0
 prometheus-client==0.21.0
 prometheus-fastapi-instrumentator==7.0.0
 psutil==6.1.0

@@ -11,26 +11,32 @@ import time
 from datetime import datetime
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 try:
-    import tomli
+    import tomllib as toml_module
 except ImportError:
-    import tomllib as tomli  # Python 3.11+ standard library
+    try:
+        import tomli as toml_module  # type: ignore
+    except ImportError:  # pragma: no cover - optional dependency
+        toml_module = None  # type: ignore[assignment]
 
-try:  # Optional runtime dependency – not required for test mode
-    from google.oauth2.credentials import Credentials
+GoogleCredentials: Any
+GoogleAuthRequest: Any
+GoogleSecureChannel: Any
+try:
+    from google.oauth2.credentials import Credentials as GoogleCredentials
     from google.auth.transport.requests import Request as GoogleAuthRequest
-    from google.auth.transport.grpc import secure_authorized_channel
+    from google.auth.transport.grpc import secure_authorized_channel as GoogleSecureChannel
     import google.assistant.embedded.v1alpha2.embedded_assistant_pb2 as embedded_assistant_pb2
     import google.assistant.embedded.v1alpha2.embedded_assistant_pb2_grpc as embedded_assistant_pb2_grpc
     import grpc
 
     GOOGLE_ASSISTANT_SDK_AVAILABLE = True
 except Exception:  # pragma: no cover - optional dependency
-    Credentials = None
+    GoogleCredentials = None
     GoogleAuthRequest = None
-    secure_authorized_channel = None
+    GoogleSecureChannel = None
     embedded_assistant_pb2 = None
     embedded_assistant_pb2_grpc = None
     grpc = None
@@ -75,7 +81,7 @@ class AssistantDevice:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API responses."""
-        result = {
+        result: Dict[str, Any] = {
             "id": self.id,
             "label": self.label,
             "assistant_name": self.assistant_name,
@@ -145,7 +151,10 @@ class GoogleAssistantService:
         self.project_id = project_id
         self.client_id = client_id
         self.client_secret = client_secret
-        self.device_model_id = device_model_id or (f"{project_id}-panel" if project_id else "rider-pc-panel-model")
+        self.device_model_id = cast(
+            str,
+            device_model_id or (f"{project_id}-panel" if project_id else "rider-pc-panel-model"),
+        )
         self.device_id = device_id or "rider-pc-panel-device"
         self.language_code = language_code or "pl-PL"
 
@@ -154,7 +163,7 @@ class GoogleAssistantService:
         self._command_history: List[CommandHistoryEntry] = []
         self._config_mtime: float = 0.0
         self._max_history_size = 100
-        self._credentials: Optional[Credentials] = None
+        self._credentials: Optional[GoogleCredentials] = None
         self._http_request: Optional[GoogleAuthRequest] = None
         self._assistant_endpoint = "embeddedassistant.googleapis.com"
         self._grpc_deadline = 20  # seconds
@@ -178,8 +187,11 @@ class GoogleAssistantService:
             if current_mtime <= self._config_mtime and self._devices:
                 return True  # No changes
 
+            if toml_module is None:
+                logger.warning("No TOML parser available; cannot load %s", self.config_path)
+                return False
             with open(self.config_path, "rb") as f:
-                data = tomli.load(f)
+                data = toml_module.load(f)
 
             devices = data.get("devices", [])
             self._devices = {}
@@ -229,7 +241,7 @@ class GoogleAssistantService:
             logger.error("Failed to read tokens file %s: %s", self.tokens_path, exc)
             return None
 
-    def _build_credentials(self) -> Optional[Credentials]:
+    def _build_credentials(self) -> Optional[GoogleCredentials]:
         """Build google.oauth2.credentials.Credentials from stored tokens."""
         if not GOOGLE_ASSISTANT_SDK_AVAILABLE or not self.tokens_path:
             return None
@@ -247,7 +259,7 @@ class GoogleAssistantService:
             return None
 
         scopes = token_data.get("scopes") or [ASSISTANT_SCOPE]
-        credentials = Credentials(
+        credentials = GoogleCredentials(
             token=token_data.get("access_token"),
             refresh_token=refresh_token,
             token_uri=token_data.get("token_uri", "https://oauth2.googleapis.com/token"),
@@ -263,7 +275,7 @@ class GoogleAssistantService:
                 pass
         return credentials
 
-    def _save_credentials(self, credentials: Credentials) -> None:
+    def _save_credentials(self, credentials: GoogleCredentials) -> None:
         """Persist refreshed credentials back to tokens file."""
         if not self.tokens_path:
             return
@@ -285,7 +297,7 @@ class GoogleAssistantService:
         except Exception as exc:  # pragma: no cover - IO error
             logger.warning("Failed to persist refreshed token: %s", exc)
 
-    def _get_credentials(self) -> Optional[Credentials]:
+    def _get_credentials(self) -> Optional[GoogleCredentials]:
         """Return cached credentials (refreshed if needed)."""
         if not GOOGLE_ASSISTANT_SDK_AVAILABLE:
             return None
@@ -310,13 +322,13 @@ class GoogleAssistantService:
 
         return creds
 
-    def _create_assistant_stub(self, credentials: Credentials):
+    def _create_assistant_stub(self, credentials: GoogleCredentials):
         """Create an authorized gRPC stub."""
-        if not secure_authorized_channel or not GoogleAuthRequest:
+        if not GoogleSecureChannel or not GoogleAuthRequest:
             return None, None
         if not self._http_request:
             self._http_request = GoogleAuthRequest()
-        channel = secure_authorized_channel(credentials, self._http_request, self._assistant_endpoint)
+        channel = GoogleSecureChannel(credentials, self._http_request, self._assistant_endpoint)
         stub = embedded_assistant_pb2_grpc.EmbeddedAssistantStub(channel)
         return stub, channel
 

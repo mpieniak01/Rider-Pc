@@ -4,7 +4,7 @@ import logging
 import base64
 import io
 import time
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
 from pc_client.providers.base import BaseProvider, TaskEnvelope, TaskResult, TaskType, TaskStatus
@@ -17,6 +17,11 @@ try:
 except ImportError:
     Image = ImageDraw = ImageFont = None  # type: ignore
     logger.warning("Pillow not installed; tracker overlay will be disabled")
+
+if TYPE_CHECKING:
+    from PIL.Image import Image as PillowImage
+else:
+    PillowImage = Any
 
 try:
     from ultralytics import YOLO
@@ -45,7 +50,7 @@ class VisionProvider(BaseProvider):
     detection results, bounding boxes, and enhanced obstacle information.
     """
 
-    def __init__(self, config: Dict[str, Any] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         """
         Initialize the vision provider.
 
@@ -297,7 +302,7 @@ class VisionProvider(BaseProvider):
 
     def _calculate_tracking_marker(
         self,
-        image: Image.Image,
+        image: PillowImage,
         tracking_state: Optional[Dict[str, Any]],
         detections: list[dict[str, Any]],
         frame_timestamp: Optional[float] = None,
@@ -468,7 +473,7 @@ class VisionProvider(BaseProvider):
         return payload
 
     def _update_tracker_snapshot(
-        self, image: Image.Image, detections: list[dict[str, Any]], tracking_marker: Optional[Dict[str, Any]] = None
+        self, image: PillowImage, detections: list[dict[str, Any]], tracking_marker: Optional[Dict[str, Any]] = None
     ) -> None:
         now = time.time()
         delta = now - self._tracker_last_frame_ts if self._tracker_last_frame_ts else 0.0
@@ -479,7 +484,7 @@ class VisionProvider(BaseProvider):
         self._tracker_ts = now
 
     def _render_tracker_overlay(
-        self, image: Image.Image, detections: list[dict[str, Any]], tracking_marker: Optional[Dict[str, Any]] = None
+        self, image: PillowImage, detections: list[dict[str, Any]], tracking_marker: Optional[Dict[str, Any]] = None
     ) -> bytes:
         canvas = image.convert("RGBA")
         draw = ImageDraw.Draw(canvas)
@@ -509,7 +514,7 @@ class VisionProvider(BaseProvider):
                 draw.text((10, 30), text, fill=color, font=font)
         return self._to_png_bytes(canvas)
 
-    def _to_png_bytes(self, image: Image.Image) -> bytes:
+    def _to_png_bytes(self, image: PillowImage) -> bytes:
         buffer = io.BytesIO()
         image.save(buffer, format="PNG")
         return buffer.getvalue()
@@ -539,7 +544,7 @@ class VisionProvider(BaseProvider):
         frame_id = task.payload.get("frame_id")
         timestamp = task.payload.get("timestamp")
         tracking_state = task.meta.get("tracking_state")
-        frame: Optional[Image.Image] = None
+        frame: Optional[PillowImage] = None
 
         if not frame_data:
             return TaskResult(task_id=task.task_id, status=TaskStatus.FAILED, error="Missing frame_data in payload")
@@ -677,9 +682,7 @@ class VisionProvider(BaseProvider):
         # Update metrics
         tasks_processed_total.labels(provider='VisionProvider', task_type='vision.frame', status='completed').inc()
 
-        fallback_image = frame
-        if fallback_image is None:
-            fallback_image = Image.new("RGBA", (640, 360), (20, 20, 30, 255))
+        fallback_image = frame or Image.new("RGBA", (640, 360), (20, 20, 30, 255))
         tracking_marker = self._calculate_tracking_marker(fallback_image, tracking_state, [], timestamp)
         self._update_tracker_snapshot(fallback_image, [], tracking_marker)
 

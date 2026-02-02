@@ -38,7 +38,7 @@ class VoiceProvider(BaseProvider):
     transcriptions or synthesized audio.
     """
 
-    def __init__(self, config: Dict[str, Any] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         """
         Initialize the voice provider.
 

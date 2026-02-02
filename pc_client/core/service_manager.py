@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import time
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Mapping, Optional, Union
 
 from pc_client.adapters.systemd_adapter import (
     SystemdAdapter,
@@ -217,10 +217,24 @@ class ServiceManager:
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
             services = []
-            for unit, details in zip(self._monitored_services, results):
-                if isinstance(details, Exception):
-                    logger.error("Failed to get details for %s: %s", unit, details)
-                    details = {"active": "unknown", "sub": "unknown", "enabled": "unknown", "desc": ""}
+            for unit, result in zip(self._monitored_services, results):
+                if isinstance(result, Exception):
+                    logger.error("Failed to get details for %s: %s", unit, result)
+                    details: Mapping[str, Any] = {
+                        "active": "unknown",
+                        "sub": "unknown",
+                        "enabled": "unknown",
+                        "desc": "",
+                    }
+                elif isinstance(result, dict):
+                    details = result
+                else:
+                    details = {
+                        "active": "unknown",
+                        "sub": "unknown",
+                        "enabled": "unknown",
+                        "desc": "",
+                    }
 
                 # Build service data structure
                 service_data = {

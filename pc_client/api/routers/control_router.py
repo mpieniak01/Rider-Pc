@@ -277,13 +277,16 @@ async def api_control_endpoint(request: Request, command: Dict[str, Any]) -> JSO
         status = str(forward_result.get("status", "")).lower()
         forward_ok = status == "ok"
 
-    queued_remote = forward_result.get("queued")
-    if not isinstance(queued_remote, int):
+    queued_remote_raw: Any = forward_result.get("queued")
+    queued_remote: Optional[int]
+    if isinstance(queued_remote_raw, int):
+        queued_remote = queued_remote_raw
+    else:
         try:
-            queued_remote = int(queued_remote)
+            queued_remote = int(queued_remote_raw)
         except (TypeError, ValueError):
             queued_remote = None
-    response_payload = {
+    response_payload: Dict[str, Any] = {
         "ok": forward_ok,
         "queued": queued_remote if isinstance(queued_remote, int) else len(request.app.state.motion_queue),
         "device_response": forward_result,

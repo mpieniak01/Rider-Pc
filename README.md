@@ -66,9 +66,19 @@ python -m pc_client.main
   - Voice offload mirrors the same flow: `ENABLE_VOICE_OFFLOAD=true` lets Rider-PC consume `voice.asr.request` / `voice.tts.request`, run Whisper/Piper (or mock), and publish `voice.asr.result` / `voice.tts.chunk` back to Rider-Pi for immediate playback.
   - Text/LLM integration exposes `/providers/text/generate` plus a capability handshake (`GET /providers/capabilities`) so Rider-PI knows which domains/versions Rider-PC supports before przełączeniem.
 
+### Tests & Maintenance
+- Activate the virtualenv before checks: `source .venv/bin/activate || true`.
+- Type check: `mypy` (expected: `Success: no issues found in 75 source files`).
+- Quick test run: `pytest -q`.
+
 ## Documentation
 
 📚 **[Full Documentation](docs/README.md)** - Complete documentation and guides
+
+### Localization & Translation Status
+- **English UI coverage**: all `/web/*.html` screens now rely on `web/assets/i18n.js` keys, the Polish strings have English fallbacks, and the chat/chat-pc/control/system scripts no longer declare duplicate helpers.
+- **Verification**: run `node scripts/check_i18n.mjs` to ensure every key includes an English value, and `pytest` (inside `.venv`) covers the back-end regressions tied to UI rendering.
+- **Notes**: run `?lang=en` against `view`, `control`, `navigation`, `system`, `models`, `project`, `assistant`, `chat`, `chat-pc`, `google_home`, `mode`, and `providers` to keep translations in sync.
 
 ### Quick Links
 

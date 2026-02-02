@@ -91,7 +91,7 @@ class GitAdapter:
         self._cache = {}
         self._cache_ts = 0
 
-    async def _run_command(self, *args: str) -> Tuple[int, str, str]:
+    async def _run_command(self, *args: str) -> Tuple[Optional[int], str, str]:
         """
         Run an async subprocess command.
 
@@ -116,6 +116,11 @@ class GitAdapter:
             logger.error("Failed to execute command %s: %s", " ".join(args), e)
             return -1, "", str(e)
 
+    @staticmethod
+    def _normalize_returncode(returncode: Optional[int]) -> int:
+        """Normalize return codes coming from subprocess (None -> -1)."""
+        return returncode if returncode is not None else -1
+
     async def _is_in_git_repo(self) -> bool:
         """
         Check if current directory is inside a git repository.
@@ -131,7 +136,8 @@ class GitAdapter:
             cmd = ["git", "-C", self._repo_path, "rev-parse", "--git-dir"]
 
         returncode, _, _ = await self._run_command(*cmd)
-        return returncode == 0
+        rc = self._normalize_returncode(returncode)
+        return rc == 0
 
     async def get_current_branch(self) -> str:
         """
@@ -148,8 +154,9 @@ class GitAdapter:
             cmd = ["git", "-C", self._repo_path, "rev-parse", "--abbrev-ref", "HEAD"]
 
         returncode, stdout, stderr = await self._run_command(*cmd)
+        rc = self._normalize_returncode(returncode)
 
-        if returncode != 0:
+        if rc != 0:
             logger.warning("Failed to get current branch: %s", stderr or stdout)
             return "unknown"
 
@@ -170,8 +177,9 @@ class GitAdapter:
             cmd = ["git", "-C", self._repo_path, "rev-parse", "--short", "HEAD"]
 
         returncode, stdout, stderr = await self._run_command(*cmd)
+        rc = self._normalize_returncode(returncode)
 
-        if returncode != 0:
+        if rc != 0:
             logger.warning("Failed to get current commit: %s", stderr or stdout)
             return "unknown"
 
@@ -192,8 +200,9 @@ class GitAdapter:
             cmd = ["git", "-C", self._repo_path, "status", "--porcelain"]
 
         returncode, stdout, _ = await self._run_command(*cmd)
+        rc = self._normalize_returncode(returncode)
 
-        if returncode != 0:
+        if rc != 0:
             return False
 
         # If there's any output, the repo is dirty
@@ -214,8 +223,9 @@ class GitAdapter:
             cmd = ["git", "-C", self._repo_path, "log", "-1", "--pretty=%B"]
 
         returncode, stdout, stderr = await self._run_command(*cmd)
+        rc = self._normalize_returncode(returncode)
 
-        if returncode != 0:
+        if rc != 0:
             logger.warning("Failed to get last commit message: %s", stderr or stdout)
             return ""
 
@@ -281,8 +291,9 @@ class GitAdapter:
             cmd = ["git", "-C", self._repo_path, "branch", "--format=%(refname:short)"]
 
         returncode, stdout, stderr = await self._run_command(*cmd)
+        rc = self._normalize_returncode(returncode)
 
-        if returncode != 0:
+        if rc != 0:
             logger.warning("Failed to get local branches: %s", stderr or stdout)
             return []
 
@@ -313,8 +324,9 @@ class GitAdapter:
             cmd = ["git", "-C", self._repo_path, "checkout", name.strip()]
 
         returncode, stdout, stderr = await self._run_command(*cmd)
+        rc = self._normalize_returncode(returncode)
 
-        if returncode != 0:
+        if rc != 0:
             error = stderr or stdout or "Nieznany błąd"
             logger.warning("Failed to checkout branch %s: %s", name, error)
             return False, error
@@ -350,8 +362,9 @@ class GitAdapter:
             cmd = ["git", "-C", self._repo_path, "checkout", "-b", name.strip(), base.strip()]
 
         returncode, stdout, stderr = await self._run_command(*cmd)
+        rc = self._normalize_returncode(returncode)
 
-        if returncode != 0:
+        if rc != 0:
             error = stderr or stdout or "Nieznany błąd"
             logger.warning("Failed to create branch %s: %s", name, error)
             return False, error
@@ -396,8 +409,9 @@ class GitAdapter:
             cmd = ["git", "-C", self._repo_path, "add", path.strip()]
 
         returncode, stdout, stderr = await self._run_command(*cmd)
+        rc = self._normalize_returncode(returncode)
 
-        if returncode != 0:
+        if rc != 0:
             error = stderr or stdout or "Nieznany błąd"
             logger.warning("Failed to add file %s: %s", path, error)
             return False, error
@@ -425,8 +439,9 @@ class GitAdapter:
             cmd = ["git", "-C", self._repo_path, "commit", "-m", message.strip()]
 
         returncode, stdout, stderr = await self._run_command(*cmd)
+        rc = self._normalize_returncode(returncode)
 
-        if returncode != 0:
+        if rc != 0:
             error = stderr or stdout or "Nieznany błąd"
             logger.warning("Failed to commit: %s", error)
             return False, error

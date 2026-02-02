@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Rider-PC: AI Command Center</title>
+  <title data-i18n="models.subtitle">Rider-PC: AI Command Center</title>
   <script src="/web/assets/theme-loader.js" defer></script>
   <link rel="stylesheet" href="/web/assets/dashboard-common.css">
   <link rel="stylesheet" href="/web/assets/themes/classic/theme.css" data-theme-skin="classic">
@@ -21,16 +21,16 @@
     <header class="page-header">
       <div class="page-header__titles">
         <h1 class="page-title">AI Command Center</h1>
-        <p class="page-subtitle text-secondary">Centralne zarządzanie mózgiem (PC) i robotem (Pi).</p>
+        <p class="page-subtitle text-secondary" data-i18n="models.subtitle">Centralne zarządzanie mózgiem (PC) i robotem (Pi).</p>
       </div>
       <div class="page-header__actions">
-        <div id="global-status" class="c-pill is-working">Inicjalizacja...</div>
+        <div id="global-status" class="c-pill is-working" data-i18n="models.loading">Inicjalizacja...</div>
       </div>
     </header>
 
     <section class="c-section pipeline-section section-pc">
       <div class="section-header-flex">
-         <h2 class="section-title">🖥️ Rider-PC Pipeline (Mózg)</h2>
+         <h2 class="section-title" data-i18n="models.pc_pipeline">🖥️ Rider-PC Pipeline (Mózg)</h2>
       </div>
       
       <div class="l-grid l-grid--3-cols">
@@ -41,7 +41,7 @@
           </div>
           <div class="pipeline-card-body">
              <div class="active-status-bar">
-                <span class="label">Aktywny:</span> <strong class="value status-value">Ładowanie...</strong>
+                <span class="label">Aktywny:</span> <strong class="value status-value" data-i18n="models.loading">Ładowanie...</strong>
              </div>
              
              <div class="control-group u-mt-md">
@@ -54,10 +54,10 @@
              <div class="control-group">
                <label class="c-label-sm">Model</label>
                <select class="c-select model-select">
-                 <option>Ładowanie danych...</option>
+                 <option data-i18n="models.loading">Ładowanie danych...</option>
                </select>
              </div>
-             <button class="c-btn c-btn--primary c-btn-sm save-btn">Zapisz konfigurację PC</button>
+             <button class="c-btn c-btn--primary c-btn-sm save-btn" data-i18n="models.save_pc">Zapisz konfigurację PC</button>
           </div>
         </div>
 
@@ -67,7 +67,7 @@
           </div>
           <div class="pipeline-card-body">
              <div class="active-status-bar">
-                <span class="label">Aktywny:</span> <strong class="value status-value">Ładowanie...</strong>
+                <span class="label">Aktywny:</span> <strong class="value status-value" data-i18n="models.loading">Ładowanie...</strong>
              </div>
              <div class="control-group u-mt-md">
                <label class="c-label-sm">Źródło (Source)</label>
@@ -82,7 +82,7 @@
                  <option value="yolo-v8-m" selected>yolo-v8-m (Default)</option>
                </select>
              </div>
-             <button class="c-btn c-btn--primary c-btn-sm save-btn">Zapisz konfigurację PC</button>
+             <button class="c-btn c-btn--primary c-btn-sm save-btn" data-i18n="models.save_pc">Zapisz konfigurację PC</button>
           </div>
         </div>
 
@@ -92,7 +92,7 @@
           </div>
           <div class="pipeline-card-body">
              <div class="active-status-bar">
-                <span class="label">Aktywny:</span> <strong class="value status-value">Ładowanie...</strong>
+                <span class="label">Aktywny:</span> <strong class="value status-value" data-i18n="models.loading">Ładowanie...</strong>
              </div>
              <div class="control-group u-mt-md">
                <label class="c-label-sm">Źródło (Source)</label>
@@ -107,7 +107,7 @@
                  <option value="whisper-base">whisper-base (ASR)</option>
                </select>
              </div>
-             <button class="c-btn c-btn--primary c-btn-sm save-btn">Zapisz konfigurację PC</button>
+             <button class="c-btn c-btn--primary c-btn-sm save-btn" data-i18n="models.save_pc">Zapisz konfigurację PC</button>
           </div>
         </div>
 
@@ -117,7 +117,7 @@
     <section class="c-section pipeline-section section-pi u-mt-xl">
       <div class="section-header-flex">
           <h2 class="section-title">🤖 Rider-Pi Pipeline (Robot)</h2>
-          <div class="c-pill is-off" id="pi-connection-status">Pi Offline</div>
+          <div class="c-pill is-off" id="pi-connection-status" data-i18n="models.no_connection">Pi Offline</div>
       </div>
       
       <div class="l-grid l-grid--3-cols">
@@ -139,7 +139,7 @@
              <div class="control-group">
                <label class="c-label-sm">Model</label>
                <select class="c-select model-select" disabled>
-                 <option>Brak połączenia</option>
+                 <option data-i18n="models.no_connection">Brak połączenia</option>
                </select>
              </div>
              <button class="c-btn c-btn--primary c-btn-sm save-btn" disabled>Wyślij do Pi</button>
@@ -216,8 +216,13 @@
   </main>
   <footer class="layout-footer" data-dashboard-footer-target></footer>
 
+<script type="module">
+  import { initI18nPage } from '/web/assets/i18n-loader.js';
+  await initI18nPage({ titleKey: 'models.subtitle' });
+</script>
 <script>
 // --- 1. ZARZĄDZANIE STANEM APLIKACJI ---
+const t = window.__i18n_t || ((key, params) => key);
 // Przechowujemy tu dane pobrane z API, aby nie pytać o nie przy każdej zmianie selecta.
 const AppState = {
     pc: {
@@ -291,7 +296,7 @@ function setupEventListeners() {
 
 // --- 3. GŁÓWNA PĘTLA ŁADOWANIA DANYCH (Concurrent Fetch) ---
 async function loadAllData() {
-    updateGlobalStatus('working', 'Synchronizacja systemów...');
+    updateGlobalStatus('working', t('models.sync_systems'));
     
     try {
         // Wykonujemy wszystkie zapytania równolegle dla szybkości.
@@ -356,7 +361,7 @@ async function loadAllData() {
 
     } catch (err) {
         console.error("Critical Init Error:", err);
-        updateGlobalStatus('err', 'Błąd inicjalizacji API');
+        updateGlobalStatus('err', t('models.api_init_error'));
     }
 }
 
@@ -598,7 +603,7 @@ function updatePiCardsState(isOnline) {
         // Odśwież listę modeli (bo mogła być pusta jak był offline)
         populateModelSelect(piCard, 'local');
     } else {
-        modelSel.innerHTML = '<option>Brak połączenia</option>';
+        modelSel.innerHTML = `<option>${t('models.no_connection')}</option>`;
         statusVal.textContent = "Offline";
     }
 }
@@ -637,13 +642,13 @@ function updateGlobalStatus(state, text) {
 }
 
 function updatePiConnectionStatus(isOnline) {
-    DOM.piConnectionStatus.textContent = isOnline ? "Pi Połączony" : "Pi Offline";
+    DOM.piConnectionStatus.textContent = isOnline ? t('models.pi_connected') : t('models.no_connection');
     DOM.piConnectionStatus.className = isOnline ? "c-pill is-success" : "c-pill is-off";
 }
 
 // Wrapper do ręcznego odświeżania tylko Pi
 async function loadPiDataOnly() {
-    updateGlobalStatus('working', 'Odświeżanie Pi...');
+    updateGlobalStatus('working', t('models.refreshing_pi'));
     try {
         const res = await fetch('/api/proxy/pi/status');
         if(res.ok) {

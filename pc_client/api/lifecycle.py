@@ -404,7 +404,7 @@ async def sync_data_periodically(app: FastAPI):
 
             cache_data: Dict[str, Any] = {}
             for result in results:
-                if isinstance(result, Exception):  # pragma: no cover - defensive
+                if isinstance(result, BaseException):  # pragma: no cover - defensive
                     logger.debug("Background sync task raised: %s", result)
                     continue
                 cache_key, payload, err = result
@@ -490,7 +490,7 @@ async def start_provider_heartbeat(app: FastAPI):
     capabilities = get_provider_capabilities(settings)
     normalized = base_url.rstrip("/")
 
-    async def _heartbeat_loop():
+    async def _heartbeat_loop() -> None:
         while True:
             adapter: Optional[RestAdapter] = app.state.rest_adapter
             if not adapter:

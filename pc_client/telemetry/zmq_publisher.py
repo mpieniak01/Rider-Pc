@@ -123,11 +123,12 @@ class ZMQTelemetryPublisher:
         """Publish tracking offset updates to Rider-PI."""
         import time as _time
 
-        if payload.get("offset") is None:
+        offset_value = payload.get("offset")
+        if offset_value is None:
             return
 
         data = {
-            "offset_x": float(payload.get("offset")),
+            "offset_x": float(offset_value),
             "mode": payload.get("mode", "none"),
             "confidence": payload.get("confidence"),
             "ts": payload.get("ts") or _time.time(),

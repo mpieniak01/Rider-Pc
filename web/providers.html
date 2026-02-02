@@ -8,7 +8,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Rider-PC: Provider Control</title>
+  <title data-i18n="provider.title">Rider-PC: Provider Control</title>
   <script src="/web/assets/theme-loader.js" defer></script>
   <link rel="stylesheet" href="/web/assets/dashboard-common.css">
   <link rel="stylesheet" href="/web/assets/themes/classic/theme.css" data-theme-skin="classic">
@@ -26,16 +26,16 @@
     <header class="page-header">
       <div class="page-header__titles">
         <h1 class="page-title">
-          <span class="brand-accent">Rider-PC</span>: <span class="page-title-text">Provider Control</span>
+          <span class="brand-accent">Rider-PC</span>: <span class="page-title-text" data-i18n="provider.title">Provider Control</span>
         </h1>
       </div>
     </header>
     <section class="surface">
-      <h2 class="c-card__title">Panel Providers został scalony</h2>
+      <h2 class="c-card__title" data-i18n="providers_ui.merged_title">Panel Providers został scalony</h2>
       <p class="c-note">
-        Zarządzanie providerami i trybami AI znajduje się teraz w ekranie
+        <span data-i18n="providers_ui.merged_desc">Zarządzanie providerami i trybami AI znajduje się teraz w ekranie Sterowanie (/control).</span>
         <a href="/control">Sterowanie (/control)</a> razem z pozostałymi funkcjami.
-        Nastąpi automatyczne przekierowanie w ciągu chwili.
+        <span data-i18n="providers_ui.redirect_note">Nastąpi automatyczne przekierowanie w ciągu chwili.</span>
       </p>
     </section>
   </main>
@@ -43,6 +43,10 @@
   <!-- Footer -->
   <footer class="layout-footer" data-dashboard-footer-target></footer>
 
+  <script type="module">
+    import { initI18nPage } from '/web/assets/i18n-loader.js';
+    await initI18nPage({ titleKey: 'provider.title' });
+  </script>
   <script type="module" src="/web/assets/menu.js"></script>
   <script type="module" src="/web/assets/footer.js"></script>
   <script>

@@ -1,18 +1,33 @@
 """End-to-end integration test for task offload."""
 
-import pytest
 import asyncio
+import os
+
+import pytest
+
 from pc_client.providers import VoiceProvider, VisionProvider, TextProvider
 from pc_client.providers.base import TaskEnvelope, TaskType, TaskStatus
 from pc_client.queue import TaskQueue
 from pc_client.queue.task_queue import TaskQueueWorker
 
 
+def _e2e_enabled() -> bool:
+    """Return True when hardware-dependent E2E provider tests should run."""
+    flag = os.getenv("RIDER_ENABLE_PROVIDER_E2E", "")
+    return flag.lower() in {"1", "true", "yes", "on"}
+
+
+pytestmark = pytest.mark.skipif(
+    not _e2e_enabled(),
+    reason="Provider E2E tests require aktywne Rider-Pi/offload stack; set RIDER_ENABLE_PROVIDER_E2E=1 to run.",
+)
+
+
 @pytest.mark.asyncio
 async def test_end_to_end_voice_offload():
     """Test end-to-end voice task offload from queue to provider."""
     # Initialize provider
-    voice_provider = VoiceProvider()
+    voice_provider = VoiceProvider(config={"use_mock": True})
     await voice_provider.initialize()
 
     # Create task queue
@@ -143,7 +158,7 @@ async def test_end_to_end_text_offload():
 async def test_end_to_end_priority_queue():
     """Test end-to-end with priority queue handling."""
     # Initialize all providers
-    voice_provider = VoiceProvider()
+    voice_provider = VoiceProvider(config={"use_mock": True})
     vision_provider = VisionProvider()
     text_provider = TextProvider()
 

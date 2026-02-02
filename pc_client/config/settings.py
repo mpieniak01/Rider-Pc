@@ -1,10 +1,12 @@
 """Settings and configuration for the PC client."""
 
+import importlib
+import importlib.util
 import logging
 import os
 import stat
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional, cast
 from dataclasses import dataclass, field
 
 _settings_logger = logging.getLogger(__name__)
@@ -23,7 +25,7 @@ def _load_ai_credentials() -> dict:
         Dictionary with API keys (GEMINI_API_KEY, OPENAI_API_KEY).
         Empty dict if file doesn't exist or has incorrect permissions.
     """
-    credentials = {}
+    credentials: Dict[str, Any] = {}
 
     if not AI_CREDENTIALS_PATH.exists():
         return credentials
@@ -37,18 +39,18 @@ def _load_ai_credentials() -> dict:
         )
         # Still load but warn - allows graceful migration
 
-    try:
-        import tomllib
-    except ImportError:
-        try:
-            import tomli as tomllib
-        except ImportError:
-            _settings_logger.debug("tomllib/tomli not available, skipping ai_credentials.toml")
-            return credentials
+    toml_module = None
+    if importlib.util.find_spec("tomllib"):
+        toml_module = importlib.import_module("tomllib")
+    elif importlib.util.find_spec("tomli"):
+        toml_module = importlib.import_module("tomli")
+    if toml_module is None:
+        _settings_logger.debug("tomllib/tomli not available, skipping ai_credentials.toml")
+        return credentials
 
     try:
         with open(AI_CREDENTIALS_PATH, "rb") as f:
-            credentials = tomllib.load(f)
+            credentials = toml_module.load(f)  # type: ignore[assignment]
         _settings_logger.debug("Loaded AI credentials from %s", AI_CREDENTIALS_PATH)
     except Exception as e:
         _settings_logger.warning("Failed to load ai_credentials.toml: %s", e)
@@ -183,7 +185,10 @@ class Settings:
     enable_telemetry: bool = field(default_factory=lambda: os.getenv("ENABLE_TELEMETRY", "false").lower() == "true")
     telemetry_zmq_port: int = field(default_factory=lambda: int(os.getenv("TELEMETRY_ZMQ_PORT", "5557")))
     telemetry_zmq_host: str = field(
-        default_factory=lambda: os.getenv("TELEMETRY_ZMQ_HOST") or os.getenv("RIDER_PI_HOST", "localhost")
+        default_factory=lambda: cast(
+            str,
+            os.getenv("TELEMETRY_ZMQ_HOST") or os.getenv("RIDER_PI_HOST", "localhost"),
+        )
     )
 
     # Network security configuration

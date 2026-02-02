@@ -59,7 +59,7 @@ class TextProvider(BaseProvider):
     - "auto": Try backends in order (local -> gemini -> chatgpt)
     """
 
-    def __init__(self, config: Dict[str, Any] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         """
         Initialize the text provider.
 
@@ -131,8 +131,9 @@ class TextProvider(BaseProvider):
                         "[provider] Checking Ollama connection at %s ...",
                         self.ollama_host,
                     )
-                    self.ollama_client = client_cls(host=self.ollama_host)
-                    self.ollama_client.list()
+                    client = client_cls(host=self.ollama_host)
+                    self.ollama_client = client
+                    client.list()
                 else:
                     # Fallback to module-level API (set env for custom host)
                     if self.ollama_host:
@@ -622,7 +623,7 @@ class TextProvider(BaseProvider):
         # sentiment = self.llm.analyze_sentiment(text)
 
         # Mock implementation
-        result_data = {}
+        result_data: Dict[str, Any] = {}
 
         if "intent" in nlu_tasks:
             result_data["intent"] = {"name": "navigate", "confidence": 0.89}

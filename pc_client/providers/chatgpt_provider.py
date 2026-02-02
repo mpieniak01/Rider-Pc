@@ -224,16 +224,13 @@ class ChatGPTProvider(ExternalLLMProvider):
         """Convert MCP tools to OpenAI function calling format."""
         openai_tools = []
         for tool in tools:
-            openai_tool = {
-                "type": "function",
-                "function": {
-                    "name": tool.get("name", ""),
-                    "description": tool.get("description", ""),
-                },
+            function_payload: Dict[str, Any] = {
+                "name": tool.get("name", ""),
+                "description": tool.get("description", ""),
             }
             if "parameters" in tool:
-                openai_tool["function"]["parameters"] = tool["parameters"]
-            openai_tools.append(openai_tool)
+                function_payload["parameters"] = tool["parameters"]
+            openai_tools.append({"type": "function", "function": function_payload})
         return openai_tools
 
     def _parse_response(self, data: Dict[str, Any], latency_ms: float) -> LLMResponse:

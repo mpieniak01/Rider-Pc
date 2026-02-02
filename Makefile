@@ -19,6 +19,9 @@ reload: stop start
 lint:
 	@$(PY) -m ruff check .
 
+typecheck:
+	@$(PY) -m mypy --config-file mypy.ini
+
 lint-css:
 	@npm run lint:css
 

@@ -48,7 +48,7 @@
     </header>
 
     <!-- Informacyjne statusy -->
-    <div class="c-status-msg is-info u-mb-lg">Przykładowa wiadomość statusowa (`home.html`).</div>
+    <div class="c-status-msg is-info u-mb-lg" data-i18n="template.sample_status">Przykładowa wiadomość statusowa (`home.html`).</div>
     <p class="status-line u-mb-xl">Baner statusu jak w `models.html`.</p>
 
     <!-- Location blocks (system.html) -->
@@ -249,15 +249,15 @@
     <!-- Log panel (system/control) -->
     <section class="log-panel surface u-mt-xl">
       <header class="log-header l-cluster">
-        <h2>Log Systemowy</h2>
+        <h2 data-i18n="template.log_title">Log Systemowy</h2>
         <div class="u-spacer"></div>
-        <button class="c-btn c-btn-sm">Wyczyść</button>
+        <button class="c-btn c-btn-sm" data-i18n="template.clear">Wyczyść</button>
       </header>
       <div class="log-terminal" aria-live="polite">
         <div class="log-entry log-info">
           <span class="log-timestamp">[12:00:00]</span>
           <span class="log-level">INFO</span>
-          Uruchomiono usługę.
+          <span data-i18n="template.service_started">Uruchomiono usługę.</span>
         </div>
       </div>
     </section>
@@ -269,18 +269,18 @@
           <h3>#1234 Refactor CSS</h3>
           <span class="c-pill is-warn">In Progress</span>
         </header>
-        <p class="muted">Opis zadania...</p>
+        <p class="muted" data-i18n="template.issue_desc">Opis zadania...</p>
       </article>
     </section>
 
     <!-- Services grid (system/control) -->
     <section class="location-block u-mt-xl">
-      <h2 class="location-title">Usługi</h2>
+      <h2 class="location-title" data-i18n="template.services_title">Usługi</h2>
       <div class="services-grid">
         <article class="service-node">
           <h3>svc-core</h3>
           <span class="status-pill status-running">Running</span>
-          <p class="desc">Opis usługi.</p>
+          <p class="desc" data-i18n="template.service_desc">Opis usługi.</p>
         </article>
       </div>
     </section>

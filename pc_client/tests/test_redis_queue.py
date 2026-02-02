@@ -1,8 +1,12 @@
 """Tests for Redis task queue."""
 
+import os
 import pytest
 from pc_client.queue.redis_queue import RedisTaskQueue, REDIS_AVAILABLE
 from pc_client.providers.base import TaskEnvelope, TaskType
+
+if os.getenv("RIDER_ENABLE_REDIS_TESTS", "").lower() not in {"1", "true", "yes", "on"}:
+    pytest.skip("Redis queue tests disabled (set RIDER_ENABLE_REDIS_TESTS=1 to run)", allow_module_level=True)
 
 
 @pytest.mark.skipif(not REDIS_AVAILABLE, reason="Redis not installed")

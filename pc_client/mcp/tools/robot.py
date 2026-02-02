@@ -4,13 +4,36 @@ Narzędzia do zarządzania robotem: status, ruch.
 """
 
 import threading
-from typing import Literal
+from typing import Literal, TypedDict
 
 from pc_client.mcp.registry import mcp_tool
 
 
 # Thread-safe symulowany stan robota (w rzeczywistości pobierany z Rider-PI)
-_robot_state = {
+class RobotPosition(TypedDict):
+    x: float
+    y: float
+    theta: float
+
+
+class RobotState(TypedDict):
+    connected: bool
+    battery: int
+    mode: str
+    position: RobotPosition
+
+
+RobotStatusResponse = RobotState
+
+
+class RobotCommandResponse(TypedDict):
+    executed: bool
+    command: str
+    speed: float
+    mode: str
+
+
+_robot_state: RobotState = {
     "connected": True,
     "battery": 85,
     "mode": "idle",
@@ -25,22 +48,28 @@ _robot_state_lock = threading.Lock()
     args_schema={"type": "object", "properties": {}, "required": []},
     permissions=["low"],
 )
-def get_robot_status() -> dict:
+def get_robot_status() -> RobotStatusResponse:
     """Zwróć status robota.
 
     Returns:
         Słownik z informacjami o stanie robota.
     """
     with _robot_state_lock:
-        return {
+        position_snapshot: RobotPosition = {
+            "x": _robot_state["position"]["x"],
+            "y": _robot_state["position"]["y"],
+            "theta": _robot_state["position"]["theta"],
+        }
+        status: RobotStatusResponse = {
             "connected": _robot_state["connected"],
             "battery": _robot_state["battery"],
             "mode": _robot_state["mode"],
-            "position": _robot_state["position"].copy(),
+            "position": position_snapshot,
         }
+        return status
 
 
-VALID_COMMANDS = ["forward", "backward", "left", "right", "stop"]
+VALID_COMMANDS: list[str] = ["forward", "backward", "left", "right", "stop"]
 
 
 @mcp_tool(
@@ -68,7 +97,7 @@ VALID_COMMANDS = ["forward", "backward", "left", "right", "stop"]
 def robot_move(
     command: Literal["forward", "backward", "left", "right", "stop"],
     speed: float = 50.0,
-) -> dict:
+) -> RobotCommandResponse:
     """Wykonaj komendę ruchu robota.
 
     Args:
@@ -90,11 +119,12 @@ def robot_move(
     # Symulacja wykonania komendy z thread-safe aktualizacją stanu
     with _robot_state_lock:
         _robot_state["mode"] = "moving" if command != "stop" else "idle"
-        current_mode = _robot_state["mode"]
+        current_mode: str = _robot_state["mode"]
 
-    return {
+    result: RobotCommandResponse = {
         "executed": True,
         "command": command,
         "speed": speed,
         "mode": current_mode,
     }
+    return result

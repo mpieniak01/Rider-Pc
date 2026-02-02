@@ -72,7 +72,7 @@ def normalize_url(source_url: str) -> str | None:
     return None
 
 
-def collect():
+def collect() -> tuple[dict[str, dict[str, int]], list[str]]:
     stats: dict[str, dict[str, int]] = {}
     failed: list[str] = []
     with sync_playwright() as p:
@@ -104,7 +104,7 @@ def collect():
     return stats, failed
 
 
-def main():
+def main() -> None:
     stats, failed = collect()
     rows = []
     for rel, data in sorted(stats.items()):

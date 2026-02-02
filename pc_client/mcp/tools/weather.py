@@ -7,14 +7,40 @@ Wymaga klucza API w zmiennej środowiskowej OPENWEATHER_API_KEY.
 import logging
 import threading
 import time
-from typing import Optional
+from typing import NotRequired, Optional, Required, TypedDict
 
 from pc_client.mcp.registry import mcp_tool
 
 logger = logging.getLogger(__name__)
 
+
 # Thread-safe cache dla prognozy pogody
-_weather_cache: dict = {
+class WeatherData(TypedDict, total=False):
+    location: Required[str]
+    description: Required[str]
+    source: Required[str]
+    temperature: NotRequired[Optional[float]]
+    feels_like: NotRequired[Optional[float]]
+    humidity: NotRequired[Optional[int]]
+    wind_speed: NotRequired[Optional[float]]
+    pressure: NotRequired[Optional[int]]
+    clouds: NotRequired[Optional[int]]
+    visibility: NotRequired[Optional[int]]
+    api_error: NotRequired[str]
+
+
+class WeatherSummary(WeatherData, total=False):
+    cached: bool
+    cache_age_seconds: int
+
+
+class WeatherCacheEntry(TypedDict):
+    data: Optional[WeatherData]
+    timestamp: float
+    location: Optional[str]
+
+
+_weather_cache: WeatherCacheEntry = {
     "data": None,
     "timestamp": 0,
     "location": None,
@@ -29,7 +55,7 @@ def _get_settings():
     return settings
 
 
-def _get_mock_weather(location: str) -> dict:
+def _get_mock_weather(location: str) -> WeatherData:
     """Zwróć mock danych pogodowych (dla trybu bez API)."""
     return {
         "location": location,
@@ -43,7 +69,7 @@ def _get_mock_weather(location: str) -> dict:
     }
 
 
-def _fetch_openweather_data(api_key: str, location: str) -> dict:
+def _fetch_openweather_data(api_key: str, location: str) -> WeatherData:
     """Pobierz dane pogodowe z OpenWeather API.
 
     Args:
@@ -123,7 +149,7 @@ def _fetch_openweather_data(api_key: str, location: str) -> dict:
 def get_weather_summary(
     location: Optional[str] = None,
     use_cache: bool = True,
-) -> dict:
+) -> WeatherSummary:
     """Pobierz krótką prognozę pogody.
 
     Args:
@@ -146,15 +172,17 @@ def get_weather_summary(
         location = settings.weather_default_location
 
     with _weather_cache_lock:
+        cached_data = _weather_cache["data"]
         # Sprawdź cache
-        if use_cache and _weather_cache["data"] and _weather_cache["location"] == location:
+        if use_cache and cached_data and _weather_cache["location"] == location:
             cache_age = current_time - _weather_cache["timestamp"]
             if cache_age < cache_ttl:
-                return {
-                    **_weather_cache["data"],
+                cached_result: WeatherSummary = {
+                    **cached_data,
                     "cached": True,
                     "cache_age_seconds": int(cache_age),
                 }
+                return cached_result
 
         # Sprawdź czy mamy klucz API
         api_key = settings.openweather_api_key
@@ -176,8 +204,9 @@ def get_weather_summary(
         _weather_cache["timestamp"] = current_time
         _weather_cache["location"] = location
 
-        return {
+        summary: WeatherSummary = {
             **weather_data,
             "cached": False,
             "cache_age_seconds": 0,
         }
+        return summary

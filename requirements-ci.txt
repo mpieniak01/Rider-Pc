@@ -1,8 +1,11 @@
 # CI/CD Requirements - Lightweight for GitHub Actions
 # Excludes heavy ML models to speed up CI pipeline
 
+# Tooling
+pip==26.0
+
 # Web Framework
-fastapi==0.111.0
+fastapi==0.115.5
 uvicorn==0.29.0
 
 # HTTP Client
@@ -39,6 +42,7 @@ pytest==8.4.2
 pytest-asyncio==0.24.0
 pytest-timeout==2.4.0
 playwright==1.48.0
+mypy==1.19.1
 ruff==0.6.9
 
 # Note: Heavy ML models are excluded for CI:

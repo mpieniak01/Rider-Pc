@@ -3,7 +3,7 @@
 import logging
 import time
 import uuid
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Any, Dict, Optional, TYPE_CHECKING, cast
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -230,24 +230,29 @@ async def update_provider(request: Request, domain: str, payload: Dict[str, Any]
             content={"error": "Invalid target. Must be 'local' or 'pc'."},
         )
     if adapter:
-        forwarded_payload = {"target": target}
+        forwarded_payload: Dict[str, Any] = {"target": target}
         if "force" in payload:
             forwarded_payload["force"] = bool(payload.get("force"))
         result = await adapter.patch_provider(domain, forwarded_payload)
         if isinstance(result, dict) and "error" not in result:
-            cached_state = cache.get("providers_state", _default_provider_state())
-            domains = cached_state.get("domains") if isinstance(cached_state, dict) else None
+            cached_state_raw = cache.get("providers_state", _default_provider_state())
+            cached_state_snapshot: Dict[str, Any] = (
+                cached_state_raw if isinstance(cached_state_raw, dict) else _default_provider_state()
+            )
+            domains_raw = cached_state_snapshot.get("domains")
+            domains = cast(Dict[str, Dict[str, Any]], domains_raw) if isinstance(domains_raw, dict) else None
             if isinstance(domains, dict) and domain in domains:
                 domains[domain]["mode"] = target
                 domains[domain]["status"] = "pc_active" if target == "pc" else "local_only"
                 domains[domain]["changed_ts"] = time.time()
-                cache.set("providers_state", cached_state)
+                cache.set("providers_state", cached_state_snapshot)
             return JSONResponse(content=result)
         logger.error("Failed to patch provider via Rider-PI: %s", result)
         return JSONResponse(content=result or {"error": "Failed to update provider"}, status_code=502)
 
-    cached_state = cache.get("providers_state", _default_provider_state())
-    domains = cached_state.setdefault("domains", {})
+    cached_state_raw = cache.get("providers_state", _default_provider_state())
+    cached_state: Dict[str, Any] = cached_state_raw if isinstance(cached_state_raw, dict) else _default_provider_state()
+    domains = cast(Dict[str, Dict[str, Any]], cached_state.setdefault("domains", {}))
     domain_entry = domains.get(domain, {"mode": "local", "status": "local_only", "changed_ts": None})
     domain_entry["mode"] = target
     domain_entry["status"] = "pc_active" if target == "pc" else "local_only"
