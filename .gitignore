@@ -77,3 +77,6 @@ models/
 *.onnx
 *.pb
 *.tflite
+
+# local note (do not commit)
+/docs_pl/_done/201_migracja_styli_riderpc_do_riderpi.md
