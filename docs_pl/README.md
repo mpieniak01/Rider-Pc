@@ -65,6 +65,11 @@ Pełna instrukcja: [SZYBKI_START.md](SZYBKI_START.md)
 ### Zarządzanie
 - **[ZARZADZANIE_USLUGAMI_I_ZASOBAMI.md](ZARZADZANIE_USLUGAMI_I_ZASOBAMI.md)** - Operacje, monitoring, troubleshooting
 
+### Lokalizacja i Tłumaczenia
+- **Ekrany po angielsku**: Każdy widok `/web/*.html` korzysta z `data-i18n` oraz `web/assets/i18n.js`, więc `/view`, `/control`, `/navigation`, `/system`, `/models`, `/project`, `/assistant`, `/chat`, `/chat-pc`, `/google_home`, `/mode` i `/providers` działają poprawnie po ustawieniu `?lang=en`.
+- **Kontrola słownika**: Skrypt `scripts/check_i18n.mjs` analizuje `web/assets/i18n.js` i raportuje brakujące wpisy `en`.
+- **Testy**: Aktywuj środowisko `.venv` (`source .venv/bin/activate`) i uruchom `pytest`, aby zweryfikować, że Playwright i backend znoszą zmiany z tłumaczeniami.
+
 ### Specyfikacje API
 - **[api-specs/](api-specs/)** - Szczegółowe specyfikacje endpointów REST
   - [api-specs/README.md](api-specs/README.md) - Przegląd API

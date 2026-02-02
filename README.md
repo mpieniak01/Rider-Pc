@@ -70,6 +70,11 @@ python -m pc_client.main
 
 📚 **[Full Documentation](docs/README.md)** - Complete documentation and guides
 
+### Localization & Translation Status
+- **English UI coverage**: all `/web/*.html` screens now rely on `web/assets/i18n.js` keys, the Polish strings have English fallbacks, and the chat/chat-pc/control/system scripts no longer declare duplicate helpers.
+- **Verification**: run `node scripts/check_i18n.mjs` to ensure every key includes an English value, and `pytest` (inside `.venv`) covers the back-end regressions tied to UI rendering.
+- **Notes**: run `?lang=en` against `view`, `control`, `navigation`, `system`, `models`, `project`, `assistant`, `chat`, `chat-pc`, `google_home`, `mode`, and `providers` to keep translations in sync.
+
 ### Quick Links
 
 - **[Quick Start Guide](docs/QUICKSTART.md)** - Get started quickly

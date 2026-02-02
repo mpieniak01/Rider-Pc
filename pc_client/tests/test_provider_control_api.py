@@ -1,8 +1,10 @@
 """Tests for provider control API endpoints."""
 
+import os
 import pytest
 import tempfile
 from pathlib import Path
+from contextlib import asynccontextmanager
 from fastapi.testclient import TestClient
 from pc_client.api.server import create_app
 from pc_client.cache import CacheManager
@@ -11,31 +13,63 @@ from pc_client.providers.base import TaskResult, TaskStatus, TaskEnvelope, TaskT
 from pc_client.providers.text_provider import TextProvider
 
 
+_RUN_API_TESTS = os.getenv("RIDER_ENABLE_API_TESTS", "").lower() in {"1", "true", "yes", "on"}
+
+
+def _test_settings(**overrides):
+    """Helper returning Settings tuned for offline/unit tests."""
+    base = dict(
+        disable_rider_pi_adapter=True,
+        test_mode=True,
+        enable_providers=False,
+        enable_task_queue=False,
+        auto_heal_enabled=False,
+    )
+    base.update(overrides)
+    return Settings(**base)
+
+
 @pytest.fixture
 def test_client():
-    """Create a test client with temporary cache."""
+    """Create a FastAPI TestClient with temporary cache in offline mode."""
+    if not _RUN_API_TESTS:
+        pytest.skip("API provider tests require RIDER_ENABLE_API_TESTS=1")
     with tempfile.TemporaryDirectory() as tmpdir:
         db_path = Path(tmpdir) / "test_cache.db"
-        settings = Settings()
+        settings = _test_settings()
         cache = CacheManager(db_path=str(db_path))
         app = create_app(settings, cache)
+        app.router.on_startup.clear()
+        app.router.on_shutdown.clear()
 
-        # Bypass startup event for testing
-        app.state.rest_adapter = None
-        app.state.zmq_subscriber = None
+        @asynccontextmanager
+        async def _lifespan(_app):
+            yield
 
-        client = TestClient(app)
-        yield client, cache
+        app.router.lifespan_context = _lifespan
+
+        with TestClient(app) as client:
+            yield client, cache
 
 
 @pytest.fixture
 def text_client():
     """Client with mock text provider available."""
+    if not _RUN_API_TESTS:
+        pytest.skip("API provider tests require RIDER_ENABLE_API_TESTS=1")
     with tempfile.TemporaryDirectory() as tmpdir:
         db_path = Path(tmpdir) / "test_cache.db"
-        settings = Settings(enable_text_offload=True)
+        settings = _test_settings(enable_text_offload=True)
         cache = CacheManager(db_path=str(db_path))
         app = create_app(settings, cache)
+        app.router.on_startup.clear()
+        app.router.on_shutdown.clear()
+
+        @asynccontextmanager
+        async def _lifespan(_app):
+            yield
+
+        app.router.lifespan_context = _lifespan
 
         class DummyTextProvider(TextProvider):
             def __init__(self):
@@ -59,8 +93,8 @@ def text_client():
                 )
 
         app.state.text_provider = DummyTextProvider()
-        client = TestClient(app)
-        yield client
+        with TestClient(app) as client:
+            yield client
 
 
 def test_providers_state_endpoint(test_client):

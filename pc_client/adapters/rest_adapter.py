@@ -38,7 +38,7 @@ class RestAdapter:
         self.timeout = timeout
 
         # Initialize httpx client based on secure mode
-        client_kwargs = {"timeout": timeout}
+        client_kwargs: Dict[str, Any] = {"timeout": timeout}
 
         if secure_mode:
             if mtls_cert_path and mtls_key_path and mtls_ca_path:

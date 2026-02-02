@@ -65,6 +65,11 @@ Full instructions: [QUICKSTART.md](QUICKSTART.md)
 ### Management
 - **[SERVICE_AND_RESOURCE_MANAGEMENT.md](SERVICE_AND_RESOURCE_MANAGEMENT.md)** - Operations, monitoring, troubleshooting
 
+### Localization & Translation
+- **Screens in English**: Every `/web/*.html` view now uses `data-i18n` bindings and the shared dictionary (`web/assets/i18n.js`), so the `/view`, `/control`, `/navigation`, `/system`, `/models`, `/project`, `/assistant`, `/chat`, `/chat-pc`, `/google_home`, `/mode`, and `/providers` pages display correctly when `?lang=en`.
+- **Dictionary guard**: `scripts/check_i18n.mjs` parses the JS dictionary at runtime and fails if any key lacks an English entry.
+- **Validation**: Activating `.venv` (`source .venv/bin/activate`) and running `pytest` ensures the Playwright UIs and related back-end APIs remain stable after these translation updates.
+
 ### API Specifications
 - **[api-specs/](api-specs/)** - Detailed REST endpoint specifications
   - [api-specs/README.md](api-specs/README.md) - API overview

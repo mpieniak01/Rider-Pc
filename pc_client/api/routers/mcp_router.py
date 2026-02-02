@@ -211,7 +211,7 @@ def _read_last_lines(file_path: str, num_lines: int, max_line_length: int = 1024
     """
     import os
 
-    lines = []
+    lines: list[str] = []
     file_size = os.path.getsize(file_path)
 
     if file_size == 0:

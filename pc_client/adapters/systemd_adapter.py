@@ -56,7 +56,7 @@ class SystemdAdapter:
         """Return whether systemd is available on this system."""
         return self._available
 
-    async def _run_command(self, *args: str, check: bool = False) -> Tuple[int, str, str]:
+    async def _run_command(self, *args: str, check: bool = False) -> Tuple[Optional[int], str, str]:
         """
         Run an async subprocess command.
 
@@ -90,6 +90,11 @@ class SystemdAdapter:
             logger.error("Failed to execute command %s: %s", " ".join(args), e)
             return -1, "", str(e)
 
+    @staticmethod
+    def _normalize_returncode(returncode: Optional[int]) -> int:
+        """Normalize subprocess return codes (None -> -1)."""
+        return returncode if returncode is not None else -1
+
     async def get_unit_status(self, unit: str) -> str:
         """
         Get the active status of a systemd unit.
@@ -105,6 +110,7 @@ class SystemdAdapter:
 
         # systemctl is-active doesn't require sudo
         returncode, stdout, _ = await self._run_command("systemctl", "is-active", unit)
+        sanitized_rc = self._normalize_returncode(returncode)
 
         # Normalize output - prioritize stdout content when valid
         status = stdout.lower().strip()
@@ -116,10 +122,10 @@ class SystemdAdapter:
 
         # If stdout didn't give a valid status, interpret return codes
         # Return code 4 means no such unit
-        if returncode == 4:
+        if sanitized_rc == 4:
             return "unknown"
         # Return code 3 typically means inactive/dead when stdout is empty
-        if returncode == 3:
+        if sanitized_rc == 3:
             return "inactive"
 
         return status or "unknown"
@@ -152,7 +158,9 @@ class SystemdAdapter:
             "--no-pager",
         )
 
-        if returncode != 0:
+        sanitized_rc = self._normalize_returncode(returncode)
+
+        if sanitized_rc != 0:
             logger.warning("Failed to get unit details for %s: %s", unit, stderr)
             return {
                 "active": "unknown",
@@ -216,9 +224,10 @@ class SystemdAdapter:
         cmd = ["sudo", "systemctl", action, unit] if self._use_sudo else ["systemctl", action, unit]
 
         returncode, stdout, stderr = await self._run_command(*cmd)
+        sanitized_rc = self._normalize_returncode(returncode)
 
-        if returncode != 0:
-            error_msg = stderr or stdout or f"systemctl {action} {unit} failed with return code {returncode}"
+        if sanitized_rc != 0:
+            error_msg = stderr or stdout or f"systemctl {action} {unit} failed with return code {sanitized_rc}"
             # Check for common permission errors
             if "permission denied" in error_msg.lower() or "authentication required" in error_msg.lower():
                 error_msg = (

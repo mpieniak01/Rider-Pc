@@ -171,7 +171,7 @@ class GitHubAdapter:
         try:
             client = await self._get_client()
             url = f"{self.BASE_URL}/repos/{self._owner}/{self._repo}/issues"
-            params = {
+            params: Dict[str, str | int] = {
                 "state": "open",
                 "per_page": min(max(1, limit), 100),
                 "sort": "updated",

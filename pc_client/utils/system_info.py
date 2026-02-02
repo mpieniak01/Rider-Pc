@@ -7,7 +7,7 @@ import platform
 import shutil
 import subprocess
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional, TypeVar, cast
 
 try:
     import psutil  # type: ignore
@@ -15,7 +15,10 @@ except Exception:  # pragma: no cover - optional dependency
     psutil = None  # type: ignore
 
 
-def _safe_call(fn, default=None):
+T = TypeVar("T")
+
+
+def _safe_call(fn: Callable[[], T], default: T) -> T:
     try:
         return fn()
     except Exception:
@@ -66,7 +69,7 @@ def _collect_os_release_meta() -> Dict[str, str]:
     meta: Dict[str, str] = {}
     freedesktop = getattr(platform, "freedesktop_os_release", None)
     if callable(freedesktop):
-        fd_data = _safe_call(freedesktop)
+        fd_data: Dict[str, str] = _safe_call(freedesktop, {})
         if fd_data:
             meta.update(fd_data)
 
@@ -74,15 +77,17 @@ def _collect_os_release_meta() -> Dict[str, str]:
     if os_release_data:
         meta.update(os_release_data)
 
-    lsb_desc = _safe_call(lambda: subprocess.check_output(["lsb_release", "-ds"], text=True).strip().strip('"'))
+    raw_lsb_desc = _safe_call(lambda: subprocess.check_output(["lsb_release", "-ds"], text=True).strip().strip('"'), "")
+    lsb_desc = raw_lsb_desc.strip() if raw_lsb_desc else ""
     if lsb_desc:
         meta.setdefault("PRETTY_NAME", lsb_desc)
 
-    lsb_release = _safe_call(lambda: subprocess.check_output(["lsb_release", "-rs"], text=True).strip())
+    raw_lsb_release = _safe_call(lambda: subprocess.check_output(["lsb_release", "-rs"], text=True).strip(), "")
+    lsb_release = raw_lsb_release.strip() if raw_lsb_release else ""
     debian_version = _read_first_line("/etc/debian_version")
 
     pretty = meta.get("PRETTY_NAME")
-    name = meta.get("NAME") or meta.get("ID") or (lsb_desc if lsb_desc else None)
+    name: Optional[str] = meta.get("NAME") or meta.get("ID") or (lsb_desc if lsb_desc else None)
     version = (
         meta.get("VERSION")
         or meta.get("VERSION_ID")
@@ -100,9 +105,11 @@ def _collect_os_release_meta() -> Dict[str, str]:
     if distribution:
         result["distribution"] = distribution
     if name:
-        result["distribution_name"] = name
+        distribution_name: str = name
+        result["distribution_name"] = distribution_name
     if version or codename:
-        result["distribution_version"] = version or codename
+        distribution_version: str = cast(str, version or codename)
+        result["distribution_version"] = distribution_version
     if meta.get("ID_LIKE"):
         result["distribution_family"] = meta["ID_LIKE"]
     return result
@@ -176,24 +183,24 @@ def collect_system_metrics() -> Dict[str, Any]:
     data.update(_collect_os_release_meta())
 
     if psutil:
-        data["cpu_pct"] = _safe_call(lambda: psutil.cpu_percent(interval=None))
-        vm = _safe_call(psutil.virtual_memory)
+        data["cpu_pct"] = _safe_call(lambda: psutil.cpu_percent(interval=None), 0.0)
+        vm = _safe_call(psutil.virtual_memory, None)
         if vm:
             data["mem_total_mb"] = _mb(vm.total)
             data["mem_used_mb"] = _mb(vm.used)
             data["mem_pct"] = vm.percent
 
-        disk = _safe_call(lambda: psutil.disk_usage("/"))
+        disk = _safe_call(lambda: psutil.disk_usage("/"), None)
         if disk:
             data["disk_total_gb"] = _gb(disk.total)
             data["disk_used_gb"] = _gb(disk.used)
             data["disk_pct"] = disk.percent
 
-        boot_time = _safe_call(psutil.boot_time)
+        boot_time = _safe_call(psutil.boot_time, 0.0)
         if boot_time:
             data["uptime_s"] = max(0.0, time.time() - float(boot_time))
 
-        temps = _safe_call(psutil.sensors_temperatures)
+        temps: Dict[str, Any] = _safe_call(psutil.sensors_temperatures, {})
         if temps:
             # pick first temperature entry if available
             for readings in temps.values():

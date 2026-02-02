@@ -4,7 +4,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,7 @@ class ModelManager:
         "text": ["llama", "gpt", "mistral", "phi", "gemma", "qwen"],
     }
 
-    DEMO_LOCAL_MODELS = (
+    DEMO_LOCAL_MODELS: tuple[Dict[str, object], ...] = (
         {
             "name": "vision-demo.onnx",
             "path": "vision-demo.onnx",
@@ -184,12 +184,12 @@ class ModelManager:
         """Populate deterministic demo models used in TEST_MODE."""
         self._installed_models = [
             ModelInfo(
-                name=entry["name"],
-                path=entry["path"],
-                type=entry["type"],
-                category=entry["category"],
-                size_mb=entry["size_mb"],
-                format=entry["format"],
+                name=str(entry["name"]),
+                path=str(entry["path"]),
+                type=str(entry["type"]),
+                category=str(entry["category"]),
+                size_mb=cast(float, entry["size_mb"]),
+                format=str(entry["format"]),
             )
             for entry in self.DEMO_LOCAL_MODELS
         ]
@@ -310,14 +310,15 @@ class ModelManager:
             logger.warning("Providers config not found: %s", self.providers_config_path)
             return self._active_models
 
-        try:
-            import tomllib
-        except ImportError:
-            import tomli as tomllib  # type: ignore[import-untyped]
+        import importlib
+        import importlib.util
+
+        toml_name = "tomllib" if importlib.util.find_spec("tomllib") else "tomli"
+        toml_reader = importlib.import_module(toml_name)
 
         try:
             with open(self.providers_config_path, "rb") as f:
-                config = tomllib.load(f)
+                config = toml_reader.load(f)
 
             if not isinstance(config, dict):
                 config = {}

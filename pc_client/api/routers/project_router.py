@@ -6,7 +6,7 @@ import os
 import re
 import time
 import unicodedata
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from fastapi import APIRouter, Request, Query
 from fastapi.responses import JSONResponse
@@ -20,7 +20,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Adapter singletons
-_github_adapter: Optional[GitHubAdapter] = None
+GitHubAdapterType = Union[GitHubAdapter, MockGitHubAdapter]
+_github_adapter: Optional[GitHubAdapterType] = None
 _git_adapter: Optional[GitAdapter] = None
 
 # Valid git strategies
@@ -97,7 +98,7 @@ def _should_use_mock_adapter(settings: Optional[Any]) -> bool:
     return bool(settings.test_mode and not getattr(settings, "is_github_configured", False))
 
 
-def get_github_adapter(request: Request) -> GitHubAdapter:
+def get_github_adapter(request: Request) -> GitHubAdapterType:
     """Get or create the GitHub adapter singleton."""
     global _github_adapter
     if _github_adapter is None:

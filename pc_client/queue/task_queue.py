@@ -11,6 +11,7 @@ from datetime import datetime
 from pc_client.providers.base import TaskEnvelope, TaskResult, TaskStatus, TaskType
 from pc_client.queue.circuit_breaker import CircuitBreaker
 from pc_client.telemetry.metrics import task_queue_size, task_queue_full_count
+from pc_client.utils.async_helpers import run_sync
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ class TaskQueue:
         self.logger = logging.getLogger("[bridge] TaskQueue")
 
         # Statistics
-        self.stats = {"total_queued": 0, "total_processed": 0, "total_failed": 0, "queue_full_count": 0}
+        self.stats: Dict[str, Any] = {"total_queued": 0, "total_processed": 0, "total_failed": 0, "queue_full_count": 0}
 
     async def enqueue(self, task: TaskEnvelope) -> bool:
         """
@@ -66,8 +67,8 @@ class TaskQueue:
 
         prioritized_task = PrioritizedTask(priority=task.priority, timestamp=datetime.now().timestamp(), task=task)
 
-        # Use asyncio.to_thread for sync queue operations
-        await asyncio.to_thread(self.queue.put, prioritized_task)
+        # Use helper for sync queue operations (fallback to direct execution if needed)
+        await run_sync(self.queue.put, prioritized_task)
 
         self.stats["total_queued"] += 1
         self.logger.info(
@@ -90,7 +91,7 @@ class TaskQueue:
             Task envelope or None if timeout
         """
         try:
-            prioritized_task = await asyncio.to_thread(self.queue.get, True, timeout)
+            prioritized_task = await run_sync(self.queue.get, True, timeout=timeout)
         except Empty:
             return None
 
