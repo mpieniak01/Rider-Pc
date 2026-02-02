@@ -4,7 +4,7 @@ Narzędzia do zarządzania robotem: status, ruch.
 """
 
 import threading
-from typing import Dict, Literal, TypedDict
+from typing import Literal, TypedDict
 
 from pc_client.mcp.registry import mcp_tool
 

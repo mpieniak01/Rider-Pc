@@ -328,7 +328,7 @@ class GoogleAssistantService:
             return None, None
         if not self._http_request:
             self._http_request = GoogleAuthRequest()
-            channel = GoogleSecureChannel(credentials, self._http_request, self._assistant_endpoint)
+        channel = GoogleSecureChannel(credentials, self._http_request, self._assistant_endpoint)
         stub = embedded_assistant_pb2_grpc.EmbeddedAssistantStub(channel)
         return stub, channel
 

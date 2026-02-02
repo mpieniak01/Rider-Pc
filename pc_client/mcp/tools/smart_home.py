@@ -4,7 +4,7 @@ Narzędzia do zarządzania urządzeniami smart home: światła, sceny.
 """
 
 import threading
-from typing import Dict, List, Mapping, Optional, TypedDict, Union
+from typing import Dict, List, Optional, TypedDict, Union
 
 from pc_client.mcp.registry import mcp_tool
 

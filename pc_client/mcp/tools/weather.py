@@ -7,7 +7,7 @@ Wymaga klucza API w zmiennej środowiskowej OPENWEATHER_API_KEY.
 import logging
 import threading
 import time
-from typing import Dict, Optional, TypedDict
+from typing import Optional, TypedDict
 
 from pc_client.mcp.registry import mcp_tool
 
