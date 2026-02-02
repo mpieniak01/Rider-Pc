@@ -7,7 +7,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rider-PC: Wizualizator Nawigacji</title>
+    <title data-i18n="navigation.page_title">Rider-PC: Wizualizator Nawigacji</title>
     <script src="/web/assets/theme-loader.js" defer></script>
     <link rel="stylesheet" href="/web/assets/dashboard-common.css">
     <link rel="stylesheet" href="/web/assets/themes/classic/theme.css" data-theme-skin="classic">
@@ -25,11 +25,11 @@
         <!-- Nagłówek i Status -->
         <header class="page-header">
             <div class="page-header__titles">
-                <h1 class="page-title"><span class="brand-accent">Rider-PC</span>: <span class="page-title-text">Wizualizator Nawigacji</span></h1>
+                <h1 class="page-title"><span class="brand-accent">Rider-PC</span>: <span class="page-title-text" data-i18n="navigation.page_title">Wizualizator Nawigacji</span></h1>
             </div>
             <div class="page-header__actions page-header__actions--small cluster text-legend">
                 <div id="status-indicator" class="status-dot" title="Łączenie..."></div>
-                <span id="status-text">Łączenie...</span>
+                <span id="status-text" data-i18n="navigation.connecting">Łączenie...</span>
             </div>
         </header>
 
@@ -37,31 +37,31 @@
         <div class="c-legend cluster u-mb-lg">
             <div class="c-legend__item">
                 <span class="c-legend__dot" style="background-color: #06b6d4;"></span>
-                <span class="text-legend">Robot</span>
+                <span class="text-legend" data-i18n="navigation.legend_robot">Robot</span>
             </div>
             <div class="c-legend__item">
                 <span class="c-legend__dot" style="background-color: #22c55e;"></span>
-                <span class="text-legend">Start</span>
+                <span class="text-legend" data-i18n="navigation.legend_start">Start</span>
             </div>
             <div class="c-legend__item">
                 <span class="c-legend__dot" style="background-color: #eab308;"></span>
-                <span class="text-legend">Cel (Target)</span>
+                <span class="text-legend" data-i18n="navigation.legend_target">Cel (Target)</span>
             </div>
             <div class="c-legend__item">
                 <span class="c-legend__dot" style="background-color: #3b82f6;"></span>
-                <span class="text-legend">Ścieżka (Plan)</span>
+                <span class="text-legend" data-i18n="navigation.legend_path">Ścieżka (Plan)</span>
             </div>
             <div class="c-legend__item">
                 <span class="c-legend__dot" style="background-color: #ef4444;"></span>
-                <span class="text-legend">Przeszkoda</span>
+                <span class="text-legend" data-i18n="navigation.legend_obstacle">Przeszkoda</span>
             </div>
             <div class="c-legend__item">
                 <span class="c-legend__dot" style="background-color: #4b5563;"></span>
-                <span class="text-legend">Odwiedzone</span>
+                <span class="text-legend" data-i18n="navigation.legend_visited">Odwiedzone</span>
             </div>
             <div class="c-legend__item">
                 <span class="c-legend__dot" style="background-color: #1f2937; border: 1px solid #4b5563;"></span>
-                <span class="text-legend">Nieznane</span>
+                <span class="text-legend" data-i18n="navigation.legend_unknown">Nieznane</span>
             </div>
         </div>
 
@@ -81,12 +81,28 @@
     <!-- Footer -->
     <footer class="layout-footer" data-dashboard-footer-target></footer>
 
+    <script type="module">
+        import { initI18n, applyDom, t } from '/web/assets/i18n.js';
+
+        const urlLang = new URLSearchParams(location.search).get('lang');
+        const saved = localStorage.getItem('lang');
+        const browser = (navigator.language || '').slice(0,2).toLowerCase();
+        const pick = (v)=> v && v.toLowerCase().startsWith('en') ? 'en' : (v && v.toLowerCase().startsWith('pl') ? 'pl' : null);
+        const lang = pick(urlLang) || pick(saved) || pick(browser) || 'pl';
+        if (urlLang) localStorage.setItem('lang', lang);
+        await initI18n(lang);
+        applyDom();
+        document.documentElement.setAttribute('lang', lang);
+        document.title = t('navigation.page_title');
+        window.__i18n_t = t;
+    </script>
     <script>
         const canvas = document.getElementById('mapCanvas');
         const ctx = canvas.getContext('2d');
         const statusIndicator = document.getElementById('status-indicator');
         const statusText = document.getElementById('status-text');
         const canvasContainer = document.getElementById('canvas-container');
+        const t = window.__i18n_t || ((key)=>key);
 
         // Globalny stan do przechowywania danych
         let state = {
@@ -111,10 +127,12 @@
             
             ws = new WebSocket(wsUrl);
 
+            statusIndicator.title = t('navigation.connecting');
             ws.onopen = () => {
                 console.log('Połączono z WebSocket /ws/navigation');
                 statusIndicator.className = 'status-dot is-connected';
-                statusText.textContent = 'Połączono';
+                statusText.textContent = t('navigation.connected');
+                statusIndicator.title = t('navigation.connected');
             };
 
             ws.onmessage = (event) => {
@@ -157,14 +175,16 @@
             ws.onclose = () => {
                 console.log('Rozłączono z WebSocket. Próba ponownego połączenia...');
                 statusIndicator.className = 'status-dot is-disconnected';
-                statusText.textContent = 'Rozłączono';
+                statusText.textContent = t('navigation.disconnected');
+                statusIndicator.title = t('navigation.disconnected');
                 setTimeout(connectWebSocket, 3000); // Spróbuj połączyć ponownie po 3 sekundach
             };
 
             ws.onerror = (error) => {
                 console.error('Błąd WebSocket:', error);
                 statusIndicator.className = 'status-dot is-disconnected';
-                statusText.textContent = 'Błąd';
+                statusText.textContent = t('navigation.error');
+                statusIndicator.title = t('navigation.error');
                 ws.close();
             };
         }

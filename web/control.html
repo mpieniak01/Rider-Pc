@@ -47,7 +47,7 @@
     <div class="panel-row">
       <!-- 1) KAMERA -->
       <div class="c-card c-section cam-card control-section is-camera">
-        <h2 class="c-card__title" data-i18n="camera.title">Podgląd kamery</h2>
+        <h2 class="c-card__title" data-i18n="control.camera_preview">Podgląd kamery</h2>
 
         <div class="cam-actions cluster">
           <button id="camToggle" class="c-btn c-btn-sm" data-i18n="camera.auto_refresh_on">
@@ -75,13 +75,13 @@
 
       <div class="l-row control-range-row">
         <label>
-          <span data-i18n="motion.turning_speed">Prędkość skrętu</span>
+          <span data-i18n="control.turning_speed">Prędkość skrętu</span>
           <span class="muted" data-i18n="motion.turning_range">(0..1)</span>:
           <input id="speedSpin" type="range" min="0" max="1" step="0.02" value="0.18" />
           <span id="speedSpinVal">0.18</span>
         </label>
         <label>
-          <span data-i18n="motion.max_speed">Prędkość maksymalna</span>
+          <span data-i18n="control.max_speed">Prędkość maksymalna</span>
           <span class="muted" data-i18n="motion.max_speed_range">(0..1)</span>:
           <input id="speedMax" type="range" min="0" max="1" step="0.05" value="0.10" />
           <span id="speedMaxVal">0.10</span>
@@ -108,7 +108,7 @@
 
       <div class="l-row">
         <span class="muted">
-          <span data-i18n="motion.shortcuts_hint">Skróty</span>:
+          <span data-i18n="control.shortcuts">Skróty</span>:
           <span class="kbd">W/S/A/D</span>
           <span data-i18n="motion.shortcuts_tail">lub strzałki; Spacja = stop.</span>
         </span>
@@ -150,8 +150,7 @@
             <div class="feature-head">
               <div
                 class="feature-title"
-                data-i18n="motion.zero_mode"
-              >Stan 0 – Sterowanie ręczne</div>
+                data-i18n="motion.zero_mode">Stan 0 – Sterowanie ręczne</div>
             </div>
             <div
               class="feature-desc"
@@ -176,8 +175,7 @@
             <div class="feature-head">
               <div
                 class="feature-title"
-                data-i18n="motion.tracking_mode_title"
-              >Śledzenie (twarz / dłoń)</div>
+                data-i18n="motion.tracking_mode_title">Śledzenie (twarz / dłoń)</div>
             </div>
             <div
               class="feature-desc"
@@ -224,8 +222,8 @@
             <div class="feature-select">
               <span data-i18n="motion.recon_strategy">Strategia</span>:
               <select id="reconStrategy">
-                <option value="STOP">STOP (zatrzymaj)</option>
-                <option value="AVOID">AVOID (omijaj)</option>
+                <option value="STOP" data-i18n="motion.recon_strategy_stop">STOP (zatrzymaj)</option>
+                <option value="AVOID" data-i18n="motion.recon_strategy_avoid">AVOID (omijaj)</option>
               </select>
             </div>
           </div>
@@ -256,14 +254,14 @@
     </div>
 
     <div class="c-card c-section resource-card control-section is-resources">
-      <h2 class="c-card__title" data-i18n="resources.title">Diagnostyka zasobów</h2>
+      <h2 class="c-card__title" data-i18n="control.resource_diag">Diagnostyka zasobów</h2>
       <div id="resInfo" class="muted" data-i18n="meta.loading">Ładowanie…</div>
       <table class="svc-table c-table" id="resTable">
         <thead>
         <tr>
-          <th data-i18n="resources.column_name">Zasób</th>
+          <th data-i18n="control.resource_name">Zasób</th>
           <th data-i18n="resources.column_status">Status</th>
-          <th data-i18n="resources.column_holders">Blokujące procesy</th>
+          <th data-i18n="control.resource_holders">Blokujące procesy</th>
           <th data-i18n="resources.column_actions">Akcje</th>
         </tr>
         </thead>
@@ -355,7 +353,7 @@
 
   <div class="panel-row scenario-panel">
     <div class="c-card c-section scenario-card control-section is-scenarios">
-      <h2 class="c-card__title">Scenariusze / targety</h2>
+      <h2 class="c-card__title" data-i18n="control.scenarios_title">Scenariusze / targety</h2>
       <div class="feature-list scenario-list" id="scenarioList">
         <div class="muted" data-i18n="meta.loading">Ładowanie…</div>
       </div>
@@ -366,19 +364,20 @@
   <div class="c-card c-section service-card control-section is-services">
     <div class="card-head svc-head">
       <h2 class="c-card__title" data-i18n="services.title">Usługi (systemd)</h2>
-      <div class="svc-controls card-actions" aria-label="Usługi – sterowanie listą">
+      <div class="svc-controls card-actions" aria-label="Usługi – sterowanie listą" data-i18n-attr="aria-label:services.controls_aria">
         <button
           id="svcRefresh"
           class="c-btn c-btn-sm section-action"
           data-i18n="services.refresh"
           title="Ręcznie odśwież listę usług"
+          data-i18n-attr="title:services.refresh_title"
         >⟳ odśwież</button>
-        <label class="svc-control" title="Auto odświeżanie tabeli co 5 sekund">
+        <label class="svc-control" title="Auto odświeżanie tabeli co 5 sekund" data-i18n-attr="title:services.auto_refresh_title">
           <span class="svc-icon" aria-hidden="true">⟳</span>
           <input id="svcAutoRefresh" type="checkbox" />
           <span class="svc-label" data-i18n="services.auto_refresh">Auto (5s)</span>
         </label>
-        <label class="svc-control" title="Filtruj wiersze po stanie usługi">
+        <label class="svc-control" title="Filtruj wiersze po stanie usługi" data-i18n-attr="title:services.filter_title">
           <span class="svc-icon" aria-hidden="true">🔎</span>
           <span class="svc-label" data-i18n="services.filter">Filtr</span>
           <select id="svcFilter" class="svc-select">
@@ -414,7 +413,7 @@
     <header class="log-header l-cluster">
       <h2 class="section-title" data-i18n="events.title">Zdarzenia (SSE /events)</h2>
     </header>
-    <div id="log" class="log-terminal" role="log" aria-live="polite" aria-label="Zdarzenia"></div>
+    <div id="log" class="log-terminal" role="log" aria-live="polite" aria-label="Zdarzenia" data-i18n-attr="aria-label:events.aria_label"></div>
   </section>
 
   <div class="c-card c-section motion-queue-card control-section is-queue">
@@ -1021,8 +1020,7 @@
     if (!scenarioListEl) return;
     const features = (summary && summary.features) || [];
     if (!features.length) {
-      scenarioListEl.innerHTML =
-        '<div class="muted" data-i18n="motion.features_empty">Brak danych</div>';
+      scenarioListEl.innerHTML = `<div class="muted">${t("motion.features_empty")}</div>`;
       return;
     }
     const frag = document.createDocumentFragment();
@@ -1047,9 +1045,10 @@
 
       const meta = document.createElement("div");
       meta.className = "feature-note muted";
-      meta.textContent = `Usługi: ${
-        feat.services_active ?? 0
-      }/${feat.services_total ?? 0}`;
+      meta.textContent = t("control.scenario_services", {
+        active: feat.services_active ?? 0,
+        total: feat.services_total ?? 0,
+      });
 
       info.appendChild(head);
       info.appendChild(meta);
@@ -1087,7 +1086,10 @@
     if (scenarioInfoEl) {
       const counts = summary && summary.counts ? summary.counts : {};
       const total = counts.total ?? features.length;
-      scenarioInfoEl.textContent = `Aktywne: ${counts.active ?? 0}/${total}`;
+      scenarioInfoEl.textContent = t("control.scenario_active", {
+        active: counts.active ?? 0,
+        total,
+      });
     }
   }
 
@@ -1812,9 +1814,7 @@
       if (!items.length) {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td colspan="7" class="muted" data-i18n="motion_queue.empty_placeholder">
-            Brak zleceń ruchu.
-          </td>`;
+          <td colspan="7" class="muted">${t("motion_queue.empty_placeholder")}</td>`;
         body.appendChild(tr);
       } else {
         items.slice(0, 10).forEach((item) => {

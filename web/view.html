@@ -7,7 +7,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Rider-PC: Przegląd</title>
+<title data-i18n="dash.page_title">Rider-PC: Przegląd</title>
 <script src="/web/assets/theme-loader.js" defer></script>
 <link rel="stylesheet" href="/web/assets/dashboard-common.css">
 <link rel="stylesheet" href="/web/assets/themes/classic/theme.css" data-theme-skin="classic">
@@ -311,6 +311,8 @@ await initI18n(lang); applyDom();
 function syncLangMeta(code){
   document.documentElement.setAttribute('lang',code);
   document.title=`Rider-PC: ${t('dash.page_title')}`;
+  const pageTitleText=document.querySelector('.page-title-text');
+  if(pageTitleText) pageTitleText.textContent=t('dash.page_title');
 }
 syncLangMeta(lang);
 const hostWithPort = window.location.host || '—';
@@ -931,9 +933,9 @@ async function refreshMcpResources(){
     const r = await fetch('/api/mcp/resources', {cache:'no-store'});
     if(!r.ok) return;
     const j = await r.json().catch(()=>null);
-    if(j && j.resources && j.resources.config){
+      if(j && j.resources && j.resources.config){
       const cfg = j.resources.config;
-      setTxt('mcpStandalone', cfg.mcp_standalone ? 'tak' : 'nie');
+      setTxt('mcpStandalone', cfg.mcp_standalone ? t('dash.mcp.standalone_yes') : t('dash.mcp.standalone_no'));
       setTxt('mcpPort', cfg.mcp_port || 8210);
     }
   }catch{}
@@ -948,7 +950,7 @@ async function refreshMcpToolsList(){
       const list = el('mcpToolsList');
       if(!list) return;
       if(!j.tools.length){
-        list.innerHTML = '<div class="muted">Brak narzędzi</div>';
+        list.innerHTML = `<div class="muted">${t('dash.mcp.no_tools')}</div>`;
         return;
       }
       list.innerHTML = '';
@@ -965,7 +967,7 @@ async function refreshMcpToolsList(){
       if(j.tools.length > 8){
         const more = document.createElement('div');
         more.className = 'muted';
-        more.textContent = `... i ${j.tools.length - 8} więcej`;
+        more.textContent = t('dash.mcp.tools_extra', { count: j.tools.length - 8 });
         list.appendChild(more);
       }
     }

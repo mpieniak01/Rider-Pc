@@ -7,7 +7,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Rider-PC: System Dashboard</title>
+  <title data-i18n="nav.system">Rider-PC: System Dashboard</title>
   <script src="/web/assets/theme-loader.js" defer></script>
   <link rel="stylesheet" href="/web/assets/dashboard-common.css">
   <link rel="stylesheet" href="/web/assets/themes/classic/theme.css" data-theme-skin="classic">
@@ -25,24 +25,24 @@
     <!-- Page header -->
     <header class="page-header">
       <div class="page-header__titles">
-        <h1 class="page-title"><span class="brand-accent">Rider-PC</span>: <span class="page-title-text">System Dashboard</span></h1>
+        <h1 class="page-title"><span class="brand-accent">Rider-PC</span>: <span class="page-title-text" data-i18n="nav.system">System Dashboard</span></h1>
         <div id="version-info" class="version-info text-legend" title="Informacje o wersji">
-          <span class="version-loading">Wczytywanie wersji...</span>
+          <span class="version-loading" data-i18n="system_ui.version_loading">Wczytywanie wersji...</span>
         </div>
       </div>
       <div class="page-header__actions page-header__actions--small system-links text-legend">
-        <a href="/view">Podgląd</a>
-        <a href="/control">Sterowanie</a>
+        <a href="/view" data-i18n="system_ui.menu_overview">Podgląd</a>
+        <a href="/control" data-i18n="nav.control">Sterowanie</a>
       </div>
     </header>
-    <p id="status-line" class="status-line c-statusbar">Ładowanie danych usług…</p>
+    <p id="status-line" class="status-line c-statusbar" data-i18n="system_ui.status_loading">Ładowanie danych usług…</p>
   
   <section class="c-card c-section system-section is-network" id="network-status-block">
-    <h2 class="c-card__title">Status Sieci</h2>
+    <h2 class="c-card__title" data-i18n="system.network_status">Status Sieci</h2>
     <div class="network-status-grid">
       <div class="network-card c-card" id="local-ip-card">
         <div class="network-card-header">
-          <span class="network-label">IP Hosta</span>
+          <span class="network-label" data-i18n="system.host_ip">IP Hosta</span>
         </div>
         <div class="network-value" id="local-ip-value">---.---.---.---</div>
       </div>
@@ -52,7 +52,7 @@
           <span class="network-status-indicator" id="rider-pi-indicator"></span>
         </div>
         <div class="network-value">
-          <span id="rider-pi-status">Sprawdzanie...</span>
+          <span id="rider-pi-status" data-i18n="meta.loading">Sprawdzanie...</span>
           <span class="network-latency" id="rider-pi-latency"></span>
         </div>
         <div class="network-host" id="rider-pi-host"></div>
@@ -63,7 +63,7 @@
           <span class="network-status-indicator" id="internet-indicator"></span>
         </div>
         <div class="network-value">
-          <span id="internet-status">Sprawdzanie...</span>
+          <span id="internet-status" data-i18n="meta.loading">Sprawdzanie...</span>
           <span class="network-latency" id="internet-latency"></span>
         </div>
         <div class="network-host" id="internet-host">—</div>
@@ -72,12 +72,12 @@
   </section>
   
   <section class="c-card c-section system-section is-pc" id="pc-services-block">
-    <h2 class="c-card__title">Usługi lokalne (PC)</h2>
+    <h2 class="c-card__title" data-i18n="system_ui.services_pc">Usługi lokalne (PC)</h2>
     <div id="pc-services-graph" class="services-grid l-grid"></div>
   </section>
   
   <section class="c-card c-section system-section is-pi" id="pi-services-block">
-    <h2 class="c-card__title">Usługi na Rider-Pi</h2>
+    <h2 class="c-card__title" data-i18n="system_ui.services_pi">Usługi na Rider-Pi</h2>
     <div id="pi-services-graph" class="services-grid l-grid"></div>
   </section>
   
@@ -90,7 +90,7 @@
       <p class="desc service-node__unit" data-role="unit"></p>
       <p class="desc service-node__group" data-role="group"></p>
       <p class="desc service-node__since" data-role="since" hidden></p>
-      <p class="desc service-node__edges-label" data-role="edges-label" hidden>Połączenia →</p>
+      <p class="desc service-node__edges-label" data-role="edges-label" data-i18n="system_ui.connections" hidden>Połączenia →</p>
       <div class="edge-list" data-role="edges" hidden></div>
       <div class="service-node__spinner" aria-hidden="true"></div>
     </article>
@@ -98,9 +98,9 @@
   
   <section class="log-panel surface c-card">
     <header class="log-header l-cluster">
-      <h2 class="section-title">Log Systemowy</h2>
+      <h2 class="section-title" data-i18n="template.log_title">Log Systemowy</h2>
       <div class="u-spacer"></div>
-      <button id="log-clear-btn" class="c-btn c-btn-sm" title="Wyczyść log">Wyczyść</button>
+      <button id="log-clear-btn" class="c-btn c-btn-sm" title="Wyczyść log" data-i18n="template.clear" data-i18n-attr="title:template.clear">Wyczyść</button>
     </header>
     <div id="log-terminal" class="log-terminal" role="log" aria-live="polite" aria-label="Log systemowy">
       <div class="log-entry log-info"><span class="log-timestamp">[--:--:--]</span> <span class="log-level">INFO</span> Oczekiwanie na zdarzenia...</div>
@@ -111,8 +111,8 @@
   <!-- Ukryty podgląd klas systemowych (dla pokrycia CSS) -->
   <div class="system-style-preview" aria-hidden="true" hidden>
     <div class="version-info">
-      <span class="version-loading">Ładowanie...</span>
-      <span class="version-unavailable">Brak danych</span>
+      <span class="version-loading" data-i18n="system_ui.version_loading">Ładowanie...</span>
+      <span class="version-unavailable" data-i18n="system_ui.version_unavailable">Brak danych</span>
       <span class="version-branch">main</span>
       <span class="version-commit version-dirty">#abcd123</span>
     </div>
@@ -123,20 +123,20 @@
       <div class="services-grid">
         <article class="service-node is-active">
           <div class="service-node__head">
-            <h3 class="service-node__title">Usługa</h3>
+            <h3 class="service-node__title" data-i18n="system_ui.node_title">Usługa</h3>
             <span class="status-pill is-ok">OK</span>
           </div>
           <p class="service-node__unit">example.service</p>
           <p class="service-node__group">group</p>
           <p class="service-node__since">Od 10:00</p>
-          <p class="service-node__edges-label">Łącza</p>
+          <p class="service-node__edges-label" data-i18n="system_ui.edges_label">Łącza</p>
           <div class="edge-list"><span>edge-1</span></div>
           <p class="desc">Opis testowy</p>
           <div class="service-node__spinner"></div>
         </article>
         <article class="service-node is-failed">
           <div class="service-node__head">
-            <h3 class="service-node__title">Błąd</h3>
+            <h3 class="service-node__title" data-i18n="system_ui.error_label">Błąd</h3>
             <span class="status-pill is-err">ERR</span>
           </div>
         </article>
@@ -165,7 +165,7 @@
       <div class="log-entry log-info">
         <span class="log-timestamp">12:00:00</span>
         <span class="log-level">INFO</span>
-        <span class="log-message">Podgląd stylu</span>
+        <span class="log-message" data-i18n="template.style_preview">Podgląd stylu</span>
       </div>
       <div class="log-entry log-warn">
         <span class="log-timestamp">12:01:00</span>
@@ -204,6 +204,7 @@
     const pcBlockEl = document.getElementById('pc-services-block');
     const piBlockEl = document.getElementById('pi-services-block');
     const statusEl = document.getElementById('status-line');
+    const t = window.__i18n_t || ((key, params) => key);
     const versionInfoEl = document.getElementById('version-info');
     const logTerminal = document.getElementById('log-terminal');
     const logClearBtn = document.getElementById('log-clear-btn');
@@ -264,21 +265,10 @@
       }
     }
 
-    // Internationalization helper
     function getTooltipText(status) {
-      const lang = document.documentElement.lang || 'pl';
-      const texts = {
-        pl: {
-          stop: 'Kliknij, aby zatrzymać usługę',
-          start: 'Kliknij, aby uruchomić usługę'
-        },
-        en: {
-          stop: 'Click to stop service',
-          start: 'Click to start service'
-        }
-      };
-      const langTexts = texts[lang] || texts['en'];
-      return status === 'active' ? langTexts.stop : langTexts.start;
+      return status === 'active'
+        ? t('system_ui.tooltip_stop')
+        : t('system_ui.tooltip_start');
     }
 
     function formatSince(value) {
@@ -347,15 +337,29 @@
         const result = await resp.json();
 
         if (resp.ok && result.ok) {
-          showToast(`Usługa ${unit}: ${action === 'start' ? 'uruchomiona' : 'zatrzymana'}`, 'success');
+          showToast(
+            t('system_ui.service_action', {
+              unit,
+              status:
+                action === 'start'
+                  ? t('system_ui.service_started')
+                  : t('system_ui.service_stopped'),
+            }),
+            'success',
+          );
           // Refresh graph to show updated state
           await loadGraph();
         } else {
-          showToast(`Błąd: ${result.error || 'Nie udało się zmienić stanu usługi'}`, 'error');
+          showToast(
+            t('system_ui.error_prefix', {
+              msg: result.error || t('system_ui.service_change_error'),
+            }),
+            'error',
+          );
         }
       } catch (err) {
         console.error('Toggle service error:', err);
-        showToast(`Błąd połączenia: ${err.message}`, 'error');
+        showToast(t('system_ui.connection_error', { msg: err.message }), 'error');
       } finally {
         if (card) {
           card.classList.remove('is-busy');
@@ -439,7 +443,7 @@
       piGraphEl.innerHTML = '';
       
       if (!nodes.length) {
-        pcGraphEl.innerHTML = '<div class="no-services c-card">Brak danych usług.</div>';
+        pcGraphEl.innerHTML = `<div class="no-services c-card">${t('system_ui.no_services')}</div>`;
         piBlockEl.style.display = 'none';
         return;
       }
@@ -471,7 +475,7 @@
         });
       } else {
         pcBlockEl.style.display = 'block';
-        pcGraphEl.innerHTML = '<div class="no-services c-card">Brak usług lokalnych.</div>';
+        pcGraphEl.innerHTML = `<div class="no-services c-card">${t('system_ui.no_services_local')}</div>`;
       }
       
       // Render Pi services
@@ -509,7 +513,7 @@
       }
       const noServices = document.createElement('div');
       noServices.className = 'no-services c-card';
-      noServices.textContent = 'Brak usług w tej grupie (audit)';
+      noServices.textContent = t('system_ui.no_services_group');
       piGraphEl.appendChild(noServices);
       setNetworkCardState('local-ip-card', '192.168.1.77', 'online', '—');
       const riderHost = networkConfig.riderPiHost || 'Rider-Pi';
@@ -522,7 +526,7 @@
         <div class="log-entry log-error"><span class="log-timestamp">[12:00:09]</span> <span class="log-level">ERROR</span> Voice provider offline (audit).</div>
       `;
       renderVersionInfo({ available: true, branch: 'audit/main', commit: 'abc1234', dirty: true, message: 'Audit seed commit' });
-      statusEl.textContent = 'Tryb audytu CSS – dane przykładowe';
+      statusEl.textContent = t('system_ui.audit_mode');
       statusEl.className = 'status-line c-statusbar is-success';
       await loadNetworkStatus();
     }
@@ -549,7 +553,7 @@
 
     async function loadGraph() {
       try {
-        statusEl.textContent = 'Aktualizuję status usług…';
+        statusEl.textContent = t('system_ui.update_status');
         const resp = await fetch(`/api/services/graph?ts=${Date.now()}`, { cache: 'no-store' });
         if (!resp.ok) {
           throw new Error(`HTTP ${resp.status}`);
@@ -560,7 +564,7 @@
         statusEl.textContent = `Ostatnia aktualizacja: ${ts.toLocaleTimeString()}`;
       } catch (err) {
         console.error(err);
-        statusEl.textContent = 'Błąd podczas pobierania danych usług.';
+        statusEl.textContent = t('system_ui.fetch_error');
       }
     }
 
@@ -673,7 +677,7 @@
     function renderVersionInfo(data) {
       if (!data || !data.available) {
         versionInfoEl.innerHTML = '<span class="version-unavailable">v. Unknown</span>';
-        versionInfoEl.title = 'Informacje o wersji niedostępne';
+        versionInfoEl.title = t('system_ui.version_unavailable_title');
         return;
       }
 
@@ -684,7 +688,7 @@
       const commitHash = document.createElement('span');
       commitHash.className = 'version-commit';
       commitHash.textContent = '#' + (data.commit || 'unknown');
-      commitHash.title = 'Kliknij, aby skopiować hash';
+      commitHash.title = t('system_ui.commit_copy_title');
       commitHash.style.cursor = 'pointer';
       commitHash.addEventListener('click', function(e) {
         e.stopPropagation();
@@ -693,7 +697,7 @@
           navigator.clipboard.writeText(hash).then(function() {
             showToast('Skopiowano hash: ' + hash, 'success');
           }).catch(function() {
-            showToast('Nie udało się skopiować', 'error');
+            showToast(t('system_ui.copy_failed'), 'error');
           });
         }
       });
@@ -772,7 +776,7 @@
 
         // Show warning toast if Rider-Pi goes offline
         if (lastRiderPiOnline !== null && lastRiderPiOnline && !isOnline) {
-          showToast('Robot Offline - Rider-Pi niedostępny', 'error');
+          showToast(t('system_ui.robot_offline'), 'error');
         }
         lastRiderPiOnline = isOnline;
       }
@@ -827,6 +831,20 @@
       loadNetworkStatus();
       setInterval(loadNetworkStatus, NETWORK_POLL_INTERVAL_MS);
     }
+  </script>
+  <script type="module">
+    import { initI18n, applyDom, t } from '/web/assets/i18n.js';
+    const urlLang = new URLSearchParams(location.search).get('lang');
+    const saved = localStorage.getItem('lang');
+    const browser = (navigator.language || '').slice(0,2).toLowerCase();
+    const pick = (v)=> v && v.toLowerCase().startsWith('en') ? 'en' : (v && v.toLowerCase().startsWith('pl') ? 'pl' : null);
+    const lang = pick(urlLang) || pick(saved) || pick(browser) || 'pl';
+    if (urlLang) localStorage.setItem('lang', lang);
+    await initI18n(lang);
+    applyDom();
+    document.documentElement.setAttribute('lang', lang);
+    document.title = t('nav.system');
+    window.__i18n_t = t;
   </script>
   <script type="module" src="/web/assets/menu.js"></script>
   <script type="module" src="/web/assets/footer.js"></script>

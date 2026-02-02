@@ -8,7 +8,7 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<title>Rider-PC: Chat PC (Standalone)</title>
+<title data-i18n="nav.chat_pc">Rider-PC: Chat PC (Standalone)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="/web/assets/theme-loader.js" defer></script>
 <link rel="stylesheet" href="/web/assets/dashboard-common.css">
@@ -26,50 +26,50 @@
   <main class="layout-main">
     <header class="page-header">
       <div class="page-header__titles">
-        <h1 class="page-title"><span class="brand-accent">Rider-PC</span>: <span class="page-title-text">Chat PC (Standalone)</span></h1>
-        <p class="c-hint">Czat działający lokalnie z modelami AI na Twoim PC</p>
+        <h1 class="page-title"><span class="brand-accent">Rider-PC</span>: <span class="page-title-text" data-i18n="nav.chat_pc">Chat PC (Standalone)</span></h1>
+        <p class="c-hint" data-i18n="chat_pc.subtitle">Czat działający lokalnie z modelami AI na Twoim PC</p>
       </div>
       <div class="page-header__actions page-header__actions--small links text-legend">
-        <a href="/chat">Chat (klasyczny)</a>
+        <a href="/chat" data-i18n="chat_pc.link_classic">Chat (klasyczny)</a>
         <span class="u-sep">·</span>
-        <a href="/view">dashboard</a>
+        <a href="/view" data-i18n="chat_pc.link_dashboard">dashboard</a>
       </div>
     </header>
 
     <!-- Provider status card -->
     <div class="c-card chat-pc-status" id="provider-status">
       <div class="chat-pc-status__info">
-        <h3>Status providera tekstowego</h3>
+        <h3 data-i18n="chat_pc.text_provider_status_title">Status providera tekstowego</h3>
         <dl id="provider-details" class="chat-pc-status__grid">
           <div>
-            <dt>Status</dt>
-            <dd id="prov-status">Ładowanie...</dd>
+            <dt data-i18n="chat_pc.status_label">Status</dt>
+            <dd id="prov-status" data-i18n="meta.loading">Ładowanie...</dd>
           </div>
           <div>
-            <dt>Model</dt>
+            <dt data-i18n="chat_pc.model_label">Model</dt>
             <dd id="prov-model">—</dd>
           </div>
           <div>
-            <dt>Silnik</dt>
+            <dt data-i18n="chat_pc.engine_label">Silnik</dt>
             <dd id="prov-engine">—</dd>
           </div>
           <div>
-            <dt>Backend</dt>
+            <dt data-i18n="chat_pc.backend_label">Backend</dt>
             <dd id="prov-backend">—</dd>
           </div>
         </dl>
         <div class="chat-pc-backend-control" id="chat-backend-control" hidden>
-          <label for="chatBackendSelect">Preferowany backend LLM</label>
+          <label for="chatBackendSelect" data-i18n="chat_pc.preferred_backend">Preferowany backend LLM</label>
           <div class="chat-pc-backend-row">
             <select id="chatBackendSelect"></select>
-            <button class="c-btn c-btn-sm" id="chatBackendApply">Zmień</button>
+            <button class="c-btn c-btn-sm" id="chatBackendApply" data-i18n="chat_pc.backend_apply">Zmień</button>
           </div>
           <p class="c-hint" id="chatBackendHint"></p>
         </div>
       </div>
       <div class="chat-pc-status__actions">
-        <span id="source-badge" class="chat-pc-pill chat-pc-pill--offline">Offline</span>
-        <button class="c-btn c-btn-sm" id="btnRefreshStatus">Odśwież status</button>
+        <span id="source-badge" class="chat-pc-pill chat-pc-pill--offline" data-i18n="chat_pc.source_offline">Offline</span>
+        <button class="c-btn c-btn-sm" id="btnRefreshStatus" data-i18n="chat_pc.refresh_status">Odśwież status</button>
       </div>
     </div>
 
@@ -78,23 +78,23 @@
 
     <!-- Compose area -->
     <div class="l-row compose-row">
-      <textarea id="input" placeholder="Napisz wiadomość… (Enter = wyślij, Shift+Enter = nowa linia)"></textarea>
+      <textarea id="input" placeholder="Napisz wiadomość… (Enter = wyślij, Shift+Enter = nowa linia)" data-i18n-attr="placeholder:chat_pc.input_placeholder"></textarea>
       <div class="side chat-pc-sidebar">
         <div class="chat-pc-actions">
-          <button class="c-btn chat-pc-send" id="sendBtn">Wyślij</button>
+          <button class="c-btn chat-pc-send" id="sendBtn" data-i18n="chat_pc.send_button">Wyślij</button>
           <div class="chat-pc-controls">
-            <button class="c-btn c-btn-sm record-btn chat-pc-record" id="recordBtn" title="Nagrywaj mowę (ASR)">🎤 Mów</button>
-            <div class="chat-pc-mode" role="group" aria-label="Wybór trybu czatu">
-              <button type="button" id="modePC" class="chat-pc-mode__btn active" title="Tylko lokalny model">PC</button>
-              <button type="button" id="modeAuto" class="chat-pc-mode__btn" title="Automatyczny wybór">Auto</button>
-              <button type="button" id="modeProxy" class="chat-pc-mode__btn" title="Przez Rider-Pi">Proxy</button>
+            <button class="c-btn c-btn-sm record-btn chat-pc-record" id="recordBtn" title="Nagrywaj mowę (ASR)" data-i18n="chat_pc.record_button" data-i18n-attr="title:chat_pc.record_title">🎤 Mów</button>
+            <div class="chat-pc-mode" role="group" aria-label="Wybór trybu czatu" data-i18n-attr="aria-label:chat_pc.mode_group_label">
+              <button type="button" id="modePC" class="chat-pc-mode__btn active" title="Tylko lokalny model" data-i18n-attr="title:chat_pc.mode_pc_title">PC</button>
+              <button type="button" id="modeAuto" class="chat-pc-mode__btn" title="Automatyczny wybór" data-i18n="chat_pc.mode_auto_label" data-i18n-attr="title:chat_pc.mode_auto_title">Auto</button>
+              <button type="button" id="modeProxy" class="chat-pc-mode__btn" title="Przez Rider-Pi" data-i18n="chat_pc.mode_proxy_label" data-i18n-attr="title:chat_pc.mode_proxy_title">Proxy</button>
             </div>
             <label class="chat-pc-toggle">
               <input type="checkbox" id="tts" />
-              <span>Czytaj odpowiedzi (TTS)</span>
+              <span data-i18n="voice.read_responses">Czytaj odpowiedzi (TTS)</span>
             </label>
             <label class="chat-pc-select">
-              <span>Provider TTS</span>
+              <span data-i18n="voice.tts_provider">Provider TTS</span>
               <select id="ttsProvider"></select>
             </label>
           </div>
@@ -102,21 +102,21 @@
       </div>
     </div>
 
-    <div id="provider-hint" class="provider-hint c-status-msg" hidden>Ładuję listę providerów…</div>
+    <div id="provider-hint" class="provider-hint c-status-msg" hidden data-i18n="chat_pc.provider_loading">Ładuję listę providerów…</div>
 
     <section class="providers-card c-card l-stack" aria-labelledby="providerTitle">
       <div class="providers-head l-row">
-        <h2 id="providerTitle">Providerzy TTS</h2>
+        <h2 id="providerTitle" data-i18n="voice.providers_title">Providerzy TTS</h2>
         <div class="u-spacer"></div>
         <div class="providers-actions">
-          <button class="c-btn c-btn-sm" id="btnReloadProviders">Odśwież listę</button>
-          <button class="c-btn c-btn-sm" id="btnTestAll">Testuj wszystkie</button>
+          <button class="c-btn c-btn-sm" id="btnReloadProviders" data-i18n="chat_pc.refresh_list">Odśwież listę</button>
+          <button class="c-btn c-btn-sm" id="btnTestAll" data-i18n="voice.test_all">Testuj wszystkie</button>
         </div>
       </div>
       <div id="providerList" class="provider-list" aria-live="polite">
-        <div class="provider-empty c-status-msg">Ładowanie…</div>
+        <div class="provider-empty c-status-msg" data-i18n="chat_pc.loading">Ładowanie…</div>
       </div>
-      <div class="c-hint">Kliknij „Test”, aby wykonać próbę TTS i sprawdzić działanie usług.</div>
+      <div class="c-hint" data-i18n="chat_pc.test_hint">Kliknij „Test”, aby wykonać próbę TTS i sprawdzić działanie usług.</div>
     </section>
 
     <!-- Latency info -->
@@ -125,85 +125,85 @@
     <!-- Voice Provider status card (collapsible) -->
     <section class="c-card chat-pc-card u-mt-md" id="voice-status-section">
       <div class="l-row">
-        <h3 class="c-card__title">Status providera głosowego (ASR/TTS)</h3>
+        <h3 class="c-card__title" data-i18n="chat_pc.voice_status_title">Status providera głosowego (ASR/TTS)</h3>
         <div class="u-spacer"></div>
-        <button class="c-btn c-btn-sm" id="btnToggleVoiceStatus">Rozwiń</button>
+        <button class="c-btn c-btn-sm" id="btnToggleVoiceStatus" data-i18n="chat_pc.expand">Rozwiń</button>
       </div>
       <div id="voice-status-content" hidden>
         <div class="c-kv u-mb-md">
-          <div>Status</div><div id="voice-status">Ładowanie...</div>
-          <div>ASR Model</div><div id="voice-asr-model">—</div>
-          <div>TTS Model</div><div id="voice-tts-model">—</div>
-          <div>ASR dostępne</div><div id="voice-asr-available">—</div>
-          <div>TTS dostępne</div><div id="voice-tts-available">—</div>
+          <div data-i18n="chat_pc.status_label">Status</div><div id="voice-status" data-i18n="meta.loading">Ładowanie...</div>
+          <div data-i18n="chat_pc.asr_model_label">ASR Model</div><div id="voice-asr-model">—</div>
+          <div data-i18n="chat_pc.tts_model_label">TTS Model</div><div id="voice-tts-model">—</div>
+          <div data-i18n="chat_pc.asr_available">ASR dostępne</div><div id="voice-asr-available">—</div>
+          <div data-i18n="chat_pc.tts_available">TTS dostępne</div><div id="voice-tts-available">—</div>
         </div>
-        <button class="c-btn c-btn-sm" id="btnRefreshVoiceStatus">Odśwież status głosu</button>
+        <button class="c-btn c-btn-sm" id="btnRefreshVoiceStatus" data-i18n="chat_pc.voice_refresh">Odśwież status głosu</button>
       </div>
     </section>
 
     <!-- PR Assistant section -->
     <section class="c-card chat-pc-card u-mt-xl" id="pr-assistant-section">
       <div class="l-row">
-        <h2 class="c-card__title">Asystent PR</h2>
+        <h2 class="c-card__title" data-i18n="chat_pc.pr_assistant_title">Asystent PR</h2>
         <div class="u-spacer"></div>
-        <button class="c-btn c-btn-sm" id="btnTogglePrAssistant">Rozwiń</button>
+        <button class="c-btn c-btn-sm" id="btnTogglePrAssistant" data-i18n="chat_pc.expand">Rozwiń</button>
       </div>
       <div id="pr-assistant-content" hidden>
-        <p class="c-hint u-mb-md">Generuj treść PR na podstawie szkicu z pomocą lokalnego AI.</p>
+        <p class="c-hint u-mb-md" data-i18n="chat_pc.pr_assistant_hint">Generuj treść PR na podstawie szkicu z pomocą lokalnego AI.</p>
         <div class="c-form-group">
-          <label for="prDraft">Szkic PR / opis zmian</label>
-          <textarea id="prDraft" rows="4" placeholder="Opisz wprowadzone zmiany…"></textarea>
+          <label for="prDraft" data-i18n="chat_pc.pr_draft_label">Szkic PR / opis zmian</label>
+          <textarea id="prDraft" rows="4" placeholder="Opisz wprowadzone zmiany…" data-i18n-attr="placeholder:chat_pc.pr_draft_placeholder"></textarea>
         </div>
         <!-- Knowledge base selection -->
         <div class="c-form-group u-mt-md">
-          <label for="prKnowledgeBase">Baza wiedzy / dokumenty referencyjne</label>
+          <label for="prKnowledgeBase" data-i18n="chat_pc.pr_knowledge_label">Baza wiedzy / dokumenty referencyjne</label>
           <select id="pr-knowledge-base" class="chat-pc-knowledge" multiple size="3">
-            <option value="">Ładowanie dokumentów...</option>
+            <option value="" data-i18n="chat_pc.documents_loading">Ładowanie dokumentów...</option>
           </select>
-          <p class="c-hint">Wybierz dokumenty, które posłużą jako kontekst (Ctrl+klik dla wielokrotnego wyboru)</p>
+          <p class="c-hint" data-i18n="chat_pc.documents_hint">Wybierz dokumenty, które posłużą jako kontekst (Ctrl+klik dla wielokrotnego wyboru)</p>
         </div>
         <div class="l-row u-gap-md u-mt-md">
           <div class="c-form-group">
-            <label for="prStyle">Styl</label>
+            <label for="prStyle" data-i18n="chat_pc.pr_style_label">Styl</label>
             <select id="prStyle">
-              <option value="detailed">Szczegółowy</option>
-              <option value="concise">Zwięzły</option>
-              <option value="technical">Techniczny</option>
+              <option value="detailed" data-i18n="chat_pc.pr_style_detailed">Szczegółowy</option>
+              <option value="concise" data-i18n="chat_pc.pr_style_concise">Zwięzły</option>
+              <option value="technical" data-i18n="chat_pc.pr_style_technical">Techniczny</option>
             </select>
           </div>
           <div class="c-form-group">
-            <label for="prLang">Język</label>
+            <label for="prLang" data-i18n="chat_pc.pr_lang_label">Język</label>
             <select id="prLang">
-              <option value="pl">Polski</option>
-              <option value="en">English</option>
+              <option value="pl" data-i18n="chat_pc.lang_pl">Polski</option>
+              <option value="en" data-i18n="chat_pc.lang_en">English</option>
             </select>
           </div>
-          <button class="c-btn c-btn-sm" id="btnPreviewPr" title="Podgląd sugestii przed zatwierdzeniem">Podgląd</button>
-          <button class="c-btn" id="btnGeneratePr">Generuj PR</button>
+          <button class="c-btn c-btn-sm" id="btnPreviewPr" title="Podgląd sugestii przed zatwierdzeniem" data-i18n="chat_pc.preview" data-i18n-attr="title:chat_pc.preview_title">Podgląd</button>
+          <button class="c-btn" id="btnGeneratePr" data-i18n="chat_pc.generate_pr">Generuj PR</button>
         </div>
         <!-- Preview section -->
         <div id="pr-preview" class="chat-pc-card u-mt-lg" hidden>
-          <h3>Podgląd sugerowanych zmian</h3>
+          <h3 data-i18n="chat_pc.preview_title">Podgląd sugerowanych zmian</h3>
           <div id="pr-suggestions" class="c-card u-mb-md"></div>
           <div class="l-row u-gap-sm">
-            <button class="c-btn c-btn-sm" id="btnApplyPreview">Zastosuj sugestie</button>
-            <button class="c-btn c-btn-sm" id="btnDiscardPreview">Odrzuć</button>
+            <button class="c-btn c-btn-sm" id="btnApplyPreview" data-i18n="chat_pc.apply_suggestions">Zastosuj sugestie</button>
+            <button class="c-btn c-btn-sm" id="btnDiscardPreview" data-i18n="chat_pc.discard">Odrzuć</button>
           </div>
         </div>
         <div id="pr-result" class="chat-pc-card u-mt-lg" hidden>
-          <h3>Wygenerowana treść PR</h3>
+          <h3 data-i18n="chat_pc.generated_pr_title">Wygenerowana treść PR</h3>
           <div class="c-kv u-mb-md">
-            <div>Tytuł</div><div id="pr-title">—</div>
+            <div data-i18n="chat_pc.pr_title_label">Tytuł</div><div id="pr-title">—</div>
           </div>
           <div class="c-form-group">
-            <label>Opis</label>
+            <label data-i18n="chat_pc.pr_description_label">Opis</label>
             <textarea id="pr-description" rows="6" readonly></textarea>
           </div>
           <div class="c-form-group">
-            <label>Podsumowanie</label>
+            <label data-i18n="chat_pc.pr_summary_label">Podsumowanie</label>
             <textarea id="pr-summary" rows="2" readonly></textarea>
           </div>
-          <button class="c-btn c-btn-sm" id="btnCopyPr">Kopiuj do schowka</button>
+          <button class="c-btn c-btn-sm" id="btnCopyPr" data-i18n="chat_pc.copy_button">Kopiuj do schowka</button>
         </div>
       </div>
     </section>
@@ -211,21 +211,21 @@
     <!-- Benchmark section -->
     <section class="c-card chat-pc-card u-mt-xl" id="benchmark-section">
       <div class="l-row">
-        <h2 class="c-card__title">Benchmark modeli</h2>
+        <h2 class="c-card__title" data-i18n="chat_pc.benchmark_title">Benchmark modeli</h2>
         <div class="u-spacer"></div>
-        <button class="c-btn c-btn-sm" id="btnToggleBenchmark">Rozwiń</button>
+        <button class="c-btn c-btn-sm" id="btnToggleBenchmark" data-i18n="chat_pc.expand">Rozwiń</button>
       </div>
       <div id="benchmark-content" hidden>
-        <p class="c-hint u-mb-md">Testuj wydajność modeli AI przez wysyłanie próbek i mierzenie latencji.</p>
+        <p class="c-hint u-mb-md" data-i18n="chat_pc.benchmark_hint">Testuj wydajność modeli AI przez wysyłanie próbek i mierzenie latencji.</p>
         <div class="c-form-group">
-          <label for="benchmarkPrompts">Prompty testowe (jeden na linię)</label>
+          <label for="benchmarkPrompts" data-i18n="chat_pc.benchmark_prompts_label">Prompty testowe (jeden na linię)</label>
           <textarea id="benchmarkPrompts" rows="4" placeholder="Wprowadź prompty testowe...
 Przykład: Wyjaśnij czym jest FastAPI
-Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
+Przykład: Napisz funkcję sortującą w Pythonie" data-i18n-attr="placeholder:chat_pc.benchmark_prompts_placeholder"></textarea>
         </div>
         <div class="l-row u-gap-md u-mt-md">
           <div class="c-form-group">
-            <label for="benchmarkIterations">Iteracje</label>
+            <label for="benchmarkIterations" data-i18n="chat_pc.benchmark_iterations_label">Iteracje</label>
             <select id="benchmarkIterations">
               <option value="1">1</option>
               <option value="3">3</option>
@@ -234,19 +234,19 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
             </select>
           </div>
           <div class="c-form-group">
-            <label for="benchmarkMaxTokens">Max tokenów</label>
+            <label for="benchmarkMaxTokens" data-i18n="chat_pc.benchmark_max_tokens">Max tokenów</label>
             <input type="number" id="benchmarkMaxTokens" value="256" min="32" max="2048">
           </div>
-          <button class="c-btn" id="btnRunBenchmark">Uruchom benchmark</button>
+          <button class="c-btn" id="btnRunBenchmark" data-i18n="chat_pc.run_benchmark">Uruchom benchmark</button>
         </div>
         <div id="benchmark-results" class="u-mt-lg" hidden>
-          <h3>Wyniki benchmarku</h3>
+          <h3 data-i18n="chat_pc.benchmark_results">Wyniki benchmarku</h3>
           <div class="c-kv u-mb-md" id="benchmark-summary">
-            <div>Model</div><div id="bench-model">—</div>
-            <div>Silnik</div><div id="bench-engine">—</div>
-            <div>Średnia latencja</div><div id="bench-avg-latency">— ms</div>
-            <div>Udane / Wszystkie</div><div id="bench-success-rate">— / —</div>
-            <div>Łącznie tokenów</div><div id="bench-total-tokens">—</div>
+            <div data-i18n="chat_pc.model_label">Model</div><div id="bench-model">—</div>
+            <div data-i18n="chat_pc.engine_label">Silnik</div><div id="bench-engine">—</div>
+            <div data-i18n="chat_pc.avg_latency">Średnia latencja</div><div id="bench-avg-latency">— ms</div>
+            <div data-i18n="chat_pc.success_rate">Udane / Wszystkie</div><div id="bench-success-rate">— / —</div>
+            <div data-i18n="chat_pc.total_tokens">Łącznie tokenów</div><div id="bench-total-tokens">—</div>
           </div>
           <div id="benchmark-details" class="benchmark-details"></div>
         </div>
@@ -257,7 +257,21 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
   <!-- Footer -->
   <footer class="layout-footer" data-dashboard-footer-target></footer>
 
-<script>
+  <script type="module">
+    import { initI18n, applyDom, t } from '/web/assets/i18n.js';
+    const urlLang = new URLSearchParams(location.search).get('lang');
+    const saved = localStorage.getItem('lang');
+    const browser = (navigator.language || '').slice(0,2).toLowerCase();
+    const pick = (v)=> v && v.toLowerCase().startsWith('en') ? 'en' : (v && v.toLowerCase().startsWith('pl') ? 'pl' : null);
+    const lang = pick(urlLang) || pick(saved) || pick(browser) || 'pl';
+    if (urlLang) localStorage.setItem('lang', lang);
+    await initI18n(lang);
+    applyDom();
+    document.documentElement.setAttribute('lang', lang);
+    document.title = t('nav.chat_pc');
+    window.__i18n_t = t;
+  </script>
+  <script>
 (function(){
   // DOM elements
   const board = document.getElementById('board');
@@ -332,18 +346,20 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
   const chatBackendApply = document.getElementById('chatBackendApply');
   const chatBackendHint = document.getElementById('chatBackendHint');
 
+  const t = window.__i18n_t || ((key, params) => key);
+
   // Backend display names
   const backendDisplayNames = {
-    local: 'Lokalny (Ollama)',
+    local: t('chat_pc.backend_local'),
     gemini: 'Gemini',
     chatgpt: 'ChatGPT',
-    auto: 'Auto',
-    mock: 'Mock'
+    auto: t('chat_pc.backend_auto'),
+    mock: t('chat_pc.backend_mock')
   };
   const FALLBACK_PROVIDERS = [
-    { id: 'local',  label: 'Piper (lokalny)',         backend: 'piper',  voice: 'pl_PL-gosia-medium.onnx', description: 'Offline TTS Rider-PC.', service: 'voice-web' },
-    { id: 'openai', label: 'OpenAI gpt-4o-mini-tts', backend: 'openai', voice: 'alloy', model: 'gpt-4o-mini-tts', description: 'Chmurowy TTS OpenAI.', service: null },
-    { id: 'google', label: 'Google Gemini Kore',     backend: 'google', voice: 'Kore',  model: 'gemini-2.5-flash-preview-tts', description: 'Chmurowy TTS Gemini.', service: null },
+    { id: 'local',  label: t('chat_pc.provider_piper_label'),  backend: 'piper',  voice: 'pl_PL-gosia-medium.onnx', description: t('chat_pc.provider_piper_desc'), service: 'voice-web' },
+    { id: 'openai', label: t('chat_pc.provider_openai_label'), backend: 'openai', voice: 'alloy', model: 'gpt-4o-mini-tts', description: t('chat_pc.provider_openai_desc'), service: null },
+    { id: 'google', label: t('chat_pc.provider_google_label'), backend: 'google', voice: 'Kore',  model: 'gemini-2.5-flash-preview-tts', description: t('chat_pc.provider_google_desc'), service: null },
   ];
 
   // State
@@ -378,13 +394,13 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
     sourceBadge.className = 'chat-pc-pill';
     if (source === 'pc' && isReady) {
       sourceBadge.classList.add('chat-pc-pill--pc');
-      sourceBadge.textContent = '🖥️ PC (lokalny)';
+      sourceBadge.textContent = t('chat_pc.source_pc');
     } else if (source === 'proxy') {
       sourceBadge.classList.add('chat-pc-pill--proxy');
-      sourceBadge.textContent = '🔗 Proxy (Rider-Pi)';
+      sourceBadge.textContent = t('chat_pc.source_proxy');
     } else {
       sourceBadge.classList.add('chat-pc-pill--offline');
-      sourceBadge.textContent = '⚠️ Offline';
+      sourceBadge.textContent = t('chat_pc.source_offline');
     }
   }
 
@@ -409,11 +425,11 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
     if (source && role === 'bot') {
       const meta = document.createElement('div');
       meta.className = 'msg-meta';
-      let sourceLabel = source === 'pc' ? 'lokalny model' : 'Rider-Pi proxy';
+      let sourceLabel = source === 'pc' ? t('chat_pc.source_local_model') : t('chat_pc.source_proxy_label');
       if (backend && backendDisplayNames[backend]) {
         sourceLabel = `${backendDisplayNames[backend]}`;
       }
-      meta.textContent = `Źródło: ${sourceLabel}`;
+      meta.textContent = `${t('dash.snap.hint_prefix')} ${sourceLabel}`;
       el.appendChild(meta);
     }
     board.appendChild(el);
@@ -429,15 +445,15 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
 
   function serviceStateSummary(provider) {
     const state = provider?.service_state;
-    if (!state) return 'brak danych';
-    if (state.error) return `błąd (${state.error})`;
+    if (!state) return t('chat_pc.no_data');
+    if (state.error) return `${t('chat.status_error')} (${state.error})`;
     const parts = [];
     if (state.active) parts.push(state.active);
     if (state.sub && (!parts.length || state.sub !== parts[parts.length - 1])) {
       parts.push(state.sub);
     }
     if (!parts.length && state.enabled) parts.push(state.enabled);
-    return parts.join(' / ') || 'n/a';
+    return parts.join(' / ') || t('chat_pc.not_available');
   }
 
   function isServiceActive(provider) {
@@ -451,14 +467,14 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
   function setProviderHint(provider) {
     if (!providerHint) return;
     if (!provider) {
-      providerHint.textContent = 'Brak providerów TTS – używam domyślnego Piper.';
+      providerHint.textContent = t('chat_pc.no_tts_providers');
       providerHint.hidden = false;
       return;
     }
     const state = provider.status?.state || 'unknown';
     const detail = provider.status?.detail || '';
     providerHint.hidden = false;
-    providerHint.textContent = `${provider.label}: ${state === 'ok' ? 'gotowy' : state === 'error' ? 'błąd' : 'brak danych'}${detail ? ` – ${detail}` : ''}`;
+    providerHint.textContent = `${provider.label}: ${state === 'ok' ? t('chat_pc.ready') : state === 'error' ? t('chat.status_error') : t('chat_pc.no_data')}${detail ? ` – ${detail}` : ''}`;
   }
 
   function getSelectedProvider() {
@@ -498,7 +514,7 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
     if (!providerCatalog.length) {
       const empty = document.createElement('div');
       empty.className = 'provider-empty c-status-msg';
-      empty.textContent = 'Brak danych o providerach.';
+      empty.textContent = t('chat_pc.providers_empty');
       providerListEl.appendChild(empty);
       return;
     }
@@ -522,7 +538,7 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
       const pill = document.createElement('span');
       const state = provider.status?.state || 'unknown';
       pill.className = providerStateClass(state);
-      pill.textContent = state === 'ok' ? 'OK' : state === 'error' ? 'Błąd' : '—';
+      pill.textContent = state === 'ok' ? t('chat.status_ok') : state === 'error' ? t('chat.status_error') : t('chat.status_dash');
       meta.appendChild(pill);
       if (provider.status?.detail) {
         const detail = document.createElement('div');
@@ -539,7 +555,7 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
       if (provider.service) {
         const svcInfo = document.createElement('div');
         svcInfo.className = 'provider-service';
-        svcInfo.innerHTML = `<strong>Usługa:</strong> ${provider.service} (${serviceStateSummary(provider)})`;
+        svcInfo.innerHTML = `<strong>${t('chat.provider_service')}</strong> ${provider.service} (${serviceStateSummary(provider)})`;
         meta.appendChild(svcInfo);
       }
 
@@ -547,29 +563,36 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
       actions.className = 'provider-actions';
       const btn = document.createElement('button');
       btn.className = 'c-btn c-btn-sm';
-      btn.textContent = 'Test';
+      btn.textContent = t('chat_pc.test_button');
       btn.addEventListener('click', () => {
         btn.disabled = true;
-        btn.textContent = '…';
+        btn.textContent = t('chat_pc.testing_short');
         runProviderChecks([provider.id])
-          .catch((err) => { if (providerHint) providerHint.textContent = `Test ${provider.label} nieudany: ${err.message || err}`; })
+          .catch((err) => {
+            if (providerHint) {
+              providerHint.textContent = t('chat_pc.test_failed', {
+                label: provider.label,
+                msg: err.message || err,
+              });
+            }
+          })
           .finally(() => {
             btn.disabled = false;
-            btn.textContent = 'Test';
+            btn.textContent = t('chat_pc.test_button');
           });
       });
       actions.appendChild(btn);
       if (provider.service) {
         const startBtn = document.createElement('button');
         startBtn.className = 'c-btn c-btn-sm';
-        startBtn.textContent = 'Start';
+        startBtn.textContent = t('chat_pc.start_button');
         if (isServiceActive(provider)) startBtn.disabled = true;
         startBtn.addEventListener('click', () => {
           handleServiceAction(provider, 'start', startBtn);
         });
         const stopBtn = document.createElement('button');
         stopBtn.className = 'c-btn c-btn-sm';
-        stopBtn.textContent = 'Stop';
+        stopBtn.textContent = t('chat_pc.stop_button');
         if (!isServiceActive(provider)) stopBtn.disabled = true;
         stopBtn.addEventListener('click', () => {
           handleServiceAction(provider, 'stop', stopBtn);
@@ -610,17 +633,20 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
     if (auditMode) {
       providerCatalog = FALLBACK_PROVIDERS.map((p, idx) => ({
         ...p,
-        status: { state: idx === 0 ? 'ok' : 'warn', detail: idx === 0 ? 'Lokalny provider aktywny' : 'Proxy wymaga Rider-Pi' },
+        status: {
+          state: idx === 0 ? 'ok' : 'warn',
+          detail: idx === 0 ? t('chat_pc.local_provider_active') : t('chat_pc.proxy_requires_pi'),
+        },
         service_state: p.service ? { unit: p.service, alias: p.service, active: idx === 0 ? 'active' : 'inactive', sub: idx === 0 ? 'running' : 'stopped' } : null,
       }));
-      providerHint.textContent = 'Tryb audytu CSS – dane przykładowe.';
+      providerHint.textContent = t('chat_pc.audit_hint');
       providerHint.hidden = false;
       renderProviderSelect();
       renderProviderList();
       return;
     }
     providerHint.hidden = false;
-    providerHint.textContent = 'Ładuję listę providerów…';
+    providerHint.textContent = t('chat_pc.provider_loading');
     try {
       const res = await fetch('/api/voice/providers', { cache: 'no-store' });
       if (!res.ok) {
@@ -635,19 +661,19 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
       if (!providerCatalog.length) {
         providerCatalog = FALLBACK_PROVIDERS.map((p) => ({
           ...p,
-          status: p.status || { state: 'warn', detail: 'domyślny fallback' },
+          status: p.status || { state: 'warn', detail: t('chat.fallback_detail') },
           service_state: p.service ? { unit: p.service, alias: p.service, active: 'inactive', sub: 'dead' } : null,
         }));
       }
-      providerHint.textContent = 'Wybierz provider do czytania odpowiedzi.';
+      providerHint.textContent = t('chat_pc.select_provider');
     } catch (err) {
       console.warn('voice providers list failed', err);
       providerCatalog = FALLBACK_PROVIDERS.map((p) => ({
         ...p,
-        status: { state: 'warn', detail: 'tryb offline' },
+        status: { state: 'warn', detail: t('chat_pc.offline_mode_detail') },
         service_state: p.service ? { unit: p.service, alias: p.service, active: 'inactive', sub: 'dead' } : null,
       }));
-      providerHint.textContent = 'Nie udało się pobrać listy providerów (tryb offline).';
+      providerHint.textContent = t('chat_pc.provider_offline');
     }
     renderProviderSelect();
     renderProviderList();
@@ -687,7 +713,7 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
   }
 
   async function serviceAction(alias, action) {
-    if (!alias) throw new Error('Nieznany alias usługi');
+    if (!alias) throw new Error(t('chat_pc.unknown_alias'));
     const res = await fetch(`/svc/${encodeURIComponent(alias)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -704,7 +730,7 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
     if (!provider?.service) return;
     const original = button.textContent;
     button.disabled = true;
-    button.textContent = action === 'start' ? 'Startuję…' : 'Zatrzymuję…';
+    button.textContent = action === 'start' ? t('chat.starting') : t('chat.stopping');
     try {
       const data = await serviceAction(provider.service, action);
       if (data?.status) {
@@ -712,7 +738,7 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
       }
       setProviderHint(getSelectedProvider());
     } catch (err) {
-      if (providerHint) providerHint.textContent = `Usługa ${provider.service}: ${err.message || err}`;
+      if (providerHint) providerHint.textContent = `${t('system_ui.node_title')} ${provider.service}: ${err.message || err}`;
     } finally {
       button.disabled = false;
       button.textContent = original;
@@ -733,10 +759,10 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
   // Provider status
   async function refreshProviderStatus() {
     if (auditMode) {
-      provStatus.textContent = 'ready';
+      provStatus.textContent = t('chat_pc.ready');
       provModel.textContent = 'llama3.2:1b (mock)';
       provEngine.textContent = 'mock';
-      if (provBackend) provBackend.textContent = 'Lokalny';
+      if (provBackend) provBackend.textContent = t('chat_pc.backend_local');
       providerReady = true;
       setSourceBadge('pc', true);
       return;
@@ -745,7 +771,7 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
       const res = await fetch('/api/providers/text', { cache: 'no-store' });
       const data = await res.json();
       providerReady = data.initialized === true;
-      provStatus.textContent = data.status || (providerReady ? 'ready' : 'offline');
+      provStatus.textContent = data.status || (providerReady ? t('chat_pc.ready') : t('chat_pc.offline'));
       provModel.textContent = data.model || '—';
       provEngine.textContent = data.engine || '—';
       if (provBackend) {
@@ -764,7 +790,7 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
       }
     } catch (err) {
       console.error('Provider status error:', err);
-      provStatus.textContent = 'błąd';
+      provStatus.textContent = t('chat.status_error');
       providerReady = false;
       setSourceBadge('offline', false);
     }
@@ -795,7 +821,11 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
     if (!backend || !chatBackendApply || !chatBackendSelect) return;
     chatBackendApply.disabled = true;
     chatBackendSelect.disabled = true;
-    if (chatBackendHint) chatBackendHint.textContent = `Ustawiam backend ${backendDisplayNames[backend] || backend}...`;
+    if (chatBackendHint) {
+      chatBackendHint.textContent = t('chat_pc.backend_setting', {
+        backend: backendDisplayNames[backend] || backend,
+      });
+    }
     try {
       const res = await fetch('/api/providers/text/backend', {
         method: 'PATCH',
@@ -804,10 +834,14 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
       });
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
-      if (chatBackendHint) chatBackendHint.textContent = `Backend ustawiony na ${backendDisplayNames[data.backend] || data.backend}.`;
+      if (chatBackendHint) {
+        chatBackendHint.textContent = t('chat_pc.backend_set', {
+          backend: backendDisplayNames[data.backend] || data.backend,
+        });
+      }
       await refreshProviderStatus();
     } catch (err) {
-      if (chatBackendHint) chatBackendHint.textContent = `Nie udało się ustawić backendu: ${err.message}`;
+      if (chatBackendHint) chatBackendHint.textContent = t('chat_pc.backend_set_error', { msg: err.message });
     } finally {
       chatBackendApply.disabled = false;
       chatBackendSelect.disabled = false;
@@ -832,11 +866,11 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
       body: JSON.stringify(payload),
     });
     const t1 = performance.now();
-    latency.textContent = `Czas odpowiedzi: ${(t1 - t0).toFixed(0)} ms`;
+    latency.textContent = t('chat_pc.latency', { ms: (t1 - t0).toFixed(0) });
 
     if (!res.ok) {
       const errData = await res.json().catch((parseErr) => {
-        console.warn('Nie udało się sparsować odpowiedzi błędu:', parseErr);
+        console.warn(t('chat_pc.parse_error'), parseErr);
         return { error: `HTTP ${res.status}: ${res.statusText}` };
       });
       throw new Error(errData.error || errData.hint || `HTTP ${res.status}`);
@@ -859,7 +893,12 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
     await audio.play().catch(() => {});
     setTimeout(() => URL.revokeObjectURL(url), 15000);
     if (payload.provider) {
-      updateProviderStatus(payload.provider, { id: payload.provider, state: 'ok', detail: 'Odtworzenie udane', latency_ms: Math.round(performance.now() - t0) });
+      updateProviderStatus(payload.provider, {
+        id: payload.provider,
+        state: 'ok',
+        detail: t('chat_pc.playback_ok'),
+        latency_ms: Math.round(performance.now() - t0),
+      });
     }
   }
 
@@ -867,7 +906,7 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
     const text = (input.value || '').trim();
     if (!text) return;
     input.value = '';
-    setStatus('Wysyłam…', 'warn');
+    setStatus(t('chat_pc.sending'), 'warn');
     sendBtn.disabled = true;
 
     appendMessage('you', text, false, null);
@@ -879,14 +918,14 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
       const source = data.source || 'unknown';
       appendMessage('bot', reply, false, source);
       save('bot', reply, false, source);
-      setStatus('OK', 'ok');
+      setStatus(t('meta.ok'), 'ok');
       setSourceBadge(source, providerReady);
 
       if (ttsChk.checked) {
         try {
           await speak(reply);
         } catch (e) {
-          appendMessage('bot', '⚠️ TTS: ' + (e.message || e), true, null);
+          appendMessage('bot', `${t('chat_pc.tts_error_prefix')}${e.message || e}`, true, null);
           const provider = getSelectedProvider();
           if (provider) {
             updateProviderStatus(provider.id, { id: provider.id, state: 'error', detail: e.message || e });
@@ -895,9 +934,10 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
       }
     } catch (e) {
       const msg = e.message || String(e);
-      appendMessage('bot', 'Błąd: ' + msg, true, null);
-      save('bot', 'Błąd: ' + msg, true, null);
-      setStatus('Błąd', 'err');
+      const errMsg = t('chat_pc.error_prefix', { msg });
+      appendMessage('bot', errMsg, true, null);
+      save('bot', errMsg, true, null);
+      setStatus(t('chat.status_error'), 'err');
     } finally {
       sendBtn.disabled = false;
       input.focus();
@@ -908,11 +948,11 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
   async function generatePrContent() {
     const draft = (prDraft.value || '').trim();
     if (!draft) {
-      alert('Wprowadź szkic PR');
+      alert(t('chat_pc.pr_draft_required'));
       return;
     }
     btnGeneratePr.disabled = true;
-    btnGeneratePr.textContent = 'Generuję…';
+    btnGeneratePr.textContent = t('chat_pc.generating');
 
     try {
       const res = await fetch('/api/chat/pc/generate-pr-content', {
@@ -934,18 +974,21 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
       prSummary.value = data.summary || '';
       prResult.hidden = false;
     } catch (e) {
-      alert('Błąd generowania: ' + (e.message || e));
+      alert(t('chat_pc.generate_error', { msg: e.message || e }));
     } finally {
       btnGeneratePr.disabled = false;
-      btnGeneratePr.textContent = 'Generuj PR';
+      btnGeneratePr.textContent = t('chat_pc.generate_pr');
     }
   }
 
   function copyPrToClipboard() {
-    const text = `# ${prTitle.textContent}\n\n${prDescription.value}\n\n## Podsumowanie\n${prSummary.value}`;
+    const text = `# ${prTitle.textContent}\n\n${prDescription.value}\n\n## ${t('chat_pc.summary_title')}\n${prSummary.value}`;
     navigator.clipboard.writeText(text).then(
-      () => { btnCopyPr.textContent = '✓ Skopiowano!'; setTimeout(() => { btnCopyPr.textContent = 'Kopiuj do schowka'; }, 2000); },
-      () => alert('Nie udało się skopiować')
+      () => {
+        btnCopyPr.textContent = t('chat_pc.copy_success');
+        setTimeout(() => { btnCopyPr.textContent = t('chat_pc.copy_button'); }, 2000);
+      },
+      () => alert(t('chat_pc.copy_failed'))
     );
   }
 
@@ -968,11 +1011,11 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
           `<option value="${doc.path}">${doc.name} (${doc.category})</option>`
         ).join('');
       } else {
-        prKnowledgeBase.innerHTML = '<option value="">Brak dokumentów</option>';
+        prKnowledgeBase.innerHTML = `<option value="">${t('chat_pc.documents_none')}</option>`;
       }
     } catch (err) {
       console.error('Knowledge documents error:', err);
-      prKnowledgeBase.innerHTML = '<option value="">Błąd ładowania</option>';
+      prKnowledgeBase.innerHTML = `<option value="">${t('chat_pc.documents_load_error')}</option>`;
     }
   }
 
@@ -981,11 +1024,11 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
   async function previewPrChanges() {
     const draft = (prDraft.value || '').trim();
     if (!draft) {
-      alert('Wprowadź szkic PR');
+      alert(t('chat_pc.pr_draft_required'));
       return;
     }
     btnPreviewPr.disabled = true;
-    btnPreviewPr.textContent = 'Ładuję…';
+    btnPreviewPr.textContent = t('chat_pc.preview_loading');
 
     // Pobierz wybrane dokumenty
     const selectedDocs = Array.from(prKnowledgeBase.selectedOptions).map(opt => opt.value).filter(v => v);
@@ -1012,20 +1055,20 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
       // Wyświetl sugestie
       if (data.suggestions && data.suggestions.length > 0) {
         prSuggestions.innerHTML = `
-          <h4>Sugestie ulepszeń:</h4>
+          <h4>${t('chat_pc.suggestions_title')}</h4>
           <ul>${data.suggestions.map(s => `<li>${s}</li>`).join('')}</ul>
-          <p class="c-hint">Znalezione dokumenty kontekstu: ${data.knowledge_used || 0}</p>
+          <p class="c-hint">${t('chat_pc.knowledge_used', { count: data.knowledge_used || 0 })}</p>
         `;
       } else {
-        prSuggestions.innerHTML = '<p class="c-hint">Brak dodatkowych sugestii.</p>';
+        prSuggestions.innerHTML = `<p class="c-hint">${t('chat_pc.no_suggestions')}</p>`;
       }
       prPreview.hidden = false;
       prResult.hidden = true;
     } catch (e) {
-      alert('Błąd podglądu: ' + (e.message || e));
+      alert(t('chat_pc.preview_error', { msg: e.message || e }));
     } finally {
       btnPreviewPr.disabled = false;
-      btnPreviewPr.textContent = 'Podgląd';
+      btnPreviewPr.textContent = t('chat_pc.preview');
     }
   }
 
@@ -1048,18 +1091,18 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
   async function runBenchmark() {
     const promptsText = (benchmarkPrompts.value || '').trim();
     if (!promptsText) {
-      alert('Wprowadź co najmniej jeden prompt testowy');
+      alert(t('chat_pc.test_required'));
       return;
     }
 
     const prompts = promptsText.split('\n').map(p => p.trim()).filter(p => p);
     if (prompts.length === 0) {
-      alert('Wprowadź co najmniej jeden prompt testowy');
+      alert(t('chat_pc.test_required'));
       return;
     }
 
     btnRunBenchmark.disabled = true;
-    btnRunBenchmark.textContent = 'Trwa benchmark…';
+    btnRunBenchmark.textContent = t('chat_pc.benchmark_running');
     benchmarkResults.hidden = true;
 
     try {
@@ -1103,21 +1146,21 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
       benchmarkResults.hidden = false;
 
     } catch (e) {
-      alert('Błąd benchmarku: ' + (e.message || e));
+      alert(t('chat_pc.benchmark_error', { msg: e.message || e }));
     } finally {
       btnRunBenchmark.disabled = false;
-      btnRunBenchmark.textContent = 'Uruchom benchmark';
+      btnRunBenchmark.textContent = t('chat_pc.run_benchmark');
     }
   }
 
   // Voice provider status
   async function refreshVoiceStatus() {
     if (auditMode) {
-      voiceStatus.textContent = 'ready (mock)';
+      voiceStatus.textContent = t('chat_pc.ready_mock');
       voiceAsrModel.textContent = 'base (mock)';
       voiceTtsModel.textContent = 'en_US-lessac-medium (mock)';
-      voiceAsrAvailable.textContent = '✓ Tak';
-      voiceTtsAvailable.textContent = '✓ Tak';
+      voiceAsrAvailable.textContent = t('chat_pc.yes');
+      voiceTtsAvailable.textContent = t('chat_pc.yes');
       voiceProviderReady = true;
       return;
     }
@@ -1125,15 +1168,15 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
       const res = await fetch('/api/providers/voice', { cache: 'no-store' });
       const data = await res.json();
       voiceProviderReady = data.initialized === true;
-      voiceStatus.textContent = data.status || (voiceProviderReady ? 'ready' : 'offline');
+      voiceStatus.textContent = data.status || (voiceProviderReady ? t('chat_pc.ready') : t('chat_pc.offline'));
       voiceAsrModel.textContent = data.asr_model || '—';
       voiceTtsModel.textContent = data.tts_model || '—';
-      voiceAsrAvailable.textContent = data.asr_available ? '✓ Tak' : '✗ Nie';
-      voiceTtsAvailable.textContent = data.tts_available ? '✓ Tak' : '✗ Nie';
+      voiceAsrAvailable.textContent = data.asr_available ? t('chat_pc.yes') : t('chat_pc.no');
+      voiceTtsAvailable.textContent = data.tts_available ? t('chat_pc.yes') : t('chat_pc.no');
       recordBtn.disabled = !voiceProviderReady;
     } catch (err) {
       console.error('Voice status error:', err);
-      voiceStatus.textContent = 'błąd';
+      voiceStatus.textContent = t('chat.status_error');
       voiceProviderReady = false;
       recordBtn.disabled = true;
     }
@@ -1142,7 +1185,7 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
   // ASR (Speech-to-Text) - nagrywanie mowy
   async function startRecording() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      alert('Twoja przeglądarka nie obsługuje nagrywania dźwięku.');
+      alert(t('chat_pc.mic_unsupported'));
       return;
     }
     try {
@@ -1162,12 +1205,12 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
 
       mediaRecorder.start();
       isRecording = true;
-      recordBtn.textContent = '⏹️ Stop';
+      recordBtn.textContent = t('chat_pc.record_stop');
       recordBtn.classList.add('is-recording');
-      setStatus('Nagrywanie...', 'warn');
+      setStatus(t('chat_pc.recording'), 'warn');
     } catch (err) {
       console.error('Recording error:', err);
-      alert('Nie udało się uzyskać dostępu do mikrofonu: ' + err.message);
+      alert(t('chat_pc.mic_access_error', { msg: err.message }));
     }
   }
 
@@ -1176,9 +1219,9 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
       mediaRecorder.stop();
     }
     isRecording = false;
-    recordBtn.textContent = '🎤 Mów';
+    recordBtn.textContent = t('chat_pc.record_button');
     recordBtn.classList.remove('is-recording');
-    setStatus('Przetwarzanie mowy...', 'warn');
+    setStatus(t('chat_pc.processing'), 'warn');
   }
 
   async function transcribeAudio(audioBlob) {
@@ -1201,14 +1244,14 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
       const data = await res.json();
       if (data.ok && data.text) {
         input.value = (input.value ? input.value + ' ' : '') + data.text;
-        setStatus('Rozpoznano mowę', 'ok');
-        latency.textContent = `ASR: ${data.latency_ms || 0} ms`;
+        setStatus(t('chat_pc.speech_recognized'), 'ok');
+        latency.textContent = t('chat_pc.asr_latency', { ms: data.latency_ms || 0 });
       } else {
-        setStatus('Nie rozpoznano mowy: ' + (data.error || 'nieznany błąd'), 'err');
+        setStatus(t('chat_pc.asr_not_recognized', { msg: data.error || t('chat.status_error') }), 'err');
       }
     } catch (err) {
       console.error('ASR error:', err);
-      setStatus('Błąd ASR: ' + err.message, 'err');
+      setStatus(t('chat_pc.asr_error', { msg: err.message }), 'err');
     }
   }
 
@@ -1240,7 +1283,7 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
   btnToggleVoiceStatus.addEventListener('click', () => {
     const isHidden = voiceStatusContent.hidden;
     voiceStatusContent.hidden = !isHidden;
-    btnToggleVoiceStatus.textContent = isHidden ? 'Zwiń' : 'Rozwiń';
+    btnToggleVoiceStatus.textContent = isHidden ? t('chat_pc.collapse') : t('chat_pc.expand');
     if (isHidden) refreshVoiceStatus();
   });
 
@@ -1258,19 +1301,19 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
     event.preventDefault();
     if (!providerCatalog.length) return;
     btnTestAll.disabled = true;
-    btnTestAll.textContent = 'Testuję…';
+    btnTestAll.textContent = t('chat.testing');
     runProviderChecks(providerCatalog.map((p) => p.id))
       .catch((err) => { if (providerHint) providerHint.textContent = err.message || err; })
       .finally(() => {
         btnTestAll.disabled = false;
-        btnTestAll.textContent = 'Testuj wszystkie';
+        btnTestAll.textContent = t('voice.test_all');
       });
   });
 
   btnTogglePrAssistant.addEventListener('click', () => {
     const isHidden = prAssistantContent.hidden;
     prAssistantContent.hidden = !isHidden;
-    btnTogglePrAssistant.textContent = isHidden ? 'Zwiń' : 'Rozwiń';
+    btnTogglePrAssistant.textContent = isHidden ? t('chat_pc.collapse') : t('chat_pc.expand');
     if (isHidden) loadKnowledgeDocuments();
   });
 
@@ -1284,17 +1327,17 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
   btnToggleBenchmark.addEventListener('click', () => {
     const isHidden = benchmarkContent.hidden;
     benchmarkContent.hidden = !isHidden;
-    btnToggleBenchmark.textContent = isHidden ? 'Zwiń' : 'Rozwiń';
+    btnToggleBenchmark.textContent = isHidden ? t('chat_pc.collapse') : t('chat_pc.expand');
   });
   btnRunBenchmark.addEventListener('click', runBenchmark);
 
   // Audit mode placeholders
   if (auditMode && history.length === 0) {
-    appendMessage('you', 'Przykładowa wiadomość użytkownika w trybie PC.', false, null);
-    appendMessage('bot', 'Odpowiedź z lokalnego modelu AI (llama3.2:1b).', false, 'pc');
-    appendMessage('bot', '⚠️ Przykładowy błąd połączenia.', true, null);
-    latency.textContent = 'Czas odpowiedzi: 127 ms';
-    setStatus('Tryb audytu CSS', 'warn');
+    appendMessage('you', t('chat_pc.sample_user_pc'), false, null);
+    appendMessage('bot', t('chat_pc.sample_bot_pc'), false, 'pc');
+    appendMessage('bot', t('chat_pc.sample_error_pc'), true, null);
+    latency.textContent = t('chat_pc.latency', { ms: 127 });
+    setStatus(t('chat.audit_mode'), 'warn');
   }
 
   // Initialize
@@ -1304,7 +1347,7 @@ Przykład: Napisz funkcję sortującą w Pythonie"></textarea>
   } else {
     setMode('pc');
   }
-  setStatus('Gotowy', 'ok');
+  setStatus(t('chat_pc.ready_label'), 'ok');
   input.focus();
   refreshProviderStatus();
   refreshVoiceStatus();

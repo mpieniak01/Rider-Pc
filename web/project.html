@@ -7,7 +7,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Rider-PC: Projekt</title>
+  <title data-i18n="project.page_title">Rider-PC: Projekt</title>
   <script src="/web/assets/theme-loader.js" defer></script>
   <link rel="stylesheet" href="/web/assets/dashboard-common.css">
   <link rel="stylesheet" href="/web/assets/themes/classic/theme.css" data-theme-skin="classic">
@@ -26,22 +26,22 @@
   <header class="page-header">
     <div class="page-header__titles">
       <h1 class="page-title">
-        <span class="brand-accent">Rider-PC</span>: <span class="page-title-text">Projekt</span>
+        <span class="brand-accent">Rider-PC</span>: <span class="page-title-text" data-i18n="project.title">Projekt</span>
       </h1>
     </div>
     <div class="page-header__actions page-header__actions--small project-actions">
-      <button id="new-task-btn" class="c-btn c-btn-sm c-btn-primary" title="Utwórz nowe zadanie">
+      <button id="new-task-btn" class="c-btn c-btn-sm c-btn-primary" title="Utwórz nowe zadanie" data-i18n="project.new_task" data-i18n-attr="title:project.new_task">
         <span>+</span>
         <span data-i18n="project.new_task">Nowe Zadanie</span>
       </button>
-      <button id="refresh-btn" class="c-btn c-btn-sm" title="Odśwież dane">
+      <button id="refresh-btn" class="c-btn c-btn-sm" title="Odśwież dane" data-i18n-attr="title:project.refresh">
         <span class="refresh-icon">↻</span>
         <span data-i18n="project.refresh">Odśwież</span>
       </button>
     </div>
   </header>
 
-  <p id="status-line" class="status-line c-statusbar is-working">Ładowanie zgłoszeń...</p>
+    <p id="status-line" class="status-line c-statusbar is-working" data-i18n="project.loading">Ładowanie zgłoszeń...</p>
 
   <!-- Error/Warning Banner -->
   <div id="error-banner" class="error-banner c-status-msg is-err" hidden>
@@ -75,13 +75,13 @@
     
     <form id="task-form" class="c-modal__form">
       <div class="c-form-group">
-        <label for="task-title" data-i18n="project.form.title">Tytuł *</label>
-        <input type="text" id="task-title" name="title" required placeholder="Opisz krótko zadanie..." />
+        <label for="task-title" data-i18n="project.title_label">Tytuł *</label>
+        <input type="text" id="task-title" name="title" required placeholder="Opisz krótko zadanie..." data-i18n-attr="placeholder:project.title_placeholder" />
       </div>
       
       <div class="c-form-group">
         <label for="task-body" data-i18n="project.form.description">Opis</label>
-        <textarea id="task-body" name="body" rows="4" placeholder="Dodaj szczegóły (obsługuje Markdown)..."></textarea>
+        <textarea id="task-body" name="body" rows="4" placeholder="Dodaj szczegóły (obsługuje Markdown)..." data-i18n-attr="placeholder:project.form.description_placeholder"></textarea>
       </div>
       
       <div class="c-form-row">
@@ -106,27 +106,27 @@
         
         <label class="radio-option">
           <input type="radio" name="git_strategy" value="current" checked />
-          <span data-i18n="project.form.stay_current">Zostań na obecnym branchu</span>
+          <span data-i18n="project.stay_current">Zostań na obecnym branchu</span>
           <span id="current-branch-label" class="branch-label muted"></span>
         </label>
         
         <label class="radio-option">
           <input type="radio" name="git_strategy" value="new_branch" />
-          <span data-i18n="project.form.new_branch">Utwórz nowy branch z main</span>
-          <span class="hint muted">(Automatyczna nazwa na podst. tytułu)</span>
+          <span data-i18n="project.new_branch">Utwórz nowy branch z main</span>
+          <span class="hint muted" data-i18n="project.auto_branch_hint">(Automatyczna nazwa na podst. tytułu)</span>
         </label>
         
         <div id="auto-init-option" class="nested-option" style="display: none;">
           <label class="checkbox-option">
             <input type="checkbox" id="task-auto-init" name="auto_init" checked />
             <span data-i18n="project.form.auto_init">Zainicjuj automatycznie</span>
-            <span class="hint muted">(Utwórz plik dokumentacji i wykonaj pierwszy commit)</span>
+            <span class="hint muted" data-i18n="project.create_doc_hint">(Utwórz plik dokumentacji i wykonaj pierwszy commit)</span>
           </label>
         </div>
         
         <label class="radio-option">
           <input type="radio" name="git_strategy" value="existing" />
-          <span data-i18n="project.form.existing_branch">Przełącz na istniejący branch</span>
+          <span data-i18n="project.switch_branch">Przełącz na istniejący branch</span>
         </label>
         
         <div id="existing-branch-select" class="nested-option" style="display: none;">
@@ -138,7 +138,7 @@
       
       <div class="c-form-actions">
         <button type="button" id="modal-cancel" class="c-btn" data-i18n="project.form.cancel">Anuluj</button>
-        <button type="submit" id="modal-submit" class="c-btn c-btn-primary" data-i18n="project.form.create">Utwórz Zadanie</button>
+        <button type="submit" id="modal-submit" class="c-btn c-btn-primary" data-i18n="project.create_task">Utwórz Zadanie</button>
       </div>
     </form>
     
@@ -161,10 +161,16 @@
   const urlParams = new URLSearchParams(window.location.search);
   const auditMode = urlParams.get('audit') === '1';
 
+  const pageTitleTextEl = document.querySelector('.page-title-text');
+  if (pageTitleTextEl) {
+    pageTitleTextEl.textContent = getI18nText('project.title', 'Projekt');
+  }
+  document.title = getI18nText('project.page_title', 'Rider-PC: Projekt');
+
   // i18n helper - get translation from DOM or use fallback
-  function getI18nText(key, fallback) {
+  function getI18nText(key, fallback, params) {
     if (window.i18n && window.i18n.t) {
-      return window.i18n.t(key) || fallback;
+      return window.i18n.t(key, params) || fallback;
     }
     return fallback;
   }
@@ -374,9 +380,9 @@
     renderIssues(sampleIssues);
     issuesContainer.style.display = 'block';
     emptyState.hidden = true;
-    errorBanner.hidden = false;
-    errorMessage.textContent = 'Tryb audytu CSS – dane przykładowe.';
-    setStatus('success', '5 otwartych zgłoszeń • audit/local • teraz');
+      errorBanner.hidden = false;
+      errorMessage.textContent = getI18nText('project.audit_mode', 'Tryb audytu CSS – dane przykładowe.');
+      setStatus('success', getI18nText('project.audit_status', '5 otwartych zgłoszeń • audit/local • teraz', { count: 5 }));
     refreshBtn.disabled = false;
     refreshBtn.classList.remove('is-loading');
   }
@@ -497,7 +503,8 @@
       if (!Array.isArray(formMeta.branches)) formMeta.branches = [];
       
       // Populate labels
-      taskLabels.innerHTML = '';
+      const labelsPlaceholder = getI18nText('project.labels_placeholder', '— Nieprzypisane —');
+      taskLabels.innerHTML = `<option value="">${labelsPlaceholder}</option>`;
       formMeta.labels.forEach(label => {
         const opt = document.createElement('option');
         opt.value = label;
@@ -506,7 +513,8 @@
       });
       
       // Populate collaborators
-      taskAssignee.innerHTML = '<option value="">— Nieprzypisane —</option>';
+      const assigneeNone = getI18nText('project.assignee_none', '— Nieprzypisane —');
+      taskAssignee.innerHTML = `<option value="">${assigneeNone}</option>`;
       formMeta.collaborators.forEach(user => {
         const opt = document.createElement('option');
         opt.value = user;
@@ -531,7 +539,7 @@
       
     } catch (err) {
       console.error('Failed to load form metadata:', err);
-      showToast('Nie udało się załadować danych formularza', 'error');
+      showToast(getI18nText('project.toast_form_metadata_error', 'Nie udało się załadować danych formularza'), 'error');
       modalSubmit.disabled = false; // Allow submit anyway
     }
   }
@@ -569,7 +577,7 @@
     
     const title = taskTitle.value.trim();
     if (!title) {
-      showToast('Tytuł jest wymagany', 'error');
+      showToast(getI18nText('project.toast_title_required', 'Tytuł jest wymagany'), 'error');
       taskTitle.focus();
       return;
     }
@@ -584,7 +592,7 @@
     if (gitStrategy === 'existing') {
       const branchValue = taskExistingBranch.value;
       if (!branchValue) {
-        showToast('Wybierz istniejącą gałąź', 'error');
+        showToast(getI18nText('project.toast_branch_required', 'Wybierz istniejącą gałąź'), 'error');
         taskExistingBranch.focus();
         return;
       }
@@ -622,13 +630,20 @@
       if (resp.status === 409) {
         closeModal();
         if (data.issue) {
-          showToast(`Issue #${data.issue.number} utworzone!`, 'success');
+          let message = getI18nText('project.toast_issue_created', `Issue #${data.issue.number} utworzone!`, { number: data.issue.number });
+          if (data.branch) {
+            message += ` ${getI18nText('project.toast_issue_branch', 'Branch: {branch}', { branch: data.branch })}`;
+          }
+          if (data.docs_file) {
+            message += ` ${getI18nText('project.toast_issue_docs', 'Docs: {file}', { file: data.docs_file })}`;
+          }
+          showToast(message, 'success');
           if (data.warning) {
             showToast(data.warning, 'error');
           }
           loadIssues(true);
         } else {
-          throw new Error(data.error || 'Konflikt przy tworzeniu zadania');
+          throw new Error(data.error || getI18nText('project.error_conflict', 'Conflict creating issue'));
         }
         return;
       }
@@ -641,12 +656,12 @@
       if (data.success) {
         closeModal();
         
-        let message = `Issue #${data.issue.number} utworzone!`;
+        let message = getI18nText('project.toast_issue_created', `Issue #${data.issue.number} utworzone!`, { number: data.issue.number });
         if (data.branch) {
-          message += ` Branch: ${data.branch}`;
+          message += ` ${getI18nText('project.toast_issue_branch', 'Branch: {branch}', { branch: data.branch })}`;
         }
         if (data.docs_file) {
-          message += ` | Docs: ${data.docs_file}`;
+          message += ` ${getI18nText('project.toast_issue_docs', 'Docs: {file}', { file: data.docs_file })}`;
         }
         if (data.warning) {
           showToast(data.warning, 'error');
@@ -659,13 +674,13 @@
         
         // Refresh issues list
         loadIssues(true);
-      } else {
-        throw new Error(data.error || 'Nieznany błąd');
-      }
+        } else {
+          throw new Error(data.error || getI18nText('project.error_unknown', 'Unknown error'));
+        }
       
     } catch (err) {
       console.error('Failed to create task:', err);
-      showToast(`Błąd: ${err.message}`, 'error');
+      showToast(getI18nText('project.toast_error', 'Błąd: {msg}', { msg: err.message }), 'error');
       taskForm.style.display = 'block';
       modalLoading.style.display = 'none';
     } finally {

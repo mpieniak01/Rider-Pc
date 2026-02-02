@@ -29,7 +29,7 @@
     </div>
     <div class="page-header__actions page-header__actions--small text-legend">
       <span id="statusBadge" class="c-pill warn" data-i18n="assistant.status_checking">Sprawdzam…</span>
-      <button id="btnReload" class="c-btn-sm" title="Przeładuj konfigurację">⟳</button>
+      <button id="btnReload" class="c-btn-sm" title="Przeładuj konfigurację" data-i18n-attr="title:assistant.reload_title">⟳</button>
     </div>
   </header>
 
@@ -43,7 +43,7 @@
     <h2 class="c-card__title" data-i18n="assistant.custom_title">Własna komenda</h2>
     <div class="custom-command-row">
       <input type="text" id="customInput" class="custom-input" 
-             placeholder="Wpisz komendę, np. 'Włącz wszystkie światła'" />
+             placeholder="Wpisz komendę, np. 'Włącz wszystkie światła'" data-i18n-attr="placeholder:assistant.custom_placeholder" />
       <button id="btnSendCustom" class="c-btn" data-i18n="assistant.send_button">Wyślij</button>
     </div>
   </div>

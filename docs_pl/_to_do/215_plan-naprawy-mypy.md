@@ -21,17 +21,18 @@
 - [x] Wprowadzono dokładne typy w `pc_client/mcp/tools/*`, `pc_client/queue/redis_queue.py`, `pc_client/api/routers/provider_router.py`, `pc_client/services/google_assistant.py` i skryptach pomocniczych, dzięki czemu `make typecheck` przebiega (uwaga: jedynie standardowe notyfikacje o niepełnym typowaniu w skryptach pomocniczych).
 - [x] Uruchomiono zestaw regresyjny selekcji testów (`tests/test_assistant_router.py ... pc_client/tests/test_system_log_events.py`); wynik: `132 passed, 27 skipped` w `.venv`.
 
-## 4. Stan do publikacji na gałąź `215`
+## 4. Stan do publikacji na gałąź `215` (wydanie zbiorcze z #214)
 - **Mypy:** `make typecheck` wykonuje się bez błędów (poza wspomnianymi notacjami `annotation-unchecked` w `scripts/css_coverage.py` i `pc_client/api/lifecycle.py`, które nie wpływają na stabilność).
 - **Testy:** tak jak wyżej, wszystkie wskazane testy przechodzą pod `.venv/bin/pytest`.
 - **Czystość:** nie wyrzucano żadnych plików ani importów nieużywanych; zmiany w `pc_client/mcp/tools/__init__.py` dodają eksport `GitCommandResult`, więc testy widzą go bezpośrednio.
+- **Zakres #214:** uzupełnione tłumaczenia EN w `web/*.html`, `web/templates/dashboard_base.html` i `web/assets/i18n.js`, plus skrypt `scripts/check_i18n.mjs` do walidacji brakujących kluczy.
 - **Next steps przed PR:** przyciąć historię lokalnych zmian do krytycznych plików, ewentualnie przygotować branch `215` (przykład `git checkout -b 215` + commit tylko tym plikom). Jeśli potrzebujesz pomocy przy tworzeniu PR lub weryfikacji reszty zmian z `git status`, daj znać.
 
 ## 5. Notatka do recenzji (do wklejenia w PR)
 Poniżej znajduje się gotowy opis do recenzji. Odnosi się do sekcji „Stan do publikacji na gałąź `215`”.
 
 ```
-Zakres: poprawa typów dla mypy (narzędzia MCP, redis_queue, google_assistant, provider_router) oraz doprecyzowanie typów w skryptach pomocniczych.
+Zakres: poprawa typów dla mypy (narzędzia MCP, redis_queue, google_assistant, provider_router) + uzupełnienie tłumaczeń EN (web/*.html, dashboard_base.html, i18n.js) w ramach wydania zbiorczego #214/#215.
 Status: make typecheck przechodzi; testy z listy regresyjnej (m.in. test_assistant_router, test_mcp_tools, test_project_issues) zakończone wynikiem 132 passed / 27 skipped.
 Szczegóły i kontekst: docs_pl/_to_do/215_plan-naprawy-mypy.md (sekcja „Stan do publikacji na gałąź `215`”).
 ```
