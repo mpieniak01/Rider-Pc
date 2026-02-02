@@ -170,7 +170,7 @@
             };
 
             ws.onerror = (error) => {
-                console.error('Błąd WebSocket:', error);
+                console.error('WebSocket connection error:', error);
                 statusIndicator.className = 'status-dot is-disconnected';
                 statusText.textContent = t('navigation.error');
                 statusIndicator.title = t('navigation.error');
