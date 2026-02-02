@@ -62,12 +62,12 @@ def main() -> None:
     try:
         while True:
             try:
-                topic, payload_blob = sock.recv_multipart()
+                topic_bytes, payload_blob = sock.recv_multipart()
             except zmq.error.Again:
                 logger.warning("no frames received for %.1fs", args.timeout)
                 continue
             seen += 1
-            topic = topic.decode("utf-8", "ignore")
+            topic_str = topic_bytes.decode("utf-8", "ignore")
             try:
                 payload = json.loads(payload_blob.decode("utf-8"))
             except json.JSONDecodeError as exc:
@@ -83,7 +83,9 @@ def main() -> None:
             meta = payload.get("meta") or {}
             detections = payload.get("detections")
             extra = f"detections={len(detections)}" if isinstance(detections, list) else ""
-            print(f"[{seen}] topic={topic} ts={ts} delta={delta} size={size} {extra} fps={payload.get('fps') or 'n/a'}")
+            print(
+                f"[{seen}] topic={topic_str} ts={ts} delta={delta} size={size} {extra} fps={payload.get('fps') or 'n/a'}"
+            )
             if args.count and seen >= args.count:
                 break
     finally:

@@ -1,9 +1,14 @@
 """Redis backend for task queue."""
 
+import asyncio
 import json
 import logging
-from typing import Optional
-import asyncio
+from typing import Any, Awaitable, Dict, Optional, Tuple, TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from redis.asyncio import Redis as RedisType
+else:
+    RedisType = Any
 
 try:
     import redis.asyncio as aioredis
@@ -11,7 +16,7 @@ try:
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
-    aioredis = None
+    aioredis = None  # type: ignore[assignment]
 
 from pc_client.providers.base import TaskEnvelope, TaskResult
 
@@ -43,11 +48,11 @@ class RedisTaskQueue:
         self.port = port
         self.password = password
         self.db = db
-        self.redis: Optional[aioredis.Redis] = None
+        self.redis: Optional[RedisType] = None
         self.logger = logging.getLogger("[bridge] RedisTaskQueue")
 
         # Queue names by priority (1=highest, 10=lowest)
-        self.queue_names = {
+        self.queue_names: Dict[int, str] = {
             1: "task_queue:priority_critical",
             2: "task_queue:priority_high",
             3: "task_queue:priority_medium",
@@ -63,14 +68,14 @@ class RedisTaskQueue:
     async def connect(self):
         """Connect to Redis."""
         try:
-            self.redis = await aioredis.from_url(
+            redis_client = await aioredis.from_url(
                 f"redis://{self.host}:{self.port}/{self.db}",
                 password=self.password,
                 encoding="utf-8",
                 decode_responses=True,
             )
-            # Test connection
-            await self.redis.ping()
+            self.redis = redis_client
+            await redis_client.ping()
             self.logger.info(f"Connected to Redis at {self.host}:{self.port}")
         except Exception as e:
             self.logger.error(f"Failed to connect to Redis: {e}")
@@ -104,7 +109,9 @@ class RedisTaskQueue:
             task_json = json.dumps(task.to_dict())
 
             # Push to Redis list (LPUSH for FIFO with BRPOP)
-            await self.redis.lpush(queue_name, task_json)
+            redis_client = self.redis
+            assert redis_client is not None
+            await cast(Awaitable[int], redis_client.lpush(queue_name, task_json))
 
             self.logger.debug(f"Enqueued task {task.task_id} to {queue_name} (priority: {task.priority})")
 
@@ -129,7 +136,7 @@ class RedisTaskQueue:
 
         try:
             # Try to pop from queues in priority order
-            queue_list = [
+            queue_list: list[str] = [
                 "task_queue:priority_critical",
                 "task_queue:priority_high",
                 "task_queue:priority_medium",
@@ -137,7 +144,13 @@ class RedisTaskQueue:
             ]
 
             # BRPOP blocks until a task is available or timeout
-            result = await self.redis.brpop(queue_list, timeout=timeout)
+            redis_client = self.redis
+            assert redis_client is not None
+            timeout_value = int(timeout)
+            result: Optional[Tuple[str, str]] = await cast(
+                Awaitable[Optional[Tuple[str, str]]],
+                redis_client.brpop(queue_list, timeout=timeout_value),
+            )
 
             if result:
                 queue_name, task_json = result
@@ -162,8 +175,10 @@ class RedisTaskQueue:
 
         try:
             total = 0
+            redis_client = self.redis
+            assert redis_client is not None
             for queue_name in set(self.queue_names.values()):
-                length = await self.redis.llen(queue_name)
+                length = await cast(Awaitable[int], redis_client.llen(queue_name))
                 total += length
             return total
         except Exception as e:
@@ -176,8 +191,10 @@ class RedisTaskQueue:
             return
 
         try:
+            redis_client = self.redis
+            assert redis_client is not None
             for queue_name in set(self.queue_names.values()):
-                await self.redis.delete(queue_name)
+                await cast(Awaitable[int], redis_client.delete(queue_name))
             self.logger.info("All queues cleared")
         except Exception as e:
             self.logger.error(f"Failed to clear queues: {e}")
@@ -188,12 +205,15 @@ class RedisTaskQueue:
             return {}
 
         try:
-            stats = {}
+            redis_client = self.redis
+            assert redis_client is not None
+            queue_lengths: Dict[str, int] = {}
             for queue_name in set(self.queue_names.values()):
-                length = await self.redis.llen(queue_name)
-                stats[queue_name] = length
+                length = await cast(Awaitable[int], redis_client.llen(queue_name))
+                queue_lengths[queue_name] = length
 
-            stats["total_size"] = sum(stats.values())
+            stats: Dict[str, object] = dict(queue_lengths)
+            stats["total_size"] = sum(queue_lengths.values())
             stats["connected"] = True
 
             return stats

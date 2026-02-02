@@ -4,13 +4,62 @@ Narzędzia do zarządzania urządzeniami smart home: światła, sceny.
 """
 
 import threading
-from typing import Optional
+from typing import Dict, List, Mapping, Optional, TypedDict, Union
 
 from pc_client.mcp.registry import mcp_tool
 
 
 # Thread-safe symulowany stan urządzeń smart home
-_smart_home_state = {
+class LightState(TypedDict):
+    on: bool
+    brightness: int
+    color: str
+
+
+class SceneConfig(TypedDict, total=False):
+    lights: Dict[str, bool]
+    brightness: int
+
+
+class SmartHomeState(TypedDict):
+    lights: Dict[str, LightState]
+    scenes: Dict[str, SceneConfig]
+    active_scene: Optional[str]
+
+
+class ToggleLightResult(TypedDict):
+    room: str
+    light_on: bool
+    brightness: int
+
+
+class BrightnessResult(TypedDict):
+    room: str
+    brightness: int
+    light_on: bool
+
+
+class SceneResult(TypedDict):
+    scene: str
+    activated: bool
+    affected_rooms: List[str]
+
+
+class SmartHomeRoomStatus(TypedDict):
+    room: str
+    light: LightState
+
+
+class SmartHomeOverviewStatus(TypedDict):
+    lights: Dict[str, LightState]
+    active_scene: Optional[str]
+    available_scenes: List[str]
+
+
+SmartHomeStatus = Union[SmartHomeRoomStatus, SmartHomeOverviewStatus]
+
+
+_smart_home_state: SmartHomeState = {
     "lights": {
         "living_room": {"on": True, "brightness": 80, "color": "#FFFFFF"},
         "bedroom": {"on": False, "brightness": 50, "color": "#FFCC00"},
@@ -48,7 +97,7 @@ _smart_home_lock = threading.Lock()
     },
     permissions=["low"],
 )
-def toggle_light(room: str, state: bool) -> dict:
+def toggle_light(room: str, state: bool) -> ToggleLightResult:
     """Przełącz światło w pomieszczeniu.
 
     Args:
@@ -67,11 +116,12 @@ def toggle_light(room: str, state: bool) -> dict:
 
         _smart_home_state["lights"][room]["on"] = state
 
-        return {
+        result: ToggleLightResult = {
             "room": room,
             "light_on": state,
             "brightness": _smart_home_state["lights"][room]["brightness"],
         }
+        return result
 
 
 @mcp_tool(
@@ -96,7 +146,7 @@ def toggle_light(room: str, state: bool) -> dict:
     },
     permissions=["low"],
 )
-def set_brightness(room: str, brightness: int) -> dict:
+def set_brightness(room: str, brightness: int) -> BrightnessResult:
     """Ustaw jasność światła.
 
     Args:
@@ -119,11 +169,12 @@ def set_brightness(room: str, brightness: int) -> dict:
         if brightness > 0:
             _smart_home_state["lights"][room]["on"] = True
 
-        return {
+        result: BrightnessResult = {
             "room": room,
             "brightness": brightness,
             "light_on": _smart_home_state["lights"][room]["on"],
         }
+        return result
 
 
 @mcp_tool(
@@ -142,7 +193,7 @@ def set_brightness(room: str, brightness: int) -> dict:
     },
     permissions=["low"],
 )
-def set_scene(scene: str) -> dict:
+def set_scene(scene: str) -> SceneResult:
     """Aktywuj scenę oświetleniową.
 
     Args:
@@ -158,30 +209,33 @@ def set_scene(scene: str) -> dict:
         if scene not in _smart_home_state["scenes"]:
             raise ValueError(f"Unknown scene: {scene}")
 
-        scene_config = _smart_home_state["scenes"][scene]
-        affected_rooms = []
+        scene_config: SceneConfig = _smart_home_state["scenes"][scene]
+        affected_rooms: List[str] = []
 
         for room_name in _smart_home_state["lights"]:
             _smart_home_state["lights"][room_name]["on"] = False
 
-        if "lights" in scene_config:
-            for room_name, should_be_on in scene_config["lights"].items():
+        lights_target = scene_config.get("lights") or {}
+        if lights_target:
+            for room_name, should_be_on in lights_target.items():
                 if room_name in _smart_home_state["lights"]:
                     _smart_home_state["lights"][room_name]["on"] = should_be_on
                     if should_be_on:
                         affected_rooms.append(room_name)
 
-        if "brightness" in scene_config:
+        scene_brightness = scene_config.get("brightness")
+        if scene_brightness is not None:
             for room_name in _smart_home_state["lights"]:
-                _smart_home_state["lights"][room_name]["brightness"] = scene_config["brightness"]
+                _smart_home_state["lights"][room_name]["brightness"] = scene_brightness
 
         _smart_home_state["active_scene"] = scene
 
-        return {
+        result: SceneResult = {
             "scene": scene,
             "activated": True,
             "affected_rooms": affected_rooms,
         }
+        return result
 
 
 @mcp_tool(
@@ -199,7 +253,7 @@ def set_scene(scene: str) -> dict:
     },
     permissions=["low"],
 )
-def get_smart_home_status(room: Optional[str] = None) -> dict:
+def get_smart_home_status(room: Optional[str] = None) -> SmartHomeStatus:
     """Pobierz status urządzeń smart home.
 
     Args:
@@ -212,13 +266,14 @@ def get_smart_home_status(room: Optional[str] = None) -> dict:
         if room:
             if room not in _smart_home_state["lights"]:
                 raise ValueError(f"Unknown room: {room}")
-            return {
-                "room": room,
-                "light": _smart_home_state["lights"][room].copy(),
-            }
+            light_snapshot: LightState = _smart_home_state["lights"][room].copy()
+            room_status: SmartHomeRoomStatus = {"room": room, "light": light_snapshot}
+            return room_status
 
-        return {
-            "lights": {k: v.copy() for k, v in _smart_home_state["lights"].items()},
+        overview: Dict[str, LightState] = {k: v.copy() for k, v in _smart_home_state["lights"].items()}
+        overview_status: SmartHomeOverviewStatus = {
+            "lights": overview,
             "active_scene": _smart_home_state["active_scene"],
             "available_scenes": list(_smart_home_state["scenes"].keys()),
         }
+        return overview_status

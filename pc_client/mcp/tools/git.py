@@ -6,9 +6,17 @@ Uwaga: narzędzia te powinny być dostępne tylko dla zaufanych użytkowników/k
 
 import subprocess
 import os
-from typing import Optional, List
+from typing import List, Optional, TypedDict
 
 from pc_client.mcp.registry import mcp_tool
+
+
+class GitCommandResult(TypedDict, total=False):
+    success: bool
+    stdout: str
+    stderr: Optional[str]
+    error: Optional[str]
+
 
 # Dozwolone katalogi bazowe dla operacji git (bezpieczeństwo)
 _ALLOWED_GIT_PATHS = [
@@ -44,7 +52,7 @@ def _validate_cwd(cwd: Optional[str]) -> str:
     raise ValueError(f"Path not allowed: {cwd}")
 
 
-def _run_git_command(args: List[str], cwd: Optional[str] = None) -> dict:
+def _run_git_command(args: List[str], cwd: Optional[str] = None) -> GitCommandResult:
     """Wykonaj komendę git i zwróć wynik.
 
     Args:
@@ -56,18 +64,20 @@ def _run_git_command(args: List[str], cwd: Optional[str] = None) -> dict:
     """
     try:
         validated_cwd = _validate_cwd(cwd)
-        result = subprocess.run(
+        git_result = subprocess.run(
             ["git"] + args,
             capture_output=True,
             text=True,
             cwd=validated_cwd,
             timeout=30,
         )
-        return {
-            "success": result.returncode == 0,
-            "stdout": result.stdout.strip(),
-            "stderr": result.stderr.strip() if result.returncode != 0 else None,
+        response: GitCommandResult = {
+            "success": git_result.returncode == 0,
+            "stdout": git_result.stdout.strip(),
+            "stderr": git_result.stderr.strip() if git_result.returncode != 0 else None,
         }
+        return response
+
     except ValueError as e:
         return {"success": False, "error": str(e)}
     except subprocess.TimeoutExpired:
@@ -76,6 +86,54 @@ def _run_git_command(args: List[str], cwd: Optional[str] = None) -> dict:
         return {"success": False, "error": "Git not found"}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+class GitLastCommit(TypedDict, total=False):
+    sha: str
+    message: str
+    relative_time: str
+
+
+class GitStatusResponse(TypedDict):
+    current_branch: Optional[str]
+    last_commit: Optional[GitLastCommit]
+    changed_files_count: int
+    has_remote: bool
+    is_git_repo: bool
+
+
+class GitChangedFile(TypedDict):
+    status: str
+    path: str
+
+
+class GitChangedFilesResponse(TypedDict, total=False):
+    files: List[GitChangedFile]
+    count: int
+    staged_only: bool
+    error: Optional[str]
+
+
+class GitDiffResponse(TypedDict, total=False):
+    diff: str
+    lines_count: int
+    truncated: bool
+    file: Optional[str]
+    staged: bool
+    error: Optional[str]
+
+
+class GitCommitEntry(TypedDict):
+    sha: str
+    author: str
+    message: str
+    relative_time: str
+
+
+class GitLogResponse(TypedDict, total=False):
+    commits: List[GitCommitEntry]
+    count: int
+    error: Optional[str]
 
 
 @mcp_tool(
@@ -97,18 +155,19 @@ def _run_git_command(args: List[str], cwd: Optional[str] = None) -> dict:
     },
     permissions=["low"],
 )
-def get_changed_files(staged_only: bool = False, path: Optional[str] = None) -> dict:
+def get_changed_files(staged_only: bool = False, path: Optional[str] = None) -> GitChangedFilesResponse:
     """Pobierz listę zmienionych plików."""
+    command_result: GitCommandResult
     if staged_only:
-        result = _run_git_command(["diff", "--cached", "--name-status"], cwd=path)
+        command_result = _run_git_command(["diff", "--cached", "--name-status"], cwd=path)
     else:
-        result = _run_git_command(["status", "--porcelain"], cwd=path)
+        command_result = _run_git_command(["status", "--porcelain"], cwd=path)
 
-    if not result["success"]:
-        return {"files": [], "error": result.get("error") or result.get("stderr")}
+    if not command_result["success"]:
+        return {"files": [], "error": command_result.get("error") or command_result.get("stderr")}
 
-    files = []
-    for line in result["stdout"].split("\n"):
+    files: List[GitChangedFile] = []
+    for line in command_result["stdout"].split("\n"):
         if not line.strip():
             continue
         parts = line.split(maxsplit=1)
@@ -118,7 +177,12 @@ def get_changed_files(staged_only: bool = False, path: Optional[str] = None) -> 
         elif len(parts) == 1:
             files.append({"status": "?", "path": parts[0]})
 
-    return {"files": files, "count": len(files), "staged_only": staged_only}
+    response: GitChangedFilesResponse = {
+        "files": files,
+        "count": len(files),
+        "staged_only": staged_only,
+    }
+    return response
 
 
 @mcp_tool(
@@ -136,13 +200,13 @@ def get_changed_files(staged_only: bool = False, path: Optional[str] = None) -> 
     },
     permissions=["low"],
 )
-def get_git_status(path: Optional[str] = None) -> dict:
+def get_git_status(path: Optional[str] = None) -> GitStatusResponse:
     """Pobierz status repozytorium Git."""
     branch_result = _run_git_command(["branch", "--show-current"], cwd=path)
     current_branch = branch_result["stdout"] if branch_result["success"] else None
 
     log_result = _run_git_command(["log", "-1", "--format=%H|%s|%ar"], cwd=path)
-    last_commit = None
+    last_commit: Optional[GitLastCommit] = None
     if log_result["success"] and log_result["stdout"]:
         parts = log_result["stdout"].split("|", 2)
         if len(parts) >= 3:
@@ -160,13 +224,14 @@ def get_git_status(path: Optional[str] = None) -> dict:
     remote_result = _run_git_command(["remote", "-v"], cwd=path)
     has_remote = bool(remote_result["success"] and remote_result["stdout"])
 
-    return {
+    status: GitStatusResponse = {
         "current_branch": current_branch,
         "last_commit": last_commit,
         "changed_files_count": changed_count,
         "has_remote": has_remote,
         "is_git_repo": branch_result["success"],
     }
+    return status
 
 
 @mcp_tool(
@@ -196,7 +261,7 @@ def get_diff(
     file: Optional[str] = None,
     staged: bool = False,
     path: Optional[str] = None,
-) -> dict:
+) -> GitDiffResponse:
     """Pobierz diff zmian."""
     args = ["diff"]
     if staged:
@@ -205,24 +270,25 @@ def get_diff(
         args.append("--")
         args.append(file)
 
-    result = _run_git_command(args, cwd=path)
+    command_result: GitCommandResult = _run_git_command(args, cwd=path)
 
-    if not result["success"]:
-        return {"diff": "", "error": result.get("error") or result.get("stderr")}
+    if not command_result["success"]:
+        return {"diff": "", "error": command_result.get("error") or command_result.get("stderr")}
 
-    diff_text = result["stdout"]
+    diff_text = command_result["stdout"]
     lines = diff_text.split("\n")
 
     if len(diff_text) > 5000:
         diff_text = diff_text[:5000] + "\n... (truncated)"
 
-    return {
+    diff_response: GitDiffResponse = {
         "diff": diff_text,
         "lines_count": len(lines),
-        "truncated": len(result["stdout"]) > 5000,
+        "truncated": len(command_result["stdout"]) > 5000,
         "file": file,
         "staged": staged,
     }
+    return diff_response
 
 
 @mcp_tool(
@@ -246,17 +312,17 @@ def get_diff(
     },
     permissions=["low"],
 )
-def get_log(count: int = 10, path: Optional[str] = None) -> dict:
+def get_log(count: int = 10, path: Optional[str] = None) -> GitLogResponse:
     """Pobierz historię commitów."""
     count = min(max(count, 1), 50)
 
-    result = _run_git_command(["log", f"-{count}", "--format=%H|%an|%s|%ar"], cwd=path)
+    command_result: GitCommandResult = _run_git_command(["log", f"-{count}", "--format=%H|%an|%s|%ar"], cwd=path)
 
-    if not result["success"]:
-        return {"commits": [], "error": result.get("error") or result.get("stderr")}
+    if not command_result["success"]:
+        return {"commits": [], "error": command_result.get("error") or command_result.get("stderr")}
 
-    commits = []
-    for line in result["stdout"].split("\n"):
+    commits: List[GitCommitEntry] = []
+    for line in command_result["stdout"].split("\n"):
         if not line.strip():
             continue
         parts = line.split("|", 3)
@@ -270,4 +336,5 @@ def get_log(count: int = 10, path: Optional[str] = None) -> dict:
                 }
             )
 
-    return {"commits": commits, "count": len(commits)}
+    log_response: GitLogResponse = {"commits": commits, "count": len(commits)}
+    return log_response
