@@ -11,6 +11,7 @@ from pc_client.api.sse_manager import SseManager
 from pc_client.cache import CacheManager
 from pc_client.config import Settings
 
+# Enable API tests explicitly (e.g. CI with live endpoints) via RIDER_ENABLE_API_TESTS=1.
 _RUN_API_TESTS = os.getenv("RIDER_ENABLE_API_TESTS", "").lower() in {"1", "true", "yes", "on"}
 
 

@@ -67,8 +67,9 @@ class VectorStore:
             embedding_ctor = getattr(
                 embedding_functions,
                 "SentenceTransformerEmbeddingFunction",
+                None,
             )
-            if not embedding_ctor:
+            if embedding_ctor is None:
                 raise ImportError(
                     "SentenceTransformerEmbeddingFunction not available in chromadb.utils.embedding_functions"
                 )

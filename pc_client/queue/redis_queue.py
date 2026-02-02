@@ -109,8 +109,7 @@ class RedisTaskQueue:
             task_json = json.dumps(task.to_dict())
 
             # Push to Redis list (LPUSH for FIFO with BRPOP)
-            redis_client = self.redis
-            assert redis_client is not None
+            redis_client = cast(RedisType, self.redis)
             await cast(Awaitable[int], redis_client.lpush(queue_name, task_json))
 
             self.logger.debug(f"Enqueued task {task.task_id} to {queue_name} (priority: {task.priority})")
@@ -144,8 +143,7 @@ class RedisTaskQueue:
             ]
 
             # BRPOP blocks until a task is available or timeout
-            redis_client = self.redis
-            assert redis_client is not None
+            redis_client = cast(RedisType, self.redis)
             timeout_value = int(timeout)
             result: Optional[Tuple[str, str]] = await cast(
                 Awaitable[Optional[Tuple[str, str]]],
@@ -175,8 +173,7 @@ class RedisTaskQueue:
 
         try:
             total = 0
-            redis_client = self.redis
-            assert redis_client is not None
+            redis_client = cast(RedisType, self.redis)
             for queue_name in set(self.queue_names.values()):
                 length = await cast(Awaitable[int], redis_client.llen(queue_name))
                 total += length
@@ -191,8 +188,7 @@ class RedisTaskQueue:
             return
 
         try:
-            redis_client = self.redis
-            assert redis_client is not None
+            redis_client = cast(RedisType, self.redis)
             for queue_name in set(self.queue_names.values()):
                 await cast(Awaitable[int], redis_client.delete(queue_name))
             self.logger.info("All queues cleared")
@@ -205,8 +201,7 @@ class RedisTaskQueue:
             return {}
 
         try:
-            redis_client = self.redis
-            assert redis_client is not None
+            redis_client = cast(RedisType, self.redis)
             queue_lengths: Dict[str, int] = {}
             for queue_name in set(self.queue_names.values()):
                 length = await cast(Awaitable[int], redis_client.llen(queue_name))

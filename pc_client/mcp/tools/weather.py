@@ -7,7 +7,7 @@ Wymaga klucza API w zmiennej środowiskowej OPENWEATHER_API_KEY.
 import logging
 import threading
 import time
-from typing import Optional, TypedDict
+from typing import NotRequired, Optional, Required, TypedDict
 
 from pc_client.mcp.registry import mcp_tool
 
@@ -16,17 +16,17 @@ logger = logging.getLogger(__name__)
 
 # Thread-safe cache dla prognozy pogody
 class WeatherData(TypedDict, total=False):
-    location: str
-    temperature: Optional[float]
-    feels_like: Optional[float]
-    humidity: Optional[int]
-    description: str
-    wind_speed: Optional[float]
-    pressure: Optional[int]
-    clouds: Optional[int]
-    visibility: Optional[int]
-    source: str
-    api_error: str
+    location: Required[str]
+    description: Required[str]
+    source: Required[str]
+    temperature: NotRequired[Optional[float]]
+    feels_like: NotRequired[Optional[float]]
+    humidity: NotRequired[Optional[int]]
+    wind_speed: NotRequired[Optional[float]]
+    pressure: NotRequired[Optional[int]]
+    clouds: NotRequired[Optional[int]]
+    visibility: NotRequired[Optional[int]]
+    api_error: NotRequired[str]
 
 
 class WeatherSummary(WeatherData, total=False):

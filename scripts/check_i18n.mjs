@@ -64,6 +64,8 @@ for (let i = braceStart; i < source.length; i += 1) {
 if (endIdx < 0) throw new Error('Could not determine end of I18N object');
 const objectLiteral = source.slice(braceStart, endIdx + 1);
 
+// NOTE: We evaluate the literal from a trusted local file. Avoid running this
+// against untrusted input; use a JS parser if the source is not controlled.
 const I18N = (new Function(`return (${objectLiteral});`))();
 const missing = [];
 
