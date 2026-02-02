@@ -2,7 +2,7 @@
 # Python 3.9+
 
 # Web Framework
-fastapi==0.111.0
+fastapi==0.115.5
 uvicorn[standard]==0.29.0
 
 # HTTP Client
