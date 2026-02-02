@@ -70,6 +70,11 @@ Pełna instrukcja: [SZYBKI_START.md](SZYBKI_START.md)
 - **Kontrola słownika**: Skrypt `scripts/check_i18n.mjs` analizuje `web/assets/i18n.js` i raportuje brakujące wpisy `en`.
 - **Testy**: Aktywuj środowisko `.venv` (`source .venv/bin/activate`) i uruchom `pytest`, aby zweryfikować, że Playwright i backend znoszą zmiany z tłumaczeniami.
 
+### Testy i konserwacja kodu
+- Aktywuj środowisko wirtualne: `source .venv/bin/activate || true`.
+- Sprawdź typy: `mypy` (oczekiwany wynik: `Success: no issues found in 75 source files`).
+- Szybki przebieg testów: `pytest -q`.
+
 ### Specyfikacje API
 - **[api-specs/](api-specs/)** - Szczegółowe specyfikacje endpointów REST
   - [api-specs/README.md](api-specs/README.md) - Przegląd API

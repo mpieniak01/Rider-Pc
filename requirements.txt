@@ -1,6 +1,9 @@
 # Rider-PC Client Requirements
 # Python 3.9+
 
+# Tooling
+pip==26.0
+
 # Web Framework
 fastapi==0.115.5
 uvicorn[standard]==0.29.0

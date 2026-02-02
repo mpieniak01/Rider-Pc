@@ -1,6 +1,9 @@
 # CI/CD Requirements - Lightweight for GitHub Actions
 # Excludes heavy ML models to speed up CI pipeline
 
+# Tooling
+pip==26.0
+
 # Web Framework
 fastapi==0.115.5
 uvicorn==0.29.0

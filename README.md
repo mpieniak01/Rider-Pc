@@ -66,6 +66,11 @@ python -m pc_client.main
   - Voice offload mirrors the same flow: `ENABLE_VOICE_OFFLOAD=true` lets Rider-PC consume `voice.asr.request` / `voice.tts.request`, run Whisper/Piper (or mock), and publish `voice.asr.result` / `voice.tts.chunk` back to Rider-Pi for immediate playback.
   - Text/LLM integration exposes `/providers/text/generate` plus a capability handshake (`GET /providers/capabilities`) so Rider-PI knows which domains/versions Rider-PC supports before przełączeniem.
 
+### Tests & Maintenance
+- Activate the virtualenv before checks: `source .venv/bin/activate || true`.
+- Type check: `mypy` (expected: `Success: no issues found in 75 source files`).
+- Quick test run: `pytest -q`.
+
 ## Documentation
 
 📚 **[Full Documentation](docs/README.md)** - Complete documentation and guides
