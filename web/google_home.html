@@ -65,17 +65,10 @@
 
   <!-- APP (i18n + logika) -->
 <script type="module">
-import { initI18n, applyDom, t } from '/web/assets/i18n.js';
+import { initI18nPage } from '/web/assets/i18n-loader.js';
 
   // --- Inicjalizacja języka
-  const urlLang = new URLSearchParams(location.search).get('lang');
-  const saved = localStorage.getItem('lang');
-  const browser = (navigator.language || '').slice(0,2).toLowerCase();
-  const pick = (v)=> v && v.toLowerCase().startsWith('en') ? 'en' : (v && v.toLowerCase().startsWith('pl') ? 'pl' : null);
-  const lang = pick(urlLang) || pick(saved) || pick(browser) || 'pl';
-  if (urlLang) localStorage.setItem('lang', lang);
-  await initI18n(lang);
-  applyDom();
+  const { lang, t } = await initI18nPage({ titleKey: 'home.page_title' });
   function syncLangMeta(code){
     document.documentElement.setAttribute('lang', code);
     document.title = t('home.page_title');

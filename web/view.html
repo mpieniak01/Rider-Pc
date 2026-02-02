@@ -258,7 +258,7 @@
   <footer class="layout-footer" data-dashboard-footer-target></footer>
 
 <script type="module">
-import { initI18n, applyDom, t } from '/web/assets/i18n.js?v=3';
+import { initI18nPage } from '/web/assets/i18n-loader.js?v=3';
 
 const REFRESH_MS = 2000;
 const SNAP_STALE_S = 5;
@@ -301,13 +301,7 @@ const BLACK_SVG='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg"
 function blackify(imgEl,on=true){ if(!imgEl) return; const box=imgEl.closest('.thumb'); if(on){ imgEl.src=BLACK_SVG; box&&box.classList.add('blank'); } else { box&&box.classList.remove('blank'); } }
 
 /* i18n */
-const urlLang=new URLSearchParams(location.search).get('lang');
-const saved=localStorage.getItem('lang');
-const browser=(navigator.language||'').slice(0,2).toLowerCase();
-const pick=v=>v&&v.toLowerCase().startsWith('en')?'en':(v&&v.toLowerCase().startsWith('pl')?'pl':null);
-const lang=pick(urlLang)||pick(saved)||pick(browser)||'pl';
-if(urlLang) localStorage.setItem('lang',lang);
-await initI18n(lang); applyDom();
+const { lang, t } = await initI18nPage();
 function syncLangMeta(code){
   document.documentElement.setAttribute('lang',code);
   document.title=`Rider-PC: ${t('dash.page_title')}`;

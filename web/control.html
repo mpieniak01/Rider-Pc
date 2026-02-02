@@ -482,25 +482,13 @@
 <script type="module" src="/web/assets/menu.js"></script>
 <script type="module" src="/web/assets/footer.js"></script>
 <script type="module">
-  import { initI18n, applyDom, t } from "/web/assets/i18n.js";
+  import { initI18nPage } from "/web/assets/i18n-loader.js";
 
   // legacy endpoint string kept for compatibility with tests/tools
   const LEGACY_TRACKING_ENDPOINT = "/api/vision/tracking/mode";
 
   // --- i18n init ---
-  const urlLang = new URLSearchParams(location.search).get("lang");
-  const saved = localStorage.getItem("lang");
-  const browser = (navigator.language || "").slice(0, 2).toLowerCase();
-  const pick = (v) =>
-    v && v.toLowerCase().startsWith("en")
-      ? "en"
-      : v && v.toLowerCase().startsWith("pl")
-        ? "pl"
-        : null;
-  const lang = pick(urlLang) || pick(saved) || pick(browser) || "pl";
-  if (urlLang) {
-    localStorage.setItem("lang", lang);
-  }
+  const { t } = await initI18nPage({ titleKey: "meta.app_title" });
 
   async function fetchControlState() {
     try {
@@ -569,11 +557,6 @@
       );
     }
   }
-  await initI18n(lang);
-  applyDom();
-  document.documentElement.setAttribute("lang", lang);
-  document.title = t("meta.app_title");
-
   // ====== helpers ======
   const qs = (s) => document.querySelector(s);
   const logEl = qs("#log");

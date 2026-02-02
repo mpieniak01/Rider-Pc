@@ -682,10 +682,7 @@ class VisionProvider(BaseProvider):
         # Update metrics
         tasks_processed_total.labels(provider='VisionProvider', task_type='vision.frame', status='completed').inc()
 
-        if frame is None:
-            fallback_image = Image.new("RGBA", (640, 360), (20, 20, 30, 255))
-        else:
-            fallback_image = frame
+        fallback_image = frame or Image.new("RGBA", (640, 360), (20, 20, 30, 255))
         tracking_marker = self._calculate_tracking_marker(fallback_image, tracking_state, [], timestamp)
         self._update_tracker_snapshot(fallback_image, [], tracking_marker)
 

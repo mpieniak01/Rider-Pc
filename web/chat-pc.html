@@ -258,18 +258,8 @@ Przykład: Napisz funkcję sortującą w Pythonie" data-i18n-attr="placeholder:c
   <footer class="layout-footer" data-dashboard-footer-target></footer>
 
   <script type="module">
-    import { initI18n, applyDom, t } from '/web/assets/i18n.js';
-    const urlLang = new URLSearchParams(location.search).get('lang');
-    const saved = localStorage.getItem('lang');
-    const browser = (navigator.language || '').slice(0,2).toLowerCase();
-    const pick = (v)=> v && v.toLowerCase().startsWith('en') ? 'en' : (v && v.toLowerCase().startsWith('pl') ? 'pl' : null);
-    const lang = pick(urlLang) || pick(saved) || pick(browser) || 'pl';
-    if (urlLang) localStorage.setItem('lang', lang);
-    await initI18n(lang);
-    applyDom();
-    document.documentElement.setAttribute('lang', lang);
-    document.title = t('nav.chat_pc');
-    window.__i18n_t = t;
+    import { initI18nPage } from '/web/assets/i18n-loader.js';
+    await initI18nPage({ titleKey: 'nav.chat_pc' });
   </script>
   <script>
 (function(){
