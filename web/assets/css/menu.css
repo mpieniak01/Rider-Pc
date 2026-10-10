@@ -94,6 +94,14 @@
   flex: 1 1 auto;
 }
 
+@media (min-width: 1051px) {
+  .dashboard-menu { max-width: 1600px; gap: .5rem; padding: .8rem 1rem; }
+  .dashboard-menu ul { flex-wrap: nowrap; }
+  .dashboard-menu a { white-space: nowrap; padding-inline: .6rem; }
+  .dashboard-menu .brand { margin-right: .5rem; }
+  .dashboard-menu .lang-switch { flex-shrink: 0; }
+}
+
 /* Language switch */
 .lang-switch {
   display: flex;

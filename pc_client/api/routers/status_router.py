@@ -15,6 +15,7 @@ from pc_client.utils.network import get_local_ip, check_connectivity
 from pc_client.adapters.git_adapter import GitAdapter
 from pc_client.config.settings import Settings
 from urllib.parse import urlparse
+from pc_client.api.telemetry_snapshot import adapter_source, cached_snapshot, latest_observation
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,7 @@ def _extract_public_host(settings: Settings) -> Optional[str]:
 async def healthz(request: Request) -> JSONResponse:
     """Health check endpoint (deprecated, use /health/live)."""
     cache: CacheManager = request.app.state.cache
-    data = cache.get("healthz", {"ok": True, "status": "ok"})
+    data = cached_snapshot(cache, "healthz", source=adapter_source(getattr(request.app.state, "rest_adapter", None)))
     return JSONResponse(content=data)
 
 
@@ -121,7 +122,7 @@ async def health_ready(request: Request) -> JSONResponse:
 async def state(request: Request) -> JSONResponse:
     """State endpoint."""
     cache: CacheManager = request.app.state.cache
-    data = cache.get("state", {"present": False, "mode": "idle"})
+    data = cached_snapshot(cache, "state", source=adapter_source(getattr(request.app.state, "rest_adapter", None)))
     return JSONResponse(content=data)
 
 
@@ -129,7 +130,7 @@ async def state(request: Request) -> JSONResponse:
 async def sysinfo(request: Request) -> JSONResponse:
     """System info endpoint."""
     cache: CacheManager = request.app.state.cache
-    data = cache.get("sysinfo", {})
+    data = cached_snapshot(cache, "sysinfo", source=adapter_source(getattr(request.app.state, "rest_adapter", None)))
     settings = getattr(request.app.state, "settings", None)
     host_hint = getattr(settings, "rider_pi_host", None)
     if host_hint and isinstance(data, dict) and not data.get("host"):
@@ -145,7 +146,9 @@ async def sysinfo(request: Request) -> JSONResponse:
 async def vision_snap_info(request: Request) -> JSONResponse:
     """Vision snapshot info endpoint."""
     cache: CacheManager = request.app.state.cache
-    data = cache.get("vision_snap_info", {})
+    data = cached_snapshot(
+        cache, "vision_snap_info", source=adapter_source(getattr(request.app.state, "rest_adapter", None))
+    )
     return JSONResponse(content=data)
 
 
@@ -153,8 +156,11 @@ async def vision_snap_info(request: Request) -> JSONResponse:
 async def vision_obstacle(request: Request) -> JSONResponse:
     """Vision obstacle endpoint."""
     cache: CacheManager = request.app.state.cache
-    # Try ZMQ cache first, then REST cache
-    data = cache.get("zmq:vision.obstacle", cache.get("vision_obstacle", {}))
+    data = latest_observation(
+        cache.get("zmq:vision.obstacle"),
+        cache.get("vision_obstacle"),
+        source=adapter_source(getattr(request.app.state, "rest_adapter", None)),
+    )
     return JSONResponse(content=data)
 
 
@@ -162,7 +168,9 @@ async def vision_obstacle(request: Request) -> JSONResponse:
 async def app_metrics(request: Request) -> JSONResponse:
     """App metrics endpoint."""
     cache: CacheManager = request.app.state.cache
-    data = cache.get("app_metrics", {"ok": True, "metrics": {}, "total_errors": 0})
+    data = cached_snapshot(
+        cache, "app_metrics", source=adapter_source(getattr(request.app.state, "rest_adapter", None))
+    )
     return JSONResponse(content=data)
 
 
@@ -196,7 +204,7 @@ async def camera_resource(request: Request) -> JSONResponse:
 async def bus_health(request: Request) -> JSONResponse:
     """Bus health endpoint."""
     cache: CacheManager = request.app.state.cache
-    data = cache.get("bus_health", {})
+    data = cached_snapshot(cache, "bus_health", source=adapter_source(getattr(request.app.state, "rest_adapter", None)))
     return JSONResponse(content=data)
 
 

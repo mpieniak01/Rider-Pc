@@ -19,6 +19,12 @@ from pc_client.telemetry import ZMQTelemetryPublisher
 from pc_client.api.task_utils import build_vision_frame_task, build_voice_asr_task, build_voice_tts_task
 from pc_client.api.config_utils import load_provider_config, get_provider_capabilities
 from pc_client.core.remote_safety import finite_number
+from pc_client.api.telemetry_snapshot import (
+    adapter_source,
+    received_snapshot,
+    transport_failure,
+    unavailable_snapshot,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -283,15 +289,6 @@ async def sync_data_periodically(app: FastAPI):
 
     logger.info("Starting periodic data sync...")
 
-    def _error_from_payload(payload: Any) -> Optional[str]:
-        """Return error message string if payload indicates failure."""
-        if isinstance(payload, dict):
-            if payload.get("error"):
-                return str(payload.get("error"))
-            if payload.get("ok") is False and payload.get("error"):
-                return str(payload.get("error"))
-        return None
-
     def _update_tracking(data: Dict[str, Any]) -> None:
         """Persist latest tracking snapshot without clobbering on bad payloads."""
         tracking_remote = data.get("tracking")
@@ -304,32 +301,55 @@ async def sync_data_periodically(app: FastAPI):
         on_success: Optional[Callable[[Any], None]] = None,
     ) -> Tuple[str, Optional[Any], Optional[str]]:
         """
-        Fetch data using adapter, update cache on success, skip cache overwrite on error.
+        Zachowaj dane przy awarii, ale oznacz transport jako offline/stale.
 
         Returns a tuple of (cache_key, payload or None, error_message or None).
         """
+        source = adapter_source(app.state.rest_adapter)
         try:
             payload = await coroutine_factory()
+            if not isinstance(payload, dict) or not payload:
+                raise ValueError("invalid_snapshot_response")
+            if transport_failure(payload):
+                raise RuntimeError(str(payload["error"]))
         except Exception as exc:  # pragma: no cover - network/adapter failures
-            return cache_key, None, str(exc)
+            failed = unavailable_snapshot(
+                cache.get(cache_key), source=source, error=str(exc) or type(exc).__name__, attempted_at=time.time()
+            )
+            cache.set(cache_key, failed)
+            return cache_key, failed, failed["error"]
 
-        err = _error_from_payload(payload)
-        if err:
-            return cache_key, None, err
-
-        cache.set(cache_key, payload)
-        if on_success:
+        observed = received_snapshot(payload, source=source, received_at=time.time())
+        cache.set(cache_key, observed)
+        if on_success and not observed.get("error") and observed.get("offline") is not True:
             try:
-                on_success(payload)
+                on_success(observed)
             except Exception as exc:  # pragma: no cover - defensive
                 logger.debug("Post-cache hook failed for %s: %s", cache_key, exc)
-        return cache_key, payload, None
+        return cache_key, observed, observed.get("error")
 
     while True:
         try:
             adapter: Optional[RestAdapter] = app.state.rest_adapter
             if adapter is None:
                 logger.warning("REST adapter unavailable; skipping sync iteration")
+                for cache_key in (
+                    "healthz",
+                    "state",
+                    "sysinfo",
+                    "vision_snap_info",
+                    "vision_obstacle",
+                    "app_metrics",
+                    "camera_resource",
+                    "lcd_resource",
+                    "bus_health",
+                ):
+                    cache.set(
+                        cache_key,
+                        unavailable_snapshot(
+                            cache.get(cache_key), source="pi", error="pi_offline", attempted_at=time.time()
+                        ),
+                    )
                 await asyncio.sleep(2)
                 continue
 
@@ -360,7 +380,7 @@ async def sync_data_periodically(app: FastAPI):
                     continue
                 cache_key, payload, err = result
                 if err:
-                    logger.warning("Skipping cache update for %s: %s", cache_key, err)
+                    logger.warning("Snapshot unavailable for %s: %s", cache_key, err)
                 if payload is not None:
                     cache_data[cache_key] = payload
 
@@ -466,6 +486,10 @@ def create_zmq_handlers(app: FastAPI, cache: CacheManager):
 
     def cache_handler(topic: str, data: Dict[str, Any]):
         """Handler to cache ZMQ messages."""
+        if topic == "vision.obstacle" and isinstance(data, dict):
+            data = received_snapshot(
+                data, source=adapter_source(getattr(app.state, "rest_adapter", None)), received_at=time.time()
+            )
         cache.set(f"zmq:{topic}", data)
         logger.debug(f"Cached ZMQ message for topic: {topic}")
 

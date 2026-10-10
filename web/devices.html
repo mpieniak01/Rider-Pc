@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="/web/assets/themes/classic-plus/theme.css" data-theme-skin="classic-plus" disabled>
 <link rel="stylesheet" href="/web/assets/themes/v2/theme.css" data-theme-skin="v2" disabled>
 <link rel="stylesheet" href="/web/assets/themes/v3/theme.css" data-theme-skin="v3" disabled>
-<link rel="stylesheet" href="/web/assets/operator/operator.css">
+<link rel="stylesheet" href="/web/assets/operator/operator.css?v=telemetry-20261010">
 </head>
 <body data-page="devices" class="page page-devices">
 <header class="layout-header" data-dashboard-menu-target></header>
@@ -26,11 +26,12 @@
 <form id="preview-url-form"><label>URL <input id="preview-url" type="text" placeholder="/vision/cam"></label><button type="submit" class="c-btn" data-pl="Pobierz z URL" data-en="Fetch URL">Pobierz z URL</button></form>
 <p id="camera-preview-state"></p><p id="camera-age">—</p><p id="camera-display-age">—</p><img id="camera-image" class="operator-media" alt="Camera snapshot" hidden>
 <a href="/control" data-pl="Uruchom / zakończ zadanie kamery" data-en="Start / end camera task">Uruchom / zakończ zadanie kamery</a></section></div>
+<div id="device-telemetry" class="operator-grid"></div>
 <h2 data-pl="Właściciele i konsumenci" data-en="Owners and consumers">Właściciele i konsumenci</h2><div id="device-list" class="operator-grid"></div><section class="c-card"><h2 data-pl="Żądania i potwierdzenia" data-en="Requests and acknowledgements">Żądania i potwierdzenia</h2><p data-pl="pending = oczekuje na ACK; executed = SDK przyjął. Zakończenie fizyczne pozostaje niepotwierdzone. Historia żądań nie jest stanem napędów." data-en="pending = awaiting ACK; executed = SDK accepted. Physical completion remains unverified. Request history is not actuator state.">pending = oczekuje na ACK; executed = SDK przyjął. Zakończenie fizyczne pozostaje niepotwierdzone. Historia żądań nie jest stanem napędów.</p><ol id="request-history"></ol><p id="last-event" class="operator-muted">—</p></section>
 </main>
 <footer class="layout-footer" data-dashboard-footer-target></footer>
-<script type="module" src="/web/assets/operator/app.js"></script>
-<script type="module" src="/web/assets/menu.js"></script>
+<script type="module" src="/web/assets/operator/app.js?v=telemetry-20261010"></script>
+<script type="module" src="/web/assets/menu.js?v=telemetry-20261010"></script>
 <script type="module" src="/web/assets/footer.js"></script>
 </body>
 </html>
