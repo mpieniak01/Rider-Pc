@@ -157,3 +157,7 @@ venv/browser cache, without installing dependencies or contacting hardware:
 CI=true PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest tests/e2e \
   -p pytest_asyncio.plugin -p pytest_timeout --timeout=60 --timeout-method=thread --durations=30
 ```
+
+Vision inference failures remain unavailable until the configured real detector completes inference and postprocessing successfully. That recovery clears its inference error; unavailable/uninitialized backends and successful demo tasks cannot clear a real-backend failure. Task input provenance still controls physical publication independently of provider readiness.
+
+An empty exception message uses its exception type as the failure diagnostic, so a failed real task cannot report ready because its error string is blank.

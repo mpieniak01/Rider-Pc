@@ -182,6 +182,8 @@ class VisionProvider(BaseProvider):
                     provider='VisionProvider', task_type='vision.detection', status='completed'
                 ).inc()
 
+                # This configured detector completed inference and postprocessing.
+                self._error = None
                 return TaskResult(
                     task_id=task.task_id,
                     status=TaskStatus.COMPLETED,
@@ -201,8 +203,8 @@ class VisionProvider(BaseProvider):
 
             except Exception as e:
                 self.logger.error(f"[vision] Detection processing failed: {e}")
-                self._error = str(e)
-                return TaskResult(task_id=task.task_id, status=TaskStatus.FAILED, error=str(e))
+                self._error = str(e) or type(e).__name__
+                return TaskResult(task_id=task.task_id, status=TaskStatus.FAILED, error=self._error)
 
         if not self.use_mock:
             return TaskResult(
@@ -658,6 +660,8 @@ class VisionProvider(BaseProvider):
                 if tracking_marker:
                     result_payload["tracking"] = tracking_marker
 
+                # This configured detector completed inference and postprocessing.
+                self._error = None
                 return TaskResult(
                     task_id=task.task_id,
                     status=TaskStatus.COMPLETED,
@@ -683,8 +687,8 @@ class VisionProvider(BaseProvider):
 
             except Exception as e:
                 self.logger.error(f"[vision] Frame processing failed: {e}")
-                self._error = str(e)
-                return TaskResult(task_id=task.task_id, status=TaskStatus.FAILED, error=str(e))
+                self._error = str(e) or type(e).__name__
+                return TaskResult(task_id=task.task_id, status=TaskStatus.FAILED, error=self._error)
 
         if not self.use_mock:
             return TaskResult(

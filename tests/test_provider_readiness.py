@@ -413,3 +413,87 @@ def test_actual_capability_cannot_be_ready_when_initialization_is_unknown():
     assert result["text"]["initialized"] is result["text"]["ready"] is False
     assert result["vision"]["initialized"] is result["vision"]["ready"] is False
     assert result["text"]["features"] == result["vision"]["features"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "task_type,payload_key",
+    [(TaskType.VISION_DETECTION, "image_data"), (TaskType.VISION_FRAME, "frame_data")],
+)
+@pytest.mark.parametrize("message", ["temporary detector failure", ""])
+async def test_configured_vision_backend_recovers_only_after_successful_processing(task_type, payload_key, message):
+    from pc_client.providers.vision_provider import VisionProvider
+    from PIL import Image
+
+    image = io.BytesIO()
+    Image.new("RGB", (10, 10)).save(image, format="PNG")
+    task = TaskEnvelope(
+        "recovery", task_type, {payload_key: base64.b64encode(image.getvalue()).decode(), "observed_at": 1000}
+    )
+    provider = VisionProvider()
+    provider._initialized = True
+    calls = []
+
+    def detector(*args, **kwargs):
+        calls.append("inference")
+        if len(calls) == 1:
+            raise RuntimeError(message)
+        return []
+
+    provider.detector = detector
+    failed = await provider.process_task(task)
+    assert failed.status == TaskStatus.FAILED and failed.result is None
+    assert failed.error == provider.get_telemetry()["error"] == (message or "RuntimeError")
+    assert provider.get_telemetry()["ready"] is False
+    completed = await provider.process_task(task)
+    assert completed.status == TaskStatus.COMPLETED and completed.meta["engine"] == "yolov8"
+    assert calls == ["inference", "inference"]
+    assert provider.get_telemetry()["ready"] is True
+    assert provider.get_telemetry()["error"] is None
+    assert provider.get_telemetry()["source"] == "pc" and provider.get_telemetry()["mode"] == "real"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("use_mock", [False, True])
+@pytest.mark.parametrize(
+    "task_type,payload_key",
+    [(TaskType.VISION_DETECTION, "image_data"), (TaskType.VISION_FRAME, "frame_data")],
+)
+async def test_unavailable_or_demo_vision_result_does_not_clear_configured_backend_error(
+    use_mock, task_type, payload_key
+):
+    from pc_client.providers.vision_provider import VisionProvider
+    from PIL import Image
+
+    image = io.BytesIO()
+    Image.new("RGB", (10, 10)).save(image, format="PNG")
+    provider = VisionProvider({"use_mock": use_mock})
+    provider._initialized = True
+    provider._error = "configured detector unavailable"
+    result = await provider.process_task(
+        TaskEnvelope("unavailable", task_type, {payload_key: base64.b64encode(image.getvalue()).decode()})
+    )
+    assert provider.get_telemetry()["error"] == "configured detector unavailable"
+    assert provider.get_telemetry()["ready"] is False
+    if use_mock:
+        assert result.status == TaskStatus.COMPLETED and result.meta["engine"] == "mock"
+        assert result.meta["simulated"] is True and result.meta["source"] == "demo"
+    else:
+        assert result.status == TaskStatus.FAILED and result.result is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "task_type,payload_key",
+    [(TaskType.VISION_DETECTION, "image_data"), (TaskType.VISION_FRAME, "frame_data")],
+)
+async def test_uninitialized_vision_cannot_become_ready_through_task(task_type, payload_key):
+    from pc_client.providers.vision_provider import VisionProvider
+
+    provider = VisionProvider()
+    provider._error = "initialization unavailable"
+    provider.detector = lambda *args, **kwargs: pytest.fail("uninitialized detector must not run")
+    result = await provider.process_task(TaskEnvelope("not-initialized", task_type, {payload_key: "data"}))
+    assert result.status == TaskStatus.FAILED and result.result is None
+    assert provider.get_telemetry()["ready"] is False
+    assert provider.get_telemetry()["error"] == "initialization unavailable"

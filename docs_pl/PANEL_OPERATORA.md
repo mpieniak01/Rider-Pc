@@ -165,3 +165,7 @@ pakietów i bez łączenia ze sprzętem:
 CI=true PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest tests/e2e \
   -p pytest_asyncio.plugin -p pytest_timeout --timeout=60 --timeout-method=thread --durations=30
 ```
+
+Po błędzie wizji gotowość wraca dopiero wtedy, gdy skonfigurowany rzeczywisty detektor pomyślnie zakończy inferencję i przetwarzanie wyniku. To usuwa błąd inferencji; niedostępny lub niezainicjalizowany backend oraz udane zadanie demo nie kasują błędu rzeczywistego backendu. Pochodzenie klatki nadal niezależnie ogranicza publikację do robota.
+
+Gdy wyjątek ma pusty komunikat, diagnostyka podaje jego typ; nieudane zadanie rzeczywiste nie może raportować gotowości przez pusty tekst błędu.
