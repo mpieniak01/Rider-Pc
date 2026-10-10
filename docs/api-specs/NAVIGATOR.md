@@ -254,8 +254,8 @@ The navigator is controlled through the web interface at `http://robot-ip:8080/c
 
 ## See Also
 
-- [Navigator Module Documentation](../modules/navigator.md) - Detailed module docs
-- [Odometry Module](../modules/odometry.md) - Position tracking
-- [Mapper Module](../modules/mapper.md) - SLAM mapping
-- [Vision Module](../apps/vision.md) - Obstacle detection
+- [Navigator Module Documentation](https://github.com/mpieniak01/Rider-Pi/blob/main/docs/apps/navigator.md) - Detailed module docs
+- [Odometry Module](https://github.com/mpieniak01/Rider-Pi/blob/main/docs/apps/odometry.md) - Position tracking
+- [Mapper Module](https://github.com/mpieniak01/Rider-Pi/blob/main/docs/apps/mapper.md) - SLAM mapping
+- [Vision Module](https://github.com/mpieniak01/Rider-Pi/blob/main/docs/apps/vision.md) - Obstacle detection
 - [Control API](CONTROL.md) - Basic movement control

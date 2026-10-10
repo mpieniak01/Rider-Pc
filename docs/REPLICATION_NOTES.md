@@ -192,6 +192,6 @@ docs/api-specs/
 
 ## Additional Resources
 - [Rider-Pc Architecture](ARCHITECTURE.md)
-- [Rider-Pc Next Steps](FUTURE_WORK.md)
-- [Rider-Pi Device Architecture](RIDER_PI_ARCH.md)
+- [Rider-Pc Next Steps](PROJECT.md)
+- [Rider-Pi Device Architecture](https://github.com/mpieniak01/Rider-Pi/blob/main/ARCHITECTURE.md)
 - [Rider-Pi Project](https://github.com/mpieniak01/Rider-Pi)

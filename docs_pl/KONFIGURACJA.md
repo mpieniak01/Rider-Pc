@@ -203,7 +203,7 @@ LOG_LEVEL=WARNING
 | **Rider-Pi API** | 8080 | Zdalny | REST API robota |
 | **ZMQ PUB** | 5555 | Zdalny | Publikacja zdarzeń z Pi |
 | **ZMQ SUB** | 5556 | Zdalny | Subskrypcja odpowiedzi |
-| **ZMQ Telemetria** | 5557 | Lokalny | Publikacja wyników z PC |
+| **ZMQ Telemetria** | `TELEMETRY_ZMQ_PORT` (domyślnie 5557) | Konfigurowany endpoint | Dla brokera Pi ustaw jawnie port XSUB 5555 |
 | **Redis** | 6379 | Lokalny | Broker kolejki zadań |
 | **Prometheus** | 9090 | Lokalny | Metryki |
 | **Grafana** | 3000 | Lokalny | Dashboardy |
@@ -359,7 +359,7 @@ Opcjonalne zmienne do konfiguracji funkcji automatycznej inicjalizacji zadań:
 
 ```bash
 # Włącz/wyłącz funkcję auto-init (domyślnie: true)
-TASK_AUTO_INIT_ENABLED=true
+TASK_AUTO_INIT_ENABLED=false
 
 # Ścieżka do katalogu dokumentacji zadań (domyślnie: docs_pl/_to_do)
 TASK_DOCS_PATH=docs_pl/_to_do
@@ -499,3 +499,9 @@ curl "http://localhost:8000/api/knowledge/search?q=konfiguracja+voice&k=3"
 - ✅ Baza Wiedzy (RAG)
 
 **Ostatnia aktualizacja**: 2025-11-27
+
+## Lokalne plany zadań
+
+Ustaw `TASK_AUTO_INIT_ENABLED=false` w lokalnym `.env`: plany w
+`docs_pl/_to_do/` są ignorowane i nie mogą być automatycznie commitowane.
+Zobacz [development](development.md).

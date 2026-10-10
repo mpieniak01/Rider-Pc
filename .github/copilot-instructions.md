@@ -25,7 +25,7 @@ Repozytorium Rider-PC ma rozbudowany backend FastAPI oraz pakiet testów jednost
 - Gdy wprowadzisz nową konfigurację, dodaj klucz do `Settings` (`pc_client/config/settings.py`) oraz ustaw domyślne wartości w `.env.example`.
 - Zainstaluj `pre-commit` i przed PR uruchom `pre-commit run --all-files` – hooki (`ruff` + `ruff-format` z `--fix`) muszą przejść lokalnie, żeby uniknąć poprawek “na ślepo”.
 - W CI obowiązuje `ruff` – uruchom `make lint` jeśli dotykasz stylu.
-- Każda zmiana, przed rozpoczęciem prac, powinna być poprzedzona analizą i udokumentowana w formie planu zmian w języku polskim, w katalogu `/dosc_pl/_to_do`, pod nazwą `{numer_PR}`.
+- Każda zmiana, przed rozpoczęciem prac, powinna być poprzedzona analizą i udokumentowana w formie planu zmian w języku polskim, w katalogu `docs_pl/_to_do`, pod nazwą `{numer_PR}`.
 - Na zakonczenie prac plan zmiany powinien bys uzupelniony.
 - Każda zmiana powinna zawierać krótkie uzasadnienie w opisie PR oraz kroki reprodukcji/regresji.
 
@@ -41,3 +41,11 @@ npm run css:size
 ```
 
 Stosowanie powyższych zasad pozwala agentom Copilot utrzymać spójny standard pracy i szybciej dostarczać poprawki.
+
+## Dokumentacja i materiały lokalne
+
+Stosuj [politykę dokumentacji](../docs_pl/POLITYKA_DOKUMENTACJI.md). Plany w `_to_do/` i raporty
+w `_done/` lub `done/` są lokalne, ignorowane i nie trafiają do commitów
+ani załączników PR. Utrzymywane instrukcje i używane przez nie assety
+publikujemy w `docs/` i `docs_pl/`. Nie stosuj `git add -f` dla materiałów
+lokalnych. Przy usuwaniu ich z indeksu Git zachowuj kopie na dysku.

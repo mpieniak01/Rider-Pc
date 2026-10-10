@@ -254,8 +254,8 @@ Nawigator jest sterowany przez interfejs webowy pod adresem `http://robot-ip:808
 
 ## Zobacz Również
 
-- [Dokumentacja Modułu Nawigatora](../modules/navigator.md) - Szczegółowa dokumentacja modułu
-- [Moduł Odometrii](../modules/odometry.md) - Śledzenie pozycji
-- [Moduł Mappera](../modules/mapper.md) - Mapowanie SLAM
-- [Moduł Wizji](../apps/vision.md) - Wykrywanie przeszkód
+- [Dokumentacja Modułu Nawigatora](https://github.com/mpieniak01/Rider-Pi/blob/main/docs/apps/navigator.md) - Szczegółowa dokumentacja modułu
+- [Moduł Odometrii](https://github.com/mpieniak01/Rider-Pi/blob/main/docs/apps/odometry.md) - Śledzenie pozycji
+- [Moduł Mappera](https://github.com/mpieniak01/Rider-Pi/blob/main/docs/apps/mapper.md) - Mapowanie SLAM
+- [Moduł Wizji](https://github.com/mpieniak01/Rider-Pi/blob/main/docs/apps/vision.md) - Wykrywanie przeszkód
 - [API Sterowania](STEROWANIE.md) - Podstawowe sterowanie ruchem

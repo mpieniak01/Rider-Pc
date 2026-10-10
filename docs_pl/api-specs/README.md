@@ -17,10 +17,10 @@ Serwer API działa na porcie **8080** i udostępnia punkty końcowe REST do ster
 - [API Nawigatora](NAWIGATOR.md) - Nawigacja autonomiczna (tryb Rekonesans)
 
 <!-- Następujące pliki dokumentacji API są planowane do przyszłej dokumentacji: -->
-<!-- - [API Kamery](camera.md) - Dostęp do kamery i systemu wizji -->
-<!-- - [API Czatu](chat.md) - Interfejs czatu głosowego i tekstowego -->
-<!-- - [API Twarzy](face.md) - Sterowanie animacją twarzy robota -->
-<!-- - [API Google Home](google-home.md) - Integracja z Google Home -->
+<!-- - [API Kamery](https://github.com/mpieniak01/Rider-Pi/blob/main/docs/apps/camera.md) - Dostęp do kamery i systemu wizji -->
+<!-- - [API Czatu](https://github.com/mpieniak01/Rider-Pi/blob/main/docs/apps/chat.md) - Interfejs czatu głosowego i tekstowego -->
+<!-- - [API Twarzy](https://github.com/mpieniak01/Rider-Pi/blob/main/docs/apps/face.md) - Sterowanie animacją twarzy robota -->
+<!-- - [API Google Home](https://github.com/mpieniak01/Rider-Pi/blob/main/docs/google-home-integration.md) - Integracja z Google Home -->
 
 ### Stan Zdrowia i Status
 - `GET /healthz` - Sprawdzenie stanu zdrowia systemu
@@ -129,5 +129,5 @@ Wiele punktów końcowych API publikuje komendy do wewnętrznej magistrali komun
 ## Zobacz Również
 
 - [ARCHITEKTURA.md](../ARCHITEKTURA.md) - Ogólna architektura systemu
-- [common/bus.py](../../common/bus.py) - Definicje tematów magistrali
-- [services/api_server.py](../../services/api_server.py) - Implementacja serwera API
+- [common/bus.py](https://github.com/mpieniak01/Rider-Pi/blob/main/common/bus.py) - Definicje tematów magistrali
+- [services/api_server.py](https://github.com/mpieniak01/Rider-Pi/blob/main/services/api_server.py) - Implementacja serwera API

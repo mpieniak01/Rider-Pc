@@ -69,6 +69,11 @@ tmp/
 
 # Environment files
 .env
+.env.*
+*.env
+# Public templates contain placeholders only
+!/.env.example
+!/.env.*.example
 
 # AI Model caches
 .cache/
@@ -80,3 +85,22 @@ models/
 
 # local note (do not commit)
 /docs_pl/_done/201_migracja_styli_riderpc_do_riderpi.md
+
+# Private developer SSH credentials; never publish
+evn.ssh.local
+
+# Local operational documentation; never publish
+**/_to_do/
+**/_todo/
+**/_done/
+**/_pr_summaries/
+**/done/
+/docs/archive/
+/docs_pl/archive/
+*.md.backup
+
+# Public templates contain placeholders; private SSH files stay local
+
+# Private configuration directory
+config/local/*
+!config/local/.gitignore

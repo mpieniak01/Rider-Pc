@@ -1,42 +1,39 @@
-# Quick Start Guide - Rider-PC Client
+# Rider-PC Quick Start
 
-## Overview
-The Rider-PC Client is now operational with the following components:
-- ✅ REST API Adapter for consuming Rider-PI endpoints  
-- ✅ ZMQ Subscriber for real-time data streams
-- ✅ SQLite Cache for buffering data
-- ✅ FastAPI Web Server replicating Rider-PI UI
-- ✅ Comprehensive unit tests (25 tests passing)
+## Option 1: Docker (Recommended)
 
-## Quick Start
-
-### 1. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### 2. Configure Connection
-Set environment variables to point to your Rider-PI device and advertise the PC panel URL (reachable from Rider-Pi):
+If no local `.env` exists, create it from the public template and set your
+own addresses and provider options. Preserve any existing `.env`.
+Review [configuration](CONFIGURATION.md) before starting the stack:
 
 ```bash
-export RIDER_PI_HOST="192.168.1.100"  # Replace with your Rider-PI IP
-export RIDER_PI_PORT="8080"
-export ZMQ_PUB_PORT="5555"
-export PC_PUBLIC_BASE_URL="http://192.168.1.179:8080"  # <PC-IP>:<panel-port>
+docker compose up -d
 ```
 
-### 3. Run the Server
+The stack can start models and supporting services. Review its configuration
+and published ports before use. For an existing WSL environment use the local
+command below, which avoids reinstalling dependencies through the stack launcher.
+
+## Option 2: Local Development
+
 ```bash
-./run.sh
+.venv/bin/python --version
+.venv/bin/python -m pip check
 ```
 
-Or with Python directly:
+Keep the existing `.env`. Do not reinstall the full ML stack just to inspect the environment. Test scopes and commands are in the [development guide](development.md).
+
+## Starting for validation
+
+After reviewing configuration:
+
 ```bash
-PYTHONPATH=. python -m pc_client.main
+.venv/bin/python -m pc_client.main
 ```
 
-### 4. Access the UI
-Open your browser to: `http://localhost:8000/`
+This loads `.env` and configured providers. With `SERVER_PORT=8000`, open `http://localhost:8000/`. The direct command uses SERVER_PORT. The stack launcher may install dependencies; review it before use.
+
+Once the robot is connected, verify its address, API port 8080 and `PC_PUBLIC_BASE_URL`, which must use the actual PC address/port reachable from Pi. Cached or mocked data do not establish device health.
 
 ## Architecture
 

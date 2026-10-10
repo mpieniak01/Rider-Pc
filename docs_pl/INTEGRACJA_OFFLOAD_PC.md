@@ -1,5 +1,8 @@
 # Przewodnik Integracji Offload Rider-PC
 
+Podział odpowiedzialności opisuje [wizja projektu](PROJECT.md). Architektura i kontrakty
+opisują projekt; wyniki konkretnych sprawdzeń zapisujemy lokalnie. Integracja Venoma pozostaje odłożona.
+
 Ten dokument opisuje **szczegóły techniczne protokołu komunikacji** między Rider-Pi a Rider-PC dla offloadu zadań AI.
 
 > **Uwaga**: Ogólny przegląd architektury znajdziesz w [ARCHITEKTURA.md](ARCHITEKTURA.md). Ten dokument skupia się na szczegółach implementacji protokołu.
@@ -23,15 +26,17 @@ Rider-Pi udostępnia rejestr providerów (`/api/system/ai-mode`, `/api/providers
 
 2. **Ogłoś URL Rider-PC (wymagane dla Kontroli Providerów)**
    ```bash
-   export PC_PUBLIC_BASE_URL="http://192.168.1.179:8080"   # IP/port osiągalny z Rider-Pi
+   export PC_PUBLIC_BASE_URL="http://192.168.1.179:8000"   # IP/port osiągalny z Rider-Pi
    ```
    Pętla heartbeat jest pomijana gdy ta zmienna jest pusta, powodując że Rider-Pi oznacza PC jako `pc_unreachable`.
 
-3. **Uruchom lokalny stos**
+3. **Uruchom panel po sprawdzeniu konfiguracji**
    ```bash
-   make start
+   SERVER_PORT=8000 .venv/bin/python -m pc_client.main
    # Interfejs: http://localhost:8000/web/control.html
    ```
+
+`make start` obecnie instaluje zależności i domyślnie używa 8080; powyższy przykład jawnie wybiera 8000. Adres `PC_PUBLIC_BASE_URL` jest przykładem i musi być dostępny z robota.
 
 4. **Opcjonalnie**: włącz prawdziwe providery (`ENABLE_PROVIDERS=true`, Redis, itp.) jak udokumentowano w `KONFIGURACJA_MODELI_AI.md`.
 
@@ -134,7 +139,7 @@ Gdy Rider-Pi jest nieosiągalny, FastAPI wraca do cachowanych wartości domyśln
 
 - Rider-Pi udostępnia `POST /api/providers/pc-heartbeat` który zapisuje ostatnio osiągalny URL PC i opóźnienie.  
   Serwer FastAPI Rider-PC wywołuje ten endpoint co ~5 sekund przez `RestAdapter`.
-- Pętla jest włączona tylko gdy `PC_PUBLIC_BASE_URL` jest ustawione (w `.env`). Ustaw to na URL który Rider-Pi może osiągnąć, np. `http://192.168.1.179:8080`.
+- Pętla jest włączona tylko gdy `PC_PUBLIC_BASE_URL` jest ustawione (w `.env`). Ustaw to na URL który Rider-Pi może osiągnąć, np. `http://192.168.1.179:8000`.
 - Payload heartbeat pakuje ogłoszony bazowy URL plus najnowszy snapshot możliwości, pozwalając Rider-Pi pokazywać dokładne badge `pc_health` w Kontroli Providerów.
 - Jeśli watchdog na Rider-Pi nie otrzymuje heartbeatów przez `FAIL_THRESHOLD` interwałów, automatycznie wraca do trybu `local`, więc utrzymanie bazowego URL jako rutowalnego (VPN/NAT/forwarding) jest krytyczne.
 
@@ -149,7 +154,7 @@ Gdy Rider-Pi jest nieosiągalny, FastAPI wraca do cachowanych wartości domyśln
   ```
 - Pokrycie Pytest zawiera `test_worker_publishes_vision_results` zapewniające rozproszenie telemetrii:
   ```bash
-  pytest pc_client/tests/test_queue.py::test_worker_publishes_vision_results -q
+  PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest pc_client/tests/test_queue.py::test_worker_publishes_vision_results -q -p pytest_asyncio.plugin -p pytest_timeout
   ```
 - Kontrole programatyczne:
   ```bash
@@ -160,8 +165,10 @@ Gdy Rider-Pi jest nieosiągalny, FastAPI wraca do cachowanych wartości domyśln
   ```
 - Automatyczne testy:
   ```bash
-  make lint
-  make test              # zawiera test_provider_control_api.py & test_rest_adapter.py
+  .venv/bin/python -m ruff check .
+  PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTEST_ASYNCIO_MODE=auto \
+    .venv/bin/python -m pytest pc_client/tests/ -q --maxfail=1 \
+    -p pytest_asyncio.plugin -p pytest_timeout --timeout=30
   ```
   Te zestawy pokrywają fallbacki cache, zachowanie proxy adaptera i oczekiwania kontraktu UI.
 
@@ -175,5 +182,5 @@ Gdy Rider-Pi jest nieosiągalny, FastAPI wraca do cachowanych wartości domyśln
 
 - Kontrakt Rider-Pi: `Rider-Pi/docs/OFFLOAD_PROVIDER_PROTOCOL.md`
 - Specyfikacja web UI Rider-Pi: `Rider-Pi/docs/ui/control.md`
-- Szczegóły Trybu AI: `Rider-Pi/docs/AI_MODE_SWITCHER.md`
+- Szczegóły Trybu AI: [Rider-Pi provider contract](https://github.com/mpieniak01/Rider-Pi/blob/main/docs/OFFLOAD_PROVIDER_PROTOCOL.md)
 - Architektura stosu providerów: `ARCHITEKTURA.md`

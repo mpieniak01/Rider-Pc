@@ -1,41 +1,39 @@
-# Przewodnik Szybkiego Startu - Rider-PC Client
+# Szybki start Rider-PC
 
-## Przegląd
-Rider-PC Client jest teraz operacyjny z następującymi komponentami:
-- ✅ Adapter REST API do konsumowania punktów końcowych Rider-PI
-- ✅ Subskrybent ZMQ dla strumieni danych w czasie rzeczywistym
-- ✅ Cache SQLite do buforowania danych
-- ✅ Serwer Web FastAPI replikujący interfejs użytkownika Rider-PI
-- ✅ Kompleksowe testy jednostkowe (25 testów przechodzących)
+## Opcja 1: Docker (Zalecane)
 
-## Szybki Start
-
-### 1. Zainstaluj Zależności
-```bash
-pip install -r requirements.txt
-```
-
-### 2. Skonfiguruj Połączenie
-Ustaw zmienne środowiskowe wskazujące na Twoje urządzenie Rider-PI:
+Jeżeli nie ma lokalnego `.env`, utwórz go z publicznego szablonu i ustaw własne
+adresy oraz opcje providerów. Zachowaj istniejący `.env`.
+Przed startem stosu przejrzyj [konfigurację](KONFIGURACJA.md):
 
 ```bash
-export RIDER_PI_HOST="192.168.1.100"  # Zamień na IP Twojego Rider-PI
-export RIDER_PI_PORT="8080"
-export ZMQ_PUB_PORT="5555"
+docker compose up -d
 ```
 
-### 3. Uruchom Serwer
+Stos może uruchomić modele i usługi pomocnicze. Sprawdź konfigurację oraz
+publikowane porty przed użyciem. W istniejącym WSL korzystaj z polecenia
+lokalnego poniżej, które omija ponowną instalację przez launcher stosu.
+
+## Opcja 2: Lokalne środowisko deweloperskie
+
 ```bash
-./run.sh
+.venv/bin/python --version
+.venv/bin/python -m pip check
 ```
 
-Lub bezpośrednio z Pythonem:
+Zachowaj istniejący `.env`. Nie wykonuj ponownej instalacji pełnego stosu ML wyłącznie w celu sprawdzenia środowiska. Instrukcja [development](development.md) opisuje zakresy i polecenia testowania.
+
+## Uruchomienie do walidacji
+
+Po sprawdzeniu konfiguracji:
+
 ```bash
-PYTHONPATH=. python -m pc_client.main
+.venv/bin/python -m pc_client.main
 ```
 
-### 4. Dostęp do Interfejsu Użytkownika
-Otwórz przeglądarkę pod adresem: `http://localhost:8000/`
+Proces ładuje `.env` i skonfigurowane providery. Panel przy `SERVER_PORT=8000` jest pod `http://localhost:8000/`. Bezpośrednie polecenie korzysta z SERVER_PORT. Launcher stosu może instalować zależności; przejrzyj go przed użyciem.
+
+Po podłączeniu robota sprawdź jego adres, port 8080 oraz `PC_PUBLIC_BASE_URL`, który musi wskazywać rzeczywisty adres panelu dostępny z Pi. Przy odłączonym robocie dane z cache lub mocka nie potwierdzają stanu urządzenia.
 
 ## Architektura
 
@@ -170,82 +168,23 @@ Jeśli view.html się nie renderuje:
 2. Sprawdź, czy pliki statyczne są serwowane pod `/web/`
 3. Sprawdź konsolę przeglądarki pod kątem błędów
 
-## Workflow Deweloperski: Rozpoczynanie Nowego Zadania
+## Workflow deweloperski: nowe zadanie
 
-Rider-PC oferuje zintegrowany kreator zadań, który automatyzuje tworzenie nowych branchy i plików dokumentacji. Dzięki temu można szybko rozpocząć pracę nad nowym zadaniem bezpośrednio z interfejsu webowego.
+Kreator w zakładce „Projekt” pozwala utworzyć Issue i wybrać gałąź Git.
+Wymaga skonfigurowanej [integracji GitHub](KONFIGURACJA.md#integracja-z-github).
+Wybierz tytuł i opis, następnie pozostanie na obecnej gałęzi, nową gałąź
+`feat/<numer-issue>-<slug>` lub istniejącą gałąź. Przed przełączeniem
+zachowaj niezapisane zmiany.
 
-### Wymagania Wstępne
+Plany w `docs_pl/_to_do/` są lokalne. Ustaw `TASK_AUTO_INIT_ENABLED=false`
+w lokalnym `.env` i pozostaw opcję „Zainicjuj automatycznie” wyłączoną.
+Historyczny inicjalizator tworzy plan i próbuje wykonać commit; aktualne reguły
+Git ignorują ten katalog, więc zwykłe dodanie planu zostanie odrzucone.
+Nie obchodź reguły przez `git add -f`. Plan zapisuj lokalnie, a do commita
+dodawaj wynikową dokumentację projektu i implementację.
 
-1. Skonfigurowana integracja z GitHub (zobacz [KONFIGURACJA.md](KONFIGURACJA.md#integracja-z-github))
-2. Uruchomiony serwer Rider-PC
-
-### Krok po Kroku: Tworzenie Nowego Zadania
-
-1. **Otwórz zakładkę "Projekt"**
-   - W interfejsie Rider-PC (`http://localhost:8000`) przejdź do sekcji "Projekt" 
-   - Zobaczysz listę otwartych zgłoszeń (Issues) z GitHub
-
-2. **Kliknij "+ Nowe Zadanie"**
-   - W prawym górnym rogu kliknij przycisk "+ Nowe Zadanie"
-   - Otworzy się formularz kreatora zadań
-
-3. **Wypełnij dane zadania**
-   - **Tytuł** (wymagane): Krótki, opisowy tytuł zadania
-   - **Opis**: Szczegółowy opis (obsługuje Markdown)
-   - **Tagi**: Wybierz odpowiednie etykiety (labels)
-   - **Przypisz do**: Opcjonalnie przypisz do współpracownika
-
-4. **Wybierz kontekst GIT**
-
-   Masz trzy opcje:
-   
-   - **Zostań na obecnym branchu**: Zadanie zostanie utworzone, ale nie zmieni się aktualny branch
-   
-   - **Utwórz nowy branch z main** (zalecane dla nowych funkcji):
-     - Automatycznie utworzy branch o nazwie `feat/<numer-issue>-<slug-tytulu>`
-     - Zaznacz opcję **"Zainicjuj automatycznie"** aby dodatkowo:
-       - Utworzyć plik dokumentacji w `docs_pl/_to_do/<numer-issue>-<slug>.md`
-       - Wykonać pierwszy commit z tym plikiem
-   
-   - **Przełącz na istniejący branch**: Wybierz branch z listy rozwijanej
-
-5. **Kliknij "Utwórz Zadanie"**
-   - System utworzy Issue na GitHub
-   - Jeśli wybrano "Utwórz nowy branch" + "Zainicjuj automatycznie":
-     - Zostanie utworzony nowy branch
-     - Pojawi się plik dokumentacji w `docs_pl/_to_do/`
-     - Zostanie wykonany pierwszy commit
-
-### Co Się Dzieje Automatycznie?
-
-Gdy wybierzesz opcję "Utwórz nowy branch" + "Zainicjuj automatycznie":
-
-1. **Tworzenie Issue** - Na GitHub powstaje nowe zgłoszenie z podanym tytułem i opisem
-
-2. **Tworzenie Brancha** - Z brancha `main` powstaje nowy branch:
-   ```
-   feat/<numer-issue>-<slug-tytulu>
-   ```
-   Przykład: `feat/42-dodaj-nowy-endpoint`
-
-3. **Tworzenie Pliku Dokumentacji** - W katalogu `docs_pl/_to_do/` powstaje plik:
-   ```
-   <numer-issue>-<slug>.md
-   ```
-   Przykład: `docs_pl/_to_do/42-dodaj-nowy-endpoint.md`
-   
-   Plik zawiera szablon dokumentacji zadania z linkiem do Issue.
-
-4. **Pierwszy Commit** - Automatyczny commit z wiadomością:
-   ```
-   docs: init task #<numer> - <tytuł>
-   ```
-
-### Rozwiązywanie Problemów
-
-- **"GitHub nie skonfigurowany"**: Sprawdź zmienne środowiskowe `GITHUB_TOKEN`, `GITHUB_REPO_OWNER`, `GITHUB_REPO_NAME`
-- **Błąd przy tworzeniu brancha**: Upewnij się, że token ma uprawnienia `repo` lub `Contents: Read and write`
-- **Konflikt przy przełączaniu brancha**: Zapisz lokalne zmiany przed utworzeniem nowego zadania
+Szczegóły opisują [development](development.md) i
+[polityka dokumentacji](POLITYKA_DOKUMENTACJI.md).
 
 ## Chat PC Standalone
 

@@ -158,5 +158,5 @@ Wykonanie predefiniowanego ruchu.
 ## Zobacz Również
 
 - [API Nawigatora](NAWIGATOR.md) - Nawigacja autonomiczna
-- [common/bus.py](../../common/bus.py) - Definicje tematów magistrali
-- [Moduł Ruchu](../apps/motion.md) - Dokumentacja systemu ruchu
+- [common/bus.py](https://github.com/mpieniak01/Rider-Pi/blob/main/common/bus.py) - Definicje tematów magistrali
+- [Moduł Ruchu](https://github.com/mpieniak01/Rider-Pi/blob/main/docs/apps/motion.md) - Dokumentacja systemu ruchu

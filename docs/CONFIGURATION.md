@@ -203,7 +203,7 @@ LOG_LEVEL=WARNING
 | **Rider-Pi API** | 8080 | Remote | Robot REST API |
 | **ZMQ PUB** | 5555 | Remote | Event publication from Pi |
 | **ZMQ SUB** | 5556 | Remote | Response subscription |
-| **ZMQ Telemetry** | 5557 | Local | Result publication from PC |
+| **ZMQ Telemetry** | `TELEMETRY_ZMQ_PORT` (default 5557) | Configured endpoint | Explicitly use Pi XSUB port 5555 for the Pi broker |
 | **Redis** | 6379 | Local | Task queue broker |
 | **Prometheus** | 9090 | Local | Metrics |
 | **Grafana** | 3000 | Local | Dashboards |
@@ -387,3 +387,9 @@ else:
 - ✅ GitHub Integration
 
 **Last update**: 2025-11-27
+
+## Local task plans
+
+Set `TASK_AUTO_INIT_ENABLED=false` in your local `.env`: task plans in
+`docs_pl/_to_do/` are ignored and must not be automatically committed.
+See the [development guide](development.md).

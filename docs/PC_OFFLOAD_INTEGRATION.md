@@ -1,5 +1,8 @@
 # Rider-PC Offload Integration Guide
 
+See [project vision](PROJECT.md) for component responsibilities. Architecture and contracts
+describe the design; individual runtime checks are recorded locally. Venom integration is deferred.
+
 This document explains how the Rider-PC stack mirrors Rider-Pi’s AI mode and provider controls, and how to validate end-to-end offload flows.
 
 ## Overview
@@ -21,17 +24,19 @@ Rider-Pi exposes a provider registry (`/api/system/ai-mode`, `/api/providers/*`)
 
 2. **Advertise Rider-PC URL (required for Provider Control)**
    ```bash
-   export PC_PUBLIC_BASE_URL="http://192.168.1.179:8080"   # IP/port reachable from Rider-Pi
+   export PC_PUBLIC_BASE_URL="http://192.168.1.179:8000"   # IP/port reachable from Rider-Pi
    ```
    The heartbeat loop is skipped when this variable is missing, causing Rider-Pi to mark the PC as `pc_unreachable`.
 
-3. **Start local stack**
+3. **Start the panel after reviewing configuration**
    ```bash
-   make start
+   SERVER_PORT=8000 .venv/bin/python -m pc_client.main
    # UI: http://localhost:8000/web/control.html
    ```
 
-4. **Optional**: enable real providers (`ENABLE_PROVIDERS=true`, Redis, etc.) as documented in `docs/AI_MODEL_SETUP.md`.
+`make start` currently installs dependencies and defaults to 8080; the example above explicitly selects 8000. Replace `PC_PUBLIC_BASE_URL` with the actual address reachable from Pi.
+
+4. **Optional**: enable real providers (`ENABLE_PROVIDERS=true`, Redis, etc.) as documented in `docs/AI_MODEL_CONFIGURATION.md`.
 
 ## Vision Offload Runtime (Rider-PC)
 
@@ -132,7 +137,7 @@ When Rider-Pi is unreachable, FastAPI falls back to cached defaults so the UI re
 
 - Rider-Pi exposes `POST /api/providers/pc-heartbeat` which records the last reachable PC URL and latency.  
   Rider-PC’s FastAPI server calls this endpoint every ~5 seconds via the `RestAdapter`.
-- The loop is enabled only when `PC_PUBLIC_BASE_URL` is set (in `.env`). Set it to the URL that Rider-Pi can reach, e.g. `http://192.168.1.179:8080`.
+- The loop is enabled only when `PC_PUBLIC_BASE_URL` is set (in `.env`). Set it to the URL that Rider-Pi can reach, e.g. `http://192.168.1.179:8000`.
 - The heartbeat payload bundles the advertised base URL plus the latest capability snapshot, letting Rider-Pi show accurate `pc_health` badges in Provider Control.
 - If the watchdog on Rider-Pi does not receive heartbeats for `FAIL_THRESHOLD` intervals it falls back to `local` mode automatically, so keeping the base URL routable (VPN/NAT/forwarding) is critical.
 
@@ -147,7 +152,7 @@ When Rider-Pi is unreachable, FastAPI falls back to cached defaults so the UI re
   ```
 - Pytest coverage includes `test_worker_publishes_vision_results` ensuring telemetry fan-out:
   ```bash
-  pytest pc_client/tests/test_queue.py::test_worker_publishes_vision_results -q
+  PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest pc_client/tests/test_queue.py::test_worker_publishes_vision_results -q -p pytest_asyncio.plugin -p pytest_timeout
   ```
 - Programmatic checks:
   ```bash
@@ -158,8 +163,10 @@ When Rider-Pi is unreachable, FastAPI falls back to cached defaults so the UI re
   ```
 - Automated tests:
   ```bash
-  make lint
-  make test              # includes test_provider_control_api.py & test_rest_adapter.py
+  .venv/bin/python -m ruff check .
+  PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTEST_ASYNCIO_MODE=auto \
+    .venv/bin/python -m pytest pc_client/tests/ -q --maxfail=1 \
+    -p pytest_asyncio.plugin -p pytest_timeout --timeout=30
   ```
   These suites cover cache fallbacks, adapter proxy behaviour, and UI contract expectations.
 
@@ -173,5 +180,5 @@ When Rider-Pi is unreachable, FastAPI falls back to cached defaults so the UI re
 
 - Rider-Pi contract: `Rider-Pi/docs/OFFLOAD_PROVIDER_PROTOCOL.md`
 - Rider-Pi web UI spec: `Rider-Pi/docs/ui/control.md`
-- AI Mode details: `Rider-Pi/docs/AI_MODE_SWITCHER.md`
-- Provider stack architecture: `docs/RIDER_PI_ARCH.md`, `docs/ARCHITECTURE.md`
+- AI Mode details: [Rider-Pi provider contract](https://github.com/mpieniak01/Rider-Pi/blob/main/docs/OFFLOAD_PROVIDER_PROTOCOL.md)
+- Provider stack architecture: [Rider-Pi architecture](https://github.com/mpieniak01/Rider-Pi/blob/main/ARCHITECTURE.md), [Rider-PC architecture](ARCHITECTURE.md)
