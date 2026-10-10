@@ -44,7 +44,7 @@ body:has(.operator-shell) [data-dashboard-footer-target] { position: static; }
 .operator-overview .c-kv > div { min-width: 0; overflow-wrap: anywhere; }
 .operator-overview .cam-img { max-width: 100%; height: 160px; object-fit: contain; }
 .operator-overview .c-thumb { min-height: 160px; }
-.operator-overview #d_xgo_pose { white-space: pre-line; font-size: .85rem; }
+.operator-overview .operator-imu-values { white-space: pre-line; font-size: .85rem; }
 .operator-safety-strip { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem 1rem; padding: .65rem; margin-bottom: 1rem; }
 .operator-safety-strip p { margin: 0; flex-basis: 100%; }
 .operator-history { width: 100%; height: 140px; background: var(--color-bg-input, #192430); }
