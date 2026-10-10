@@ -186,10 +186,10 @@ async def system_pc_status(request: Request) -> JSONResponse:
 
 @router.get("/api/resource/camera")
 async def camera_resource(request: Request) -> JSONResponse:
-    """Camera resource endpoint."""
-    cache: CacheManager = request.app.state.cache
-    data = cache.get("camera_resource", {})
-    return JSONResponse(content=data)
+    """Jeden kontrakt zasobu kamery, także przy utracie Pi."""
+    from pc_client.api.routers.control_router import get_resource_status
+
+    return await get_resource_status(request, "camera")
 
 
 @router.get("/api/bus/health")

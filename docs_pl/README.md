@@ -12,6 +12,8 @@ nadrzędnego sterowania; integracja pozostaje odłożona.
 
 ## Interfejsy i konfiguracja
 
+- [Bezpieczny klient i zgoda operatora](BEZPIECZNY_KLIENT_ROBOTA.md).
+
 - [Integracja Pi ↔ PC](INTEGRACJA_OFFLOAD_PC.md).
 - [Konfiguracja](KONFIGURACJA.md), [modele AI](KONFIGURACJA_MODELI_AI.md), [kolejka](KONFIGURACJA_KOLEJKI_ZADAN.md).
 - [Monitoring](KONFIGURACJA_MONITORINGU.md), [usługi i zasoby](ZARZADZANIE_USLUGAMI_I_ZASOBAMI.md), [konfiguracja sieci](KONFIGURACJA_BEZPIECZENSTWA.md).

@@ -13,47 +13,10 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pc_client.adapters import RestAdapter
 from pc_client.providers import VisionProvider
 from pc_client.api.sse_manager import SseManager
+from pc_client.core.remote_safety import finite_number
 
 if TYPE_CHECKING:
     from pc_client.core import ServiceManager
-
-LOCAL_FEATURE_BLUEPRINTS = [
-    {
-        "name": "s0_manual",
-        "scenario": "S0",
-        "title": "Stan 0 – Sterowanie ręczne",
-        "description": "Podstawowe usługi komunikacji i sterowania ręcznego.",
-        "units": [
-            "rider-cam-preview.service",
-            "rider-edge-preview.service",
-        ],
-        "aliases": ["zero_mode"],
-        "state_key": "zero",
-    },
-    {
-        "name": "s3_follow_me_face",
-        "scenario": "S3",
-        "title": "Śledzenie (twarz)",
-        "description": "Tracker oraz kontroler ruchu związanego z trybem Follow Me.",
-        "units": [
-            "rider-tracker.service",
-            "rider-tracking-controller.service",
-        ],
-        "aliases": ["face_tracking"],
-        "state_key": "tracking",
-    },
-    {
-        "name": "s4_recon",
-        "scenario": "S4",
-        "title": "Rekonesans autonomiczny",
-        "description": "Navigator + odometria i procesy mapowania.",
-        "units": [
-            "rider-vision.service",
-        ],
-        "aliases": ["recon"],
-        "state_key": "recon",
-    },
-]
 
 logger = logging.getLogger(__name__)
 
@@ -114,18 +77,12 @@ def _normalize_tracking_request(payload: Dict[str, Any]) -> tuple[str, bool]:
     raw_mode = str(payload.get("mode", "none")).strip().lower()
     if raw_mode not in {"face", "hand", "none"}:
         raise HTTPException(status_code=400, detail=f"Invalid tracking mode '{raw_mode}'")
-    enabled = bool(payload.get("enabled", raw_mode in {"face", "hand"}))
+    if "enabled" in payload and not isinstance(payload["enabled"], bool):
+        raise HTTPException(status_code=400, detail="enabled_must_be_boolean")
+    enabled = payload.get("enabled", raw_mode in {"face", "hand"})
     if not enabled:
         raw_mode = "none"
     return raw_mode, raw_mode != "none"
-
-
-def _set_local_tracking_state(request: Request, mode: str, enabled: bool) -> Dict[str, Any]:
-    """Update local tracking state cache + emit SSE."""
-    state = {"mode": mode, "enabled": enabled}
-    request.app.state.control_state["tracking"] = state
-    _publish_event(request, "motion.bridge.event", {"event": "tracking_mode", "detail": state})
-    return {"ok": True, **state}
 
 
 def _get_sse_manager(request: Request) -> SseManager:
@@ -152,510 +109,279 @@ def _emit_system_log(request: Request, level: str, action: str, unit: str, error
     _publish_event(request, "system.log", {"level": level, "message": message})
 
 
-def _feature_state_flags(control_state: Dict[str, Any]) -> Tuple[bool, bool]:
-    tracking = control_state.get("tracking", {}) or {}
-    tracking_enabled = bool(tracking.get("enabled"))
-    recon = control_state.get("navigator", {}) or {}
-    recon_active = bool(recon.get("active"))
-    return tracking_enabled, recon_active
+def _demo_adapter(request):
+    from pc_client.adapters.mock_rest_adapter import MockRestAdapter
+
+    adapter = request.app.state.rest_adapter
+    return isinstance(adapter, MockRestAdapter)
 
 
-def _is_feature_active(blueprint: Dict[str, Any], tracking_enabled: bool, recon_active: bool) -> bool:
-    key = blueprint.get("state_key")
-    if key == "tracking":
-        return tracking_enabled
-    if key == "recon":
-        return recon_active
-    if key == "zero":
-        return not tracking_enabled and not recon_active
-    return False
-
-
-def _service_entry(unit: str, services: List[Dict[str, Any]]) -> Dict[str, Any]:
-    data = next((svc for svc in services if svc.get("unit") == unit), None) or {"unit": unit}
-    active = str(data.get("active", "")).lower()
-    enabled = str(data.get("enabled", "")).lower()
-    return {
-        "unit": unit,
-        "desc": data.get("desc", ""),
-        "active": data.get("active"),
-        "sub": data.get("sub"),
-        "enabled": data.get("enabled"),
-        "is_active": active.startswith("active"),
-        "is_enabled": enabled.startswith("enabled"),
-    }
-
-
-def _local_feature_rows(request: Request) -> List[Dict[str, Any]]:
-    services = request.app.state.services or []
-    tracking_enabled, recon_active = _feature_state_flags(request.app.state.control_state)
-    rows: List[Dict[str, Any]] = []
-    for blueprint in LOCAL_FEATURE_BLUEPRINTS:
-        units = blueprint.get("units", [])
-        svc_entries = [_service_entry(unit, services) for unit in units]
-        row = {
-            "name": blueprint["name"],
-            "scenario": blueprint.get("scenario"),
-            "title": blueprint.get("title"),
-            "description": blueprint.get("description"),
-            "aliases": blueprint.get("aliases", []),
-            "services": svc_entries,
-            "active": _is_feature_active(blueprint, tracking_enabled, recon_active),
-        }
-        rows.append(row)
-    return rows
-
-
-def _local_logic_summary(request: Request) -> Dict[str, Any]:
-    features = _local_feature_rows(request)
-    summary_rows: List[Dict[str, Any]] = []
-    active_names: List[str] = []
-    partial_names: List[str] = []
-    for row in features:
-        services = row.get("services", [])
-        total = len(services)
-        active_count = sum(1 for svc in services if svc.get("is_active"))
-        if row.get("active"):
-            status = "active"
-            active_names.append(row["name"])
-        elif active_count:
-            status = "partial"
-            partial_names.append(row["name"])
-        else:
-            status = "inactive"
-        summary_rows.append(
-            {
-                "name": row["name"],
-                "scenario": row.get("scenario"),
-                "title": row.get("title"),
-                "description": row.get("description"),
-                "active": row.get("active", False),
-                "status": status,
-                "services_total": total,
-                "services_active": active_count,
-                "aliases": row.get("aliases", []),
+async def _remote_snapshot(request, key, method, empty):
+    adapter = request.app.state.rest_adapter
+    snapshots = request.app.state.remote_snapshots
+    try:
+        if adapter is None:
+            raise RuntimeError("pi_offline")
+        result = await getattr(adapter, method)()
+        if not isinstance(result, dict) or result.get("error"):
+            raise RuntimeError((result or {}).get("error", "invalid_response"))
+        result = dict(result)
+        result["source"] = "demo" if _demo_adapter(request) else "pi"
+        result.setdefault("stale", False)
+        result.setdefault("offline", False)
+        result.setdefault("observed_at", time.time())
+        if key == "control":
+            safety = result.get("safety", {})
+            if safety.get("contract_version") != 1:
+                result["safety"] = {
+                    "state": "UNKNOWN",
+                    "ready": False,
+                    "can_move": False,
+                    "read_only": True,
+                    "reason": "legacy_safety_contract",
+                }
+        snapshots[key] = result
+        return result
+    except Exception as exc:
+        result = dict(snapshots.get(key, empty))
+        result.update(ok=False, source=result.get("source", "pi"), stale=True, offline=True, error=str(exc))
+        result.setdefault("observed_at", None)
+        if key == "control":
+            result["safety"] = {
+                "state": "UNKNOWN",
+                "ready": False,
+                "can_move": False,
+                "read_only": True,
+                "reason": "pi_offline",
             }
+        return result
+
+
+async def _proxy_action(request, method, *args):
+    adapter = request.app.state.rest_adapter
+    if adapter is None:
+        return JSONResponse({"ok": False, "error": "pi_offline"}, status_code=503)
+    try:
+        result = await getattr(adapter, method)(*args)
+        if not isinstance(result, dict):
+            raise ValueError("invalid_response")
+        status = result.pop("_http_status", None)
+        if result.get("ok") is not True and result.get("status") != "ok":
+            return JSONResponse(result, status_code=status or 502)
+        return JSONResponse(result, status_code=status or (202 if result.get("pending") else 200))
+    except Exception as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+
+
+async def _motion_context(request, owner="manual", supplied=None):
+    try:
+        return await request.app.state.remote_safety.command_context(
+            request.app.state.rest_adapter, owner, supplied=supplied
         )
-    payload = {
-        "features": summary_rows,
-        "active": active_names,
-        "partial": partial_names,
-        "counts": {"total": len(summary_rows), "active": len(active_names), "partial": len(partial_names)},
-    }
-    return {"ok": True, "summary": payload}
+    except Exception as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/api/safety")
+async def safety_action(request: Request, payload: Dict[str, Any]):
+    action = payload.get("action")
+    if action not in {"arm", "disarm", "estop", "clear_estop"}:
+        raise HTTPException(status_code=400, detail="invalid_safety_action")
+    if action in {"arm", "clear_estop"}:
+        if payload.get("operator_consent") is not True or (
+            not isinstance(payload.get("operator_plan"), str) or not payload["operator_plan"].strip()
+        ):
+            raise HTTPException(status_code=400, detail="explicit_operator_plan_required")
+        try:
+            context = await request.app.state.remote_safety.command_context(
+                request.app.state.rest_adapter, require_armed=False, supplied=payload
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        payload = {**payload, **context}
+    return await _proxy_action(request, "post_safety", payload)
 
 
 @router.post("/api/control")
 async def api_control_endpoint(request: Request, command: Dict[str, Any]) -> JSONResponse:
-    """Forward control commands from the UI to Rider-PI."""
-    cmd = command.get("cmd", "noop")
-    entry = {"ts": time.time(), "command": command}
+    cmd = str(command.get("cmd", "")).lower()
+    if cmd not in {"move", "spin", "height", "balance", "action", "stop"}:
+        raise HTTPException(status_code=400, detail="unsupported_actuator_command")
+    body = dict(command)
+    if cmd != "stop":
+        body.update(await _motion_context(request, supplied=body))
+    response = await _proxy_action(request, "post_control", body)
+    entry = {"ts": time.time(), "command": body, "response": json.loads(response.body)}
     request.app.state.motion_queue.append(entry)
     request.app.state.motion_queue[:] = request.app.state.motion_queue[-50:]
-    if cmd == "move":
-        _publish_event(request, "cmd.move", command)
-    elif cmd == "stop":
-        _publish_event(request, "cmd.stop", command)
-
-    forward_result: Dict[str, Any]
-    status_code = 200
-    adapter: RestAdapter = request.app.state.rest_adapter
-    if adapter is None:
-        forward_result = {"ok": False, "error": "REST adapter not initialized"}
-        status_code = 503
-        logger.error("Cannot forward /api/control command: REST adapter unavailable")
-    else:
-        try:
-            forward_result = await adapter.post_control(command)
-        except Exception as exc:  # pragma: no cover - defensive guard
-            logger.error("Error forwarding control command to Rider-PI: %s", exc)
-            forward_result = {"ok": False, "error": str(exc)}
-            status_code = 502
-
-    forward_ok = bool(forward_result.get("ok"))
-    if not forward_ok:
-        status = str(forward_result.get("status", "")).lower()
-        forward_ok = status == "ok"
-
-    queued_remote_raw: Any = forward_result.get("queued")
-    queued_remote: Optional[int]
-    if isinstance(queued_remote_raw, int):
-        queued_remote = queued_remote_raw
-    else:
-        try:
-            queued_remote = int(queued_remote_raw)
-        except (TypeError, ValueError):
-            queued_remote = None
-    response_payload: Dict[str, Any] = {
-        "ok": forward_ok,
-        "queued": queued_remote if isinstance(queued_remote, int) else len(request.app.state.motion_queue),
-        "device_response": forward_result,
-    }
-    if not forward_ok and "error" in forward_result:
-        response_payload["error"] = forward_result["error"]
-    return JSONResponse(response_payload, status_code=status_code if not forward_ok else 200)
-
-
-def _local_motion_queue_snapshot(entries: Optional[List[Dict[str, Any]]]) -> Dict[str, Any]:
-    """Return motion queue items based on locally captured commands."""
-    now = time.time()
-    items: List[Dict[str, Any]] = []
-    for entry in reversed(entries or []):
-        cmd = entry.get("command", {}) if isinstance(entry, dict) else {}
-        ts = entry.get("ts", 0) if isinstance(entry, dict) else 0
-        items.append(
-            {
-                "source": cmd.get("source") or cmd.get("provider") or "pc-ui",
-                "vx": cmd.get("vx"),
-                "vy": cmd.get("vy"),
-                "yaw": cmd.get("yaw"),
-                "time_s": cmd.get("t"),
-                "status": cmd.get("status") or cmd.get("cmd"),
-                "age_s": round(max(0.0, now - ts), 2) if ts else None,
-            }
-        )
-    return {"items": items}
+    return response
 
 
 @router.get("/api/motion/queue")
 async def api_motion_queue(request: Request) -> JSONResponse:
-    """Expose the latest motion queue entries from Rider-PI, with a local fallback."""
-    adapter: Optional[RestAdapter] = request.app.state.rest_adapter
-    if adapter:
-        try:
-            remote_queue = await adapter.get_motion_queue()
-            if isinstance(remote_queue, dict):
-                if remote_queue.get("error"):
-                    logger.warning("Remote motion queue returned error: %s", remote_queue["error"])
-                elif "items" in remote_queue:
-                    return JSONResponse(remote_queue)
-        except Exception as exc:  # pragma: no cover - network failure
-            logger.error("Failed to fetch motion queue from Rider-PI: %s", exc)
-
-    return JSONResponse(_local_motion_queue_snapshot(request.app.state.motion_queue))
+    result = await _remote_snapshot(request, "queue", "get_motion_queue", {"items": []})
+    result["local_request_history"] = list(request.app.state.motion_queue)
+    return JSONResponse(result)
 
 
 @router.get("/api/control/state")
 async def api_control_state(request: Request) -> JSONResponse:
-    """Return current control state, preferring Rider-PI data."""
-    adapter: Optional[RestAdapter] = request.app.state.rest_adapter
-    state = dict(request.app.state.control_state)
-    if adapter:
-        try:
-            remote_state = await adapter.get_control_state()
-            if isinstance(remote_state, dict) and "error" not in remote_state:
-                state = remote_state
-                request.app.state.control_state.update(remote_state)
-            else:
-                logger.warning("Falling back to local control state: %s", remote_state.get("error"))
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.error("Failed to fetch control state from Rider-PI: %s", exc)
-    state["updated_at"] = time.time()
-    return JSONResponse(content=state)
+    result = await _remote_snapshot(request, "control", "get_control_state", {})
+    return JSONResponse(result)
 
 
 @router.post("/api/vision/tracking/mode")
 async def update_tracking_mode(request: Request, payload: Dict[str, Any]) -> JSONResponse:
-    """Update tracking mode state, forwarding to Rider-PI when possible."""
-    adapter: Optional[RestAdapter] = request.app.state.rest_adapter
-    body = payload or {}
-    if adapter:
-        try:
-            result = await adapter.post_tracking_mode(body)
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.error("Failed to forward tracking mode: %s", exc)
-            return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
-
-        status_code = 200
-        if not result.get("ok", True):
-            status_code = 502
-        else:
-            mode = str(result.get("mode", "none")).strip().lower()
-            enabled = bool(result.get("enabled", mode != "none"))
-            _set_local_tracking_state(request, mode, enabled)
-        return JSONResponse(result, status_code=status_code)
-
-    mode, enabled = _normalize_tracking_request(body)
-    result = _set_local_tracking_state(request, mode, enabled)
-    return JSONResponse(result)
-
-
-def _normalize_feature_payload(name: str, payload: Dict[str, Any]) -> Tuple[str, bool]:
-    """Normalize feature toggle payload for local fallback."""
-    normalized = str(name or "").strip().lower()
-    enabled = bool(payload.get("enabled"))
-    return normalized, enabled
+    mode, enabled = _normalize_tracking_request(payload)
+    body = {**payload, "mode": mode, "enabled": enabled}
+    if enabled:
+        body.update(await _motion_context(request, "follow_me", supplied=body))
+    return await _proxy_action(request, "post_tracking_mode", body)
 
 
 @router.post("/api/logic/feature/{name}")
 async def feature_toggle(request: Request, name: str, payload: Dict[str, Any]) -> JSONResponse:
-    """
-    Toggle feature state via Rider-PI FeatureManager when available.
-    Falls back to local tracking/navigator state for dev/demo mode.
-    """
-    adapter: Optional[RestAdapter] = request.app.state.rest_adapter
-    body = payload or {}
-    if adapter:
-        try:
-            result = await adapter.post_feature_toggle(name, body)
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.error("Failed to forward feature toggle %s: %s", name, exc)
-            return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
-
-        status_code = 200 if result.get("ok", False) else 502
-        # best-effort local cache update
-        try:
-            feature = str(result.get("feature") or name).lower()
-            enabled = bool(body.get("enabled"))
-            if feature in {"face_tracking", "hand_tracking"}:
-                mode = "hand" if feature == "hand_tracking" else "face"
-                _set_local_tracking_state(request, mode, enabled)
-            elif feature == "recon":
-                navigator = request.app.state.control_state.get("navigator", {}) or {}
-                navigator.update({"active": enabled})
-                request.app.state.control_state["navigator"] = navigator
-        except Exception:
-            pass
-        return JSONResponse(result, status_code=status_code)
-
-    # local fallback without remote adapter
-    feature_name, enabled = _normalize_feature_payload(name, body)
-    if feature_name in {"face_tracking", "hand_tracking"}:
-        mode = "hand" if feature_name == "hand_tracking" else "face"
-        local = _set_local_tracking_state(request, mode, enabled)
-        return JSONResponse({"ok": True, "feature": feature_name, "enabled": enabled, "result": local})
-    if feature_name == "recon":
-        navigator = request.app.state.control_state.get("navigator", {}) or {}
-        navigator.update({"active": enabled})
-        request.app.state.control_state["navigator"] = navigator
-    return JSONResponse({"ok": True, "feature": feature_name, "enabled": enabled, "result": navigator})
-    return JSONResponse({"ok": False, "error": "unknown_feature", "feature": feature_name}, status_code=404)
+    if not isinstance(payload.get("enabled"), bool):
+        raise HTTPException(status_code=400, detail="enabled_must_be_boolean")
+    body = dict(payload)
+    if body["enabled"]:
+        catalog = await _remote_snapshot(request, "features", "get_logic_features", {"features": []})
+        row = next(
+            (r for r in catalog.get("features", []) if r.get("name") == name or name in r.get("aliases", [])), None
+        )
+        if (
+            catalog.get("offline")
+            or catalog.get("stale")
+            or type(catalog.get("contract_version")) is not int
+            or catalog["contract_version"] != 2
+            or not finite_number(catalog.get("observed_at"))
+            or not 0 <= time.time() - catalog["observed_at"] <= 3
+            or not row
+            or not isinstance(row.get("can_move"), bool)
+        ):
+            raise HTTPException(status_code=409, detail="unconfirmed_task_capability")
+        if row.get("installed") is False or row.get("stale") is True:
+            raise HTTPException(status_code=409, detail="task_unavailable")
+        if row["can_move"]:
+            owner = row.get("motion_owner")
+            if owner not in {"manual", "follow_me", "navigation"}:
+                raise HTTPException(status_code=409, detail="unknown_motion_owner")
+            body.update(await _motion_context(request, owner, supplied=body))
+    return await _proxy_action(request, "post_feature_toggle", name, body)
 
 
 @router.get("/api/logic/features")
 async def logic_features(request: Request) -> JSONResponse:
-    """Expose Rider-PI logic feature registry or local fallback."""
-    adapter: Optional[RestAdapter] = request.app.state.rest_adapter
-    if adapter:
-        try:
-            remote = await adapter.get_logic_features()
-            if isinstance(remote, dict) and not remote.get("error"):
-                return JSONResponse(remote)
-        except Exception as exc:  # pragma: no cover - defensive network handling
-            logger.error("Failed to fetch logic features: %s", exc)
-    return JSONResponse({"ok": True, "features": _local_feature_rows(request)})
+    return JSONResponse(await _remote_snapshot(request, "features", "get_logic_features", {"features": []}))
 
 
 @router.get("/api/logic/summary")
 async def logic_summary(request: Request) -> JSONResponse:
-    """Expose Rider-PI summary endpoint or local fallback."""
-    adapter: Optional[RestAdapter] = request.app.state.rest_adapter
-    if adapter:
-        try:
-            remote = await adapter.get_logic_summary()
-            if isinstance(remote, dict) and not remote.get("error"):
-                return JSONResponse(remote)
-        except Exception as exc:  # pragma: no cover
-            logger.error("Failed to fetch logic summary: %s", exc)
-    return JSONResponse(_local_logic_summary(request))
+    return JSONResponse(await _remote_snapshot(request, "summary", "get_logic_summary", {"features": []}))
+
+
+@router.get("/api/logic/catalog")
+async def logic_catalog(request: Request) -> JSONResponse:
+    return JSONResponse(
+        await _remote_snapshot(
+            request, "catalog", "get_logic_catalog", {"features": [], "services": [], "resources": []}
+        )
+    )
 
 
 @router.post("/api/navigator/start")
 async def navigator_start(request: Request, payload: Dict[str, Any]) -> JSONResponse:
-    """Start navigator with selected strategy."""
-    strategy = payload.get("strategy", "standard")
-    request.app.state.control_state["navigator"] = {"active": True, "strategy": strategy, "state": "navigating"}
-    _publish_event(request, "navigator.start", {"strategy": strategy})
-    return JSONResponse({"ok": True, "strategy": strategy})
+    return await feature_toggle(request, "s9_navigation", {**payload, "enabled": True})
 
 
 @router.post("/api/navigator/stop")
 async def navigator_stop(request: Request) -> JSONResponse:
-    """Stop navigator."""
-    strategy = request.app.state.control_state.get("navigator", {}).get("strategy", "standard")
-    request.app.state.control_state["navigator"] = {"active": False, "strategy": strategy, "state": "idle"}
-    _publish_event(request, "navigator.stop", {})
-    return JSONResponse({"ok": True})
+    return await feature_toggle(request, "s9_navigation", {"enabled": False})
 
 
 @router.post("/api/navigator/return_home")
-async def navigator_return_home(request: Request) -> JSONResponse:
-    """Simulate navigator return home action."""
-    navigator = request.app.state.control_state.get("navigator", {})
-    navigator_state = {
-        "active": navigator.get("active", True),
-        "strategy": navigator.get("strategy", "standard"),
-        "state": "returning",
-    }
-    request.app.state.control_state["navigator"] = navigator_state
-    _publish_event(request, "navigator.return_home", {})
-    return JSONResponse({"ok": True, "state": "returning"})
+async def navigator_return_home(request: Request, payload: Dict[str, Any]) -> JSONResponse:
+    context = await _motion_context(request, "navigation", supplied=payload)
+    return await _proxy_action(request, "post_navigator_return_home", {**payload, **context})
 
 
 @router.get("/api/resource/{resource_name}")
 async def get_resource_status(request: Request, resource_name: str) -> JSONResponse:
-    """Return resource status, preferring Rider-PI data when available."""
-    local_resource = request.app.state.resources.get(resource_name)
-    if not local_resource:
-        return JSONResponse({"error": f"Resource {resource_name} not found"}, status_code=404)
-
-    adapter: RestAdapter = request.app.state.rest_adapter
-    result: Dict[str, Any]
-    if adapter:
-        try:
-            remote_data = await adapter.get_resource(resource_name)
-            if remote_data and not remote_data.get("error"):
-                result = remote_data
-            else:
-                result = dict(local_resource)
-                if remote_data and remote_data.get("error"):
-                    result["error"] = remote_data["error"]
-        except Exception as exc:  # pragma: no cover - defensive network error
-            logger.error("Error fetching resource %s from Rider-PI: %s", resource_name, exc)
-            result = dict(local_resource)
-            result["error"] = str(exc)
-    else:
-        result = dict(local_resource)
-
-    result.setdefault("checked_at", time.time())
-    return JSONResponse(content=result)
+    adapter = request.app.state.rest_adapter
+    snapshots = request.app.state.remote_snapshots
+    key = "resource:" + resource_name
+    try:
+        if adapter is None:
+            raise RuntimeError("pi_offline")
+        result = await adapter.get_resource(resource_name)
+        if not isinstance(result, dict) or result.get("error"):
+            raise RuntimeError((result or {}).get("error", "invalid_response"))
+        result = {**result, "source": "demo" if _demo_adapter(request) else "pi"}
+        result.setdefault("stale", False)
+        result.setdefault("offline", False)
+        result.setdefault("observed_at", time.time())
+        snapshots[key] = result
+    except Exception as exc:
+        result = {
+            **snapshots.get(key, {}),
+            "name": resource_name,
+            "free": None,
+            "source": snapshots.get(key, {}).get("source", "pi"),
+            "stale": True,
+            "offline": True,
+            "error": str(exc),
+        }
+    return JSONResponse(result)
 
 
 @router.post("/api/resource/{resource_name}")
 async def update_resource(request: Request, resource_name: str, payload: Dict[str, Any]) -> JSONResponse:
-    """Forward resource actions (release/stop) to Rider-PI."""
-    local_resource = request.app.state.resources.get(resource_name)
-    if not local_resource:
-        return JSONResponse({"error": f"Resource {resource_name} not found"}, status_code=404)
-    adapter: RestAdapter = request.app.state.rest_adapter
-    if not adapter:
-        action = (payload or {}).get("action")
-        if action in {"release", "stop"}:
-            local_resource["free"] = True
-            local_resource["holders"] = []
-            local_resource["checked_at"] = time.time()
-            _publish_event(request, "resource.update", {"resource": resource_name, "action": action})
-            return JSONResponse({"ok": True, "resource": resource_name, "note": "local-only"})
-        return JSONResponse({"error": f"Unsupported action {action}"}, status_code=400)
-
-    action_payload = payload or {}
-    try:
-        response = await adapter.post_resource_action(resource_name, action_payload)
-    except Exception as exc:  # pragma: no cover
-        logger.error("Error posting resource action for %s: %s", resource_name, exc)
-        response = {"ok": False, "error": str(exc)}
-
-    status_code = 200
-    if not response.get("ok", True) and "error" in response:
-        status_code = 502
-    return JSONResponse(content=response, status_code=status_code)
+    if payload.get("action") not in {"release", "stop"}:
+        raise HTTPException(status_code=400, detail="unsupported_resource_action")
+    return await _proxy_action(request, "post_resource_action", resource_name, payload)
 
 
 @router.get("/svc")
 async def list_services(request: Request) -> JSONResponse:
-    """Return systemd service states via ServiceManager."""
-    service_manager: Optional["ServiceManager"] = getattr(request.app.state, "service_manager", None)
-    if service_manager is not None:
-        # Update adapter reference in service manager
-        service_manager.set_adapter(request.app.state.rest_adapter)
-        result = await service_manager.get_all_services()
-        return JSONResponse(result)
-
-    # Fallback to old behavior if ServiceManager not available
-    adapter: Optional[RestAdapter] = request.app.state.rest_adapter
-    if adapter:
-        remote = await adapter.get_services()
-        if remote and not remote.get("error"):
-            return JSONResponse(remote)
-        logger.warning("Falling back to local /svc list: %s", remote.get("error") if remote else "unknown error")
-
-    services = [{**svc, "ts": time.time()} for svc in request.app.state.services]
-    return JSONResponse({"services": services, "timestamp": time.time()})
+    manager = request.app.state.service_manager
+    manager.set_adapter(request.app.state.rest_adapter)
+    manager.set_providers(request.app.state.providers)
+    return JSONResponse(await manager.get_all_services())
 
 
 @router.get("/api/systemd/services")
 @router.get("/api/services/systemd")
 @router.get("/api/services")
 async def list_services_alias(request: Request) -> JSONResponse:
-    """Compatibility aliases for legacy Rider-PI endpoints."""
     return await list_services(request)
 
 
-def _extract_service_unit(payload: Dict[str, Any]) -> Optional[str]:
-    for key in ("unit", "service", "name", "id"):
-        unit = payload.get(key)
-        if unit:
-            return str(unit)
-    return None
+def _extract_service_unit(payload):
+    return next((str(payload[k]) for k in ("unit", "service", "name", "id") if payload.get(k)), None)
 
 
 @router.post("/svc/{unit}")
 async def control_service(request: Request, unit: str, payload: Dict[str, Any]) -> JSONResponse:
-    """Handle service control actions via ServiceManager."""
-    action = (payload or {}).get("action")
-    if not action:
-        return JSONResponse({"error": "Missing action parameter"}, status_code=400)
-
-    service_manager: Optional["ServiceManager"] = getattr(request.app.state, "service_manager", None)
-    if service_manager is not None:
-        service_manager.set_adapter(request.app.state.rest_adapter)
-        result = await service_manager.control_service(unit, action)
-        if result.get("ok"):
-            _publish_event(request, "service.action", {"unit": unit, "action": action})
-            _emit_system_log(request, "INFO", action, unit)
-            return JSONResponse(result)
-        # Check for specific error types
-        error_msg = result.get("error", "Unknown error")
-        _emit_system_log(request, "ERROR", action, unit, error_msg)
-        if "not found" in str(error_msg).lower():
-            return JSONResponse(result, status_code=404)
-        if "unsupported" in str(error_msg).lower():
-            return JSONResponse(result, status_code=400)
-        return JSONResponse(result, status_code=502)
-
-    # Fallback to old behavior if ServiceManager not available
-    adapter: Optional[RestAdapter] = request.app.state.rest_adapter
-    if adapter:
-        result = await adapter.service_action(unit, payload or {})
-        status_code = 200
-        if not result.get("ok", True) or result.get("error"):
-            status_code = 502
-            error_msg = result.get("error", "Unknown error")
-            _emit_system_log(request, "ERROR", action, unit, error_msg)
-        else:
-            _emit_system_log(request, "INFO", action, unit)
-        return JSONResponse(result, status_code=status_code)
-
-    service = next((s for s in request.app.state.services if s["unit"] == unit), None)
-    if not service:
-        _emit_system_log(request, "ERROR", action, unit, "Service not found")
-        return JSONResponse({"error": f"Service {unit} not found"}, status_code=404)
-    if action == "start":
-        service["active"] = "active"
-        service["sub"] = "running"
-    elif action == "stop":
-        service["active"] = "inactive"
-        service["sub"] = "dead"
-    elif action == "restart":
-        service["active"] = "active"
-        service["sub"] = "running"
-    elif action == "enable":
-        service["enabled"] = "enabled"
-    elif action == "disable":
-        service["enabled"] = "disabled"
-    else:
-        _emit_system_log(request, "ERROR", action, unit, "Unsupported action")
-        return JSONResponse({"error": f"Unsupported action {action}"}, status_code=400)
-    _publish_event(request, "service.action", {"unit": unit, "action": action})
-    _emit_system_log(request, "INFO", action, unit)
-    return JSONResponse({"ok": True, "unit": unit, "action": action})
+    manager = request.app.state.service_manager
+    manager.set_adapter(request.app.state.rest_adapter)
+    result = await manager.control_service(unit, payload.get("action"), host=payload.get("host"), payload=payload)
+    if result.get("ok") is True and not result.get("pending"):
+        _publish_event(
+            request, "service.action", {"unit": unit, "host": payload.get("host"), "action": payload.get("action")}
+        )
+        _emit_system_log(request, "INFO", payload.get("action"), unit)
+    elif not result.get("pending"):
+        _emit_system_log(request, "ERROR", payload.get("action"), unit, result.get("error"))
+    status_code = result.pop("status_code", result.pop("_http_status", None))
+    status_code = status_code or (202 if result.get("pending") else 200 if result.get("ok") is True else 502)
+    return JSONResponse(result, status_code=status_code)
 
 
 async def _control_service_alias(request: Request, payload: Optional[Dict[str, Any]]) -> JSONResponse:
     data = payload or {}
     unit = _extract_service_unit(data)
     if not unit:
-        return JSONResponse({"error": "Missing service unit"}, status_code=400)
+        raise HTTPException(status_code=400, detail="missing_service_unit")
     return await control_service(request, unit, data)
 
 
@@ -663,7 +389,6 @@ async def _control_service_alias(request: Request, payload: Optional[Dict[str, A
 @router.post("/api/services/systemd/action")
 @router.post("/api/services/action")
 async def api_service_action_alias(request: Request, payload: Dict[str, Any]) -> JSONResponse:
-    """Compatibility endpoints matching Rider-PI API."""
     return await _control_service_alias(request, payload)
 
 

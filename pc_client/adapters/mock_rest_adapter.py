@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 class MockRestAdapter:
     """Mock adapter that returns deterministic test data instead of making real HTTP requests."""
 
+    is_mock = True
+
     def __init__(
         self,
         base_url: str = "http://mock-rider-pi:8080",
@@ -39,6 +41,17 @@ class MockRestAdapter:
             "tracking": {"mode": "none", "enabled": False, "target": None},
             "navigator": {"active": False, "strategy": "standard", "state": "idle"},
             "camera": {"vision_enabled": True, "on": True, "res": [1280, 720]},
+        }
+        self._safety = {
+            "contract_version": 1,
+            "state": "DISARMED",
+            "ready": False,
+            "can_move": False,
+            "read_only": True,
+            "generation": "demo-0",
+            "owner": None,
+            "last_seq": -1,
+            "simulated": True,
         }
         self._ai_mode: Dict[str, Any] = {
             "mode": "pc_offload",
@@ -418,6 +431,10 @@ class MockRestAdapter:
             "vy": command.get("vy"),
             "yaw": command.get("yaw"),
         }
+        if command.get("cmd") == "stop":
+            await self.post_safety({"action": "disarm"})
+        else:
+            self._safety["last_seq"] = command.get("seq", self._safety["last_seq"])
         self._motion_queue.append(entry)
         self._motion_queue[:] = self._motion_queue[-20:]
         return {
@@ -431,7 +448,29 @@ class MockRestAdapter:
         """Return mock control state."""
         state = copy.deepcopy(self._control_state)
         state["updated_at"] = time.time()
+        state["safety"] = {**self._safety, "observed_at": time.time()}
         return state
+
+    async def post_safety(self, payload):
+        action = payload.get("action")
+        if action in {"arm", "clear_estop"} and (
+            payload.get("operator_consent") is not True or not str(payload.get("operator_plan", "")).strip()
+        ):
+            return {"ok": False, "error": "operator_consent_required", "_http_status": 400}
+        armed = action == "arm"
+        self._safety.update(
+            state="ARMED" if armed else ("ESTOP" if action == "estop" else "DISARMED"),
+            ready=armed,
+            can_move=armed,
+            read_only=not armed,
+            owner=payload.get("owner") if armed else None,
+            generation=f"demo-{time.time_ns()}",
+            last_seq=payload.get("seq", -1) if armed else -1,
+        )
+        return {"ok": True, "simulated": True, "safety": dict(self._safety)}
+
+    async def post_navigator_return_home(self, payload):
+        return {"ok": True, "simulated": True, "state": "returning"}
 
     async def post_pc_heartbeat(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Return success for provider heartbeat."""
@@ -446,7 +485,23 @@ class MockRestAdapter:
 
     async def get_services(self) -> Dict[str, Any]:
         """Return mock systemd service list."""
-        return {"services": copy.deepcopy(self._services), "timestamp": time.time()}
+        return {
+            "contract_version": 2,
+            "source": "demo",
+            "observed_at": time.time(),
+            "services": [
+                {
+                    **s,
+                    "host": "pi",
+                    "source": "demo",
+                    "observed_at": time.time(),
+                    "can_move": "tracking-controller" in s["unit"],
+                    "motion_owner": "follow_me" if "tracking-controller" in s["unit"] else None,
+                }
+                for s in self._services
+            ],
+            "timestamp": time.time(),
+        }
 
     async def service_action(self, unit: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Return success for service action."""
@@ -521,7 +576,28 @@ class MockRestAdapter:
 
     async def get_logic_features(self) -> Dict[str, Any]:
         """Return mock feature registry."""
-        return {"ok": True, "features": self._logic_feature_rows()}
+        return {
+            "ok": True,
+            "contract_version": 2,
+            "source": "demo",
+            "observed_at": time.time(),
+            "features": [
+                {
+                    **r,
+                    "can_move": r["name"] in {"s3_follow_me_face", "s4_recon"},
+                    "motion_owner": "follow_me" if r["name"] == "s3_follow_me_face" else "navigation",
+                    "aliases": ["face_tracking"]
+                    if r["name"] == "s3_follow_me_face"
+                    else (["recon"] if r["name"] == "s4_recon" else ["zero_mode"]),
+                }
+                for r in self._logic_feature_rows()
+            ],
+        }
+
+    async def get_logic_catalog(self):
+        features = await self.get_logic_features()
+        services = await self.get_services()
+        return {**features, "services": services["services"], "resources": []}
 
     async def get_logic_summary(self) -> Dict[str, Any]:
         """Return mock logic summary payload."""

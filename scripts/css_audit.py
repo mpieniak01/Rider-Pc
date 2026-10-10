@@ -40,6 +40,7 @@ from playwright.sync_api import Page, sync_playwright
 from pc_client.api.server import create_app
 from pc_client.cache import CacheManager
 from pc_client.config import Settings
+from pc_client.testing.isolation import install_automation_isolation
 
 
 def find_free_port() -> int:
@@ -50,6 +51,7 @@ def find_free_port() -> int:
 
 def run_server_thread(port: int) -> None:
     os.environ["TEST_MODE"] = "true"
+    os.environ["GITHUB_FORCE_MOCK"] = "true"
     settings = Settings()
     cache = CacheManager()
     app = create_app(settings, cache)
@@ -61,6 +63,7 @@ def run_server_thread(port: int) -> None:
 def start_test_server() -> str:
     port = find_free_port()
     os.environ["TEST_SERVER_PORT"] = str(port)
+    os.environ["RIDER_TEST_LOOPBACK_PORTS"] = str(port)
     thread = threading.Thread(target=run_server_thread, args=(port,), daemon=True)
     thread.start()
     base_url = f"http://127.0.0.1:{port}"
@@ -119,6 +122,9 @@ def take_screenshots(base_url: str) -> tuple[list[dict[str, str]], set[str], set
         context = browser.new_context(viewport={"width": 1366, "height": 768})
         if THEME:
             context.add_init_script(f"window.localStorage.setItem('dashboard_theme', {json.dumps(THEME)});")
+        context.route(
+            "**/*", lambda route: route.continue_() if route.request.url.startswith(base_url + "/") else route.abort()
+        )
         page = context.new_page()
         for path in URLS:
             slug = path.split("/")[-1].replace(".html", "") or "root"
@@ -195,11 +201,13 @@ def calculate_css_usage(collected_classes: set[str], collected_ids: set[str]) ->
 
 
 def main():
+    guard = install_automation_isolation()
     base_url = start_test_server()
     screenshots, used_classes, used_ids = take_screenshots(base_url)
     usage = calculate_css_usage(used_classes, used_ids)
     SUMMARY_JSON.write_text(json.dumps({"screenshots": screenshots, "static_usage": usage}, indent=2))
     print(f"[css:audit] summary saved to {SUMMARY_JSON}")
+    guard.undo()
 
 
 if __name__ == "__main__":

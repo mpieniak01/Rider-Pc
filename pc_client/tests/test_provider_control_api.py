@@ -1,11 +1,13 @@
 """Tests for provider control API endpoints."""
 
+import copy
 import os
 import pytest
 import tempfile
 from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi.testclient import TestClient
+from pc_client.adapters.mock_rest_adapter import MockRestAdapter
 from pc_client.api.server import create_app
 from pc_client.cache import CacheManager
 from pc_client.config import Settings
@@ -39,6 +41,7 @@ def test_client():
         settings = _test_settings()
         cache = CacheManager(db_path=str(db_path))
         app = create_app(settings, cache)
+        app.state.rest_adapter = MockRestAdapter()
         app.router.on_startup.clear()
         app.router.on_shutdown.clear()
 
@@ -62,6 +65,7 @@ def text_client():
         settings = _test_settings(enable_text_offload=True)
         cache = CacheManager(db_path=str(db_path))
         app = create_app(settings, cache)
+        app.state.rest_adapter = MockRestAdapter()
         app.router.on_startup.clear()
         app.router.on_shutdown.clear()
 
@@ -117,7 +121,7 @@ def test_providers_state_endpoint(test_client):
 
 
 def test_providers_state_from_cache(test_client):
-    """Test that providers state can be read from cache."""
+    """Test stanu providerów z jawnego mock Pi."""
     client, cache = test_client
 
     # Set custom state in cache
@@ -129,7 +133,7 @@ def test_providers_state_from_cache(test_client):
         },
         "pc_health": {"reachable": True, "latency_ms": 42},
     }
-    cache.set("providers_state", custom_state)
+    client.app.state.rest_adapter._provider_state = custom_state
 
     response = client.get("/api/providers/state")
 
@@ -150,10 +154,9 @@ def test_update_provider_valid_domain(test_client):
     assert response.status_code == 200
     data = response.json()
 
-    assert data["success"] is True
+    assert data["ok"] is True
     assert data["domain"] == "voice"
-    assert "new_state" in data
-    assert data["new_state"]["mode"] == "pc"
+    assert data["mode"] == "pc"
 
 
 def test_update_provider_invalid_domain(test_client):
@@ -169,7 +172,7 @@ def test_update_provider_invalid_domain(test_client):
 
 
 def test_update_provider_updates_cache(test_client):
-    """Test that updating provider modifies cache."""
+    """Odpowiedź mock Pi ma potwierdzenie bez lokalnego zapisu sukcesu."""
     client, cache = test_client
 
     # Set initial state
@@ -182,16 +185,18 @@ def test_update_provider_updates_cache(test_client):
         "pc_health": {"reachable": False},
     }
     cache.set("providers_state", initial_state)
+    client.app.state.rest_adapter._provider_state = copy.deepcopy(initial_state)
 
     # Update voice provider
     response = client.patch("/api/providers/voice", json={"target": "pc"})
 
     assert response.status_code == 200
 
-    # Verify cache was updated
-    cached_state = cache.get("providers_state")
-    assert cached_state["domains"]["voice"]["mode"] == "pc"
-    assert cached_state["domains"]["text"]["mode"] == "local"  # Others unchanged
+    # Odczyt potwierdza odpowiedź Pi; cache nie zgaduje zmiany konfiguracji.
+    observed = client.get("/api/providers/state").json()
+    assert observed["domains"]["voice"]["mode"] == "pc"
+    assert observed["domains"]["text"]["mode"] == "local"
+    assert cache.get("providers_state") == initial_state
 
 
 def test_providers_health_endpoint(test_client):
@@ -203,12 +208,12 @@ def test_providers_health_endpoint(test_client):
     assert response.status_code == 200
     data = response.json()
 
-    assert set(data.keys()) == {"voice", "text", "vision"}
+    assert {"voice", "text", "vision"}.issubset(data)
     assert "status" in data["voice"]
 
 
 def test_providers_health_from_cache(test_client):
-    """Test that provider health can be read from cache."""
+    """Test stanu zdrowia z jawnego mock Pi."""
     client, cache = test_client
 
     # Set custom health data in cache
@@ -222,7 +227,7 @@ def test_providers_health_from_cache(test_client):
         "text": {"status": "healthy", "latency_ms": 100.2, "success_rate": 0.99, "last_check": "2025-11-12T15:30:00Z"},
         "vision": {"status": "healthy", "latency_ms": 75.8, "success_rate": 0.97, "last_check": "2025-11-12T15:30:00Z"},
     }
-    cache.set("providers_health", custom_health)
+    client.app.state.rest_adapter._provider_health = custom_health
 
     response = client.get("/api/providers/health")
 
@@ -235,17 +240,20 @@ def test_providers_health_from_cache(test_client):
 
 
 def test_ai_mode_default(test_client):
-    """GET /api/system/ai-mode should return default local mode when adapter missing."""
+    """Brak Pi jest jawnie unknown; klient nie ogłasza trybu local."""
     client, _ = test_client
+    client.app.state.rest_adapter = None
     response = client.get("/api/system/ai-mode")
     assert response.status_code == 200
     data = response.json()
-    assert data["mode"] == "local"
+    assert data["mode"] == "unknown"
+    assert data["offline"] and data["stale"]
 
 
 def test_ai_mode_set_without_adapter(test_client):
     """PUT /api/system/ai-mode should fail when adapter not initialized."""
     client, _ = test_client
+    client.app.state.rest_adapter = None
     response = client.put("/api/system/ai-mode", json={"mode": "pc_offload"})
     assert response.status_code == 503
     data = response.json()
@@ -315,7 +323,7 @@ def test_all_provider_domains(test_client):
 
         assert response.status_code == 200
         data = response.json()
-        assert data["success"] is True
+        assert data["ok"] is True
         assert data["domain"] == domain
 
 
@@ -350,7 +358,7 @@ def test_provider_status_values(test_client):
     """Test that provider status values are valid."""
     client, cache = test_client
 
-    valid_statuses = ["local_only", "pc_active", "pc_pending", "status_unknown"]
+    valid_statuses = ["local_only", "pc_active", "pc_pending", "status_unknown", "ready"]
 
     response = client.get("/api/providers/state")
     assert response.status_code == 200

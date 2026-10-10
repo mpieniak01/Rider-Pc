@@ -55,7 +55,7 @@ class ZMQTelemetryPublisher:
             self.logger.info(f"ZMQ telemetry publisher initialized ({mode} {endpoint})")
         except Exception as e:
             self.logger.error(f"Failed to initialize ZMQ publisher: {e}")
-            self._enabled = False
+            self.close()
 
     def publish(self, topic: str, data: Dict[str, Any]):
         """
@@ -190,11 +190,13 @@ class ZMQTelemetryPublisher:
     def close(self):
         """Close ZMQ publisher and cleanup resources."""
         if self.socket:
-            self.socket.close()
+            self.socket.close(linger=0)
+            self.socket = None
             self.logger.info("ZMQ telemetry publisher closed")
 
         if self.context:
             self.context.term()
+            self.context = None
 
         self._enabled = False
 

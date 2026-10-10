@@ -59,6 +59,7 @@ def test_server():
         s.bind(('127.0.0.1', 0))
         port = s.getsockname()[1]
 
+    os.environ["RIDER_TEST_LOOPBACK_PORTS"] = str(port)
     server_process = multiprocessing.Process(target=run_server_process, args=(port,), daemon=True)
     server_process.start()
 
@@ -113,6 +114,10 @@ def browser_context(test_server):
             ],
         )
         context = browser.new_context()
+        context.route(
+            "**/*",
+            lambda route: route.continue_() if route.request.url.startswith(test_server + "/") else route.abort(),
+        )
         context.set_default_navigation_timeout(10000)
         context.set_default_timeout(10000)
         page = context.new_page()

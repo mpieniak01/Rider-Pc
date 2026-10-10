@@ -12,17 +12,27 @@ class MockServiceManager:
 
     def __init__(self, services=None):
         self._services = services or []
+        for service in self._services:
+            service.setdefault("source", "systemd")
+            service.setdefault("can_move", False)
+            service.setdefault("desired", "active")
+        self.monitored_services = [s["unit"] for s in self._services]
         self.control_calls = []
 
     def set_services(self, services):
         """Update the mock services list."""
         self._services = services
+        for service in self._services:
+            service.setdefault("source", "systemd")
+            service.setdefault("can_move", False)
+            service.setdefault("desired", "active")
+        self.monitored_services = [s["unit"] for s in self._services]
 
     async def get_local_services_async(self):
         """Return mock services."""
         return self._services
 
-    async def control_service(self, unit, action):
+    async def control_service(self, unit, action, **kwargs):
         """Mock control service - record the call."""
         self.control_calls.append({"unit": unit, "action": action})
         return {"ok": True, "unit": unit, "action": action}
@@ -272,8 +282,8 @@ async def test_watchdog_exhausted_notification():
 
 
 @pytest.mark.asyncio
-async def test_watchdog_monitors_all_local_services_when_no_list():
-    """Test watchdog monitors all local services when no specific list is given."""
+async def test_watchdog_empty_configuration_never_monitors_all():
+    """Pusta konfiguracja nigdy nie wybiera automatycznie wszystkich usług."""
     services = [
         {"unit": "local1.service", "active": "failed", "is_local": True},
         {"unit": "local2.service", "active": "active", "is_local": True},
@@ -283,7 +293,7 @@ async def test_watchdog_monitors_all_local_services_when_no_list():
 
     watchdog = ServiceWatchdog(
         service_manager=service_manager,
-        monitored_services=[],  # Empty list means monitor all local
+        monitored_services=[],  # Brak skonfigurowanych jednostek.
         max_retry_count=1,
         check_interval_seconds=0.05,
     )
@@ -292,9 +302,7 @@ async def test_watchdog_monitors_all_local_services_when_no_list():
     await asyncio.sleep(0.08)
     await watchdog.stop()
 
-    # Should have restarted local1.service but not remote.service
-    assert len(service_manager.control_calls) == 1
-    assert service_manager.control_calls[0]["unit"] == "local1.service"
+    assert service_manager.control_calls == []
 
 
 @pytest.mark.asyncio
@@ -393,7 +401,7 @@ async def test_watchdog_with_real_service_manager():
     """Test watchdog works with real ServiceManager (mock mode)."""
     from pc_client.core.service_manager import ServiceManager
 
-    manager = ServiceManager()
+    manager = ServiceManager(mock_mode=True)
 
     # Simulate a failed service in mock mode
     manager._local_services["test.service"] = {
@@ -422,4 +430,4 @@ async def test_watchdog_with_real_service_manager():
     services = manager.get_local_services()
     test_service = next((s for s in services if s["unit"] == "test.service"), None)
     assert test_service is not None
-    assert test_service["active"] == "active"  # Restart sets to active in mock mode
+    assert test_service["active"] == "failed"  # Watchdog nie zarządza demo.

@@ -3,13 +3,14 @@
 import asyncio
 import logging
 import time
-from typing import Any, Dict, List, Mapping, Optional, Union
+from typing import Any, Dict, List
 
 from pc_client.adapters.systemd_adapter import (
     SystemdAdapter,
     MockSystemdAdapter,
-    is_systemd_available,
 )
+
+from pc_client.core.remote_safety import RemoteSafety, finite_number
 
 logger = logging.getLogger(__name__)
 
@@ -118,314 +119,300 @@ SERVICE_EDGES: Dict[str, List[str]] = {
 
 
 class ServiceManager:
-    """
-    Hybrid Service Manager for managing local and remote services.
-
-    This manager acts as a central point for:
-    - Managing local PC services (via systemd on Linux or simulated state)
-    - Proxying requests to Rider-Pi for remote services
-    - Aggregating service data for the UI graph
-
-    On Linux systems with systemd available, the manager uses the SystemdAdapter
-    to execute real systemctl commands. On other platforms (Windows, macOS) or
-    when systemd is not available, it falls back to mock/simulated behavior.
-    """
+    """Stan systemd tylko z konfiguracji; demo wymaga jawnego wyboru."""
 
     def __init__(
         self,
-        rest_adapter: Optional[Any] = None,
-        systemd_adapter: Optional[Union[SystemdAdapter, MockSystemdAdapter]] = None,
-        monitored_services: Optional[List[str]] = None,
-        use_sudo: bool = True,
+        rest_adapter=None,
+        systemd_adapter=None,
+        monitored_services=None,
+        use_sudo=True,
+        mock_mode=False,
+        non_actuating_services=None,
     ):
-        """
-        Initialize the Service Manager.
-
-        Args:
-            rest_adapter: Optional RestAdapter for communicating with Rider-Pi
-            systemd_adapter: Optional SystemdAdapter for managing local services.
-                           If None, auto-detects based on platform.
-            monitored_services: Optional list of systemd unit names to monitor.
-                              If provided, these are used instead of DEFAULT_LOCAL_SERVICES.
-            use_sudo: Whether to use sudo for systemctl commands (default: True).
-        """
         self._rest_adapter = rest_adapter
-        self._last_remote_sync: float = 0.0
-
-        # Auto-detect systemd availability if adapter not provided
-        self._systemd_adapter: Union[SystemdAdapter, MockSystemdAdapter, None]
-        if systemd_adapter is not None:
-            self._systemd_adapter = systemd_adapter
-            self._use_real_systemd = isinstance(systemd_adapter, SystemdAdapter) and systemd_adapter.available
-        elif is_systemd_available():
+        self._monitored_services = list(dict.fromkeys(monitored_services or []))
+        self._non_actuating_services = set(non_actuating_services or []) & set(self._monitored_services)
+        self._mock_mode = mock_mode or isinstance(systemd_adapter, MockSystemdAdapter)
+        self._systemd_adapter = systemd_adapter
+        if self._systemd_adapter is None and self._monitored_services and not self._mock_mode:
             self._systemd_adapter = SystemdAdapter(use_sudo=use_sudo)
-            self._use_real_systemd = self._systemd_adapter.available
-            logger.info("ServiceManager: Using real systemd adapter (Linux detected)")
-        else:
-            self._systemd_adapter = None
-            self._use_real_systemd = False
-            logger.info("ServiceManager: Using mock/simulated mode (systemd not available)")
+        self._use_real_systemd = not self._mock_mode and bool(self._systemd_adapter and self._systemd_adapter.available)
+        self._local_services = {svc["unit"]: dict(svc) for svc in DEFAULT_LOCAL_SERVICES} if self._mock_mode else {}
+        self._remote_services = []
+        self._last_remote_sync = 0.0
+        self._remote_error = "not_connected"
+        self._desired = {}
+        self._providers = {}
+        self.safety = RemoteSafety()
 
-        # Initialize local services state from defaults (for mock mode)
-        self._local_services: Dict[str, Dict[str, Any]] = {svc["unit"]: dict(svc) for svc in DEFAULT_LOCAL_SERVICES}
+    @property
+    def monitored_services(self):
+        return list(self._monitored_services)
 
-        # Store monitored services list for real systemd mode
-        self._monitored_services = monitored_services or []
-
-    def set_adapter(self, adapter: Optional[Any]) -> None:
-        """Update the REST adapter reference."""
+    def set_adapter(self, adapter):
         self._rest_adapter = adapter
 
-    def _is_local_service(self, unit: str) -> bool:
-        """Check if a service is managed locally."""
-        # In real systemd mode, check monitored services list
-        if self._use_real_systemd and self._monitored_services:
-            return unit in self._monitored_services
-        # In mock mode, check local services dict
-        return unit in self._local_services
+    def set_providers(self, providers):
+        self._providers = providers or {}
 
-    def get_local_services(self) -> List[Dict[str, Any]]:
-        """
-        Get list of all local services with current state.
+    def _is_local_service(self, unit):
+        return unit in self._monitored_services or (self._mock_mode and unit in self._local_services)
 
-        Note: This is the synchronous version that returns mock/cached data.
-        For real systemd status, use get_local_services_async().
-        """
+    def _decorate(self, service, host, source, observed_at, stale=False, error=None):
+        row = dict(service)
+        row.setdefault("active", row.get("active_state", "unknown"))
+        for key in ("active", "sub", "enabled"):
+            row.setdefault(key, "unknown")
+        row.update(
+            host=host,
+            location=host,
+            identity=f"{host}:{row['unit']}",
+            is_local=host == "pc",
+            source=source,
+            observed_at=observed_at,
+            ts=observed_at,
+            stale=stale or row.get("stale") is True,
+            offline=bool(error) or row.get("offline") is True,
+        )
+        if error:
+            row["error"] = error
+            row["last_known_active"] = row.get("last_known_active", row.get("active"))
+            row["active"] = "unknown"
+            row["sub"] = "unknown"
+        if host == "pc":
+            unit = row["unit"]
+            row["can_move"] = (
+                False if (unit in self._non_actuating_services or row.get("kind") == "application_provider") else None
+            )
+            if self._mock_mode:
+                row["can_move"] = False
+            row["desired"] = self._desired.get(unit, "unknown")
+        return row
+
+    def get_local_services(self):
         now = time.time()
-        services = []
-        for svc in self._local_services.values():
-            service_data = dict(svc)
-            service_data["ts"] = now
-            service_data["is_local"] = True
-            service_data["location"] = svc.get("location", "pc")
-            services.append(service_data)
-        return services
+        if self._mock_mode:
+            return [self._decorate(s, "pc", "demo", now) for s in self._local_services.values()]
+        return [
+            self._decorate(
+                {"unit": u, "active": "unknown", "sub": "unknown", "enabled": "unknown", "group": "systemd"},
+                "pc",
+                "systemd",
+                None,
+                True,
+                "status_not_observed",
+            )
+            for u in self._monitored_services
+        ]
 
-    async def get_local_services_async(self) -> List[Dict[str, Any]]:
-        """
-        Get list of all local services with current state (async version).
-
-        On Linux with systemd, fetches real service status.
-        On other platforms, returns mock/simulated data.
-        """
-        now = time.time()
-
-        # If using real systemd, fetch status for monitored services concurrently
-        if self._use_real_systemd and self._systemd_adapter and self._monitored_services:
-            # Fetch all service details concurrently
-            tasks = [self._systemd_adapter.get_unit_details(unit) for unit in self._monitored_services]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-
-            services = []
-            for unit, result in zip(self._monitored_services, results):
-                if isinstance(result, Exception):
-                    logger.error("Failed to get details for %s: %s", unit, result)
-                    details: Mapping[str, Any] = {
-                        "active": "unknown",
-                        "sub": "unknown",
-                        "enabled": "unknown",
-                        "desc": "",
-                    }
-                elif isinstance(result, dict):
-                    details = result
-                else:
-                    details = {
-                        "active": "unknown",
-                        "sub": "unknown",
-                        "enabled": "unknown",
-                        "desc": "",
-                    }
-
-                # Build service data structure
-                service_data = {
-                    "unit": unit,
-                    "desc": details.get("desc", ""),
-                    "active": details.get("active", "unknown"),
-                    "sub": details.get("sub", "unknown"),
-                    "enabled": details.get("enabled", "unknown"),
-                    "group": "systemd",  # Default group for monitored services
-                    "label": details.get("desc") or unit.replace(".service", "").replace("-", " ").title(),
-                    "is_local": True,
-                    "location": "pc",
-                    "ts": now,
-                }
-                services.append(service_data)
-            return services
-
-        # Fall back to mock/simulated data
-        return self.get_local_services()
-
-    async def get_remote_services(self) -> List[Dict[str, Any]]:
-        """Fetch remote services from Rider-Pi if adapter is available."""
-        if self._rest_adapter is None:
+    async def get_local_services_async(self):
+        if self._mock_mode:
+            return self.get_local_services()
+        if not self._monitored_services:
             return []
+        if not self._use_real_systemd:
+            return [
+                self._decorate(
+                    {"unit": u, "active": "unknown", "sub": "unknown", "enabled": "unknown", "group": "systemd"},
+                    "pc",
+                    "systemd",
+                    None,
+                    True,
+                    "systemd_unavailable",
+                )
+                for u in self._monitored_services
+            ]
+        results = await asyncio.gather(
+            *(self._systemd_adapter.get_unit_details(u) for u in self._monitored_services), return_exceptions=True
+        )
+        rows = []
+        for unit, details in zip(self._monitored_services, results):
+            error = None
+            if isinstance(details, Exception) or not isinstance(details, dict):
+                error, details = "status_failed", {}
+            if details.get("active") == "unknown":
+                error = error or "status_unknown"
+            if details.get("active") == "active" and unit not in self._desired:
+                self._desired[unit] = "active"
+            rows.append(
+                self._decorate(
+                    {**details, "unit": unit, "group": "systemd"}, "pc", "systemd", time.time(), bool(error), error
+                )
+            )
+        return rows
 
+    async def get_remote_services(self):
         try:
+            if self._rest_adapter is None:
+                raise RuntimeError("not_connected")
             response = await self._rest_adapter.get_services()
-            if response and not response.get("error"):
-                services = response.get("services", [])
-                for svc in services:
-                    svc["is_local"] = False
-                    svc["location"] = svc.get("location", "pi")
-                self._last_remote_sync = time.time()
-                return services
-            logger.warning("Failed to fetch remote services: %s", response.get("error"))
+            if not isinstance(response, dict) or response.get("error"):
+                raise RuntimeError((response or {}).get("error", "invalid_response"))
+            services = response.get("services")
+            if not isinstance(services, list):
+                raise RuntimeError("invalid_inventory")
+            now = time.time()
+            version = response.get("contract_version", response.get("catalog_version"))
+            self._remote_services = [
+                self._decorate(
+                    {
+                        **s,
+                        "contract_version": version,
+                        "stale": s.get("stale") is True or response.get("stale") is True,
+                        "offline": s.get("offline") is True or response.get("offline") is True,
+                    },
+                    "pi",
+                    "demo" if getattr(self._rest_adapter, "is_mock", False) else s.get("source", "systemd"),
+                    s.get("observed_at", response.get("observed_at", now)),
+                )
+                for s in services
+                if isinstance(s, dict) and s.get("unit")
+            ]
+            self._last_remote_sync = now
+            self._remote_error = "inventory_offline" if response.get("offline") is True else None
         except Exception as exc:
-            logger.error("Error fetching remote services: %s", exc)
+            self._remote_error = str(exc)
+            return [
+                self._decorate(s, "pi", s.get("source", "systemd"), s.get("observed_at"), True, self._remote_error)
+                for s in self._remote_services
+            ]
+        return [dict(s) for s in self._remote_services]
 
-        return []
+    def _provider_rows(self):
+        rows = []
+        for domain, provider in self._providers.items():
+            rows.append(
+                self._decorate(
+                    {
+                        "unit": f"{domain}.provider",
+                        "label": f"{domain} provider",
+                        "group": "providers",
+                        "kind": "application_provider",
+                        "active": "active" if getattr(provider, "_initialized", False) else "unknown",
+                        "ready": getattr(provider, "_initialized", False),
+                        "enabled": "not-applicable",
+                        "can_move": False,
+                        "actions": [],
+                    },
+                    "pc",
+                    "application",
+                    time.time(),
+                )
+            )
+        return rows
 
-    async def get_all_services(self) -> Dict[str, Any]:
-        """
-        Get all services (local + remote).
-
-        Returns:
-            Dictionary with 'services' list and 'timestamp'
-        """
-        # Use async version to get real systemd status when available
-        local_services = await self.get_local_services_async()
-        remote_services = await self.get_remote_services()
-
-        # Merge services - remote services with same unit override local
-        services_map: Dict[str, Dict[str, Any]] = {}
-        for svc in local_services:
-            services_map[svc["unit"]] = svc
-        for svc in remote_services:
-            services_map[svc["unit"]] = svc
-
+    async def get_all_services(self):
+        local, remote = await asyncio.gather(self.get_local_services_async(), self.get_remote_services())
         return {
-            "services": list(services_map.values()),
+            "services": local + remote + self._provider_rows(),
             "timestamp": time.time(),
+            "hosts": {
+                "pc": {"configured": bool(self._monitored_services), "demo": self._mock_mode},
+                "pi": {
+                    "offline": bool(self._remote_error),
+                    "error": self._remote_error,
+                    "observed_at": self._last_remote_sync or None,
+                },
+            },
         }
 
-    def _service_to_node(self, service: Dict[str, Any]) -> Dict[str, Any]:
-        """Convert a service dict to a graph node."""
-        unit = service.get("unit", "unknown")
-        active = str(service.get("active", "")).lower()
-
-        # Determine status
-        if active.startswith("active"):
-            status = "active"
-        elif active == "failed":
-            status = "failed"
-        else:
-            status = "inactive"
-
-        # Get edges for this service
-        edges_out = SERVICE_EDGES.get(unit, [])
-
-        # Determine location: local services are "pc", remote are "pi"
-        location = service.get("location")
-        if location is None:
-            location = "pc" if service.get("is_local", True) else "pi"
-
+    def _service_to_node(self, service):
+        active = str(service.get("active", "unknown")).lower()
+        status = active if active in {"active", "failed", "inactive"} else "unknown"
         return {
-            "label": service.get("label", unit.replace(".service", "").replace(".", " ").title()),
-            "unit": unit,
+            **service,
             "status": status,
-            "group": service.get("group", "services"),
-            "since": service.get("since"),
+            "label": service.get("label") or service.get("desc") or service["unit"],
             "description": service.get("desc", ""),
-            "edges_out": edges_out,
-            "is_local": service.get("is_local", True),
-            "location": location,
+            "edges_out": service.get("edges_out", []),
+            "group": service.get("group", "services"),
         }
 
-    async def get_service_graph(self) -> Dict[str, Any]:
-        """
-        Generate service graph data for the UI.
-
-        Returns:
-            Dictionary with 'nodes', 'edges', and 'generated_at'
-        """
-        all_services = await self.get_all_services()
-        services = all_services.get("services", [])
-
-        nodes = [self._service_to_node(svc) for svc in services]
-
-        # Build edges list from node edges_out
-        edges: List[Dict[str, str]] = []
+    async def get_service_graph(self):
+        data = await self.get_all_services()
+        nodes = [self._service_to_node(s) for s in data["services"]]
+        by_alias = {(n["host"], n.get("id", n["unit"])): n["identity"] for n in nodes}
+        identities = {n["identity"] for n in nodes}
+        edges = []
         for node in nodes:
-            for target in node.get("edges_out", []):
-                edges.append({"from": node["unit"], "to": target})
+            targets = node.get("dependencies", node.get("edges_out", []))
+            for target in targets:
+                identity = target if ":" in target else by_alias.get((node["host"], target), f"{node['host']}:{target}")
+                if identity in identities:
+                    edges.append({"from": node["identity"], "to": identity})
+        return {"generated_at": time.time(), "nodes": nodes, "edges": edges, "hosts": data["hosts"]}
 
-        return {
-            "generated_at": time.time(),
-            "nodes": nodes,
-            "edges": edges,
-        }
+    async def control_service(self, unit, action, host=None, automatic=False, payload=None):
+        if action not in {"start", "stop", "restart", "enable", "disable"}:
+            return {"ok": False, "error": f"Unsupported action {action}", "status_code": 400}
+        if host is None and self._is_local_service(unit) and not self._mock_mode:
+            return {"ok": False, "error": "host_required", "status_code": 409}
+        both = self._is_local_service(unit) and any(s["unit"] == unit for s in self._remote_services)
+        if host is None and both:
+            return {"ok": False, "error": "ambiguous_host", "status_code": 409}
+        if host == "pc" or (host is None and self._is_local_service(unit)):
+            if not self._is_local_service(unit):
+                return {"ok": False, "error": f"Service {unit} not found", "status_code": 404}
+            if automatic and (unit not in self._non_actuating_services or self._desired.get(unit) != "active"):
+                return {"ok": False, "error": "automatic_restart_forbidden", "status_code": 409}
+            if action in {"stop", "disable"}:
+                self._desired[unit] = "stopped"
+            if self._mock_mode:
+                service = self._local_services.get(unit)
+                if service is None:
+                    return {"ok": False, "error": f"Service {unit} not found", "status_code": 404}
+                if action in {"start", "restart", "stop"}:
+                    service["active"] = "inactive" if action == "stop" else "active"
+                    service["sub"] = "dead" if action == "stop" else "running"
+                else:
+                    service["enabled"] = "enabled" if action == "enable" else "disabled"
+                result = {"ok": True, "source": "demo"}
+            elif not self._use_real_systemd:
+                result = {"ok": False, "error": "systemd_unavailable"}
+            elif action in {"start", "restart", "enable"} and unit not in self._non_actuating_services:
+                result = {"ok": False, "error": "unknown_actuation_capability", "status_code": 409}
+            else:
+                result = await self._systemd_adapter.manage_service(unit, action)
+            if result.get("ok") and action in {"start", "restart"}:
+                self._desired[unit] = "active"
+            return {**result, "unit": unit, "action": action, "host": "pc"}
+        if host not in {None, "pi"}:
+            return {"ok": False, "error": "invalid_host", "status_code": 400}
+        if self._rest_adapter is None:
+            return {"ok": False, "error": "pi_offline", "status_code": 503}
+        if automatic:
+            return {"ok": False, "error": "remote_auto_restart_forbidden", "status_code": 409}
+        if action in {"start", "restart", "enable"}:
+            rows = await self.get_remote_services()
+            row = next((s for s in rows if s["unit"] == unit), None)
+            if row is None or row.get("stale") or row.get("offline") or row.get("installed") is False:
+                return {"ok": False, "error": "unconfirmed_service", "status_code": 409}
+            observed = row.get("observed_at")
+            if (
+                type(row.get("contract_version")) is not int
+                or row["contract_version"] != 2
+                or not isinstance(row.get("can_move"), bool)
+                or not finite_number(observed)
+                or not 0 <= time.time() - observed <= 3
+            ):
+                return {"ok": False, "error": "unknown_actuation_capability", "status_code": 409}
+            if row.get("can_move"):
+                if action == "enable":
+                    return {"ok": False, "error": "moving_autostart_forbidden", "status_code": 409}
+                if row.get("motion_owner") not in {"manual", "follow_me", "navigation"}:
+                    return {"ok": False, "error": "unknown_motion_owner", "status_code": 409}
+                try:
+                    context = await self.safety.command_context(
+                        self._rest_adapter, row.get("motion_owner"), supplied=payload
+                    )
+                except Exception as exc:
+                    return {"ok": False, "error": str(exc), "status_code": 409}
+                payload = {**(payload or {}), **context}
+        try:
+            return await self._rest_adapter.service_action(unit, {"action": action, **(payload or {})})
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
 
-    async def control_service(self, unit: str, action: str) -> Dict[str, Any]:
-        """
-        Control a service (start/stop/restart/enable/disable).
-
-        Args:
-            unit: Service unit name
-            action: Action to perform (start, stop, restart, enable, disable)
-
-        Returns:
-            Result dictionary with 'ok' status
-        """
-        payload = {"action": action}
-
-        # Check if this is a local service
-        if self._is_local_service(unit):
-            return await self._control_local_service(unit, action)
-
-        # Remote service - proxy to Rider-Pi
-        if self._rest_adapter is not None:
-            try:
-                result = await self._rest_adapter.service_action(unit, payload)
-                return result
-            except Exception as exc:
-                logger.error("Error controlling remote service %s: %s", unit, exc)
-                return {"ok": False, "error": str(exc)}
-
-        return {"ok": False, "error": f"Service {unit} not found"}
-
-    async def _control_local_service(self, unit: str, action: str) -> Dict[str, Any]:
-        """
-        Control a local service.
-
-        On Linux with systemd and for monitored services, executes real systemctl commands.
-        For mock services (DEFAULT_LOCAL_SERVICES), simulates state change in memory.
-
-        Args:
-            unit: Service unit name
-            action: Action to perform
-
-        Returns:
-            Result dictionary
-        """
-        # Use real systemd adapter only for monitored services
-        if self._use_real_systemd and self._systemd_adapter and unit in self._monitored_services:
-            result = await self._systemd_adapter.manage_service(unit, action)
-            return result
-
-        # Fall back to mock/simulated behavior for DEFAULT_LOCAL_SERVICES
-        service = self._local_services.get(unit)
-        if not service:
-            return {"ok": False, "error": f"Service {unit} not found"}
-
-        valid_actions = {"start", "stop", "restart", "enable", "disable"}
-        if action not in valid_actions:
-            return {"ok": False, "error": f"Unsupported action {action}"}
-
-        # Update service state based on action
-        if action == "start":
-            service["active"] = "active"
-            service["sub"] = "running"
-        elif action == "stop":
-            service["active"] = "inactive"
-            service["sub"] = "dead"
-        elif action == "restart":
-            service["active"] = "active"
-            service["sub"] = "running"
-        elif action == "enable":
-            service["enabled"] = "enabled"
-        elif action == "disable":
-            service["enabled"] = "disabled"
-
-        logger.info("Local service %s: action=%s, new_state=%s", unit, action, service["active"])
-
-        return {"ok": True, "unit": unit, "action": action}
+    async def _control_local_service(self, unit, action):
+        return await self.control_service(unit, action, host="pc")

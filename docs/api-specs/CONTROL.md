@@ -1,162 +1,72 @@
 # Control API
 
-Robot movement and control endpoints.
+Rider-PC forwards requests to Rider-Pi. Physical actuator trials are manual
+and require explicit operator consent to a specific trial plan. The fields
+below describe the contract, not an automatic hardware procedure.
+See the [safe client](../SAFE_ROBOT_CLIENT.md).
 
-## Base Path
-`/api/control`
+## State
 
-## Endpoints
+`GET /api/control/state` returns Pi observations with `source`, `observed_at`,
+`stale` and `offline`. Version 1 `safety` includes state DISARMED/ARMED/ESTOP,
+`ready`, `can_move`, `read_only`, `owner`, `generation`, `last_seq`
+and ACK metadata. Unknown contracts become UNKNOWN/read-only.
 
-### POST /api/control
-Generic control command endpoint.
+## Envelope from a specific confirmation
 
-**Request Body:**
-```json
-{
-  "type": "drive|stop|spin",
-  "lx": 0.5,      // linear velocity (optional, -1.0 to 1.0)
-  "az": 0.0,      // angular velocity (optional, -1.0 to 1.0)
-  "duration": 0.5 // duration in seconds (optional)
-}
-```
+Every actuator request and arm/clear includes:
 
-**Response:**
-```json
-{
-  "ok": true
-}
-```
+| Field | Rule |
+| --- | --- |
+| `generation` | Pi's current generation; PC never creates it |
+| `seq` | Positive integer greater than the last sequence |
+| `source` | `manual` for operator HTTP requests |
+| `ts` | Finite UNIX confirmation timestamp |
+| `ttl_ms` | Integer 1–500; expired requests are refused |
 
-**Examples:**
+PC verifies and forwards the envelope unchanged. It cannot make an old request
+fresh after STOP/re-arm. Older UIs without these fields remain read-only.
+STOP may be sent without an envelope.
 
-Drive forward:
-```bash
-curl -X POST http://robot-ip:8080/api/control \
-  -H "Content-Type: application/json" \
-  -d '{"type": "drive", "lx": 0.5, "az": 0.0}'
-```
+## Consent and stopping
 
-Stop:
-```bash
-curl -X POST http://robot-ip:8080/api/control \
-  -H "Content-Type: application/json" \
-  -d '{"type": "stop"}'
-```
+`POST /api/safety` accepts `action: arm|disarm|estop|clear_estop`.
+Arm/clear require explicit `operator_consent: true`, a nonempty
+`operator_plan` and the envelope. Arm selects `owner: manual|follow_me|navigation`
+and `lease_s`, capped by Pi at 30 seconds. Clear leaves actuators disarmed.
+Disarm/estop do not require confirmed readiness. App startup, changing views,
+tasks, cameras or providers never automatically arms the robot.
 
-Spin left:
-```bash
-curl -X POST http://robot-ip:8080/api/control \
-  -H "Content-Type: application/json" \
-  -d '{"type": "spin", "dir": "left", "speed": 0.3, "duration": 0.5}'
-```
+## Actuators
 
----
+`POST /api/control` accepts `cmd: move|spin|height|balance|action|stop`
+and command-specific fields (e.g. vx/yaw/duration, height, enabled, action).
+Pi owns actuator units and limits, rather than client defaults. Motion requires
+a fresh ARMED gate with ready=true, can_move=true and manual ownership.
+Height, balance and predefined actions use this same gate.
 
-### POST /api/control/balance
-Control robot balance/stabilization.
+`GET /api/motion/queue` forwards Pi's queue. `local_request_history` describes
+PC requests and responses, not UART execution. Unavailable Pi yields stale/offline,
+never a local claim that hardware stopped.
 
-**Request Body:**
-```json
-{
-  "enabled": true  // true to enable, false to disable
-}
-```
+## Tasks and tracking
 
-**Response:**
-```json
-{
-  "ok": true,
-  "sent": {
-    "enabled": true
-  }
-}
-```
+- `GET /api/logic/features`, `/summary`, `/catalog`: Pi catalog/state v2.
+- `POST /api/logic/feature/{name}`: `enabled` must be boolean. Start requires
+  explicit can_move. Moving tasks also need the envelope and matching motion_owner.
+- `POST /api/vision/tracking/mode`: face/hand/none; active tracking requires
+  follow_me ownership. Disabling never arms the robot.
+- `POST /api/navigator/start`, `/stop`: explicit s9_navigation task start/stop.
+- `POST /api/navigator/return_home`: envelope and navigation owner; confirmed
+  Pi response only, never a local simulation.
 
-**Bus Topic:** `cmd.balance` (TOPIC_MOTION_BALANCE)
+Older Pi catalogs remain readable; missing v2 capabilities never authorize
+start. See the separate [services/resources contract](../SERVICE_AND_RESOURCE_MANAGEMENT.md).
 
-**Example:**
-```bash
-curl -X POST http://robot-ip:8080/api/control/balance \
-  -H "Content-Type: application/json" \
-  -d '{"enabled": true}'
-```
+## Result
 
----
-
-### POST /api/control/height
-Control robot height/suspension.
-
-**Request Body:**
-```json
-{
-  "height": 128  // height value (0-255)
-}
-```
-
-**Response:**
-```json
-{
-  "ok": true,
-  "sent": {
-    "height": 128
-  }
-}
-```
-
-**Bus Topic:** `cmd.height` (TOPIC_MOTION_HEIGHT)
-
-**Example:**
-```bash
-curl -X POST http://robot-ip:8080/api/control/height \
-  -H "Content-Type: application/json" \
-  -d '{"height": 150}'
-```
-
----
-
-## Legacy Endpoints
-
-### POST /api/move
-Direct movement command (legacy format).
-
-**Request Body:**
-```json
-{
-  "vx": 0.5,       // forward/backward velocity
-  "vy": 0.0,       // left/right velocity (optional)
-  "yaw": 0.0,      // rotation velocity
-  "duration": 0.5  // duration in seconds
-}
-```
-
-### POST /api/stop
-Stop robot movement (legacy).
-
-### POST /api/preset
-Execute preset movement.
-
-**Request Body:**
-```json
-{
-  "name": "preset_name"
-}
-```
-
----
-
-## Implementation
-
-**Module:** `services/api_core/control_api.py`
-
-**Bus Topics Published:**
-- `cmd.move` - Movement commands
-- `cmd.stop` - Stop command
-- `cmd.balance` - Balance control
-- `cmd.height` - Height control
-- `cmd.preset` - Preset execution
-
-## See Also
-
-- [Navigator API](NAVIGATOR.md) - Autonomous navigation
-- [common/bus.py](https://github.com/mpieniak01/Rider-Pi/blob/main/common/bus.py) - Bus topic definitions
-- [Motion Module](https://github.com/mpieniak01/Rider-Pi/blob/main/docs/apps/motion.md) - Motion system documentation
+Pi responses retain HTTP status and `ok`, `confirmed`, `pending`,
+`request_id`, `ack`, `safety` and `physical_completion` when available.
+HTTP 202 means pending ACK. HTTP 409 indicates a gate refusal, unknown capability
+or obsolete envelope. HTTP 503 means no connection; 502 indicates a proxy failure.
+HTTP success does not prove that a physical movement completed.

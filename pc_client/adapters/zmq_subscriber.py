@@ -171,14 +171,14 @@ class ZmqSubscriber:
 
     async def stop(self):
         """Stop the ZMQ subscriber."""
-        if not self.running:
+        if not self.running and self.socket is None and self.context is None:
             return
 
         logger.info("Stopping ZMQ subscriber...")
         self.running = False
 
         if self.socket:
-            self.socket.close()
+            self.socket.close(linger=0)
             self.socket = None
 
         if self.context:

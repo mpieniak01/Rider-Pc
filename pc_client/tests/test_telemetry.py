@@ -2,6 +2,7 @@
 
 import pytest
 import time
+from unittest.mock import MagicMock, patch
 from pc_client.telemetry.zmq_publisher import ZMQTelemetryPublisher
 from pc_client.telemetry.metrics import (
     tasks_processed_total,
@@ -27,15 +28,17 @@ def test_zmq_telemetry_publisher_mock_mode():
 
 
 def test_zmq_telemetry_publisher_with_endpoint():
-    """Test ZMQ telemetry publisher with endpoint."""
+    """Kontrakt endpointu testowany wyłącznie na atrapie Context/socket."""
     endpoint = "tcp://127.0.0.1:15557"
-    publisher = ZMQTelemetryPublisher(endpoint)
-
-    assert publisher.is_enabled()
-    assert publisher.endpoint == endpoint
-
-    publisher.close()
-    assert not publisher.is_enabled()
+    context = MagicMock()
+    with patch("pc_client.telemetry.zmq_publisher.zmq.Context", return_value=context):
+        publisher = ZMQTelemetryPublisher(endpoint)
+        assert publisher.is_enabled()
+        assert publisher.endpoint == endpoint
+        context.socket.return_value.connect.assert_called_once_with(endpoint)
+        publisher.close()
+        context.socket.return_value.close.assert_called_once_with(linger=0)
+        assert not publisher.is_enabled()
 
 
 def test_zmq_publish_task_result():
