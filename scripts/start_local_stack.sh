@@ -8,7 +8,6 @@ DATA_DIR="${ROOT_DIR}/data"
 GRAFANA_HOME="${ROOT_DIR}/data/grafana"
 GRAFANA_CONF="${ROOT_DIR}/config/grafana.ini"
 GRAFANA_LOG="${LOG_DIR}/grafana.log"
-PANEL_PORT="${PANEL_PORT:-8080}"
 
 mkdir -p "${LOG_DIR}" "${PID_DIR}" "${DATA_DIR}/redis" "${DATA_DIR}/prometheus" "${GRAFANA_HOME}"
 
@@ -37,6 +36,9 @@ if [[ -f "${ROOT_DIR}/.env" ]]; then
 else
   warn "Missing .env file. Copy .env.example to .env and fill in your Rider-PI settings."
 fi
+
+# Keep the stack launcher consistent with pc_client.main and .env.
+PANEL_PORT="${PANEL_PORT:-${SERVER_PORT:-8000}}"
 
 ensure_venv() {
   if [[ ! -d "${ROOT_DIR}/.venv" ]]; then

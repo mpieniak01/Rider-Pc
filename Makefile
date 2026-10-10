@@ -29,11 +29,11 @@ format:
 	@$(PY) -m ruff format .
 
 test:
-	@PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTEST_ASYNCIO_MODE=auto \\\
-		$(PY) -m pytest pc_client/tests/ \\\
-		-q --maxfail=1 --tb=short \\\
-		-p pytest_asyncio.plugin \\\
-		-p pytest_timeout \\\
+	@PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTEST_ASYNCIO_MODE=auto \
+		$(PY) -m pytest pc_client/tests/ \
+		-q --maxfail=1 --tb=short \
+		-p pytest_asyncio.plugin \
+		-p pytest_timeout \
 		--timeout=30 --timeout-method=thread
 
 css-size:

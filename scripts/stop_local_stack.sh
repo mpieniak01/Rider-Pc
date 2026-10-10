@@ -4,7 +4,15 @@ set -euo pipefail
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 PID_DIR="${ROOT_DIR}/.pids"
 LOG_DIR="${ROOT_DIR}/logs"
-PANEL_PORT="${PANEL_PORT:-8080}"
+
+# Resolve the configured panel port just as the stack launcher does.
+if [[ -f "${ROOT_DIR}/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "${ROOT_DIR}/.env"
+  set +a
+fi
+PANEL_PORT="${PANEL_PORT:-${SERVER_PORT:-8000}}"
 
 stop_pid() {
   local name="$1"

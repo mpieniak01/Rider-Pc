@@ -183,7 +183,7 @@ class Settings:
 
     # Telemetry configuration
     enable_telemetry: bool = field(default_factory=lambda: os.getenv("ENABLE_TELEMETRY", "false").lower() == "true")
-    telemetry_zmq_port: int = field(default_factory=lambda: int(os.getenv("TELEMETRY_ZMQ_PORT", "5557")))
+    telemetry_zmq_port: int = field(default_factory=lambda: int(os.getenv("TELEMETRY_ZMQ_PORT", "5555")))
     telemetry_zmq_host: str = field(
         default_factory=lambda: cast(
             str,

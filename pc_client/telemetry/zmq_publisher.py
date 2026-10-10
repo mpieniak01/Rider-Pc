@@ -23,8 +23,8 @@ class ZMQTelemetryPublisher:
         Initialize ZMQ telemetry publisher.
 
         Args:
-            endpoint: ZMQ endpoint to bind to (e.g., "tcp://10.0.0.2:5557")
-                     If None, publisher will be in mock mode
+            endpoint: Rider-Pi broker XSUB endpoint to connect to (e.g., "tcp://10.0.0.2:5555").
+                     Prefix with "bind://" to bind explicitly. If None, use mock mode.
         """
         self.endpoint = endpoint
         self.context: Optional[zmq.Context] = None
