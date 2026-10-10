@@ -1,7 +1,7 @@
 import { catalogKnown, fresh, serviceActionAllowed, safetyKnown } from './model.js';
 import { request, poll } from './transport.js';
 import { el, kv, freshPill, button, details, tr, ageLabel, ageStamp, text, showError, rawDetails } from './ui.js';
-import { hostCard, drawHistory } from './telemetry.js';
+import { hostCard, drawHistory, inventoryStamp } from './telemetry.js';
 
 export class System {
   constructor(safety) {
@@ -82,7 +82,7 @@ export class System {
         drawHistory(chart, source?.hist_cpu || history.cpu, source?.hist_mem || history.mem); return card;
       }));
     }
-    text('system-contract', this.services?.contract_version === 2 ? `PC aggregator v2 · ${ageLabel(this.services)}` : tr('Brak kontraktu — tylko odczyt', 'No contract — read only'));
+    text('system-contract', this.services?.contract_version === 2 ? `PC aggregator v2 · Pi: ${inventoryStamp(this.services?.hosts?.pi, 'pi')} · PC: ${inventoryStamp(this.services?.hosts?.pc, 'pc')}` : tr('Brak kontraktu — tylko odczyt', 'No contract — read only'));
     const rows = Array.isArray(this.services?.services) ? this.services.services : [];
     const groups = new Map();
     for (const row of rows) {
@@ -132,7 +132,7 @@ export class System {
     }));
     document.getElementById('system-details-data')?.replaceChildren(this.keepDetails('source:system', rawDetails({ hosts: this.hostMetrics, graph: this.graph, inventory_hosts: this.services?.hosts })));
     const pi = this.services?.hosts?.pi;
-    text('network-status', `Pi: ${pi?.offline ? 'offline' : pi?.observed_at ? 'observed' : 'unknown'} · PC: ${this.services?.hosts?.pc?.demo ? 'demo' : this.services?.hosts?.pc?.configured ? 'configured' : tr('brak skonfigurowanych jednostek', 'no configured units')}`);
+    text('network-status', `Pi: ${pi?.offline ? 'offline' : inventoryStamp(pi, 'pi')} · PC: ${this.services?.hosts?.pc?.demo ? 'demo' : this.services?.hosts?.pc?.configured ? 'configured' : tr('brak skonfigurowanych jednostek', 'no configured units')}`);
   }
   async inspectRescue() {
     const name = document.getElementById('rescue-resource').value;

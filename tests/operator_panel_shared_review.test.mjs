@@ -218,3 +218,16 @@ test('PC system freshness and live age retain the PC clock when Pi clock differs
   const stamp = ui.ageStamp({ observed_at: 1000 }, 12, 'pc'); f.document.body.append(stamp);
   assert.equal(stamp.textContent, '0.0 s'); f.advance(2); ui.refreshAges(); assert.equal(stamp.textContent, '2.0 s');
 });
+
+
+test('mixed service aggregate keeps separately labelled source clocks and explicit unknown batch time', async () => {
+  const f = await fixture(); const model = await f.load('model.js'); const telemetry = await f.load('telemetry.js');
+  model.setServerClock(1040, 1000, 1000);
+  assert.equal(telemetry.inventoryStamp({ observed_at: 1039.8 }, 'pi'), '0.2 s');
+  assert.equal(telemetry.inventoryStamp({ observed_at: 999.8 }, 'pc'), '0.2 s');
+  const unknown = { observed_at: null, oldest_member_observed_at: 1039.7 };
+  assert.equal(telemetry.inventoryStamp(unknown, 'pi'), 'oldest row: 0.3 s');
+  assert.equal(unknown.observed_at, null, 'member diagnostic never replaces source batch time');
+  assert.equal(telemetry.inventoryStamp({ ...unknown, offline: true }, 'pi'), 'offline');
+  assert.equal(telemetry.inventoryStamp({ observed_at: null }, 'pi'), 'source age unknown');
+});

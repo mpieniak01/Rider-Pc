@@ -1,6 +1,8 @@
 """Metadane transportu bez zmiany czasu źródłowych pomiarów."""
 
+import asyncio
 import math
+import time
 from typing import Any
 
 
@@ -130,3 +132,40 @@ def latest_observation(*payloads: Any, source: str = "pi") -> dict:
     if "observed_at" not in selected and "ts" not in selected:
         selected["observed_at"] = None
     return selected
+
+
+async def refresh_snapshot(app: Any, key: str, fetch: Any, *, reuse_s: float = 0.0) -> dict:
+    """Jeden odczyt źródła dla równoległych klientów; wiek pomiaru pozostaje bez zmian."""
+    cache = app.state.cache
+    previous = cache.get(key)
+    attempted = _receipt_time(previous) if isinstance(previous, dict) else None
+    if attempted is not None and 0 <= time.time() - attempted < reuse_s:
+        return cached_snapshot(cache, key, source=adapter_source(app.state.rest_adapter))
+    flights = getattr(app.state, "snapshot_refresh_tasks", None)
+    if flights is None:
+        flights = app.state.snapshot_refresh_tasks = {}
+    flight = flights.get(key)
+    if flight is None or flight.done():
+
+        async def read():
+            source = adapter_source(app.state.rest_adapter)
+            try:
+                payload = await fetch()
+                if not isinstance(payload, dict) or not payload:
+                    raise ValueError("invalid_snapshot_response")
+                if transport_failure(payload):
+                    raise RuntimeError(str(payload["error"]))
+                row = received_snapshot(payload, source=source, received_at=time.time())
+            except Exception as exc:
+                row = unavailable_snapshot(
+                    cache.get(key), source=source, error=str(exc) or type(exc).__name__, attempted_at=time.time()
+                )
+            cache.set(key, row)
+            return row
+
+        flight = flights[key] = asyncio.create_task(read())
+    try:
+        return await asyncio.shield(flight)
+    finally:
+        if flight.done() and flights.get(key) is flight:
+            flights.pop(key, None)

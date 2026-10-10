@@ -4,11 +4,20 @@ import { el, text, tr, showError } from './ui.js';
 import { finite, numberText, transportCurrent, measurementChannel, channelText, drawHistory, obstacleReading, observedDeviceText, hostObservation } from './telemetry.js';
 
 const node = id => document.getElementById(id);
+export function previewPreference(storage) {
+  try { return storage?.getItem('rider.overview.preview') !== 'false'; }
+  catch { return true; }
+}
 export class Overview {
   constructor(safety) {
     this.safety = safety; this.data = {}; this.frames = new Map(); this.hist = { cpu: [], mem: [], gpu: [], gpuMem: [] };
-    this.preview = true;
-    node('overview-preview')?.addEventListener('change', event => { this.preview = event.target.checked; this.renderImages(); });
+    this.preview = previewPreference(window.localStorage);
+    if (node('overview-preview')) node('overview-preview').checked = this.preview;
+    node('overview-preview')?.addEventListener('change', event => {
+      this.preview = event.target.checked;
+      try { window.localStorage?.setItem('rider.overview.preview', String(this.preview)); } catch { /* Storage is optional. */ }
+      this.renderImages();
+    });
     for (const [kind, id] of [['raw', 'img_cam'], ['proc', 'img_proc'], ['obst', 'img_obst'], ['tracker', 'img_tracker']]) {
       const image = node(id); if (!image) continue;
       const row = { image, observed_at: null, key: null, busy: false }; this.frames.set(kind, row);
@@ -17,17 +26,25 @@ export class Overview {
     }
     this.expiry = setInterval(() => { if (!document.hidden) { this.renderSensors(); this.renderImages(); } }, 1000);
     window.addEventListener('pagehide', () => { clearInterval(this.expiry); for (const row of this.frames.values()) clearTimeout(row.timer); });
+    this.telemetryPoller = poll(() => this.loadTelemetry(), { interval: 1000, onError: showError });
     this.poller = poll(() => this.load(), { interval: 2000, onError: showError });
     this.slowPoller = poll(() => this.loadLocal(), { interval: 7000, onError: showError });
     window.addEventListener('dashboard:langchange', () => this.render());
   }
   async load() {
-    const names = ['state', 'health', 'pi', 'snap', 'obstacle', 'metrics', 'catalog'];
-    const paths = ['/state', '/healthz', '/sysinfo', '/vision/snap-info', '/vision/obstacle', '/api/app-metrics', '/api/logic/catalog'];
+    const names = ['health', 'pi', 'obstacle', 'metrics', 'catalog'];
+    const paths = ['/healthz', '/sysinfo', '/vision/obstacle', '/api/app-metrics', '/api/logic/catalog'];
     const results = await Promise.allSettled(paths.map(path => request(path)));
     names.forEach((name, index) => { this.data[name] = results[index].status === 'fulfilled' ? results[index].value.data : null; });
     this.render();
     window.dispatchEvent(new CustomEvent('dashboard:update', { detail: { state: this.data.state, health: this.data.health, sysinfo: this.data.pi, snapInfo: this.data.snap } }));
+  }
+  async loadTelemetry() {
+    await Promise.all([['state', '/state'], ['snap', '/vision/snap-info']].map(async ([name, path]) => {
+      try { this.data[name] = (await request(path)).data; }
+      catch (error) { this.data[name] = null; throw error; }
+      finally { name === 'state' ? this.renderSensors() : this.renderImages(); }
+    }));
   }
   async loadLocal() {
     const names = ['pc', 'services', 'live', 'mcpStats', 'mcpConfig', 'mcpTools', 'mcpHistory'];

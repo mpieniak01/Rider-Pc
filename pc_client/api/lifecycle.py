@@ -23,6 +23,7 @@ from pc_client.api.telemetry_snapshot import (
     adapter_source,
     received_snapshot,
     transport_failure,
+    refresh_snapshot,
     unavailable_snapshot,
 )
 
@@ -305,22 +306,9 @@ async def sync_data_periodically(app: FastAPI):
 
         Returns a tuple of (cache_key, payload or None, error_message or None).
         """
-        source = adapter_source(app.state.rest_adapter)
-        try:
-            payload = await coroutine_factory()
-            if not isinstance(payload, dict) or not payload:
-                raise ValueError("invalid_snapshot_response")
-            if transport_failure(payload):
-                raise RuntimeError(str(payload["error"]))
-        except Exception as exc:  # pragma: no cover - network/adapter failures
-            failed = unavailable_snapshot(
-                cache.get(cache_key), source=source, error=str(exc) or type(exc).__name__, attempted_at=time.time()
-            )
-            cache.set(cache_key, failed)
-            return cache_key, failed, failed["error"]
-
-        observed = received_snapshot(payload, source=source, received_at=time.time())
-        cache.set(cache_key, observed)
+        observed = await refresh_snapshot(
+            app, cache_key, coroutine_factory, reuse_s=0.5 if cache_key in {"state", "vision_snap_info"} else 0
+        )
         if on_success and not observed.get("error") and observed.get("offline") is not True:
             try:
                 on_success(observed)

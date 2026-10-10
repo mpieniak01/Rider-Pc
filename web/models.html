@@ -222,7 +222,7 @@
 </script>
 <script>
 // --- 1. ZARZĄDZANIE STANEM APLIKACJI ---
-const t = window.__i18n_t || ((key, params) => key);
+const t = (key, params) => window.__i18n_t ? window.__i18n_t(key, params) : key;
 // Przechowujemy tu dane pobrane z API, aby nie pytać o nie przy każdej zmianie selecta.
 const AppState = {
     pc: {

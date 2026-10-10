@@ -15,7 +15,7 @@ from pc_client.utils.network import get_local_ip, check_connectivity
 from pc_client.adapters.git_adapter import GitAdapter
 from pc_client.config.settings import Settings
 from urllib.parse import urlparse
-from pc_client.api.telemetry_snapshot import adapter_source, cached_snapshot, latest_observation
+from pc_client.api.telemetry_snapshot import adapter_source, cached_snapshot, latest_observation, refresh_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +122,15 @@ async def health_ready(request: Request) -> JSONResponse:
 async def state(request: Request) -> JSONResponse:
     """State endpoint."""
     cache: CacheManager = request.app.state.cache
-    data = cached_snapshot(cache, "state", source=adapter_source(getattr(request.app.state, "rest_adapter", None)))
+    adapter = getattr(request.app.state, "rest_adapter", None)
+    if adapter is None:
+        data = cached_snapshot(cache, "state", source=adapter_source(adapter))
+    else:
+        data = await refresh_snapshot(request.app, "state", adapter.get_state, reuse_s=0.5)
+        if not data.get("error") and not data.get("offline"):
+            tracking = data.get("tracking")
+            if isinstance(tracking, dict):
+                getattr(request.app.state, "control_state", {})["tracking"] = tracking
     return JSONResponse(content=data)
 
 
@@ -146,8 +154,11 @@ async def sysinfo(request: Request) -> JSONResponse:
 async def vision_snap_info(request: Request) -> JSONResponse:
     """Vision snapshot info endpoint."""
     cache: CacheManager = request.app.state.cache
-    data = cached_snapshot(
-        cache, "vision_snap_info", source=adapter_source(getattr(request.app.state, "rest_adapter", None))
+    adapter = getattr(request.app.state, "rest_adapter", None)
+    data = (
+        await refresh_snapshot(request.app, "vision_snap_info", adapter.get_vision_snap_info, reuse_s=0.5)
+        if adapter is not None
+        else cached_snapshot(cache, "vision_snap_info", source=adapter_source(adapter))
     )
     return JSONResponse(content=data)
 

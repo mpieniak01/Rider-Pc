@@ -74,7 +74,7 @@ Powiązane: [bezpieczny klient](../BEZPIECZNY_KLIENT_ROBOTA.md), [panel](../PANE
 
 
 
-## Registered endpoint inventory
+## Inwentarz zarejestrowanych endpointów
 
 Generated from the instantiated FastAPI route table without starting runtime services. This includes local routes, Pi proxy routes, UI entry points and the static mount. It is an inventory, not evidence that an optional provider is configured or ready. HEAD is listed only where explicitly registered.
 

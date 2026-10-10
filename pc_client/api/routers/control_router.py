@@ -6,7 +6,6 @@ import asyncio
 import json
 import logging
 import time
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import httpx
@@ -40,7 +39,14 @@ async def proxy_remote_media(request: Request, remote_path: str) -> Response:
         headers = {key: value for key, value in remote_headers.items() if key.lower() != "content-type"}
         return Response(content=content, media_type=media_type, headers=headers)
     except httpx.HTTPStatusError as exc:
-        raise HTTPException(status_code=exc.response.status_code, detail="Remote frame unavailable") from exc
+        headers = {
+            key: value
+            for key, value in exc.response.headers.items()
+            if key.lower().startswith("x-rider-") or key.lower() in {"cache-control", "pragma"}
+        }
+        raise HTTPException(
+            status_code=exc.response.status_code, detail="Remote frame unavailable", headers=headers
+        ) from exc
     except Exception as e:
         logger.error(f"Failed to proxy {remote_path}: {e}")
         raise HTTPException(status_code=502, detail="Unable to fetch remote media")
@@ -442,38 +448,42 @@ async def api_service_action_alias(request: Request, payload: Dict[str, Any]) ->
     return await _control_service_alias(request, payload)
 
 
-def _camera_last_headers(request: Request) -> Dict[str, str]:
-    ts = request.app.state.last_camera_frame.get("timestamp")
-    headers = {"X-Camera-Observation-Valid": "false", "Cache-Control": "no-store"}
-    if finite_number(ts) and ts > 0:
-        try:
-            dt = datetime.fromtimestamp(ts, tz=timezone.utc)
-        except (ValueError, OverflowError, OSError):
-            return headers
-        headers.update(
-            {"Last-Modified": dt.strftime("%a, %d %b %Y %H:%M:%S GMT"), "X-Camera-Observation-Valid": "true"}
+async def _camera_last_response(request: Request) -> Response:
+    """Bieżący obraz pochodzi z resolvera Pi; lokalny placeholder nigdy nie jest klatką."""
+    response = await proxy_remote_media(request, "/camera/last")
+    headers = response.headers
+    archive = request.query_params.get("archive") == "1"
+    file_time = headers.get("x-rider-file-observed-at")
+    observed = headers.get("x-rider-observed-at")
+    try:
+        known_time = any(finite_number(float(value)) and float(value) > 0 for value in (file_time, observed) if value)
+    except (ValueError, OverflowError):
+        known_time = False
+    if headers.get("x-rider-placeholder") != "false" or (
+        not archive
+        and (
+            headers.get("x-rider-stale") != "false"
+            or headers.get("x-rider-contract") != "rider.frames;version=1"
+            or not known_time
         )
-    return headers
+    ):
+        failure_headers = {key: value for key, value in headers.items() if key.startswith("x-rider-")}
+        failure_headers["Cache-Control"] = "no-store"
+        raise HTTPException(status_code=404, detail="Current frame unavailable", headers=failure_headers)
+    return response
 
 
 @router.get("/camera/last")
 async def camera_last(request: Request) -> Response:
-    """Return last camera frame placeholder."""
-    headers = _camera_last_headers(request)
-    media_type = request.app.state.last_camera_frame.get("media_type", "image/png")
-    return Response(
-        content=request.app.state.last_camera_frame["content"],
-        media_type=media_type,
-        headers=headers,
-    )
+    return await _camera_last_response(request)
 
 
 @router.head("/camera/last")
 async def camera_last_head(request: Request) -> Response:
-    """HEAD variant for last camera frame."""
-    headers = _camera_last_headers(request)
-    media_type = request.app.state.last_camera_frame.get("media_type", "image/png")
-    return Response(content=b"", media_type=media_type, headers=headers)
+    response = await _camera_last_response(request)
+    return Response(
+        content=b"", status_code=response.status_code, media_type=response.media_type, headers=dict(response.headers)
+    )
 
 
 @router.get("/events")

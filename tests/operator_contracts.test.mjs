@@ -98,3 +98,34 @@ test('assessment age advances independently of unchanged producer generation tim
   assert.ok(Math.abs(observationChannel(input, 'battery', { now: 1002 }).age_s - 2.2) < 1e-9);
   assert.equal(observationChannel({ ...input, stale: true }, 'battery', { now: 1001 }).ready, false);
 });
+
+
+test('overview telemetry acquisition is independent and faster than the slow inventory', async () => {
+  const overview = await readFile(new URL('../web/assets/operator/overview.js', import.meta.url), 'utf8');
+  assert.match(overview, /this\.telemetryPoller = poll\(\(\) => this\.loadTelemetry\(\), \{ interval: 1000/);
+  assert.match(overview, /async loadTelemetry\(\)[\s\S]*?\['state', '\/state'\][\s\S]*?\['snap', '\/vision\/snap-info'\]/);
+  assert.doesNotMatch(overview.match(/async load\(\)[\s\S]*?async loadTelemetry/)[0], /'\/state'/);
+});
+test('passive navigation instructions never tell the operator to ARM', async () => {
+  const html = await readFile(new URL('../web/navigation.html', import.meta.url), 'utf8');
+  assert.match(html, /requires no ARM and starts no services/);
+  assert.doesNotMatch(html, /Explicitly arm owner navigation|jawnie uzbrój/);
+});
+test('models translator is resolved after asynchronous i18n initialization', async () => {
+  const html = await readFile(new URL('../web/models.html', import.meta.url), 'utf8');
+  const expression = html.match(/const t = (.+);/)[1];
+  const context = vm.createContext({ window: {} });
+  const translate = vm.runInContext(expression, context);
+  context.window.__i18n_t = key => ({ 'models.pi_connected': 'Pi Connected' })[key];
+  assert.equal(translate('models.pi_connected'), 'Pi Connected');
+});
+
+test('overview shows existing frames by default and retains an explicit operator choice', async () => {
+  const source = await readFile(new URL('../web/assets/operator/overview.js', import.meta.url), 'utf8');
+  const body = source.match(/export function previewPreference\(storage\) \{([\s\S]*?)\n\}/)[1];
+  const preference = new Function('storage', body);
+  assert.equal(preference({ getItem: () => null }), true);
+  assert.equal(preference({ getItem: () => 'true' }), true);
+  assert.equal(preference({ getItem: () => 'false' }), false);
+  assert.equal(preference({ getItem: () => { throw new Error('optional storage unavailable'); } }), true);
+});

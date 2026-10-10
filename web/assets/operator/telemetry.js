@@ -44,6 +44,16 @@ export function hostObservation(data, host) {
   const now = host === 'pc' ? Date.now() / 1000 : nowSeconds();
   return { data, now, age: ageOf(data, now), current: transportCurrent(data, 12, now) && fresh(data, 12, now) };
 }
+export function inventoryStamp(data, host) {
+  if (!data) return 'unknown';
+  if (data.offline) return 'offline';
+  const member = !finite(data.observed_at) && finite(data.oldest_member_observed_at);
+  const age = ageOf({ observed_at: member ? data.oldest_member_observed_at : data.observed_at },
+    host === 'pc' ? Date.now() / 1000 : nowSeconds());
+  if (age === null) return tr('wiek źródła nieznany', 'source age unknown');
+  return (member ? tr('najstarszy wiersz: ', 'oldest row: ') : '') + age.toFixed(1) + ' s'
+    + (data.stale || age > 10 ? ' · stale' : '');
+}
 export function hostCard(data, host) {
   const observation = hostObservation(data, host); data = observation.data;
   const card = el('article', 'c-card');
