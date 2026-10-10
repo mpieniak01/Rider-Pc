@@ -83,13 +83,10 @@ models/
 *.pb
 *.tflite
 
-# local note (do not commit)
-/docs_pl/_done/201_migracja_styli_riderpc_do_riderpi.md
-
 # Private developer SSH credentials; never publish
 evn.ssh.local
 
-# Local operational documentation; never publish
+# Local operational documentation lives only in docs_pl; legacy locations stay ignored
 **/_to_do/
 **/_todo/
 **/_done/
@@ -98,8 +95,6 @@ evn.ssh.local
 /docs/archive/
 /docs_pl/archive/
 *.md.backup
-
-# Public templates contain placeholders; private SSH files stay local
 
 # Private configuration directory
 config/local/*

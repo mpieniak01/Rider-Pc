@@ -21,3 +21,6 @@ coordination; its integration is deferred.
 Operational backlogs, phase reports, audits and session-specific runtime results
 are local files in ignored directories. Mocked tests and cached data do not
 establish that a model or the physical robot is running correctly.
+
+Polish is the starting point; keep English contracts and guides current.
+Local plans and reports exist only in `docs_pl/_to_do/` and `docs_pl/_done/`.

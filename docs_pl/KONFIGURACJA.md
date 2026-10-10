@@ -203,7 +203,7 @@ LOG_LEVEL=WARNING
 | **Rider-Pi API** | 8080 | Zdalny | REST API robota |
 | **ZMQ PUB** | 5555 | Zdalny | Publikacja zdarzeń z Pi |
 | **ZMQ SUB** | 5556 | Zdalny | Subskrypcja odpowiedzi |
-| **ZMQ Telemetria** | `TELEMETRY_ZMQ_PORT` (domyślnie 5557) | Konfigurowany endpoint | Dla brokera Pi ustaw jawnie port XSUB 5555 |
+| **ZMQ Telemetria** | `TELEMETRY_ZMQ_PORT` (domyślnie 5555) | Konfigurowany endpoint | Wejście XSUB brokera Pi dla publikowanych wyników |
 | **Redis** | 6379 | Lokalny | Broker kolejki zadań |
 | **Prometheus** | 9090 | Lokalny | Metryki |
 | **Grafana** | 3000 | Lokalny | Dashboardy |

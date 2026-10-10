@@ -31,7 +31,7 @@ Po sprawdzeniu konfiguracji:
 .venv/bin/python -m pc_client.main
 ```
 
-Proces ładuje `.env` i skonfigurowane providery. Panel przy `SERVER_PORT=8000` jest pod `http://localhost:8000/`. Bezpośrednie polecenie korzysta z SERVER_PORT. Launcher stosu może instalować zależności; przejrzyj go przed użyciem.
+Proces ładuje `.env` i skonfigurowane providery. Panel przy `SERVER_PORT=8000` jest pod `http://localhost:8000/`. Bezpośrednie polecenie korzysta z SERVER_PORT. `make start` używa PANEL_PORT, jeśli podano, albo SERVER_PORT lub 8000. Launcher może instalować zależności; przejrzyj go przed użyciem.
 
 Po podłączeniu robota sprawdź jego adres, port 8080 oraz `PC_PUBLIC_BASE_URL`, który musi wskazywać rzeczywisty adres panelu dostępny z Pi. Przy odłączonym robocie dane z cache lub mocka nie potwierdzają stanu urządzenia.
 

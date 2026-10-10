@@ -31,7 +31,7 @@ After reviewing configuration:
 .venv/bin/python -m pc_client.main
 ```
 
-This loads `.env` and configured providers. With `SERVER_PORT=8000`, open `http://localhost:8000/`. The direct command uses SERVER_PORT. The stack launcher may install dependencies; review it before use.
+This loads `.env` and configured providers. With `SERVER_PORT=8000`, open `http://localhost:8000/`. The direct command uses SERVER_PORT. `make start` uses PANEL_PORT when set, otherwise SERVER_PORT or 8000. It may install dependencies; review the launcher before use.
 
 Once the robot is connected, verify its address, API port 8080 and `PC_PUBLIC_BASE_URL`, which must use the actual PC address/port reachable from Pi. Cached or mocked data do not establish device health.
 

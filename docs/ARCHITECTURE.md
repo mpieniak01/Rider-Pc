@@ -78,12 +78,12 @@ The system uses the following ports and endpoints:
 | **Rider-Pi API** | 8080 | Remote | Robot REST API (query target) |
 | **ZMQ PUB** | 5555 | Remote | Event publication from Rider-Pi (vision.*, motion.*) |
 | **ZMQ SUB** | 5556 | Remote | Response subscription (optional) |
-| **ZMQ Telemetry** | `TELEMETRY_ZMQ_PORT` (default 5557) | Configured destination | Publisher connects to the Pi broker XSUB input |
+| **ZMQ Telemetry** | `TELEMETRY_ZMQ_PORT` (default 5555) | Configured destination | Publisher connects to the Pi broker XSUB input |
 | **Redis** | 6379 | Local | Task queue and cache broker |
 | **Prometheus** | 9090 | Local | Monitoring metrics collection |
 | **Grafana** | 3000 | Local | Metrics visualization and dashboards |
 
-**Note:** The panel uses SERVER_PORT (default 8000). Telemetry uses the configured endpoint; the published default is 5557. For the Pi broker XSUB input, explicitly set TELEMETRY_ZMQ_HOST and TELEMETRY_ZMQ_PORT to its host and port 5555. ZMQTelemetryPublisher connects by default; binding requires an explicit bind:// prefix.
+**Note:** The panel uses SERVER_PORT (default 8000). Telemetry uses the configured endpoint; the default is 5555. For the Pi broker XSUB input, explicitly set TELEMETRY_ZMQ_HOST and TELEMETRY_ZMQ_PORT to its host and port 5555. ZMQTelemetryPublisher connects by default; binding requires an explicit bind:// prefix.
 
 ### 3.1 Incoming Channels from Rider-PI
 - REST (port 8080) tunneled via VPN/mTLS.

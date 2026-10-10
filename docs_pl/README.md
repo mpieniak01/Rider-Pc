@@ -21,3 +21,6 @@ nadrzędnego sterowania; integracja pozostaje odłożona.
 Backlogi operacyjne, raporty faz, audyty i wyniki sprawdzeń konkretnej sesji
 są lokalnymi plikami w ignorowanych katalogach. Test z mockiem i dane z cache
 nie potwierdzają rzeczywistego działania modelu ani fizycznego robota.
+
+Wersja polska jest punktem wyjścia; aktualizujemy też instrukcje EN.
+Lokalne plany i raporty utrzymujemy tylko w `docs_pl/_to_do/` i `docs_pl/_done/`.

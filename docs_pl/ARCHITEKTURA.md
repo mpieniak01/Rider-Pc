@@ -100,12 +100,12 @@ System wykorzystuje następujące porty i punkty końcowe:
 | **Rider-Pi API** | 8080 | Zdalny | REST API robota (cel zapytań) |
 | **ZMQ PUB** | 5555 | Zdalny | Publikacja zdarzeń z Rider-Pi (vision.*, motion.*) |
 | **ZMQ SUB** | 5556 | Zdalny | Subskrypcja odpowiedzi (opcjonalnie) |
-| **ZMQ Telemetria** | `TELEMETRY_ZMQ_PORT` (domyślnie 5557) | Konfigurowany host docelowy | Publisher łączy się z wejściem XSUB brokera Pi |
+| **ZMQ Telemetria** | `TELEMETRY_ZMQ_PORT` (domyślnie 5555) | Konfigurowany host docelowy | Publisher łączy się z wejściem XSUB brokera Pi |
 | **Redis** | 6379 | Lokalny | Broker kolejki zadań i cache |
 | **Prometheus** | 9090 | Lokalny | Zbieranie metryk monitoringu |
 | **Grafana** | 3000 | Lokalny | Wizualizacja metryk i dashboardy |
 
-**Uwaga:** Panel korzysta z SERVER_PORT (domyślnie 8000). Telemetria używa skonfigurowanego endpointu; opublikowana wartość domyślna to 5557. Dla wejścia XSUB brokera Pi ustaw jawnie TELEMETRY_ZMQ_HOST i TELEMETRY_ZMQ_PORT na host Pi oraz port 5555. ZMQTelemetryPublisher domyślnie łączy się przez connect; bind wymaga prefiksu bind://.
+**Uwaga:** Panel korzysta z SERVER_PORT (domyślnie 8000). Telemetria używa skonfigurowanego endpointu; wartość domyślna to 5555. Dla wejścia XSUB brokera Pi ustaw jawnie TELEMETRY_ZMQ_HOST i TELEMETRY_ZMQ_PORT na host Pi oraz port 5555. ZMQTelemetryPublisher domyślnie łączy się przez connect; bind wymaga prefiksu bind://.
 
 ### 3.1 Kanały przychodzące z Rider-PI
 - REST (port 8080) tunelowany przez VPN/mTLS.

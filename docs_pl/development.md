@@ -31,8 +31,8 @@ Prywatny plik SSH powinien mieć uprawnienia `600`. Hasło wpisuj w lokalnym
 edytorze, bez przekazywania go w argumentach poleceń lub dokumentacji.
 Zwykły SSH nie wczytuje automatycznie `evn.ssh.local`.
 
-Plany zadań zapisuj w ignorowanym `_to_do/`, a ukończone notatki i audyty
-sesji w `_done/` lub `done/`. Utrzymywane instrukcje i potrzebne obrazy
+Plany zadań zapisuj w ignorowanym `docs_pl/_to_do/`, a ukończone notatki
+i audyty sesji w `docs_pl/_done/`. Nie tworzymy ich angielskich kopii. Utrzymywane instrukcje i potrzebne obrazy
 publikuj zgodnie z [polityką dokumentacji](POLITYKA_DOKUMENTACJI.md).
 Przed commitem sprawdź `git diff --cached --name-status` oraz
 `git diff --cached --check`. Nie dodawaj plików lokalnych przez `git add -f`.
@@ -46,7 +46,7 @@ Odczyt środowiska nie wymaga reinstalacji stosu ML ani pobierania modeli.
 ```bash
 .venv/bin/python -m ruff check .
 .venv/bin/python -m ruff format --check .
-.venv/bin/python -m pytest pc_client/tests/ -q --maxfail=1
+make test
 ```
 
 Przy zmianie API lub UI dobieraj powiązane testy kontraktowe i przeglądarkowe.

@@ -31,8 +31,9 @@ The private SSH file should have mode `600`. Edit credentials locally;
 do not put passwords in command arguments or documentation. Standard SSH
 does not load `evn.ssh.local` automatically.
 
-Task plans belong in ignored `_to_do/`; completed notes and session audits
-belong in ignored `_done/` or `done/`. Publish maintained guides and their
+Task plans belong in ignored `docs_pl/_to_do/`; completed notes and session
+audits belong in ignored `docs_pl/_done/`. These local directories have no
+English copy. Publish maintained guides and their
 required images according to the [documentation policy](DOCUMENTATION_POLICY.md).
 Before committing, review `git diff --cached --name-status` and
 `git diff --cached --check`. Do not force-add local files.
@@ -46,7 +47,7 @@ Inspection does not require reinstalling the ML stack or downloading models.
 ```bash
 .venv/bin/python -m ruff check .
 .venv/bin/python -m ruff format --check .
-.venv/bin/python -m pytest pc_client/tests/ -q --maxfail=1
+make test
 ```
 
 Select related contract or browser tests when changing an API or UI.
