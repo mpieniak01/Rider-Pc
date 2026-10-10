@@ -283,10 +283,9 @@ async def test_worker_publishes_vision_results():
     await worker._publish_result(task, result)
 
     telemetry.publish_task_result.assert_called_once()
-    telemetry.publish_vision_obstacle_enhanced.assert_called_once()
-    _, kwargs = telemetry.publish_vision_obstacle_enhanced.call_args
-    assert kwargs["frame_id"] == "frame-123"
-    assert isinstance(kwargs["obstacles"], list)
+    telemetry.publish_vision_obstacle_enhanced.assert_not_called()
+    telemetry.publish_tracking_offset.assert_not_called()
+    assert result.meta["simulated"] is True
 
     await provider.shutdown()
 

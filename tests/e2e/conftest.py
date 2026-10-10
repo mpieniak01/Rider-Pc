@@ -120,6 +120,14 @@ def browser_context(test_server):
         )
         context.set_default_navigation_timeout(10000)
         context.set_default_timeout(10000)
+        # One fixture must not inherit another fixture's simulated permission.
+        # Verify the local server is explicitly demo before any reset mutation.
+        state = context.request.get(test_server + "/api/control/state")
+        assert state.status == 200
+        snapshot = state.json()
+        assert snapshot.get("source") == "demo" and snapshot.get("safety", {}).get("simulated") is True
+        reset = context.request.post(test_server + "/api/control", data={"cmd": "stop", "action": "stop"})
+        assert reset.status == 200
         page = context.new_page()
 
         # Track network requests

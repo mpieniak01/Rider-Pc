@@ -26,22 +26,15 @@ logger = logging.getLogger(__name__)
 # Maksymalna liczba wpisów w historii wywołań MCP
 _MCP_HISTORY_MAX_SIZE = 100
 
-# Available text provider backends
-BACKEND_LOCAL = "local"
-BACKEND_GEMINI = "gemini"
-BACKEND_CHATGPT = "chatgpt"
-BACKEND_AUTO = "auto"
-BACKEND_MOCK = "mock"
-VALID_BACKENDS = {BACKEND_LOCAL, BACKEND_GEMINI, BACKEND_CHATGPT, BACKEND_AUTO}
-
-# Import AI libraries with fallback to mock mode
-try:
-    import ollama
-
-    OLLAMA_AVAILABLE = True
-except ImportError:
-    OLLAMA_AVAILABLE = False
-    logger.warning("Ollama not available, using mock LLM")
+from pc_client.providers.selection import (
+    BACKEND_LOCAL,
+    BACKEND_GEMINI,
+    BACKEND_CHATGPT,
+    BACKEND_AUTO,
+    BACKEND_MOCK,
+    VALID_BACKENDS,
+)
+import importlib
 
 
 class TextProvider(BaseProvider):
@@ -86,21 +79,22 @@ class TextProvider(BaseProvider):
         self.max_tokens = self.config.get("max_tokens", 512)
         self.temperature = self.config.get("temperature", 0.7)
         self.use_cache = self.config.get("use_cache", True)
-        self.use_mock = self.config.get("use_mock", False)
+        self.use_mock = self.config.get("use_mock") is True
         self.ollama_host = self.config.get("ollama_host", "http://localhost:11434")
         self.enable_mcp_tools = self.config.get("enable_mcp_tools", True)
         self.max_tool_iterations = self.config.get("max_tool_iterations", 3)
         self._cache: Dict[str, str] = {}
         self.ollama_available = False
         self.ollama_client = None
+        self.ollama_module = None
+        self._error = None
         # Użycie deque z maxlen dla automatycznego zarządzania rozmiarem historii
         self._mcp_call_history: Deque[Dict[str, Any]] = deque(maxlen=_MCP_HISTORY_MAX_SIZE)
 
         # External provider configuration
         self.backend = self.config.get("backend", BACKEND_LOCAL)
         if self.backend not in VALID_BACKENDS:
-            self.logger.warning(f"Invalid backend '{self.backend}', falling back to 'local'")
-            self.backend = BACKEND_LOCAL
+            raise ValueError(f"Invalid text backend: {self.backend}")
 
         # External providers (initialized lazily)
         self._gemini_provider: Optional["GeminiProvider"] = None
@@ -123,8 +117,10 @@ class TextProvider(BaseProvider):
         self.logger.info(f"Ollama host: {self.ollama_host}")
 
         # Check if Ollama is available and running
-        if OLLAMA_AVAILABLE and not self.use_mock:
+        if not self.use_mock and self.backend in {BACKEND_LOCAL, BACKEND_AUTO}:
             try:
+                ollama = importlib.import_module("ollama")
+                self.ollama_module = ollama
                 client_cls = getattr(ollama, "Client", None)
                 if client_cls is not None:
                     self.logger.info(
@@ -134,12 +130,14 @@ class TextProvider(BaseProvider):
                     client = client_cls(host=self.ollama_host)
                     self.ollama_client = client
                     client.list()
+                    client.show(self.model)
                 else:
                     # Fallback to module-level API (set env for custom host)
                     if self.ollama_host:
                         os.environ["OLLAMA_HOST"] = self.ollama_host
                     self.logger.info("[provider] Checking Ollama connection...")
                     ollama.list()
+                    ollama.show(self.model)
 
                 self.ollama_available = True
                 self.logger.info(
@@ -149,14 +147,16 @@ class TextProvider(BaseProvider):
                 )
             except Exception as e:
                 self.logger.warning(f"[provider] Ollama not available: {e}")
-                self.logger.warning("[provider] Falling back to mock LLM")
+
                 self.ollama_available = False
         else:
-            self.logger.info("[provider] Using mock text implementation")
+            self.logger.info("[provider] Local text backend unselected or explicitly simulated")
             self.ollama_available = False
 
         # Initialize external providers if configured
         await self._initialize_external_providers()
+        if not self.use_mock and not self._backend_is_available(self.backend):
+            raise RuntimeError(f"Text backend unavailable: {self.backend}")
 
         self.logger.info(
             "[provider] Text provider initialized (backend=%s, ollama=%s, gemini=%s, chatgpt=%s)",
@@ -166,10 +166,11 @@ class TextProvider(BaseProvider):
             self._chatgpt_provider.is_available if self._chatgpt_provider else False,
         )
 
-    async def _initialize_external_providers(self) -> None:
+    async def _initialize_external_providers(self, selected=None) -> None:
         """Initialize external LLM providers (Gemini, ChatGPT)."""
+        selected = selected or self.backend
         # Initialize Gemini provider if API key is available
-        if self._gemini_api_key or self.use_mock:
+        if selected in {BACKEND_GEMINI, BACKEND_AUTO} and (self._gemini_api_key or self.use_mock):
             try:
                 from pc_client.providers.gemini_provider import GeminiProvider
 
@@ -188,7 +189,7 @@ class TextProvider(BaseProvider):
                 self.logger.warning(f"[provider] Failed to initialize Gemini provider: {e}")
 
         # Initialize ChatGPT provider if API key is available
-        if self._openai_api_key or self.use_mock:
+        if selected in {BACKEND_CHATGPT, BACKEND_AUTO} and (self._openai_api_key or self.use_mock):
             try:
                 from pc_client.providers.chatgpt_provider import ChatGPTProvider
 
@@ -285,7 +286,9 @@ class TextProvider(BaseProvider):
             self.logger.info("[provider] Cache hit for text generation")
             generated_text = self._cache[cache_key]
             from_cache = True
-            used_backend = request_backend
+            used_backend = (
+                BACKEND_MOCK if self.use_mock and request_backend in {BACKEND_LOCAL, BACKEND_AUTO} else request_backend
+            )
             cache_hits_total.labels(cache_type='text_llm').inc()
         else:
             # Generate with selected backend
@@ -342,6 +345,8 @@ class TextProvider(BaseProvider):
                 "backend": used_backend,
                 "engine": self._get_engine_name(used_backend),
                 "mcp_tools_used": len(tool_calls) if tool_calls else 0,
+                "simulated": self.use_mock,
+                "source": "demo" if self.use_mock else "pc",
             },
         )
 
@@ -359,6 +364,8 @@ class TextProvider(BaseProvider):
         Returns:
             Tuple of (generated_text, used_backend, messages)
         """
+        if self.use_mock and backend in {BACKEND_LOCAL, BACKEND_AUTO}:
+            return f"Mock LLM response to: {prompt[:50]}...", BACKEND_MOCK, None
         # List of backends to try (for auto mode)
         if backend == BACKEND_AUTO:
             backends_to_try = [BACKEND_LOCAL, BACKEND_GEMINI, BACKEND_CHATGPT]
@@ -371,16 +378,15 @@ class TextProvider(BaseProvider):
                     current_backend, prompt, system_prompt, max_tokens, temperature
                 )
                 # Accept empty strings as valid responses (content may be filtered)
+                self._error = None
                 return text, current_backend, messages
             except Exception as e:
                 self.logger.warning(f"[provider] Backend {current_backend} failed: {e}")
                 if backend != BACKEND_AUTO:
                     break  # Don't try other backends if specific one was requested
 
-        # All backends failed, return mock response
-        self.logger.warning("[provider] All backends failed, using mock response")
-        mock_text = f"Mock LLM response to: {prompt[:50]}..."
-        return mock_text, BACKEND_MOCK, None
+        self._error = f"All configured text backends failed: {backend}"
+        raise RuntimeError(self._error)
 
     async def _generate_single_backend(
         self,
@@ -418,7 +424,7 @@ class TextProvider(BaseProvider):
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
-        client = self.ollama_client or ollama
+        client = self.ollama_client or self.ollama_module
         response = client.chat(
             model=self.model,
             messages=messages,
@@ -438,7 +444,9 @@ class TextProvider(BaseProvider):
     ) -> tuple:
         """Generate with Gemini backend."""
         if not self._gemini_provider:
-            raise RuntimeError("Gemini provider not initialized")
+            await self._initialize_external_providers(BACKEND_GEMINI)
+        if not self._gemini_provider:
+            raise RuntimeError("Gemini provider not configured")
         if not self._gemini_provider.is_available:
             raise RuntimeError("Gemini API key not configured")
 
@@ -466,7 +474,9 @@ class TextProvider(BaseProvider):
     ) -> tuple:
         """Generate with ChatGPT backend."""
         if not self._chatgpt_provider:
-            raise RuntimeError("ChatGPT provider not initialized")
+            await self._initialize_external_providers(BACKEND_CHATGPT)
+        if not self._chatgpt_provider:
+            raise RuntimeError("ChatGPT provider not configured")
         if not self._chatgpt_provider.is_available:
             raise RuntimeError("OpenAI API key not configured")
 
@@ -572,7 +582,7 @@ class TextProvider(BaseProvider):
                 messages.append({"role": "user", "content": tool_result_text})
 
                 try:
-                    response = ollama.chat(
+                    response = (self.ollama_client or self.ollama_module).chat(
                         model=self.model,
                         messages=messages,
                         options={"temperature": temperature, "num_predict": max_tokens},
@@ -616,6 +626,9 @@ class TextProvider(BaseProvider):
         if not text:
             return TaskResult(task_id=task.task_id, status=TaskStatus.FAILED, error="Missing text in payload")
 
+        if not self.use_mock:
+            return TaskResult(task_id=task.task_id, status=TaskStatus.FAILED, error="Real NLU backend unavailable")
+
         # TODO: Implement actual NLU processing
         # Example:
         # intent = self.llm.detect_intent(text)
@@ -646,23 +659,23 @@ class TextProvider(BaseProvider):
             task_id=task.task_id,
             status=TaskStatus.COMPLETED,
             result=result_data,
-            meta={"model": self.model, "tasks": nlu_tasks, "text_length": len(text)},
+            meta={"model": "mock", "tasks": nlu_tasks, "text_length": len(text), "source": "demo", "simulated": True},
         )
 
     def get_supported_tasks(self) -> list[TaskType]:
         """Get list of supported task types."""
-        return [TaskType.TEXT_GENERATE, TaskType.TEXT_NLU]
+        return [TaskType.TEXT_GENERATE, TaskType.TEXT_NLU] if self.use_mock else [TaskType.TEXT_GENERATE]
 
     def _backend_is_available(self, backend: str) -> bool:
         """Check if backend can be used."""
         if backend == BACKEND_LOCAL:
-            return self.ollama_available
+            return self.use_mock or self.ollama_available
         if backend == BACKEND_GEMINI:
-            return bool(self._gemini_provider and self._gemini_provider.is_available)
+            return self.use_mock or bool(self._gemini_provider and self._gemini_provider.is_available)
         if backend == BACKEND_CHATGPT:
-            return bool(self._chatgpt_provider and self._chatgpt_provider.is_available)
+            return self.use_mock or bool(self._chatgpt_provider and self._chatgpt_provider.is_available)
         if backend == BACKEND_AUTO:
-            return True
+            return any(self._backend_is_available(item) for item in (BACKEND_LOCAL, BACKEND_GEMINI, BACKEND_CHATGPT))
         return False
 
     def set_default_backend(self, backend: str) -> None:
@@ -687,7 +700,7 @@ class TextProvider(BaseProvider):
             available_backends.append(BACKEND_GEMINI)
         if self._chatgpt_provider and self._chatgpt_provider.is_available:
             available_backends.append(BACKEND_CHATGPT)
-        if BACKEND_AUTO not in available_backends:
+        if self._backend_is_available(BACKEND_AUTO):
             available_backends.append(BACKEND_AUTO)
 
         base_telemetry.update(
@@ -698,8 +711,11 @@ class TextProvider(BaseProvider):
                 "cache_size": len(self._cache),
                 "use_cache": self.use_cache,
                 "ollama_available": self.ollama_available,
-                "mode": "mock" if not self.ollama_available else "real",
+                "mode": "mock" if self.use_mock else "real",
                 "mcp_tools_enabled": self.enable_mcp_tools,
+                "source": "demo" if self.use_mock else "pc",
+                "ready": self._initialized and self._backend_is_available(self.backend) and not self._error,
+                "error": self._error,
                 "mcp_call_history_size": len(self._mcp_call_history),
                 # External providers info
                 "backend": self.backend,

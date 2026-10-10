@@ -13,7 +13,6 @@ from pc_client.adapters import RestAdapter
 from pc_client.cache import CacheManager
 from pc_client.config import Settings
 from pc_client.core.watchdog import ServiceWatchdog
-from pc_client.providers import VisionProvider, VoiceProvider, TextProvider
 from pc_client.queue import TaskQueue
 from pc_client.queue.task_queue import TaskQueueWorker
 from pc_client.telemetry import ZMQTelemetryPublisher
@@ -80,21 +79,23 @@ async def initialize_vision_pipeline(app: FastAPI) -> None:
         )
         return
 
-    await ensure_task_queue(app)
-
     vision_config = load_provider_config(settings.vision_provider_config_path, "vision")
     if settings.vision_model == "mock":
-        vision_config.setdefault("use_mock", True)
+        vision_config["use_mock"] = True
 
-    provider = VisionProvider(vision_config)
-
+    provider = None
     try:
+        from pc_client.providers import VisionProvider
+
+        provider = VisionProvider(vision_config)
         await provider.initialize()
     except Exception as exc:  # pragma: no cover - defensive log
         logger.error(f"Failed to initialize VisionProvider: {exc}")
-        await provider.shutdown()
+        if provider is not None:
+            await provider.shutdown()
         return
 
+    await ensure_task_queue(app)
     app.state.providers["vision"] = provider
     app.state.vision_offload_enabled = True
     app.state.vision_frame_priority = int(vision_config.get("frame_priority") or 1)
@@ -136,15 +137,15 @@ async def initialize_voice_pipeline(app: FastAPI) -> None:
         )
         return
 
-    await ensure_task_queue(app)
-
     voice_config = load_provider_config(settings.voice_provider_config_path, "voice")
     if settings.voice_model == "mock":
-        voice_config.setdefault("use_mock", True)
+        voice_config["use_mock"] = True
 
-    provider = VoiceProvider(voice_config)
-
+    provider = None
     try:
+        from pc_client.providers import VoiceProvider
+
+        provider = VoiceProvider(voice_config)
         await provider.initialize()
     except Exception as exc:  # pragma: no cover
         error_msg = str(exc)
@@ -153,39 +154,35 @@ async def initialize_voice_pipeline(app: FastAPI) -> None:
 
         # Diagnostyka: proponowane akcje
         if "whisper" in error_msg.lower():
-            hint = "Whisper ASR niedostępny. Zainstaluj: pip install openai-whisper"
+            hint = "Sprawdź lokalny runtime ASR i istniejący plik asr_model_path; instalacja jest osobnym krokiem."
             logger.warning(f"VoiceProvider diagnostic hint: {hint}")
             app.state.voice_provider_status["hint"] = hint
         elif "piper" in error_msg.lower():
-            hint = "Piper TTS niedostępny. Zainstaluj piper-tts."
+            hint = "Sprawdź lokalny runtime Piper i istniejące tts_model_path oraz plik JSON."
             logger.warning(f"VoiceProvider diagnostic hint: {hint}")
             app.state.voice_provider_status["hint"] = hint
         else:
             hint = "Sprawdź konfigurację w config/providers.toml"
             app.state.voice_provider_status["hint"] = hint
 
-        await provider.shutdown()
-        # Fallback do trybu mock
-        logger.info("Attempting fallback to mock VoiceProvider...")
-        voice_config["use_mock"] = True
-        fallback_provider = VoiceProvider(voice_config)
-        try:
-            await fallback_provider.initialize()
-            app.state.providers["voice"] = fallback_provider
-            app.state.voice_offload_enabled = True
-            app.state.voice_provider_status["initialized"] = True
-            app.state.voice_provider_status["error"] = f"Fallback to mock (original error: {error_msg})"
-            app.state.voice_asr_priority = int(voice_config.get("asr_priority") or 5)
-            app.state.voice_tts_priority = int(voice_config.get("tts_priority") or 6)
-            logger.warning("VoiceProvider running in MOCK mode due to initialization failure")
-        except Exception as fallback_exc:
-            logger.error(f"Mock VoiceProvider also failed: {fallback_exc}")
-            await fallback_provider.shutdown()
+        if provider is not None:
+            await provider.shutdown()
+            app.state.voice_provider_status["capabilities"] = provider.get_telemetry().get("capabilities", {})
         return
 
+    await ensure_task_queue(app)
     app.state.providers["voice"] = provider
     app.state.voice_offload_enabled = True
     app.state.voice_provider_status["initialized"] = True
+    telemetry = provider.get_telemetry()
+    app.state.voice_provider_status.update(
+        {
+            "capabilities": telemetry.get("capabilities", {}),
+            "mode": telemetry.get("mode"),
+            "ready": telemetry.get("ready", False),
+            "error": telemetry.get("error"),
+        }
+    )
     app.state.voice_asr_priority = int(voice_config.get("asr_priority") or voice_config.get("priority") or 5)
     app.state.voice_tts_priority = int(voice_config.get("tts_priority") or (app.state.voice_asr_priority + 1))
 
@@ -225,7 +222,7 @@ async def initialize_text_provider(app: FastAPI) -> None:
 
     text_config = load_provider_config(settings.text_provider_config_path, "text")
     if settings.text_model == "mock":
-        text_config.setdefault("use_mock", True)
+        text_config["use_mock"] = True
 
     # Pass through backend/env configuration for external providers
     if settings.text_provider_backend:
@@ -245,9 +242,11 @@ async def initialize_text_provider(app: FastAPI) -> None:
     if settings.openai_base_url:
         text_config.setdefault("openai_base_url", settings.openai_base_url)
 
-    provider = TextProvider(text_config)
-
+    provider = None
     try:
+        from pc_client.providers import TextProvider
+
+        provider = TextProvider(text_config)
         await provider.initialize()
     except Exception as exc:  # pragma: no cover
         error_msg = str(exc)
@@ -263,20 +262,8 @@ async def initialize_text_provider(app: FastAPI) -> None:
             hint = "Sprawdź konfigurację w config/providers_text_local.toml"
             app.state.text_provider_status["hint"] = hint
 
-        await provider.shutdown()
-        # Fallback do trybu mock jeśli inicjalizacja nie powiodła się
-        logger.info("Attempting fallback to mock TextProvider...")
-        text_config["use_mock"] = True
-        fallback_provider = TextProvider(text_config)
-        try:
-            await fallback_provider.initialize()
-            app.state.text_provider = fallback_provider
-            app.state.text_provider_status["initialized"] = True
-            app.state.text_provider_status["error"] = f"Fallback to mock (original error: {error_msg})"
-            logger.warning("TextProvider running in MOCK mode due to initialization failure")
-        except Exception as fallback_exc:
-            logger.error(f"Mock TextProvider also failed: {fallback_exc}")
-            await fallback_provider.shutdown()
+        if provider is not None:
+            await provider.shutdown()
         return
 
     app.state.text_provider = provider
@@ -303,45 +290,6 @@ async def sync_data_periodically(app: FastAPI):
             if payload.get("ok") is False and payload.get("error"):
                 return str(payload.get("error"))
         return None
-
-    def _lcd_is_on(state_data: Optional[Dict[str, Any]], health_data: Optional[Dict[str, Any]]) -> bool:
-        """Check LCD power flag from state/health payloads."""
-        lcd_state = None
-        if isinstance(state_data, dict):
-            lcd_state = state_data.get("lcd") or state_data.get("devices", {}).get("lcd")
-        if lcd_state is None and isinstance(health_data, dict):
-            lcd_state = health_data.get("devices", {}).get("lcd")
-        return bool(lcd_state and lcd_state.get("on") is True)
-
-    async def _auto_poweroff_lcd(
-        adapter: RestAdapter,
-        lcd_resource: Optional[Dict[str, Any]],
-        state_data: Optional[Dict[str, Any]],
-        health_data: Optional[Dict[str, Any]],
-    ) -> None:
-        """
-        Turn off LCD when nikt go nie trzyma (free) a fizycznie jest ON, żeby nie marnować energii.
-        """
-        if not lcd_resource or lcd_resource.get("error"):
-            return
-        if not lcd_resource.get("free", False):
-            return
-        # Respect minimal interval to avoid spam.
-        now = time.time()
-        last_ts = getattr(app.state, "last_lcd_poweroff_ts", 0.0)
-        if now - last_ts < 10:
-            return
-        if not _lcd_is_on(state_data, health_data):
-            return
-        try:
-            resp = await adapter.post_resource_action("lcd", {"action": "stop"})
-            if isinstance(resp, dict) and resp.get("ok", True) is False and resp.get("error"):
-                logger.warning("Auto LCD poweroff rejected: %s", resp["error"])
-            else:
-                app.state.last_lcd_poweroff_ts = now
-                logger.info("Auto-powered off LCD (resource free, no holders)")
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.debug("Auto LCD poweroff failed: %s", exc)
 
     def _update_tracking(data: Dict[str, Any]) -> None:
         """Persist latest tracking snapshot without clobbering on bad payloads."""
@@ -415,13 +363,6 @@ async def sync_data_periodically(app: FastAPI):
                 if payload is not None:
                     cache_data[cache_key] = payload
 
-            # Auto power off LCD when nobody holds the resource but LCD stays ON.
-            lcd_resource = cache_data.get("lcd_resource")
-            if lcd_resource:
-                state_data = cache_data.get("state") or cache.get("state")
-                health_data = cache_data.get("healthz") or cache.get("healthz")
-                await _auto_poweroff_lcd(adapter, lcd_resource, state_data, health_data)
-
             # Cleanup expired cache entries
             cache.cleanup_expired()
 
@@ -489,7 +430,6 @@ async def start_provider_heartbeat(app: FastAPI):
         logger.info("PC_PUBLIC_BASE_URL not set; skipping provider heartbeat loop")
         return
 
-    capabilities = get_provider_capabilities(settings)
     normalized = base_url.rstrip("/")
 
     async def _heartbeat_loop() -> None:
@@ -500,7 +440,7 @@ async def start_provider_heartbeat(app: FastAPI):
                 continue
             payload = {
                 "base_url": normalized,
-                "capabilities": capabilities,
+                "capabilities": get_provider_capabilities(settings, app.state.providers, app.state.text_provider),
                 "timestamp": time.time(),
             }
             try:
@@ -546,9 +486,14 @@ def create_zmq_handlers(app: FastAPI, cache: CacheManager):
 
     async def voice_asr_handler(topic: str, data: Dict[str, Any]):
         """Enqueue ASR requests coming from Rider-PI."""
-        if not app.state.voice_offload_enabled or not app.state.task_queue:
+        provider = app.state.providers.get("voice")
+        if not app.state.voice_offload_enabled or not app.state.task_queue or provider is None:
             return
 
+        from pc_client.providers.base import TaskType
+
+        if TaskType.VOICE_ASR not in provider.get_supported_tasks():
+            return
         task = build_voice_asr_task(data, app.state.voice_asr_priority)
         if task is None:
             return
@@ -559,9 +504,14 @@ def create_zmq_handlers(app: FastAPI, cache: CacheManager):
 
     async def voice_tts_handler(topic: str, data: Dict[str, Any]):
         """Enqueue TTS requests coming from Rider-PI."""
-        if not app.state.voice_offload_enabled or not app.state.task_queue:
+        provider = app.state.providers.get("voice")
+        if not app.state.voice_offload_enabled or not app.state.task_queue or provider is None:
             return
 
+        from pc_client.providers.base import TaskType
+
+        if TaskType.VOICE_TTS not in provider.get_supported_tasks():
+            return
         task = build_voice_tts_task(data, app.state.voice_tts_priority)
         if task is None:
             return

@@ -8,18 +8,22 @@ jak i proxy do Rider-PI. Kluczowe endpointy:
 - /api/providers/text - status providera tekstowego
 """
 
+from __future__ import annotations
+
 import time
 import uuid
 import logging
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from pc_client.adapters import RestAdapter
-from pc_client.providers import TextProvider
 from pc_client.providers.base import TaskEnvelope, TaskStatus, TaskType
+
+if TYPE_CHECKING:
+    from pc_client.providers import TextProvider
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +40,10 @@ class ChatMode(str, Enum):
 
 def _get_text_provider(request: Request) -> Optional[TextProvider]:
     provider = getattr(request.app.state, "text_provider", None)
+    if provider is None:
+        return None
+    from pc_client.providers import TextProvider
+
     return provider if isinstance(provider, TextProvider) else None
 
 

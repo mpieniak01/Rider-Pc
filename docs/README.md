@@ -26,3 +26,5 @@ establish that a model or the physical robot is running correctly.
 
 Polish is the starting point; keep English contracts and guides current.
 Local plans and reports exist only in `docs_pl/_to_do/` and `docs_pl/_done/`.
+
+- [Pi/PC operator panel](OPERATOR_PANEL.md)

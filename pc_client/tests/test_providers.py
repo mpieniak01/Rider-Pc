@@ -32,7 +32,7 @@ async def test_voice_provider_initialization():
 @pytest.mark.asyncio
 async def test_voice_provider_asr():
     """Test VoiceProvider ASR processing."""
-    provider = VoiceProvider()
+    provider = VoiceProvider({"use_mock": True})
     await provider.initialize()
 
     task = TaskEnvelope(
@@ -59,7 +59,7 @@ async def test_voice_provider_asr():
 @pytest.mark.asyncio
 async def test_voice_provider_tts():
     """Test VoiceProvider TTS processing."""
-    provider = VoiceProvider()
+    provider = VoiceProvider({"use_mock": True})
     await provider.initialize()
 
     task = TaskEnvelope(
@@ -80,7 +80,7 @@ async def test_voice_provider_tts():
 @pytest.mark.asyncio
 async def test_voice_provider_missing_payload():
     """Test VoiceProvider with missing payload data."""
-    provider = VoiceProvider()
+    provider = VoiceProvider({"use_mock": True})
     await provider.initialize()
 
     task = TaskEnvelope(
@@ -125,7 +125,7 @@ async def test_vision_provider_initialization():
 @pytest.mark.asyncio
 async def test_vision_provider_detection():
     """Test VisionProvider object detection."""
-    provider = VisionProvider()
+    provider = VisionProvider({"use_mock": True})
     await provider.initialize()
 
     task = TaskEnvelope(
@@ -153,7 +153,7 @@ async def test_vision_provider_detection():
 @pytest.mark.asyncio
 async def test_vision_provider_frame():
     """Test VisionProvider frame processing."""
-    provider = VisionProvider()
+    provider = VisionProvider({"use_mock": True})
     await provider.initialize()
 
     task = TaskEnvelope(
@@ -180,7 +180,7 @@ async def test_vision_provider_frame():
 @pytest.mark.asyncio
 async def test_vision_provider_missing_payload():
     """Test VisionProvider with missing payload data."""
-    provider = VisionProvider()
+    provider = VisionProvider({"use_mock": True})
     await provider.initialize()
 
     task = TaskEnvelope(
@@ -201,7 +201,7 @@ async def test_vision_provider_missing_payload():
 @pytest.mark.asyncio
 async def test_text_provider_initialization():
     """Test TextProvider initialization."""
-    config = {"model": "test_llm", "max_tokens": 1024, "temperature": 0.8, "use_cache": True}
+    config = {"model": "test_llm", "max_tokens": 1024, "temperature": 0.8, "use_cache": True, "use_mock": True}
 
     provider = TextProvider(config)
     await provider.initialize()
@@ -221,7 +221,7 @@ async def test_text_provider_initialization():
 @pytest.mark.asyncio
 async def test_text_provider_generate():
     """Test TextProvider text generation."""
-    provider = TextProvider()
+    provider = TextProvider({"use_mock": True})
     await provider.initialize()
 
     task = TaskEnvelope(
@@ -244,7 +244,7 @@ async def test_text_provider_generate():
 @pytest.mark.asyncio
 async def test_text_provider_nlu():
     """Test TextProvider NLU processing."""
-    provider = TextProvider()
+    provider = TextProvider({"use_mock": True})
     await provider.initialize()
 
     task = TaskEnvelope(
@@ -267,7 +267,7 @@ async def test_text_provider_nlu():
 @pytest.mark.asyncio
 async def test_text_provider_caching():
     """Test TextProvider response caching."""
-    provider = TextProvider({"use_cache": True})
+    provider = TextProvider({"use_cache": True, "use_mock": True})
     await provider.initialize()
 
     task = TaskEnvelope(
@@ -292,7 +292,7 @@ async def test_text_provider_caching():
 @pytest.mark.asyncio
 async def test_text_provider_missing_payload():
     """Test TextProvider with missing payload data."""
-    provider = TextProvider()
+    provider = TextProvider({"use_mock": True})
     await provider.initialize()
 
     task = TaskEnvelope(
@@ -313,7 +313,7 @@ async def test_text_provider_missing_payload():
 @pytest.mark.asyncio
 async def test_provider_telemetry():
     """Test provider telemetry."""
-    voice_provider = VoiceProvider({"asr_model": "test"})
+    voice_provider = VoiceProvider({"asr_model": "test", "use_mock": True})
     await voice_provider.initialize()
 
     telemetry = voice_provider.get_telemetry()

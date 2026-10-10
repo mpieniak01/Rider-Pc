@@ -174,3 +174,8 @@
 [data-dashboard-menu-target].menu-ready {
   margin-bottom: var(--space-xl);
 }
+
+.menu-tools { position: relative; }
+.menu-tools summary { cursor: pointer; padding: .6rem; white-space: nowrap; }
+.menu-tools > ul { position: absolute; right: 0; z-index: 30; display: grid; min-width: 200px; margin: 0; padding: .5rem; list-style: none; background: var(--bg, #141b23); border: 1px solid var(--border, #58616d); border-radius: .5rem; }
+@media (max-width: 700px) { .menu-tools > ul { position: static; } }

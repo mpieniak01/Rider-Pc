@@ -260,6 +260,7 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
             "": "view.html",
             "view": "view.html",
             "control": "control.html",
+            "devices": "devices.html",
             "mode": "mode.html",
             "navigation": "navigation.html",
             "system": "system.html",

@@ -305,6 +305,9 @@ class ServiceManager:
     async def get_all_services(self):
         local, remote = await asyncio.gather(self.get_local_services_async(), self.get_remote_services())
         return {
+            "contract_version": 2,
+            "source": "pc_aggregator",
+            "observed_at": time.time(),
             "services": local + remote + self._provider_rows(),
             "timestamp": time.time(),
             "hosts": {
@@ -342,6 +345,54 @@ class ServiceManager:
                 if identity in identities:
                     edges.append({"from": node["identity"], "to": identity})
         return {"generated_at": time.time(), "nodes": nodes, "edges": edges, "hosts": data["hosts"]}
+
+    async def get_service_logs(self, unit, host):
+        """Odczyt na żądanie, tylko konkretna jednostka wybranego hosta."""
+        if host not in {"pc", "pi"}:
+            return {"ok": False, "error": "host_required", "status_code": 400}
+        if host == "pc":
+            if not self._is_local_service(unit):
+                return {"ok": False, "error": "unit_not_configured", "status_code": 404}
+            if self._mock_mode:
+                return {
+                    "ok": True,
+                    "unit": unit,
+                    "host": "pc",
+                    "source": "demo",
+                    "simulated": True,
+                    "observed_at": time.time(),
+                    "lines": [],
+                }
+            if not self._use_real_systemd:
+                return {
+                    "ok": False,
+                    "unit": unit,
+                    "host": "pc",
+                    "source": "pc/systemd/journal",
+                    "observed_at": None,
+                    "lines": [],
+                    "error": "systemd_unavailable",
+                    "status_code": 503,
+                }
+            from pc_client.core.service_logs import read_logs
+
+            result = await asyncio.to_thread(read_logs, unit, catalog=self._monitored_services)
+        else:
+            rows = await self.get_remote_services()
+            if not any(row["unit"] == unit for row in rows):
+                return {"ok": False, "error": "unit_not_in_pi_inventory", "status_code": 404}
+            try:
+                result = await self._rest_adapter.get_service_logs(unit)
+            except Exception as exc:
+                result = {"ok": False, "error": str(exc), "observed_at": None, "lines": []}
+        if not isinstance(result, dict):
+            result = {"ok": False, "error": "invalid_log_response"}
+        result = dict(result, host=host, unit=unit)
+        result.setdefault("source", f"{host}/systemd/journal")
+        result.setdefault("observed_at", None)
+        if result.get("ok") is not True:
+            result.setdefault("status_code", 503)
+        return result
 
     async def control_service(self, unit, action, host=None, automatic=False, payload=None):
         if action not in {"start", "stop", "restart", "enable", "disable"}:

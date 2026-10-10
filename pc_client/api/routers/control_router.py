@@ -1,5 +1,7 @@
 """Control commands, resource management, and camera feed endpoints."""
 
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
@@ -11,11 +13,11 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from pc_client.adapters import RestAdapter
-from pc_client.providers import VisionProvider
 from pc_client.api.sse_manager import SseManager
 from pc_client.core.remote_safety import finite_number
 
 if TYPE_CHECKING:
+    from pc_client.providers import VisionProvider
     from pc_client.core import ServiceManager
 
 logger = logging.getLogger(__name__)
@@ -45,6 +47,11 @@ async def vision_cam_proxy(request: Request):
     return await proxy_remote_media(request, "/vision/cam")
 
 
+@router.get("/vision/ssd")
+async def vision_ssd_proxy(request: Request):
+    return await proxy_remote_media(request, "/vision/ssd")
+
+
 @router.get("/vision/edge")
 async def vision_edge_proxy(request: Request):
     """Proxy processed edge feed."""
@@ -55,7 +62,9 @@ async def vision_edge_proxy(request: Request):
 async def vision_tracker_proxy(request: Request):
     """Serve tracker overlay feed."""
     provider = request.app.state.providers.get("vision")
-    if isinstance(provider, VisionProvider):
+    if provider is not None:
+        from pc_client.providers import VisionProvider
+    if provider is not None and isinstance(provider, VisionProvider):
         overlay, ts, fps = provider.get_tracker_snapshot()
         if overlay:
             headers = {
@@ -204,10 +213,11 @@ async def safety_action(request: Request, payload: Dict[str, Any]):
 
 @router.post("/api/control")
 async def api_control_endpoint(request: Request, command: Dict[str, Any]) -> JSONResponse:
-    cmd = str(command.get("cmd", "")).lower()
-    if cmd not in {"move", "spin", "height", "balance", "action", "stop"}:
+    cmd = str(command.get("action", command.get("cmd", ""))).lower()
+    if cmd not in {"move", "turn", "spin", "height", "balance", "stabilization", "action", "stop"}:
         raise HTTPException(status_code=400, detail="unsupported_actuator_command")
     body = dict(command)
+    body.setdefault("action", "turn" if cmd == "spin" else cmd)
     if cmd != "stop":
         body.update(await _motion_context(request, supplied=body))
     response = await _proxy_action(request, "post_control", body)
@@ -289,6 +299,25 @@ async def logic_catalog(request: Request) -> JSONResponse:
     )
 
 
+@router.get("/api/navigator/status")
+async def navigator_status(request: Request) -> JSONResponse:
+    return JSONResponse(await _remote_snapshot(request, "navigator", "get_navigator_status", {}))
+
+
+@router.post("/api/navigator/config")
+async def navigator_config(request: Request, payload: Dict[str, Any]) -> JSONResponse:
+    snapshot = await _remote_snapshot(request, "control", "get_control_state", {})
+    safety = snapshot.get("safety", {})
+    if snapshot.get("offline") or snapshot.get("stale") or safety.get("state") != "DISARMED":
+        raise HTTPException(status_code=409, detail="disarmed_contract_required")
+    if safety.get("contract_version") != 1 or not finite_number(safety.get("observed_at")):
+        raise HTTPException(status_code=409, detail="disarmed_contract_required")
+    peer_now = snapshot.get("server_time", time.time())
+    if not finite_number(peer_now) or not -0.1 <= peer_now - safety["observed_at"] <= 3:
+        raise HTTPException(status_code=409, detail="disarmed_contract_required")
+    return await _proxy_action(request, "post_navigator_config", payload)
+
+
 @router.post("/api/navigator/start")
 async def navigator_start(request: Request, payload: Dict[str, Any]) -> JSONResponse:
     return await feature_toggle(request, "s9_navigation", {**payload, "enabled": True})
@@ -354,6 +383,15 @@ async def list_services(request: Request) -> JSONResponse:
 @router.get("/api/services")
 async def list_services_alias(request: Request) -> JSONResponse:
     return await list_services(request)
+
+
+@router.get("/api/services/{unit}/logs")
+async def service_logs(request: Request, unit: str, host: str):
+    manager = request.app.state.service_manager
+    manager.set_adapter(request.app.state.rest_adapter)
+    result = await manager.get_service_logs(unit, host)
+    code = result.pop("status_code", 200 if result.get("ok") is True else 503)
+    return JSONResponse(result, status_code=code, headers={"Cache-Control": "no-store"})
 
 
 def _extract_service_unit(payload):

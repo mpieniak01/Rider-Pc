@@ -27,6 +27,10 @@ enable_distance_estimation = true
 default_distance_meters = 2.0
 
 [voice]
+domain = "voice"
+# Opcjonalnie: domain = "asr" lub "tts"; istniejące lokalne modele, bez pobierania.
+# asr_model_path = "/path/to/whisper/base.pt"
+# tts_model_path = "/path/to/piper/voice.onnx"
 asr_model = "base"
 tts_model = "pl_PL-gosia-medium"
 sample_rate = 16000

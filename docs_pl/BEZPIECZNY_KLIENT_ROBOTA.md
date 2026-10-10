@@ -82,3 +82,5 @@ Jawne ARM oraz kasowanie E-Stop przyjmują świeży znany stan `DISARMED`/`ESTOP
 
 Pakiety runtime i testowe są rozdzielone przez środowisko i włączone funkcje;
 zobacz [minimalny runtime i testy w WSL](CONTRIBUTING.md#minimalny-runtime-i-testy-w-wsl).
+
+Nowy [panel operatora](PANEL_OPERATORA.md) stosuje ten kontrakt; zegar UI jest potwierdzany przez server_time Pi i ograniczony RTT. Ruch wymaga także hardware_ready:true. System udostępnia oddzielne jawne przyciski administracyjne, nigdy akcję po kliknięciu karty.

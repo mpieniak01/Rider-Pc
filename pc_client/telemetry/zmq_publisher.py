@@ -3,6 +3,7 @@
 import zmq
 import json
 import logging
+import math
 from typing import Dict, Any, Optional
 from pc_client.providers.base import TaskResult
 
@@ -109,10 +110,21 @@ class ZMQTelemetryPublisher:
             obstacles: List of detected obstacles
             meta: Metadata about processing
         """
+        observed = meta.get("observed_at") if "observed_at" in meta else meta.get("timestamp")
+        valid_time = (
+            not isinstance(observed, bool)
+            and isinstance(observed, (int, float))
+            and math.isfinite(observed)
+            and observed > 0
+        )
         data = {
+            'observed_at': observed,
+            'data_ready': valid_time
+            and meta.get("data_ready") is not False
+            and not any(meta.get(key) for key in ("stale", "offline", "error", "simulated")),
             'frame_id': frame_id,
             'obstacles': obstacles,
-            'timestamp': meta.get('timestamp'),
+            'timestamp': observed,
             'processing_source': 'pc',
             'meta': meta,
         }
@@ -121,17 +133,28 @@ class ZMQTelemetryPublisher:
 
     def publish_tracking_offset(self, payload: Dict[str, Any]):
         """Publish tracking offset updates to Rider-PI."""
-        import time as _time
-
         offset_value = payload.get("offset")
-        if offset_value is None:
+        observed = payload.get("observed_at") if "observed_at" in payload else payload.get("ts")
+        if (
+            payload.get("data_ready") is False
+            or payload.get("simulated") is True
+            or any(payload.get(key) for key in ("stale", "offline", "error"))
+        ):
+            return
+        if any(
+            isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value)
+            for value in (observed, offset_value)
+        ):
+            return
+        if observed <= 0:
             return
 
         data = {
             "offset_x": float(offset_value),
             "mode": payload.get("mode", "none"),
             "confidence": payload.get("confidence"),
-            "ts": payload.get("ts") or _time.time(),
+            "ts": observed,
+            "observed_at": observed,
             "source": payload.get("source", "pc"),
         }
         self.publish('vision.tracking.offset', data)

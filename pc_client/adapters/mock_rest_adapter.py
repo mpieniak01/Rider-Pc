@@ -45,12 +45,22 @@ class MockRestAdapter:
         self._safety = {
             "contract_version": 1,
             "state": "DISARMED",
-            "ready": False,
+            "ready": True,
+            "hardware_ready": True,
             "can_move": False,
             "read_only": True,
             "generation": "demo-0",
             "owner": None,
             "last_seq": -1,
+            "lease_remaining_s": 0,
+            "capabilities": {
+                name: {
+                    "available": name in {"move", "turn"},
+                    "stop_verified": name in {"move", "turn"},
+                    "verification": "simulated",
+                }
+                for name in ["move", "turn", "height", "balance", "action"]
+            },
             "simulated": True,
         }
         self._ai_mode: Dict[str, Any] = {
@@ -426,12 +436,12 @@ class MockRestAdapter:
         entry = {
             "ts": time.time(),
             "source": command.get("source", "pc-ui"),
-            "status": command.get("cmd", "idle"),
+            "status": command.get("action", command.get("cmd", "idle")),
             "vx": command.get("vx"),
             "vy": command.get("vy"),
             "yaw": command.get("yaw"),
         }
-        if command.get("cmd") == "stop":
+        if command.get("action", command.get("cmd")) == "stop":
             await self.post_safety({"action": "disarm"})
         else:
             self._safety["last_seq"] = command.get("seq", self._safety["last_seq"])
@@ -439,7 +449,13 @@ class MockRestAdapter:
         self._motion_queue[:] = self._motion_queue[-20:]
         return {
             "ok": True,
-            "command": command.get("cmd"),
+            "command": command.get("cmd", command.get("action")),
+            "confirmed": True,
+            "pending": False,
+            "simulated": True,
+            "physical_completion": "unverified",
+            "ack": self._demo_ack(command),
+            "safety": dict(self._safety),
             "queued": len(self._motion_queue),
             "timestamp": entry["ts"],
         }
@@ -449,6 +465,7 @@ class MockRestAdapter:
         state = copy.deepcopy(self._control_state)
         state["updated_at"] = time.time()
         state["safety"] = {**self._safety, "observed_at": time.time()}
+        state["server_time"] = time.time()
         return state
 
     async def post_safety(self, payload):
@@ -460,14 +477,52 @@ class MockRestAdapter:
         armed = action == "arm"
         self._safety.update(
             state="ARMED" if armed else ("ESTOP" if action == "estop" else "DISARMED"),
-            ready=armed,
+            ready=True,
+            hardware_ready=True,
             can_move=armed,
             read_only=not armed,
             owner=payload.get("owner") if armed else None,
-            generation=f"demo-{time.time_ns()}",
+            generation=self._safety["generation"] if armed else f"demo-{time.time_ns()}",
+            lease_remaining_s=payload.get("lease_s", 10) if armed else 0,
             last_seq=payload.get("seq", -1) if armed else -1,
         )
-        return {"ok": True, "simulated": True, "safety": dict(self._safety)}
+        ack = self._demo_ack(payload)
+        return {
+            "ok": True,
+            "confirmed": True,
+            "pending": False,
+            "simulated": True,
+            "ack": ack,
+            "safety": dict(self._safety),
+            "physical_completion": "unverified",
+        }
+
+    def _demo_ack(self, payload):
+        ack = {key: payload.get(key) for key in ("request_id", "source", "seq", "action")}
+        ack.update(
+            status="executed",
+            reason="simulated_sdk_accepted",
+            observed_at=time.time(),
+            command_generation=payload.get("generation"),
+            generation=self._safety["generation"],
+            physical_completion="unverified",
+        )
+        self._safety["observed_at"] = ack["observed_at"]
+        self._safety["last_ack"] = ack
+        self._safety.setdefault("recent_acks", []).append(ack)
+        self._safety["recent_acks"] = self._safety["recent_acks"][-16:]
+        return ack
+
+    async def get_navigator_status(self):
+        return {
+            "navigator": {**self._control_state["navigator"], "observed_at": time.time(), "source": "demo"},
+            "navigation": {},
+            "source": "demo",
+            "observed_at": time.time(),
+        }
+
+    async def post_navigator_config(self, payload):
+        return {"ok": True, "simulated": True, "config": payload}
 
     async def post_navigator_return_home(self, payload):
         return {"ok": True, "simulated": True, "state": "returning"}
@@ -495,6 +550,10 @@ class MockRestAdapter:
                     "host": "pi",
                     "source": "demo",
                     "observed_at": time.time(),
+                    "installed": True,
+                    "load": "loaded",
+                    "lifecycle": "on-demand",
+                    "actions": ["start", "stop", "restart", "disable"],
                     "can_move": "tracking-controller" in s["unit"],
                     "motion_owner": "follow_me" if "tracking-controller" in s["unit"] else None,
                 }
@@ -585,7 +644,21 @@ class MockRestAdapter:
                 {
                     **r,
                     "can_move": r["name"] in {"s3_follow_me_face", "s4_recon"},
-                    "motion_owner": "follow_me" if r["name"] == "s3_follow_me_face" else "navigation",
+                    "motion_owner": "follow_me"
+                    if r["name"] == "s3_follow_me_face"
+                    else "navigation"
+                    if r["name"] == "s4_recon"
+                    else None,
+                    "requested": r["active"],
+                    "running": r["active"],
+                    "installed": True,
+                    "ready": r["active"] and r["services_active"] == r["services_total"],
+                    "state": ("ready" if r["services_active"] == r["services_total"] else "partial")
+                    if r["active"]
+                    else "stopped",
+                    "source": "demo",
+                    "observed_at": time.time(),
+                    "resources": ["camera"] if r["name"] != "s0_manual" else [],
                     "aliases": ["face_tracking"]
                     if r["name"] == "s3_follow_me_face"
                     else (["recon"] if r["name"] == "s4_recon" else ["zero_mode"]),
@@ -594,10 +667,20 @@ class MockRestAdapter:
             ],
         }
 
+    async def get_service_logs(self, unit: str):
+        return {"ok": True, "unit": unit, "source": "demo", "simulated": True, "observed_at": time.time(), "lines": []}
+
     async def get_logic_catalog(self):
         features = await self.get_logic_features()
         services = await self.get_services()
-        return {**features, "services": services["services"], "resources": []}
+        return {
+            **features,
+            "catalog_version": 2,
+            "schema_version": 2,
+            "units": services["services"],
+            "services": services["services"],
+            "resources": [],
+        }
 
     async def get_logic_summary(self) -> Dict[str, Any]:
         """Return mock logic summary payload."""

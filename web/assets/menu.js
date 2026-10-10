@@ -45,6 +45,7 @@
       active = links.find(link => normalize(new URL(link.href, window.location.origin).pathname) === current);
     }
     active?.classList.add('is-active');
+    const tools = active?.closest('details.menu-tools'); if (tools) tools.open = true;
   }
 
   function initToggle(nav){

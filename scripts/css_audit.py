@@ -17,6 +17,7 @@ URLS = [
     "/web/home.html",
     "/web/system.html",
     "/web/control.html",
+    "/web/devices.html",
     "/web/view.html",
     "/web/navigation.html",
     "/web/models.html",
@@ -27,7 +28,11 @@ URLS = [
 LOG_DIR = Path("logs/css_audit")
 SUMMARY_JSON = Path("logs/css_audit_summary.json")
 CSS_ROOT = Path("web")
-CSS_FILES = sorted((CSS_ROOT / "assets").glob("*.css")) + sorted((CSS_ROOT / "assets" / "pages").glob("*.css"))
+CSS_FILES = (
+    sorted((CSS_ROOT / "assets").glob("*.css"))
+    + sorted((CSS_ROOT / "assets" / "pages").glob("*.css"))
+    + sorted((CSS_ROOT / "assets" / "operator").glob("*.css"))
+)
 HTML_WHITELIST = Path("config/css_dynamic_whitelist.json")
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -104,9 +109,8 @@ def perform_page_actions(page: Page, path: str) -> None:
             page.click("#new-task-btn", timeout=1000)
             page.wait_for_timeout(200)
         elif slug == "chat.html":
-            page.fill("#input", "Audit ping", timeout=1000)
-            page.click("#sendBtn", timeout=1000)
-            page.wait_for_timeout(200)
+            # Input editing is read only; sending would prepare an AI task.
+            page.fill("#chat-input", "Audit fixture", timeout=1000)
     except Exception:
         # Page actions are optional enhancements; ignore failures from missing elements or timeouts
         pass
@@ -130,10 +134,8 @@ def take_screenshots(base_url: str) -> tuple[list[dict[str, str]], set[str], set
             slug = path.split("/")[-1].replace(".html", "") or "root"
             url = f"{base_url}{path}"
             print(f"[css:audit] visit {url}")
-            try:
-                page.goto(url, wait_until="networkidle", timeout=30000)
-            except Exception:
-                page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            page.goto(url, wait_until="domcontentloaded", timeout=15000)
+            page.wait_for_selector(".menu-ready", timeout=5000)
             perform_page_actions(page, path)
             page.wait_for_timeout(500)
             classes, ids = collect_dom_tokens(page)
@@ -142,6 +144,23 @@ def take_screenshots(base_url: str) -> tuple[list[dict[str, str]], set[str], set
             outfile = LOG_DIR / f"{slug}.png"
             page.screenshot(path=str(outfile), full_page=True)
             shots.append({"url": url, "screenshot": str(outfile)})
+        page.set_viewport_size({"width": 390, "height": 844})
+        for path in ["/view", "/control", "/devices", "/system", "/navigation", "/chat"]:
+            page.goto(base_url + path, wait_until="domcontentloaded", timeout=15000)
+            page.wait_for_selector(".operator-global-stop", timeout=5000)
+            page.wait_for_timeout(300)
+            accessible = page.locator(".operator-global-stop").evaluate("""
+                node => {
+                    const rect = node.getBoundingClientRect();
+                    return rect.top >= 0 && rect.bottom <= innerHeight &&
+                        document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)?.closest('[data-stop]') === node;
+                }
+            """)
+            if not accessible:
+                raise AssertionError(f"STOP obscured on mobile: {path}")
+            outfile = LOG_DIR / f"{path.lstrip('/')}-mobile.png"
+            page.screenshot(path=str(outfile), full_page=True)
+            shots.append({"url": base_url + path, "screenshot": str(outfile), "viewport": "390x844"})
         page.close()
         browser.close()
     return shots, collected_classes, collected_ids
