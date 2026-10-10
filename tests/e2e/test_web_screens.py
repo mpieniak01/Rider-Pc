@@ -35,7 +35,7 @@ def test_operator_menu_and_language_switch(browser_context):
     for path in ["view", "control", "devices", "system"]:
         expect(page.locator(f".dashboard-menu a[href='/{path}']")).to_be_visible()
     page.locator(".lang-switch [data-lang='en']").click()
-    expect(page.locator("h1")).to_have_text("Overview")
+    expect(page.locator("h1")).to_have_text("Rider-PC: Overview")
 
 
 def test_system_hosts_sources_admin_and_autostart_are_distinct(browser_context):
@@ -191,11 +191,12 @@ def test_recent_offline_xgo_is_not_shown_as_a_healthy_measurement(browser_contex
     page.route("**/state", offline_state)
     page.goto(base + path, wait_until="domcontentloaded")
     if path == "/view":
-        expect(page.locator("#overview-battery")).to_contain_text("brak / stary pomiar")
-        expect(page.locator("#overview-battery")).to_contain_text("0%")
+        expect(page.locator("#d_xgo_batt")).to_contain_text("nieznane / stare")
+        expect(page.locator("#d_xgo_batt")).to_contain_text("0%")
     else:
-        telemetry = page.locator("#device-list > article").first
-        expect(telemetry).to_contain_text("brak / stare")
+        telemetry = page.locator("#device-telemetry > article").first
+        expect(telemetry).to_contain_text("nieznane / stare")
+        expect(telemetry).to_contain_text("0%")
         assert not telemetry.locator(".ok").count()
     assert not page.errors, str(page.errors)
     assert not [request for request in page.requests if request.method in {"POST", "PATCH", "PUT"}]
