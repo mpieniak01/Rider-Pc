@@ -120,8 +120,11 @@ jobs:
         run: |
           # E2E testy dla interfejsu webowego
           # Używają Playwright do testowania UI w przeglądarce
+          # Autoload jest wyłączony; limity oraz diagnostyka teardown są jawne.
           pytest tests/e2e/ \
-            -v --tb=short
+            -v --tb=short --durations=30 \
+            -p pytest_asyncio.plugin -p pytest_timeout \
+            --timeout=60 --timeout-method=thread
 
       - name: Show test summary on failure
         if: failure()

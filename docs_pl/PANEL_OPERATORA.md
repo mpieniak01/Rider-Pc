@@ -149,3 +149,19 @@ CI włącza lekkie, izolowane fixture API przez RIDER_ENABLE_API_TESTS=1 w zadan
 jednostkowym. Flagi integracji Redis/providerów pozostają wyłączone; nie są potrzebne
 dodatkowe modele ani pakiety. Wspólne regresje interfejsu uruchamia polecenie:
 node --experimental-vm-modules --test tests/operator_panel.test.mjs tests/operator_panel_shared_review.test.mjs.
+
+## Cykl życia przeglądarki E2E
+
+E2E uruchamia własny lokalny serwer demo i zamyka kontekst przeglądarki przed
+przeglądarką i sterownikiem Playwright, także po błędzie. Zachowujemy standardowe
+procesy renderowania Chromium: wymuszony single-process potrafi wywołać awarię
+przy zamykaniu aktywnych widoków operatora i zużyć 30-sekundowy awaryjny czas
+zamknięcia sterownika. CI pokazuje czasy setup/call/teardown i jawnie ładuje plugin
+z limitem 60 sekund na test; budżet całego zadania E2E pozostaje 10 minut.
+Odtworzenie używa istniejącego venv i cache przeglądarki w WSL, bez instalacji
+pakietów i bez łączenia ze sprzętem:
+
+```sh
+CI=true PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest tests/e2e \
+  -p pytest_asyncio.plugin -p pytest_timeout --timeout=60 --timeout-method=thread --durations=30
+```

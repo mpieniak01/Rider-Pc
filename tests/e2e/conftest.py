@@ -9,6 +9,7 @@ import socket
 import sys
 import time
 import urllib.request
+from contextlib import contextmanager
 
 import pytest
 import uvicorn
@@ -86,6 +87,27 @@ def test_server():
         server_process.join(timeout=5)
 
 
+@contextmanager
+def managed_browser_context(playwright):
+    """Close context before browser and driver, including setup/test failures.
+
+    Keep Chromium's normal renderer processes: single-process shutdown can
+    crash with live operator frames and leave Playwright's 30s exit fallback.
+    """
+    browser = playwright.chromium.launch(
+        headless=True,
+        args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+    )
+    try:
+        context = browser.new_context()
+        try:
+            yield context
+        finally:
+            context.close()
+    finally:
+        browser.close()
+
+
 @pytest.fixture
 def browser_context(test_server):
     """Create a Playwright browser context for testing.
@@ -101,19 +123,7 @@ def browser_context(test_server):
     Yields:
         tuple: (page, base_url) where page is a Playwright Page object
     """
-    with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=True,
-            args=[
-                "--no-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-gpu",
-                "--single-process",
-                "--disable-features=IsolateOrigins,site-per-process",
-                "--disable-site-isolation-trials",
-            ],
-        )
-        context = browser.new_context()
+    with sync_playwright() as p, managed_browser_context(p) as context:
         context.route(
             "**/*",
             lambda route: route.continue_() if route.request.url.startswith(test_server + "/") else route.abort(),
@@ -143,4 +153,3 @@ def browser_context(test_server):
         page.on("pageerror", lambda error: page.errors.append(error))
 
         yield page, test_server
-        # Context manager handles cleanup automatically

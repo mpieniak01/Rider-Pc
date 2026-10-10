@@ -20,7 +20,23 @@ def explicit_arm(page):
     page.locator("#operator-plan").fill("Mock-only fixture: clear space, secured cable, 0.1 s pulse and STOP.")
     page.locator("#operator-consent").check()
     expect(page.locator("#arm")).to_be_enabled()
-    page.locator("#arm").click()
+    with page.expect_response(
+        lambda response: response.request.method == "POST" and response.url.endswith("/api/safety")
+    ) as event:
+        page.locator("#arm").click()
+    response = event.value
+    assert response.status == 200, response.text()
+    command, result = json.loads(response.request.post_data), response.json()
+    assert result.get("ok") is True and result.get("confirmed") is True and result.get("pending") is False, result
+    assert result.get("simulated") is True and result.get("physical_completion") == "unverified", result
+    ack, safety = result["ack"], result["safety"]
+    assert ack["status"] == "executed" and ack["physical_completion"] == "unverified", result
+    for key in ("request_id", "source", "seq", "action"):
+        assert ack[key] == command[key], result
+    assert ack["command_generation"] == ack["generation"] == safety["generation"] == command["generation"], result
+    assert safety["state"] == "ARMED" and safety["owner"] == command["owner"] == "manual", result
+    assert safety["ready"] is True and safety["hardware_ready"] is True and safety["can_move"] is True, result
+    assert safety["last_seq"] == command["seq"] and safety["last_ack"] == ack, result
     expect(page.locator("#safety-state")).to_have_text("ARMED")
     expect(page.locator('[data-direction="forward"]')).to_be_enabled()
 

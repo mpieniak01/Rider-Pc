@@ -142,3 +142,18 @@ does not change readiness of the selected default backend.
 CI explicitly enables lightweight offline API fixtures with
 RIDER_ENABLE_API_TESTS=1 in the unit job. Redis/provider integration flags remain
 disabled; these fixtures require no additional models or packages.
+
+## E2E browser lifecycle
+
+E2E owns a local demo server and closes each browser context before the browser
+and Playwright driver, including failures. Keep Chromium's standard renderer
+processes: forced single-process mode can crash on shutdown with active operator
+frames and consume the driver's 30-second exit fallback. CI prints setup/call/
+teardown durations and explicitly loads its 60-second per-test timeout plugin;
+the overall E2E job budget remains 10 minutes. Reproduce using the existing WSL
+venv/browser cache, without installing dependencies or contacting hardware:
+
+```sh
+CI=true PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest tests/e2e \
+  -p pytest_asyncio.plugin -p pytest_timeout --timeout=60 --timeout-method=thread --durations=30
+```
