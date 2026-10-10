@@ -266,9 +266,7 @@
     }
 
     function getTooltipText(status) {
-      return status === 'active'
-        ? t('system_ui.tooltip_stop')
-        : t('system_ui.tooltip_start');
+      return t('system_ui.tooltip_readonly');
     }
 
     function formatSince(value) {
@@ -317,57 +315,6 @@
       toast.addEventListener('click', remove);
     }
 
-    async function toggleService(unit, currentStatus) {
-      // Determine action based on current status
-      const action = currentStatus === 'active' ? 'stop' : 'start';
-      const card = document.querySelector(`[data-unit="${unit}"]`);
-      
-      if (card) {
-        card.classList.add('is-busy');
-        card.setAttribute('aria-busy', 'true');
-      }
-
-      try {
-        const resp = await fetch(`/svc/${encodeURIComponent(unit)}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action }),
-        });
-
-        const result = await resp.json();
-
-        if (resp.ok && result.ok) {
-          showToast(
-            t('system_ui.service_action', {
-              unit,
-              status:
-                action === 'start'
-                  ? t('system_ui.service_started')
-                  : t('system_ui.service_stopped'),
-            }),
-            'success',
-          );
-          // Refresh graph to show updated state
-          await loadGraph();
-        } else {
-          showToast(
-            t('system_ui.error_prefix', {
-              msg: result.error || t('system_ui.service_change_error'),
-            }),
-            'error',
-          );
-        }
-      } catch (err) {
-        console.error('Toggle service error:', err);
-        showToast(t('system_ui.connection_error', { msg: err.message }), 'error');
-      } finally {
-        if (card) {
-          card.classList.remove('is-busy');
-          card.setAttribute('aria-busy', 'false');
-        }
-      }
-    }
-
     function createServiceCard(node, group) {
       const labelGroup = group || 'services';
       let card;
@@ -381,11 +328,11 @@
       const stateClass = nodeStateClass(node.status);
       card.classList.remove('is-active', 'is-failed', 'is-inactive');
       if (stateClass) card.classList.add(stateClass);
-      card.setAttribute('data-unit', node.unit);
+      card.setAttribute('data-unit', node.identity || node.unit);
       card.setAttribute('data-status', node.status || 'unknown');
       card.setAttribute('data-location', node.location || 'pc');
-      card.setAttribute('title', getTooltipText(node.status));
-      card.setAttribute('role', 'button');
+      card.setAttribute('title', getTooltipText(node.status) + ' · ' + (node.source || 'unknown') + (node.stale ? ' · stale' : ''));
+      card.setAttribute('role', 'article');
       card.setAttribute('aria-label', `${node.label}: ${getTooltipText(node.status)}`);
       
       const titleEl = card.querySelector('[data-role="title"]') || card.querySelector('.service-node__title');
@@ -400,7 +347,7 @@
       }
       
       const unitEl = card.querySelector('[data-role="unit"]');
-      if (unitEl) unitEl.textContent = `${SERVICE_LABELS.unit[docLang]}: ${node.unit}`;
+      if (unitEl) unitEl.textContent = `${SERVICE_LABELS.unit[docLang]}: ${node.unit} · ${node.source || 'unknown'}${node.stale ? ' · stale/offline' : ''}`;
       
       const groupEl = card.querySelector('[data-role="group"]');
       if (groupEl) groupEl.textContent = `${SERVICE_LABELS.group[docLang]}: ${labelGroup}`;
@@ -434,7 +381,6 @@
         });
       }
       
-      card.addEventListener('click', () => toggleService(node.unit, node.status));
       return card;
     }
 
@@ -561,7 +507,7 @@
         const payload = await resp.json();
         renderGraph(payload.nodes || [], payload.edges || []);
         const ts = payload.generated_at ? new Date(payload.generated_at * 1000) : new Date();
-        statusEl.textContent = `Ostatnia aktualizacja: ${ts.toLocaleTimeString()}`;
+        statusEl.textContent = `Ostatnia aktualizacja: ${ts.toLocaleTimeString()}${payload.hosts?.pi?.offline ? ' · Pi offline — dane archiwalne' : ''}`;
       } catch (err) {
         console.error(err);
         statusEl.textContent = t('system_ui.fetch_error');

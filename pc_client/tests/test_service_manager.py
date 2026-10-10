@@ -9,7 +9,10 @@ class MockRestAdapter:
     """Mock adapter for testing remote service calls."""
 
     def __init__(self, services_response=None, action_response=None):
-        self.services_response = services_response or {"services": []}
+        self.services_response = services_response or {
+            "contract_version": 2,
+            "services": [{"unit": "remote.service", "can_move": False}],
+        }
         self.action_response = action_response or {"ok": True}
         self.get_services_called = False
         self.service_action_calls = []
@@ -26,7 +29,7 @@ class MockRestAdapter:
 @pytest.mark.asyncio
 async def test_get_local_services():
     """Test getting local services returns default services."""
-    manager = ServiceManager()
+    manager = ServiceManager(mock_mode=True)
     services = manager.get_local_services()
 
     assert len(services) == len(DEFAULT_LOCAL_SERVICES)
@@ -40,7 +43,7 @@ async def test_get_local_services():
 @pytest.mark.asyncio
 async def test_get_all_services_without_adapter():
     """Test get_all_services without adapter returns only local services."""
-    manager = ServiceManager()
+    manager = ServiceManager(mock_mode=True)
     result = await manager.get_all_services()
 
     assert "services" in result
@@ -53,7 +56,7 @@ async def test_get_all_services_with_adapter():
     """Test get_all_services with adapter merges remote services."""
     remote_services = [{"unit": "remote.service", "desc": "Remote service", "active": "active", "is_local": False}]
     adapter = MockRestAdapter(services_response={"services": remote_services})
-    manager = ServiceManager(rest_adapter=adapter)
+    manager = ServiceManager(rest_adapter=adapter, mock_mode=True)
 
     result = await manager.get_all_services()
 
@@ -69,7 +72,7 @@ async def test_get_all_services_with_adapter():
 @pytest.mark.asyncio
 async def test_get_service_graph():
     """Test service graph generation."""
-    manager = ServiceManager()
+    manager = ServiceManager(mock_mode=True)
     graph = await manager.get_service_graph()
 
     assert "generated_at" in graph
@@ -92,7 +95,7 @@ async def test_get_service_graph():
 @pytest.mark.asyncio
 async def test_service_graph_location_field():
     """Test that location field is present in graph nodes for local services."""
-    manager = ServiceManager()
+    manager = ServiceManager(mock_mode=True)
     graph = await manager.get_service_graph()
 
     # All local services should have location "pc"
@@ -109,7 +112,7 @@ async def test_remote_services_have_location_pi():
         {"unit": "rider-broker.service", "desc": "Rider Broker", "active": "active"},
     ]
     adapter = MockRestAdapter(services_response={"services": remote_services})
-    manager = ServiceManager(rest_adapter=adapter)
+    manager = ServiceManager(rest_adapter=adapter, mock_mode=True)
 
     graph = await manager.get_service_graph()
 
@@ -125,7 +128,7 @@ async def test_remote_services_have_location_pi():
 @pytest.mark.asyncio
 async def test_control_local_service_start():
     """Test starting a local service."""
-    manager = ServiceManager()
+    manager = ServiceManager(mock_mode=True)
 
     # Stop service first
     await manager.control_service("voice.provider", "stop")
@@ -148,7 +151,7 @@ async def test_control_local_service_start():
 @pytest.mark.asyncio
 async def test_control_local_service_stop():
     """Test stopping a local service."""
-    manager = ServiceManager()
+    manager = ServiceManager(mock_mode=True)
 
     result = await manager.control_service("voice.provider", "stop")
     assert result["ok"] is True
@@ -163,7 +166,7 @@ async def test_control_local_service_stop():
 @pytest.mark.asyncio
 async def test_control_local_service_restart():
     """Test restarting a local service."""
-    manager = ServiceManager()
+    manager = ServiceManager(mock_mode=True)
 
     result = await manager.control_service("cache.service", "restart")
     assert result["ok"] is True
@@ -177,7 +180,7 @@ async def test_control_local_service_restart():
 @pytest.mark.asyncio
 async def test_control_local_service_enable_disable():
     """Test enable/disable local service."""
-    manager = ServiceManager()
+    manager = ServiceManager(mock_mode=True)
 
     result = await manager.control_service("text.provider", "disable")
     assert result["ok"] is True
@@ -197,9 +200,9 @@ async def test_control_local_service_enable_disable():
 @pytest.mark.asyncio
 async def test_control_local_service_not_found():
     """Test controlling non-existent local service."""
-    manager = ServiceManager()
+    manager = ServiceManager(mock_mode=True)
 
-    result = await manager.control_service("nonexistent.service", "start")
+    result = await manager.control_service("nonexistent.service", "start", host="pc")
     assert result["ok"] is False
     assert "not found" in result["error"]
 
@@ -207,7 +210,7 @@ async def test_control_local_service_not_found():
 @pytest.mark.asyncio
 async def test_control_local_service_invalid_action():
     """Test controlling local service with invalid action."""
-    manager = ServiceManager()
+    manager = ServiceManager(mock_mode=True)
 
     result = await manager.control_service("voice.provider", "invalid_action")
     assert result["ok"] is False
@@ -218,7 +221,7 @@ async def test_control_local_service_invalid_action():
 async def test_control_remote_service():
     """Test controlling a remote service through adapter."""
     adapter = MockRestAdapter(action_response={"ok": True, "unit": "remote.service", "action": "start"})
-    manager = ServiceManager(rest_adapter=adapter)
+    manager = ServiceManager(rest_adapter=adapter, mock_mode=True)
 
     result = await manager.control_service("remote.service", "start")
 
@@ -231,7 +234,7 @@ async def test_control_remote_service():
 @pytest.mark.asyncio
 async def test_set_adapter():
     """Test setting adapter dynamically."""
-    manager = ServiceManager()
+    manager = ServiceManager(mock_mode=True)
     assert manager._rest_adapter is None
 
     adapter = MockRestAdapter()
@@ -242,7 +245,7 @@ async def test_set_adapter():
 @pytest.mark.asyncio
 async def test_service_to_node_status_mapping():
     """Test status mapping in node generation."""
-    manager = ServiceManager()
+    manager = ServiceManager(mock_mode=True)
 
     # Test active status
     manager._local_services["test.service"] = {
@@ -297,7 +300,7 @@ async def test_service_manager_with_mock_systemd_adapter():
 @pytest.mark.asyncio
 async def test_get_local_services_async_with_mock_adapter():
     """Test get_local_services_async returns mock data when not using real systemd."""
-    manager = ServiceManager()
+    manager = ServiceManager(mock_mode=True)
 
     services = await manager.get_local_services_async()
 

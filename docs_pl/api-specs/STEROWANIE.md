@@ -1,162 +1,71 @@
-# API Sterowania
+# API sterowania
 
-Punkty końcowe ruchu i sterowania robotem.
+Rider-PC przekazuje żądania do Rider-Pi. Testy napędów są wyłącznie ręczne po
+zgodzie operatora na plan próby. Przykładowe pola opisują kontrakt, nie procedurę
+automatycznego uruchamiania urządzenia. Zobacz [bezpieczny klient](../BEZPIECZNY_KLIENT_ROBOTA.md).
 
-## Ścieżka Bazowa
-`/api/control`
+## Stan
 
-## Punkty Końcowe
+`GET /api/control/state` zwraca obserwację Pi oraz `source`, `observed_at`,
+`stale` i `offline`. Pole `safety` ma wersję 1, stan
+DISARMED/ARMED/ESTOP, `ready`, `can_move`, `read_only`, `owner`,
+`generation`, `last_seq` i metadane ACK. Brak wersji daje UNKNOWN/read-only.
 
-### POST /api/control
-Ogólny punkt końcowy komendy sterowania.
+## Koperta konkretnego potwierdzenia
 
-**Ciało Żądania:**
-```json
-{
-  "type": "drive|stop|spin",
-  "lx": 0.5,      // prędkość liniowa (opcjonalnie, -1.0 do 1.0)
-  "az": 0.0,      // prędkość kątowa (opcjonalnie, -1.0 do 1.0)
-  "duration": 0.5 // czas trwania w sekundach (opcjonalnie)
-}
-```
+Wszystkie żądania aktuatorów oraz arm/clear zawierają:
 
-**Odpowiedź:**
-```json
-{
-  "ok": true
-}
-```
+| Pole | Reguła |
+| --- | --- |
+| `generation` | Generacja z aktualnego stanu Pi; PC jej nie tworzy |
+| `seq` | Dodatnia liczba całkowita większa od ostatniej sekwencji |
+| `source` | `manual` dla HTTP operatora |
+| `ts` | Skończony czas UNIX potwierdzenia |
+| `ttl_ms` | Liczba całkowita 1–500; przeterminowane żądanie odrzucone |
 
-**Przykłady:**
+PC sprawdza kopertę i przekazuje ją bez zmiany. Nie odświeża starego żądania
+po STOP lub ponownym arm. Bez tych metadanych starszy UI pozostaje odczytowy.
+STOP można wysłać bez koperty.
 
-Jazda do przodu:
-```bash
-curl -X POST http://robot-ip:8080/api/control \
-  -H "Content-Type: application/json" \
-  -d '{"type": "drive", "lx": 0.5, "az": 0.0}'
-```
+## Zgoda i zatrzymanie
 
-Stop:
-```bash
-curl -X POST http://robot-ip:8080/api/control \
-  -H "Content-Type: application/json" \
-  -d '{"type": "stop"}'
-```
+`POST /api/safety` przyjmuje `action: arm|disarm|estop|clear_estop`.
+Arm i clear wymagają wyraźnego `operator_consent: true`, niepustego
+`operator_plan` oraz koperty. Arm wskazuje `owner: manual|follow_me|navigation`
+i `lease_s` ograniczony przez Pi do 30 sekund. Clear pozostawia napędy rozbrojone.
+Disarm/estop nie potrzebują potwierdzonej gotowości. PC niczego nie uzbraja
+podczas startu aplikacji, wyboru widoku, zadania, kamery ani providera.
 
-Obrót w lewo:
-```bash
-curl -X POST http://robot-ip:8080/api/control \
-  -H "Content-Type: application/json" \
-  -d '{"type": "spin", "dir": "left", "speed": 0.3, "duration": 0.5}'
-```
+## Aktuatory
 
----
+`POST /api/control` przyjmuje `cmd: move|spin|height|balance|action|stop`
+oraz pola właściwe dla komendy (np. vx/yaw/duration, height, enabled, action).
+Jednostki i limity napędów pochodzą z Pi, a nie z domyślnych parametrów klienta.
+Ruch wymaga świeżej bramy ARMED, ready=true, can_move=true i właściciela manual.
+Wysokość, balans i gotowe akcje podlegają tej samej regule.
 
-### POST /api/control/balance
-Sterowanie balansem/stabilizacją robota.
+`GET /api/motion/queue` przekazuje stan kolejki Pi. Pole
+`local_request_history` opisuje żądania PC i odpowiedzi, nie wykonanie na UART.
+Brak Pi daje stale/offline, bez lokalnego potwierdzenia zatrzymania.
 
-**Ciało Żądania:**
-```json
-{
-  "enabled": true  // true aby włączyć, false aby wyłączyć
-}
-```
+## Zadania i śledzenie
 
-**Odpowiedź:**
-```json
-{
-  "ok": true,
-  "sent": {
-    "enabled": true
-  }
-}
-```
+- `GET /api/logic/features`, `/summary`, `/catalog`: katalog i stan Pi v2.
+- `POST /api/logic/feature/{name}`: `enabled` musi być boolean. Start wymaga
+  jawnego can_move. Dla ruchu także koperty i zgodnego motion_owner.
+- `POST /api/vision/tracking/mode`: mode face/hand/none; aktywne śledzenie
+  wymaga właściciela follow_me. Wyłączenie nie uzbraja napędów.
+- `POST /api/navigator/start`, `/stop`: jawny start/stop zadania s9_navigation.
+- `POST /api/navigator/return_home`: koperta i właściciel navigation;
+  tylko potwierdzona odpowiedź Pi, bez lokalnej symulacji.
 
-**Temat Magistrali:** `cmd.balance` (TOPIC_MOTION_BALANCE)
+Katalog starszego Pi można odczytać, ale brak potwierdzonej zdolności v2 nie
+autoryzuje startu. Usługi i zasoby opisuje [osobny kontrakt](../ZARZADZANIE_USLUGAMI_I_ZASOBAMI.md).
 
-**Przykład:**
-```bash
-curl -X POST http://robot-ip:8080/api/control/balance \
-  -H "Content-Type: application/json" \
-  -d '{"enabled": true}'
-```
+## Wynik
 
----
-
-### POST /api/control/height
-Sterowanie wysokością/zawieszeniem robota.
-
-**Ciało Żądania:**
-```json
-{
-  "height": 128  // wartość wysokości (0-255)
-}
-```
-
-**Odpowiedź:**
-```json
-{
-  "ok": true,
-  "sent": {
-    "height": 128
-  }
-}
-```
-
-**Temat Magistrali:** `cmd.height` (TOPIC_MOTION_HEIGHT)
-
-**Przykład:**
-```bash
-curl -X POST http://robot-ip:8080/api/control/height \
-  -H "Content-Type: application/json" \
-  -d '{"height": 150}'
-```
-
----
-
-## Starsze Punkty Końcowe
-
-### POST /api/move
-Bezpośrednia komenda ruchu (format starszy).
-
-**Ciało Żądania:**
-```json
-{
-  "vx": 0.5,       // prędkość do przodu/tyłu
-  "vy": 0.0,       // prędkość w lewo/prawo (opcjonalnie)
-  "yaw": 0.0,      // prędkość obrotu
-  "duration": 0.5  // czas trwania w sekundach
-}
-```
-
-### POST /api/stop
-Zatrzymanie ruchu robota (starsze).
-
-### POST /api/preset
-Wykonanie predefiniowanego ruchu.
-
-**Ciało Żądania:**
-```json
-{
-  "name": "nazwa_presetu"
-}
-```
-
----
-
-## Implementacja
-
-**Moduł:** `services/api_core/control_api.py`
-
-**Publikowane Tematy Magistrali:**
-- `cmd.move` - Komendy ruchu
-- `cmd.stop` - Komenda stopu
-- `cmd.balance` - Sterowanie balansem
-- `cmd.height` - Sterowanie wysokością
-- `cmd.preset` - Wykonanie presetu
-
-## Zobacz Również
-
-- [API Nawigatora](NAWIGATOR.md) - Nawigacja autonomiczna
-- [common/bus.py](https://github.com/mpieniak01/Rider-Pi/blob/main/common/bus.py) - Definicje tematów magistrali
-- [Moduł Ruchu](https://github.com/mpieniak01/Rider-Pi/blob/main/docs/apps/motion.md) - Dokumentacja systemu ruchu
+Odpowiedź Pi zachowuje kod HTTP i pola `ok`, `confirmed`, `pending`,
+`request_id`, `ack`, `safety` i `physical_completion`, jeśli są dostępne.
+HTTP 202 oznacza oczekiwanie na ACK. HTTP 409 oznacza odmowę bramy, nieznaną
+zdolność albo starą kopertę. HTTP 503 oznacza brak połączenia; 502 błąd proxy.
+Sukces HTTP nie jest dowodem zakończenia fizycznego ruchu.

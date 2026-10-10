@@ -8,6 +8,7 @@ import asyncio
 import logging
 import platform
 import shutil
+from pathlib import Path
 from typing import Dict, Any, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -29,7 +30,10 @@ def is_systemd_available() -> bool:
         logger.debug("Systemd not available: systemctl binary not found")
         return False
 
-    return True
+    try:
+        return Path("/proc/1/comm").read_text().strip() == "systemd" and Path("/run/systemd/system").is_dir()
+    except OSError:
+        return False
 
 
 class SystemdAdapter:
@@ -154,7 +158,7 @@ class SystemdAdapter:
             "systemctl",
             "show",
             unit,
-            "--property=ActiveState,SubState,Description,UnitFileState",
+            "--property=ActiveState,SubState,Description,UnitFileState,LoadState",
             "--no-pager",
         )
 
@@ -181,6 +185,8 @@ class SystemdAdapter:
             "sub": details.get("SubState", "unknown"),
             "enabled": details.get("UnitFileState", "unknown"),
             "desc": details.get("Description", ""),
+            "load": details.get("LoadState", "unknown"),
+            "installed": details.get("LoadState") == "loaded",
         }
 
     async def manage_service(self, unit: str, action: str) -> Dict[str, Any]:

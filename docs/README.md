@@ -12,6 +12,8 @@ coordination; its integration is deferred.
 
 ## Interfaces and configuration
 
+- [Safe client and operator consent](SAFE_ROBOT_CLIENT.md).
+
 - [Pi ↔ PC integration](PC_OFFLOAD_INTEGRATION.md).
 - [Configuration](CONFIGURATION.md), [AI models](AI_MODEL_CONFIGURATION.md), [task queue](TASK_QUEUE_CONFIGURATION.md).
 - [Monitoring](MONITORING_CONFIGURATION.md), [service management](SERVICE_AND_RESOURCE_MANAGEMENT.md), [network configuration](SECURITY_CONFIGURATION.md).

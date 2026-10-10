@@ -1,7 +1,6 @@
 """Provider control and AI mode management endpoints."""
 
 import logging
-import time
 import uuid
 from typing import Any, Dict, Optional, TYPE_CHECKING, cast
 
@@ -9,7 +8,6 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from pc_client.adapters import RestAdapter
-from pc_client.cache import CacheManager
 from pc_client.config import Settings
 from pc_client.providers import TextProvider
 from pc_client.providers.text_provider import VALID_BACKENDS
@@ -117,7 +115,7 @@ def _default_provider_state() -> Dict[str, Any]:
     provider_domains = ("voice", "text", "vision")
     return {
         "domains": {
-            domain: {"mode": "local", "status": "local_only", "changed_ts": None} for domain in provider_domains
+            domain: {"mode": "unknown", "status": "unknown", "changed_ts": None} for domain in provider_domains
         },
         "pc_health": {"reachable": False, "status": "unknown"},
     }
@@ -128,35 +126,19 @@ def _default_provider_health() -> Dict[str, Any]:
     return {
         domain: {
             "status": "unknown",
-            "latency_ms": 0.0,
-            "success_rate": 1.0,
+            "latency_ms": None,
+            "success_rate": None,
             "last_check": None,
         }
         for domain in provider_domains
     }
 
 
-def _default_ai_mode() -> Dict[str, Any]:
-    return {"mode": "local", "changed_ts": None}
-
-
 @router.get("/api/system/ai-mode")
 async def get_ai_mode_route(request: Request) -> JSONResponse:
-    """Fetch AI mode from Rider-PI or cache."""
-    adapter: Optional[RestAdapter] = request.app.state.rest_adapter
-    cache: CacheManager = request.app.state.cache
-    cached = cache.get("ai_mode", _default_ai_mode())
-    if adapter:
-        try:
-            data = await adapter.get_ai_mode()
-            if isinstance(data, dict) and data:
-                cache.set("ai_mode", data)
-                return JSONResponse(content=data)
-        except Exception as exc:
-            logger.error("Failed to fetch AI mode from Rider-PI: %s", exc)
-    if cached:
-        return JSONResponse(content=cached)
-    raise HTTPException(status_code=502, detail="Unable to fetch AI mode")
+    from pc_client.api.routers.control_router import _remote_snapshot
+
+    return JSONResponse(await _remote_snapshot(request, "ai_mode", "get_ai_mode", {"mode": "unknown"}))
 
 
 async def _set_ai_mode(request: Request, payload: Dict[str, Any]) -> JSONResponse:
@@ -166,19 +148,9 @@ async def _set_ai_mode(request: Request, payload: Dict[str, Any]) -> JSONRespons
             status_code=400,
             content={"error": "Invalid mode. Must be 'local' or 'pc_offload'"},
         )
-    adapter: Optional[RestAdapter] = request.app.state.rest_adapter
-    cache: CacheManager = request.app.state.cache
-    if not adapter:
-        return JSONResponse(
-            status_code=503,
-            content={"error": "REST adapter not initialized"},
-        )
-    result = await adapter.set_ai_mode(mode)
-    if isinstance(result, dict) and "error" not in result:
-        cache.set("ai_mode", result)
-        return JSONResponse(content=result)
-    logger.error("Failed to set AI mode via Rider-PI: %s", result)
-    return JSONResponse(content=result or {"error": "Failed to set mode"}, status_code=502)
+    from pc_client.api.routers.control_router import _proxy_action
+
+    return await _proxy_action(request, "set_ai_mode", mode)
 
 
 @router.put("/api/system/ai-mode")
@@ -193,29 +165,15 @@ async def post_ai_mode_route(request: Request, payload: Dict[str, Any]) -> JSONR
 
 @router.get("/api/providers/state")
 async def providers_state(request: Request) -> JSONResponse:
-    """Fetch provider state information."""
-    adapter: Optional[RestAdapter] = request.app.state.rest_adapter
-    cache: CacheManager = request.app.state.cache
-    cached = cache.get("providers_state", _default_provider_state())
-    if adapter:
-        try:
-            data = await adapter.get_providers_state()
-            if isinstance(data, dict) and data:
-                cache.set("providers_state", data)
-                return JSONResponse(content=data)
-        except Exception as exc:
-            logger.error("Failed to fetch provider state from Rider-PI: %s", exc)
-    if cached:
-        return JSONResponse(content=cached)
-    raise HTTPException(status_code=502, detail="Unable to fetch provider state")
+    from pc_client.api.routers.control_router import _remote_snapshot
+
+    return JSONResponse(await _remote_snapshot(request, "providers", "get_providers_state", _default_provider_state()))
 
 
 @router.patch("/api/providers/{domain}")
 async def update_provider(request: Request, domain: str, payload: Dict[str, Any]) -> JSONResponse:
     """Update provider configuration for a specific domain."""
     adapter: Optional[RestAdapter] = request.app.state.rest_adapter
-    cache: CacheManager = request.app.state.cache
-
     domain = (domain or "").lower()
     valid_domains = {"voice", "text", "vision"}
     if domain not in valid_domains:
@@ -229,59 +187,20 @@ async def update_provider(request: Request, domain: str, payload: Dict[str, Any]
             status_code=400,
             content={"error": "Invalid target. Must be 'local' or 'pc'."},
         )
-    if adapter:
-        forwarded_payload: Dict[str, Any] = {"target": target}
-        if "force" in payload:
-            forwarded_payload["force"] = bool(payload.get("force"))
-        result = await adapter.patch_provider(domain, forwarded_payload)
-        if isinstance(result, dict) and "error" not in result:
-            cached_state_raw = cache.get("providers_state", _default_provider_state())
-            cached_state_snapshot: Dict[str, Any] = (
-                cached_state_raw if isinstance(cached_state_raw, dict) else _default_provider_state()
-            )
-            domains_raw = cached_state_snapshot.get("domains")
-            domains = cast(Dict[str, Dict[str, Any]], domains_raw) if isinstance(domains_raw, dict) else None
-            if isinstance(domains, dict) and domain in domains:
-                domains[domain]["mode"] = target
-                domains[domain]["status"] = "pc_active" if target == "pc" else "local_only"
-                domains[domain]["changed_ts"] = time.time()
-                cache.set("providers_state", cached_state_snapshot)
-            return JSONResponse(content=result)
-        logger.error("Failed to patch provider via Rider-PI: %s", result)
-        return JSONResponse(content=result or {"error": "Failed to update provider"}, status_code=502)
+    if adapter is None:
+        return JSONResponse({"ok": False, "error": "pi_offline"}, status_code=503)
+    from pc_client.api.routers.control_router import _proxy_action
 
-    cached_state_raw = cache.get("providers_state", _default_provider_state())
-    cached_state: Dict[str, Any] = cached_state_raw if isinstance(cached_state_raw, dict) else _default_provider_state()
-    domains = cast(Dict[str, Dict[str, Any]], cached_state.setdefault("domains", {}))
-    domain_entry = domains.get(domain, {"mode": "local", "status": "local_only", "changed_ts": None})
-    domain_entry["mode"] = target
-    domain_entry["status"] = "pc_active" if target == "pc" else "local_only"
-    domain_entry["changed_ts"] = time.time()
-    domains[domain] = domain_entry
-    cache.set("providers_state", cached_state)
-    return JSONResponse(
-        content={"success": True, "domain": domain, "new_state": domain_entry},
-        status_code=200,
-    )
+    return await _proxy_action(request, "patch_provider", domain, payload)
 
 
 @router.get("/api/providers/health")
 async def providers_health(request: Request) -> JSONResponse:
-    """Fetch provider health metrics."""
-    adapter: Optional[RestAdapter] = request.app.state.rest_adapter
-    cache: CacheManager = request.app.state.cache
-    cached = cache.get("providers_health", _default_provider_health())
-    if adapter:
-        try:
-            data = await adapter.get_providers_health()
-            if isinstance(data, dict) and data:
-                cache.set("providers_health", data)
-                return JSONResponse(content=data)
-        except Exception as exc:
-            logger.error("Failed to fetch provider health from Rider-PI: %s", exc)
-    if cached:
-        return JSONResponse(content=cached)
-    raise HTTPException(status_code=502, detail="Unable to fetch provider health")
+    from pc_client.api.routers.control_router import _remote_snapshot
+
+    return JSONResponse(
+        await _remote_snapshot(request, "provider_health", "get_providers_health", _default_provider_health())
+    )
 
 
 @router.get("/api/services/graph")
@@ -293,17 +212,17 @@ async def services_graph(request: Request) -> JSONResponse:
     service_manager: Optional["ServiceManager"] = getattr(request.app.state, "service_manager", None)
     if service_manager is not None:
         service_manager.set_adapter(request.app.state.rest_adapter)
+        service_manager.set_providers(request.app.state.providers)
         graph_data = await service_manager.get_service_graph()
         return JSONResponse(content=graph_data)
 
-    # Fallback to cache if ServiceManager not available
-    cache: CacheManager = request.app.state.cache
-    graph_data = cache.get(
-        "services_graph",
+    return JSONResponse(
         {
-            "generated_at": time.time(),
+            "generated_at": None,
             "nodes": [],
             "edges": [],
-        },
+            "stale": True,
+            "offline": True,
+            "error": "service_manager_unavailable",
+        }
     )
-    return JSONResponse(content=graph_data)

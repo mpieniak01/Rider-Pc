@@ -126,7 +126,7 @@ def test_service_not_found_emits_error_log(test_client):
     sse_manager._backlog.clear()
 
     # Try to start a non-existent service
-    response = client.post("/svc/nonexistent.service", json={"action": "start"})
+    response = client.post("/svc/nonexistent.service", json={"action": "start", "host": "pc"})
 
     assert response.status_code == 404
 

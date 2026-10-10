@@ -23,6 +23,7 @@ async def test_get_healthz_success(rest_adapter):
     with patch.object(rest_adapter.client, "get", new_callable=AsyncMock) as mock_get:
         # Create a proper mock response object
         mock_resp = MagicMock()
+        mock_resp.status_code = 200
         mock_resp.json.return_value = mock_response
         mock_resp.raise_for_status.return_value = None
         mock_get.return_value = mock_resp
@@ -52,6 +53,7 @@ async def test_get_state(rest_adapter):
 
     with patch.object(rest_adapter.client, "get", new_callable=AsyncMock) as mock_get:
         mock_resp = MagicMock()
+        mock_resp.status_code = 200
         mock_resp.json.return_value = mock_response
         mock_resp.raise_for_status.return_value = None
         mock_get.return_value = mock_resp
@@ -69,6 +71,7 @@ async def test_get_sysinfo(rest_adapter):
 
     with patch.object(rest_adapter.client, "get", new_callable=AsyncMock) as mock_get:
         mock_resp = MagicMock()
+        mock_resp.status_code = 200
         mock_resp.json.return_value = mock_response
         mock_resp.raise_for_status.return_value = None
         mock_get.return_value = mock_resp
@@ -86,6 +89,7 @@ async def test_get_vision_snap_info(rest_adapter):
 
     with patch.object(rest_adapter.client, "get", new_callable=AsyncMock) as mock_get:
         mock_resp = MagicMock()
+        mock_resp.status_code = 200
         mock_resp.json.return_value = mock_response
         mock_resp.raise_for_status.return_value = None
         mock_get.return_value = mock_resp
@@ -103,6 +107,7 @@ async def test_get_vision_obstacle(rest_adapter):
 
     with patch.object(rest_adapter.client, "get", new_callable=AsyncMock) as mock_get:
         mock_resp = MagicMock()
+        mock_resp.status_code = 200
         mock_resp.json.return_value = mock_response
         mock_resp.raise_for_status.return_value = None
         mock_get.return_value = mock_resp
@@ -120,6 +125,7 @@ async def test_get_app_metrics(rest_adapter):
 
     with patch.object(rest_adapter.client, "get", new_callable=AsyncMock) as mock_get:
         mock_resp = MagicMock()
+        mock_resp.status_code = 200
         mock_resp.json.return_value = mock_response
         mock_resp.raise_for_status.return_value = None
         mock_get.return_value = mock_resp
@@ -137,6 +143,7 @@ async def test_get_resource_success(rest_adapter):
 
     with patch.object(rest_adapter.client, "get", new_callable=AsyncMock) as mock_get:
         mock_resp = MagicMock()
+        mock_resp.status_code = 200
         mock_resp.json.return_value = mock_response
         mock_resp.raise_for_status.return_value = None
         mock_get.return_value = mock_resp
@@ -166,6 +173,7 @@ async def test_post_resource_action(rest_adapter):
 
     with patch.object(rest_adapter.client, "post", new_callable=AsyncMock) as mock_post:
         mock_resp = MagicMock()
+        mock_resp.status_code = 200
         mock_resp.json.return_value = mock_response
         mock_resp.raise_for_status.return_value = None
         mock_post.return_value = mock_resp
@@ -184,6 +192,7 @@ async def test_post_control(rest_adapter):
 
     with patch.object(rest_adapter.client, "post", new_callable=AsyncMock) as mock_post:
         mock_resp = MagicMock()
+        mock_resp.status_code = 200
         mock_resp.json.return_value = mock_response
         mock_resp.raise_for_status.return_value = None
         mock_post.return_value = mock_resp
@@ -199,6 +208,7 @@ async def test_ai_mode_methods(rest_adapter):
     """Test AI mode getter and setter."""
     with patch.object(rest_adapter.client, "get", new_callable=AsyncMock) as mock_get:
         mock_resp = MagicMock()
+        mock_resp.status_code = 200
         mock_resp.json.return_value = {"mode": "local", "changed_ts": 123}
         mock_resp.raise_for_status.return_value = None
         mock_get.return_value = mock_resp
@@ -208,6 +218,7 @@ async def test_ai_mode_methods(rest_adapter):
 
     with patch.object(rest_adapter.client, "put", new_callable=AsyncMock) as mock_put:
         mock_resp = MagicMock()
+        mock_resp.status_code = 200
         mock_resp.json.return_value = {"mode": "pc_offload"}
         mock_resp.raise_for_status.return_value = None
         mock_put.return_value = mock_resp
@@ -224,6 +235,7 @@ async def test_provider_methods(rest_adapter):
     """Test provider state and health helpers."""
     with patch.object(rest_adapter.client, "get", new_callable=AsyncMock) as mock_get_state:
         mock_resp = MagicMock()
+        mock_resp.status_code = 200
         mock_resp.json.return_value = {"domains": {}}
         mock_resp.raise_for_status.return_value = None
         mock_get_state.return_value = mock_resp
@@ -233,6 +245,7 @@ async def test_provider_methods(rest_adapter):
 
     with patch.object(rest_adapter.client, "patch", new_callable=AsyncMock) as mock_patch:
         mock_resp = MagicMock()
+        mock_resp.status_code = 200
         mock_resp.json.return_value = {"success": True}
         mock_resp.raise_for_status.return_value = None
         mock_patch.return_value = mock_resp
@@ -245,6 +258,7 @@ async def test_provider_methods(rest_adapter):
 
     with patch.object(rest_adapter.client, "get", new_callable=AsyncMock) as mock_get_health:
         mock_resp = MagicMock()
+        mock_resp.status_code = 200
         mock_resp.json.return_value = {"voice": {"status": "online"}}
         mock_resp.raise_for_status.return_value = None
         mock_get_health.return_value = mock_resp

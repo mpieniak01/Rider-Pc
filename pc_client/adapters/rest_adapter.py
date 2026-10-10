@@ -429,23 +429,32 @@ class RestAdapter:
             logger.error(f"Error posting /api/resource/{resource_name}: {e}")
             return {"ok": False, "error": str(e)}
 
-    async def post_control(self, command: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Send control command to /api/control endpoint.
-
-        Args:
-            command: Control command data
-
-        Returns:
-            Response data
-        """
+    async def _post_operator_action(self, path, payload):
         try:
-            response = await self.client.post(f"{self.base_url}/api/control", json=command)
+            response = await self.client.post(f"{self.base_url}{path}", json=payload)
+            result = response.json()
+            if response.status_code == 202 or response.status_code >= 400:
+                result["_http_status"] = response.status_code
+            return result
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
+
+    async def post_control(self, command: Dict[str, Any]) -> Dict[str, Any]:
+        return await self._post_operator_action("/api/control", command)
+
+    async def post_safety(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return await self._post_operator_action("/api/safety", payload)
+
+    async def post_navigator_return_home(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return await self._post_operator_action("/api/navigator/return_home", payload)
+
+    async def get_logic_catalog(self) -> Dict[str, Any]:
+        try:
+            response = await self.client.get(f"{self.base_url}/api/logic/catalog")
             response.raise_for_status()
             return response.json()
-        except Exception as e:
-            logger.error(f"Error posting to /api/control: {e}")
-            return {"ok": False, "error": str(e)}
+        except Exception as exc:
+            return {"error": str(exc)}
 
     async def get_control_state(self) -> Dict[str, Any]:
         """Fetch control state snapshot from Rider-PI."""
@@ -468,30 +477,10 @@ class RestAdapter:
             return {"ok": False, "error": str(e)}
 
     async def post_feature_toggle(self, name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Toggle feature state via Rider-PI FeatureManager."""
-        try:
-            response = await self.client.post(
-                f"{self.base_url}/api/logic/feature/{quote(name, safe='')}",
-                json=payload or {},
-            )
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error posting /api/logic/feature/{name}: {e}")
-            return {"ok": False, "error": str(e)}
+        return await self._post_operator_action(f"/api/logic/feature/{quote(name, safe='')}", payload or {})
 
     async def post_tracking_mode(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Send tracking mode command to Rider-PI."""
-        try:
-            response = await self.client.post(
-                f"{self.base_url}/api/vision/tracking/mode",
-                json=payload,
-            )
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error posting /api/vision/tracking/mode: {e}")
-            return {"ok": False, "error": str(e)}
+        return await self._post_operator_action('/api/vision/tracking/mode', payload or {})
 
     async def get_logic_features(self) -> Dict[str, Any]:
         """Fetch logic feature registry from Rider-PI."""
@@ -528,14 +517,4 @@ class RestAdapter:
         return await self.get_services()
 
     async def service_action(self, unit: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Forward service control action to Rider-PI."""
-        try:
-            response = await self.client.post(
-                f"{self.base_url}/svc/{quote(unit, safe='')}",
-                json=payload or {},
-            )
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error posting /svc/{unit}: {e}")
-            return {"ok": False, "error": str(e)}
+        return await self._post_operator_action(f"/svc/{quote(unit, safe='')}", payload or {})

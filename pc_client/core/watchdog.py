@@ -52,7 +52,9 @@ class ServiceWatchdog:
             raise ValueError("check_interval_seconds must be positive")
 
         self._service_manager = service_manager
-        self._monitored_services = monitored_services or []
+        self._monitored_services = (
+            list(monitored_services) if monitored_services is not None else list(service_manager.monitored_services)
+        )
         self._max_retry_count = max_retry_count
         self._retry_window_seconds = retry_window_seconds
         self._check_interval_seconds = check_interval_seconds
@@ -73,13 +75,18 @@ class ServiceWatchdog:
 
     def _get_monitored_units(self, services: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Filter services to only those that should be monitored."""
-        if not self._monitored_services:
-            # If no specific services configured, monitor all local services
-            return [s for s in services if s.get("is_local", True)]
-
-        # Filter to only monitored services
         monitored_set = set(self._monitored_services)
-        return [s for s in services if s.get("unit") in monitored_set]
+        return [
+            s
+            for s in services
+            if s.get("is_local") is True
+            and s.get("unit") in monitored_set
+            and s.get("source") == "systemd"
+            and s.get("can_move") is False
+            and s.get("desired") == "active"
+            and not s.get("stale")
+            and not s.get("offline")
+        ]
 
     def _should_auto_heal(self, unit: str) -> bool:
         """Check if a service should be auto-healed based on retry count.
@@ -195,7 +202,7 @@ class ServiceWatchdog:
                 )
 
                 try:
-                    result = await self._service_manager.control_service(unit, "restart")
+                    result = await self._service_manager.control_service(unit, "restart", host="pc", automatic=True)
                     if result.get("ok"):
                         logger.info("Auto-heal restart initiated for %s", unit)
                     else:

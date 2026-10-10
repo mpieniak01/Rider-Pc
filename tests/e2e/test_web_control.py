@@ -22,7 +22,6 @@ The mock backend is enabled automatically - no manual configuration needed.
 import json
 import time
 import pytest
-from playwright.sync_api import TimeoutError
 
 pytestmark = pytest.mark.timeout(60)
 
@@ -41,11 +40,17 @@ SELECTOR_WAIT_TIMEOUT_MS = 5000
 
 
 def _open_control_page(page, base_url):
-    """Open control.html without blocking on long-lived requests."""
-    try:
-        response = page.goto(f"{base_url}/web/control.html", wait_until="commit", timeout=5000)
-    except TimeoutError:
-        response = None
+    """Wait for the legacy module's event handlers, including its awaited i18n."""
+    page.add_init_script("""
+        const attach = EventTarget.prototype.addEventListener;
+        EventTarget.prototype.addEventListener = function(type, listener, options) {
+            const result = attach.call(this, type, listener, options);
+            if (this.id === "btnFwd" && type === "click") window.__testControlReady = true;
+            return result;
+        };
+    """)
+    response = page.goto(f"{base_url}/web/control.html", wait_until="domcontentloaded", timeout=15000)
+    page.wait_for_function("window.__testControlReady === true", timeout=15000)
     return response
 
 
@@ -86,13 +91,10 @@ def test_critical_elements_render(browser_context):
     svc_table = page.locator("#svcTable")
     assert svc_table.count() > 0, "Services table element should exist"
 
-    # Check camera preview section exists
-    cam_prev = page.locator("#camPrev")
-    assert cam_prev.count() > 0
-    assert cam_prev.first.is_visible()
-
-    # Note: Camera preview src may be removed by JavaScript if backend is offline
-    # We just verify the element exists and is visible
+    # Offline/disabled preview may hide the image; the operator still sees the card.
+    assert page.locator(".cam-card").is_visible()
+    assert page.locator("#camInfo").is_visible()
+    assert page.locator("#camPrev").count() == 1
 
 
 def test_api_status_indicator(browser_context):
@@ -114,31 +116,25 @@ def test_api_status_indicator(browser_context):
     # but the overall page structure is verified by other tests
 
 
-def test_motion_button_forward_sends_api_request(browser_context):
-    """Test that clicking Forward button sends correct API request."""
+def test_legacy_forward_request_is_rejected_without_operator_envelope(browser_context):
+    """The old panel cannot authorize motion or silently arm the mock robot."""
     page, base_url = browser_context
-
     _open_control_page(page, base_url)
 
-    # Click forward button and wait for API request
-    with page.expect_request("**/api/control") as request_info:
+    with page.expect_response(
+        lambda response: response.url == f"{base_url}/api/control" and response.request.method == "POST"
+    ) as response_info:
         page.locator("#btnFwd").click()
 
-    # Get the request object
-    req = request_info.value
-    assert req.method == "POST", "Should send a POST request to /api/control"
-    assert "/api/control" in req.url, "Request URL should contain /api/control"
-
-    # Verify request payload
-    post_data = req.post_data
-    assert post_data is not None, "Request should have POST data"
-
-    # Parse JSON payload
-    payload = json.loads(post_data)
-    assert payload.get("cmd") == "move", "Command should be 'move'"
-    assert payload.get("dir") == "forward", "Direction should be 'forward'"
-    assert "v" in payload, "Payload should include velocity"
-    assert "t" in payload, "Payload should include time"
+    response = response_info.value
+    payload = response.request.post_data_json
+    assert payload["cmd"] == "move"
+    assert payload["dir"] == "forward"
+    assert "generation" not in payload
+    assert "operator_consent" not in payload
+    assert response.status == 409
+    assert response.json()["detail"] == "explicit_fresh_operator_envelope_required"
+    assert not any(request.method == "POST" and "/api/safety" in request.url for request in page.requests)
 
 
 def test_stop_button_sends_stop_command(browser_context):

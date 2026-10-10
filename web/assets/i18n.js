@@ -745,6 +745,7 @@ export const I18N = {
     no_services_group:  { pl: "Brak usług w tej grupie (audit)", en: "No services in this group (audit)" },
     service_change_error: { pl: "Nie udało się zmienić stanu usługi", en: "Failed to change service state" },
     connection_error:   { pl: "Błąd połączenia: {msg}", en: "Connection error: {msg}" },
+    tooltip_readonly: { pl: "Stan usługi — tylko odczyt", en: "Service status — read only" },
     tooltip_stop:       { pl: "Kliknij, aby zatrzymać usługę", en: "Click to stop service" },
     tooltip_start:      { pl: "Kliknij, aby uruchomić usługę", en: "Click to start service" },
     service_action:     { pl: "Usługa {unit}: {status}", en: "Service {unit}: {status}" },

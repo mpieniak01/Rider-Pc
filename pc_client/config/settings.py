@@ -206,6 +206,10 @@ class Settings:
     # Systemd service management configuration
     # Comma-separated list of systemd units to monitor (e.g., "rider-pc.service,rider-voice.service")
     monitored_services: List[str] = field(default_factory=_parse_monitored_services)
+    # Jawna allowlista jednostek bez dostępu do aktuatorów.
+    non_actuating_services: List[str] = field(
+        default_factory=lambda: [s.strip() for s in os.getenv("NON_ACTUATING_SERVICES", "").split(",") if s.strip()]
+    )
     # Whether to use sudo for systemctl commands (set to false if running as root)
     systemd_use_sudo: bool = field(default_factory=lambda: os.getenv("SYSTEMD_USE_SUDO", "true").lower() == "true")
 

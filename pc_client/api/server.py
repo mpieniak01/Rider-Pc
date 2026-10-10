@@ -144,7 +144,14 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
         "media_type": "image/png",
     }
     app.state.sse_manager = SseManager()
-    app.state.service_manager = ServiceManager()  # Initialize ServiceManager
+    app.state.service_manager = ServiceManager(
+        monitored_services=settings.monitored_services,
+        non_actuating_services=settings.non_actuating_services,
+        use_sudo=settings.systemd_use_sudo,
+        mock_mode=settings.test_mode,
+    )
+    app.state.remote_snapshots = {}
+    app.state.remote_safety = app.state.service_manager.safety
     app.state.sync_task = None
     app.state.provider_heartbeat_task = None
     app.state.camera_sync_task = None

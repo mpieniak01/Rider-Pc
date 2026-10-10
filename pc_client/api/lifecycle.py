@@ -48,7 +48,9 @@ async def ensure_task_queue(app: FastAPI) -> None:
     queue = TaskQueue(max_size=settings.task_queue_max_size)
 
     telemetry_endpoint = None
-    if settings.enable_telemetry or settings.enable_vision_offload or settings.enable_voice_offload:
+    if not settings.test_mode and (
+        settings.enable_telemetry or settings.enable_vision_offload or settings.enable_voice_offload
+    ):
         telemetry_endpoint = settings.telemetry_zmq_endpoint
 
     telemetry_publisher = (
@@ -657,17 +659,17 @@ async def startup_event(app: FastAPI):
 
     # Initialize and start ServiceWatchdog if enabled
     app.state.service_watchdog = None
-    if settings.auto_heal_enabled:
+    if settings.auto_heal_enabled and not settings.test_mode:
         watchdog = ServiceWatchdog(
             service_manager=app.state.service_manager,
-            monitored_services=settings.monitored_services,
+            monitored_services=app.state.service_manager.monitored_services,
             max_retry_count=settings.max_retry_count,
             retry_window_seconds=settings.retry_window_seconds,
             sse_publish_fn=app.state.sse_manager.publish,
         )
         await watchdog.start()
         app.state.service_watchdog = watchdog
-        monitored_count = len(settings.monitored_services) if settings.monitored_services else "all local"
+        monitored_count = len(settings.monitored_services) if settings.monitored_services else "none"
         logger.info(
             "ServiceWatchdog started (monitored=%s services, max_retry=%d, window=%ds)",
             monitored_count,
