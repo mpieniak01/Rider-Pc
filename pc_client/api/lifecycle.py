@@ -486,11 +486,17 @@ def create_zmq_handlers(app: FastAPI, cache: CacheManager):
 
     def cache_handler(topic: str, data: Dict[str, Any]):
         """Handler to cache ZMQ messages."""
+        original = data
         if topic == "vision.obstacle" and isinstance(data, dict):
             data = received_snapshot(
                 data, source=adapter_source(getattr(app.state, "rest_adapter", None)), received_at=time.time()
             )
         cache.set(f"zmq:{topic}", data)
+        # Surowe klatki/audio zostają wyłącznie wejściem kolejki, nie SSE/backlogiem.
+        if topic not in {"vision.frame.offload", "voice.asr.request", "voice.tts.request"}:
+            manager = getattr(app.state, "sse_manager", None)
+            if manager is not None:
+                manager.publish({"topic": topic, "data": original, "source": "pi/bus", "received_at": time.time()})
         logger.debug(f"Cached ZMQ message for topic: {topic}")
 
     async def vision_frame_handler(topic: str, data: Dict[str, Any]):
@@ -586,7 +592,18 @@ async def startup_event(app: FastAPI):
         from pc_client.adapters import ZmqSubscriber
 
         app.state.zmq_subscriber = ZmqSubscriber(
-            settings.zmq_pub_endpoint, topics=["vision.*", "voice.*", "motion.*", "robot.*", "navigator.*"]
+            settings.zmq_pub_endpoint,
+            topics=[
+                "vision.*",
+                "voice.*",
+                "motion.*",
+                "robot.*",
+                "navigator.*",
+                "tracking.*",
+                "camera.*",
+                "mapper.map.data",
+                "imu.data",
+            ],
         )
 
         # Register ZMQ handlers to update cache
@@ -594,7 +611,17 @@ async def startup_event(app: FastAPI):
             app, app.state.cache
         )
 
-        for topic in ["vision.*", "voice.*", "motion.*", "robot.*", "navigator.*"]:
+        for topic in [
+            "vision.*",
+            "voice.*",
+            "motion.*",
+            "robot.*",
+            "navigator.*",
+            "tracking.*",
+            "camera.*",
+            "mapper.map.data",
+            "imu.data",
+        ]:
             app.state.zmq_subscriber.subscribe_topic(topic, cache_handler)
 
         if app.state.vision_offload_enabled:

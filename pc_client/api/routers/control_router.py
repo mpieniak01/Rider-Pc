@@ -9,12 +9,15 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
+import httpx
+
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from pc_client.adapters import RestAdapter
 from pc_client.api.sse_manager import SseManager
 from pc_client.core.remote_safety import finite_number
+from pc_client.api.telemetry_snapshot import received_snapshot, unavailable_snapshot, transport_failure
 
 if TYPE_CHECKING:
     from pc_client.providers import VisionProvider
@@ -36,6 +39,8 @@ async def proxy_remote_media(request: Request, remote_path: str) -> Response:
         content, media_type, remote_headers = await adapter.fetch_binary(remote_path, params=params)
         headers = {key: value for key, value in remote_headers.items() if key.lower() != "content-type"}
         return Response(content=content, media_type=media_type, headers=headers)
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(status_code=exc.response.status_code, detail="Remote frame unavailable") from exc
     except Exception as e:
         logger.error(f"Failed to proxy {remote_path}: {e}")
         raise HTTPException(status_code=502, detail="Unable to fetch remote media")
@@ -45,6 +50,11 @@ async def proxy_remote_media(request: Request, remote_path: str) -> Response:
 async def vision_cam_proxy(request: Request):
     """Proxy raw camera feed."""
     return await proxy_remote_media(request, "/vision/cam")
+
+
+@router.get("/vision/obst")
+async def vision_obst_proxy(request: Request):
+    return await proxy_remote_media(request, "/vision/obst")
 
 
 @router.get("/vision/ssd")
@@ -66,7 +76,7 @@ async def vision_tracker_proxy(request: Request):
         from pc_client.providers import VisionProvider
     if provider is not None and isinstance(provider, VisionProvider):
         overlay, ts, fps = provider.get_tracker_snapshot()
-        if overlay:
+        if overlay and finite_number(ts) and 0 <= time.time() - ts <= 3:
             headers = {
                 "X-Tracker-FPS": f"{fps:.1f}",
                 "X-Tracker-TS": f"{ts:.3f}",
@@ -125,20 +135,20 @@ def _demo_adapter(request):
     return isinstance(adapter, MockRestAdapter)
 
 
-async def _remote_snapshot(request, key, method, empty):
+async def _remote_snapshot(request, key, method, empty, *args):
     adapter = request.app.state.rest_adapter
     snapshots = request.app.state.remote_snapshots
     try:
         if adapter is None:
             raise RuntimeError("pi_offline")
-        result = await getattr(adapter, method)()
-        if not isinstance(result, dict) or result.get("error"):
+        result = await getattr(adapter, method)(*args)
+        if not isinstance(result, dict) or transport_failure(result):
             raise RuntimeError((result or {}).get("error", "invalid_response"))
-        result = dict(result)
-        result["source"] = "demo" if _demo_adapter(request) else "pi"
-        result.setdefault("stale", False)
-        result.setdefault("offline", False)
-        result.setdefault("observed_at", time.time())
+        quality = {key: result.get(key) for key in ("stale", "offline")}
+        result = received_snapshot(result, source="demo" if _demo_adapter(request) else "pi", received_at=time.time())
+        # Błąd konfiguracji/domeny nie oznacza awarii transportu ani starego odczytu.
+        for flag, value in quality.items():
+            result[flag] = value is True
         if key == "control":
             safety = result.get("safety", {})
             if safety.get("contract_version") != 1:
@@ -152,9 +162,12 @@ async def _remote_snapshot(request, key, method, empty):
         snapshots[key] = result
         return result
     except Exception as exc:
-        result = dict(snapshots.get(key, empty))
-        result.update(ok=False, source=result.get("source", "pi"), stale=True, offline=True, error=str(exc))
-        result.setdefault("observed_at", None)
+        result = unavailable_snapshot(
+            snapshots.get(key, empty),
+            source="demo" if _demo_adapter(request) else "pi",
+            error=str(exc),
+            attempted_at=time.time(),
+        )
         if key == "control":
             result["safety"] = {
                 "state": "UNKNOWN",
@@ -174,10 +187,21 @@ async def _proxy_action(request, method, *args):
         result = await getattr(adapter, method)(*args)
         if not isinstance(result, dict):
             raise ValueError("invalid_response")
+        result = dict(result)
         status = result.pop("_http_status", None)
-        if result.get("ok") is not True and result.get("status") != "ok":
+        operation = result.get("operation") or {}
+        legacy_provider = (
+            method == "patch_provider"
+            and isinstance(result.get("state"), dict)
+            and isinstance(result.get("changed"), bool)
+            and not result.get("error")
+        )
+        pending = status == 202 or result.get("pending") is True or operation.get("status") == "pending"
+        if result.get("error") or (
+            result.get("ok") is not True and result.get("status") != "ok" and not legacy_provider and not pending
+        ):
             return JSONResponse(result, status_code=status or 502)
-        return JSONResponse(result, status_code=status or (202 if result.get("pending") else 200))
+        return JSONResponse(result, status_code=status or (202 if pending else 200))
     except Exception as exc:
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
 
@@ -244,8 +268,7 @@ async def api_control_state(request: Request) -> JSONResponse:
 async def update_tracking_mode(request: Request, payload: Dict[str, Any]) -> JSONResponse:
     mode, enabled = _normalize_tracking_request(payload)
     body = {**payload, "mode": mode, "enabled": enabled}
-    if enabled:
-        body.update(await _motion_context(request, "follow_me", supplied=body))
+    # Ten alias oznacza pasywne S6; nie uruchamia producenta ruchu S3.
     return await _proxy_action(request, "post_tracking_mode", body)
 
 
@@ -265,11 +288,16 @@ async def feature_toggle(request: Request, name: str, payload: Dict[str, Any]) -
             or type(catalog.get("contract_version")) is not int
             or catalog["contract_version"] != 2
             or not finite_number(catalog.get("observed_at"))
-            or not 0 <= time.time() - catalog["observed_at"] <= 3
+            or not 0
+            <= (catalog.get("server_time") if finite_number(catalog.get("server_time")) else time.time())
+            - catalog["observed_at"]
+            <= 3
             or not row
             or not isinstance(row.get("can_move"), bool)
         ):
             raise HTTPException(status_code=409, detail="unconfirmed_task_capability")
+        if row.get("start_available") is False:
+            raise HTTPException(status_code=409, detail=row.get("start_unavailable_reason") or "capability_unavailable")
         if row.get("installed") is False or row.get("stale") is True:
             raise HTTPException(status_code=409, detail="task_unavailable")
         if row["can_move"]:
@@ -330,37 +358,16 @@ async def navigator_stop(request: Request) -> JSONResponse:
 
 @router.post("/api/navigator/return_home")
 async def navigator_return_home(request: Request, payload: Dict[str, Any]) -> JSONResponse:
-    context = await _motion_context(request, "navigation", supplied=payload)
-    return await _proxy_action(request, "post_navigator_return_home", {**payload, **context})
+    raise HTTPException(status_code=409, detail="navigation_traversal_unverified")
 
 
 @router.get("/api/resource/{resource_name}")
 async def get_resource_status(request: Request, resource_name: str) -> JSONResponse:
-    adapter = request.app.state.rest_adapter
-    snapshots = request.app.state.remote_snapshots
-    key = "resource:" + resource_name
-    try:
-        if adapter is None:
-            raise RuntimeError("pi_offline")
-        result = await adapter.get_resource(resource_name)
-        if not isinstance(result, dict) or result.get("error"):
-            raise RuntimeError((result or {}).get("error", "invalid_response"))
-        result = {**result, "source": "demo" if _demo_adapter(request) else "pi"}
-        result.setdefault("stale", False)
-        result.setdefault("offline", False)
-        result.setdefault("observed_at", time.time())
-        snapshots[key] = result
-    except Exception as exc:
-        result = {
-            **snapshots.get(key, {}),
-            "name": resource_name,
-            "free": None,
-            "source": snapshots.get(key, {}).get("source", "pi"),
-            "stale": True,
-            "offline": True,
-            "error": str(exc),
-        }
-    return JSONResponse(result)
+    return JSONResponse(
+        await _remote_snapshot(
+            request, "resource:" + resource_name, "get_resource", {"name": resource_name, "free": None}, resource_name
+        )
+    )
 
 
 @router.post("/api/resource/{resource_name}")
@@ -473,7 +480,9 @@ async def camera_last_head(request: Request) -> Response:
 async def events(request: Request):
     """Server-sent events endpoint for UI panels."""
     manager = _get_sse_manager(request)
-    queue = manager.subscribe()
+    cursor = request.headers.get("last-event-id") or request.query_params.get("after")
+    after_id = int(cursor) if cursor and cursor.isdigit() else None
+    queue = manager.subscribe(after_id)
 
     async def event_generator():
         try:
@@ -484,8 +493,27 @@ async def events(request: Request):
                     payload = await asyncio.wait_for(queue.get(), timeout=5.0)
                 except asyncio.TimeoutError:
                     payload = {"topic": "heartbeat", "data": {"status": "ok"}, "ts": time.time()}
-                yield f"data: {json.dumps(payload)}\n\n"
+                event_id = payload.get("event_id")
+                prefix = f"id: {event_id}\n" if event_id is not None else ""
+                yield f"{prefix}data: {json.dumps(payload)}\n\n"
         finally:
             manager.unsubscribe(queue)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@router.get("/api/odometry/state")
+@router.get("/api/calibration/state")
+@router.get("/api/calibration/profiles")
+@router.get("/api/calibration/profiles/{digest}")
+async def configuration_snapshot(request: Request, digest: str = ""):
+    path = request.url.path
+    return JSONResponse(await _remote_snapshot(request, path, "get_json", {}, path))
+
+
+@router.post("/api/odometry/reference")
+@router.post("/api/calibration/profiles")
+@router.post("/api/calibration/activate")
+async def configuration_request(request: Request, payload: Dict[str, Any]):
+    # API źródła waliduje oryginalną DISARMED kopertę/zgodę. Proxy nic nie dodaje.
+    return await _proxy_action(request, "_post_operator_action", request.url.path, payload)

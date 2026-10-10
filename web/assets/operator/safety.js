@@ -28,7 +28,7 @@ export class SafetyPanel {
     window.addEventListener('pagehide', () => { this.suspend(); clearInterval(this.expiry); this.poller.stop(); });
   }
   preparation() {
-    if (document.getElementById('arm-form') || !['navigation', 'system'].includes(document.body.dataset.page)) return;
+    if (document.getElementById('arm-form') || document.body.dataset.page !== 'system') return;
     const card = document.querySelector('.operator-safety'); if (!card) return;
     const translated = (tag, pl, en) => { const node = el(tag, '', tr(pl, en)); node.dataset.pl = pl; node.dataset.en = en; return node; };
     const section = el('details'); section.append(translated('summary', 'Przygotuj zgodę na tym widoku', 'Prepare permission in this view'));
@@ -37,7 +37,7 @@ export class SafetyPanel {
     for (const name of ['manual', 'follow_me', 'navigation']) { const option = el('option', '', name); option.value = name; owner.append(option); }
     owner.value = document.body.dataset.page === 'navigation' ? 'navigation' : 'manual';
     const lease = el('input'); lease.id = 'lease'; lease.type = 'number'; lease.min = '1'; lease.max = '30'; lease.value = '10'; lease.required = true;
-    const plan = el('textarea'); plan.id = 'operator-plan'; plan.required = true; plan.maxLength = 1000;
+    const plan = el('textarea'); plan.id = 'operator-plan'; plan.required = true; plan.maxLength = 512;
     const consent = el('input'); consent.id = 'operator-consent'; consent.type = 'checkbox'; consent.required = true;
     for (const [pl, en, field] of [['Właściciel', 'Owner', owner], ['Czas zgody (s, maks. 30)', 'Lease (s, maximum 30)', lease], ['Konkretny plan: przestrzeń, kabel, próba i STOP', 'Specific plan: space, cable, trial and STOP', plan], ['Robot i przestrzeń przygotowane; świadomie udzielam zgody', 'Robot and space prepared; I explicitly grant permission', consent]]) {
       const wrapper = el('label'); wrapper.append(translated('span', pl, en), field); form.append(wrapper);

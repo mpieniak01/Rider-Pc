@@ -62,7 +62,7 @@ class ZmqSubscriber:
                 logger.info("Subscribed to all topics")
             else:
                 for topic in self.topics:
-                    self.socket.setsockopt_string(zmq.SUBSCRIBE, topic)
+                    self.socket.setsockopt_string(zmq.SUBSCRIBE, topic.split("*", 1)[0])
                     logger.info(f"Subscribed to topic: {topic}")
 
             self.running = True

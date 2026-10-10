@@ -36,6 +36,9 @@ def mock_text_provider():
     provider = MagicMock(spec=TextProvider)
     provider.get_telemetry.return_value = {
         "initialized": True,
+        "ready": True,
+        "source": "demo",
+        "backend": "mock",
         "model": "llama3.2:1b",
         "ollama_available": False,
         "mode": "mock",

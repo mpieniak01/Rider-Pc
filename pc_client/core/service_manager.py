@@ -162,6 +162,14 @@ class ServiceManager:
     def _decorate(self, service, host, source, observed_at, stale=False, error=None):
         row = dict(service)
         row.setdefault("active", row.get("active_state", "unknown"))
+        row.setdefault("load", row.get("load_state", "unknown"))
+        row.setdefault("sub", row.get("sub_state", "unknown"))
+        row.setdefault("enabled", row.get("unit_file_state", "unknown"))
+        row.setdefault("active_state", row.get("active", "unknown"))
+        row.setdefault("sub_state", row.get("sub", "unknown"))
+        row.setdefault("unit_file_state", row.get("enabled", "unknown"))
+        row.setdefault("load_state", row.get("load", "unknown"))
+        row.setdefault("process_running", row["active_state"] == "active" and row["sub_state"] in {"running", "exited"})
         for key in ("active", "sub", "enabled"):
             row.setdefault(key, "unknown")
         row.update(
@@ -264,7 +272,7 @@ class ServiceManager:
                     },
                     "pi",
                     "demo" if getattr(self._rest_adapter, "is_mock", False) else s.get("source", "systemd"),
-                    s.get("observed_at", response.get("observed_at", now)),
+                    s.get("observed_at", response.get("observed_at")),
                 )
                 for s in services
                 if isinstance(s, dict) and s.get("unit")
@@ -293,6 +301,7 @@ class ServiceManager:
                         "group": "providers",
                         "kind": "application_provider",
                         "active": "active" if initialized else "inactive",
+                        "process_running": initialized,
                         "initialized": initialized,
                         "ready": ready,
                         "runtime_mode": telemetry.get("mode", "unknown"),
@@ -315,7 +324,8 @@ class ServiceManager:
         return {
             "contract_version": 2,
             "source": "pc_aggregator",
-            "observed_at": time.time(),
+            "observed_at": None,
+            "generated_at": time.time(),
             "services": local + remote + self._provider_rows(),
             "timestamp": time.time(),
             "hosts": {
@@ -323,7 +333,8 @@ class ServiceManager:
                 "pi": {
                     "offline": bool(self._remote_error),
                     "error": self._remote_error,
-                    "observed_at": self._last_remote_sync or None,
+                    "observed_at": None,
+                    "received_at": self._last_remote_sync or None,
                 },
             },
         }
@@ -352,7 +363,17 @@ class ServiceManager:
                 identity = target if ":" in target else by_alias.get((node["host"], target), f"{node['host']}:{target}")
                 if identity in identities:
                     edges.append({"from": node["identity"], "to": identity})
-        return {"generated_at": time.time(), "nodes": nodes, "edges": edges, "hosts": data["hosts"]}
+        return {
+            "contract_version": 2,
+            "source": "pc_aggregator",
+            "observed_at": None,
+            "generated_at": time.time(),
+            "stale": bool(self._remote_error),
+            "partial": bool(self._remote_error),
+            "nodes": nodes,
+            "edges": edges,
+            "hosts": data["hosts"],
+        }
 
     async def get_service_logs(self, unit, host):
         """Odczyt na żądanie, tylko konkretna jednostka wybranego hosta."""

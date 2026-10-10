@@ -71,8 +71,9 @@ export class Devices {
     text('camera-preview-state', this.preview ? tr('Podgląd włączony w tej karcie', 'Preview enabled in this tab') : tr('Podgląd wyłączony w tej karcie', 'Preview disabled in this tab'));
     const kind = document.getElementById('preview-kind')?.value || 'raw';
     const frame = cameraFrame(this.meta, kind);
-    text('camera-age', `${kind.toUpperCase()} · ${frame.age === null ? tr('wiek nieznany', 'age unknown') : `${frame.age.toFixed(1)} s`} · ${frame.fresh ? tr('świeża klatka', 'fresh frame') : tr('brak / stara klatka', 'missing / stale frame')}`);
-    const displayed = cameraFrame({ ...this.meta, shown: { exists: this.displayed !== null, observed_at: this.displayed?.ts } }, 'shown');
+    text('camera-age', `${kind.toUpperCase()} · ${frame.timeBasis === 'file' ? tr('wiek pliku; przechwycenie nieznane · ', 'file age; capture unknown · ') : ''}${frame.age === null ? tr('wiek nieznany', 'age unknown') : `${frame.age.toFixed(1)} s`} · ${frame.fresh ? tr('świeża klatka', 'fresh frame') : tr('brak / stara klatka', 'missing / stale frame')}`);
+    const displayedSource = cameraFrame(this.meta, this.displayed?.kind || kind);
+    const displayed = cameraFrame({ ...this.meta, stale: this.meta?.stale === true || !displayedSource.fresh, shown: { exists: this.displayed !== null, observed_at: this.displayed?.ts } }, 'shown');
     text('camera-display-age', `${tr('Wyświetlana klatka', 'Displayed frame')}: ${this.displayed?.kind?.toUpperCase() || '—'} · ${displayed.age?.toFixed(1) ?? '—'} s${displayed.fresh ? '' : ' · unknown / stale'}`);
     this.image?.classList.toggle('operator-stale-frame', !displayed.fresh);
     this.frame();
@@ -81,9 +82,9 @@ export class Devices {
     if (!this.image || this.imageBusy || document.hidden || (!this.preview && !once)) return;
     const kind = document.getElementById('preview-kind').value;
     const frame = cameraFrame(this.meta, kind);
-    if (!frame.exists || frame.age === null) return;
+    if (!frame.fresh) return;
     const custom = document.getElementById('preview-url').value.trim();
-    const defaults = { raw: '/vision/cam', proc: '/vision/edge', ssd: '/vision/ssd', tracker: '/vision/tracker' };
+    const defaults = { raw: '/vision/cam', proc: '/vision/edge', ssd: '/vision/ssd', obst: '/snapshots/obst_annot.jpg', tracker: '/vision/tracker' };
     let url;
     try {
       url = new URL(custom || defaults[kind], location.origin);

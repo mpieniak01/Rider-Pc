@@ -178,20 +178,35 @@ async def bind_model(request: Request, payload: BindModelRequest) -> JSONRespons
     if not isinstance(slot_config, dict):
         slot_config = {}
     slot_config = {**slot_config, "provider": provider, "model": model}
+    previous = getattr(active, slot, {})
     setattr(active, slot, slot_config)
-    manager.persist_active_model(slot, model)
+    if manager.persist_active_model(slot, model) is not True:
+        setattr(active, slot, previous)
+        return JSONResponse({"ok": False, "error": "persistence_failed", "persisted": False}, status_code=500)
     provider_switch = await _switch_provider_mode(request, slot, "pc")
 
     logger.info("Model binding updated: slot=%s, provider=%s, model=%s", slot, provider, model)
 
+    remote_failed = bool(provider_switch and (provider_switch.get("error") or provider_switch.get("ok") is False))
     return JSONResponse(
+        status_code=503 if remote_failed else 200,
         content={
-            "success": True,
+            "ok": not remote_failed,
+            "success": not remote_failed,
+            "persisted": True,
+            "ready": False,
+            "error": "provider_routing_unconfirmed" if remote_failed else None,
+            "operation": {
+                "status": "partial" if remote_failed else "executed",
+                "confirmed": not remote_failed,
+                "ack_kind": "configuration_persisted",
+                "actuation": False,
+            },
             "slot": slot,
             "provider": provider,
             "model": model,
             "provider_switch": provider_switch,
-        }
+        },
     )
 
 

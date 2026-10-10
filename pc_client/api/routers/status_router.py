@@ -309,3 +309,56 @@ async def network_status(request: Request) -> JSONResponse:
         response["internet"]["latency"] = int(internet_check["latency_ms"])
 
     return JSONResponse(content=response)
+
+
+@router.get("/api/google/status")
+async def google_feed_status(request: Request):
+    from pc_client.api.routers.control_router import _remote_snapshot
+
+    return JSONResponse(await _remote_snapshot(request, "google_feed", "get_json", {}, "/api/google/status"))
+
+
+@router.get("/api/google/raw/last.json")
+async def google_feed_last(request: Request):
+    from pc_client.api.routers.control_router import _remote_snapshot
+
+    return JSONResponse(
+        await _remote_snapshot(request, "google_feed_last", "get_json", {}, "/api/google/raw/last.json")
+    )
+
+
+@router.get("/api/proxy/pi/status")
+async def pi_model_status(request: Request):
+    from pc_client.api.routers.control_router import _remote_snapshot
+
+    system, registry, inventory = await asyncio.gather(
+        _remote_snapshot(request, "model_system", "get_sysinfo", {}),
+        _remote_snapshot(request, "model_registry", "get_providers_state", {}),
+        _remote_snapshot(request, "model_inventory", "get_remote_models", {}),
+    )
+    unavailable = any(row.get("offline") or row.get("error") for row in (system, registry, inventory))
+    return JSONResponse(
+        {
+            "source": "pi",
+            "offline": unavailable,
+            "stale": unavailable,
+            "observed_at": system.get("observed_at", system.get("ts")),
+            "received_at": system.get("received_at"),
+            "cpu_usage": system.get("cpu_pct"),
+            "temp_c": system.get("temp_c"),
+            "latency_ms": None,
+            "available_models": inventory.get("models", []),
+            "domains": registry.get("domains", {}),
+            "model_binding_available": False,
+            "reason": "pi_model_binding_not_advertised",
+            "active_model": None,
+            "error": "source_unavailable" if unavailable else None,
+        },
+        status_code=503 if unavailable else 200,
+    )
+
+
+@router.post("/api/proxy/pi/set-model")
+async def pi_model_binding_unavailable(request: Request):
+    # Pi nie publikuje kontraktu zapisu model binding. Routing domeny to inna operacja.
+    return JSONResponse({"ok": False, "error": "pi_model_binding_not_advertised"}, status_code=409)

@@ -37,7 +37,7 @@ def transport_failure(payload: Any) -> bool:
     error = payload.get("error")
     if isinstance(error, str) and (error in {"not_found", "invalid_json_type"} or error.startswith("json_decode:")):
         return False
-    return bool(error) and set(payload) <= {"error", "ok"}
+    return bool(error) and set(payload) <= {"error", "ok", "_http_status", "attempted_at"}
 
 
 def unavailable_snapshot(

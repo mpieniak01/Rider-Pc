@@ -42,12 +42,13 @@ export function kv(values) {
   }
   return node;
 }
-export function ageLabel(row) {
-  const age = ageOf(row);
+export function ageLabel(row, now) {
+  const age = ageOf(row, now);
   return age === null ? tr('wiek nieznany', 'age unknown') : `${age.toFixed(1)} s`;
 }
-export function ageStamp(row, maxAge = 3) {
-  const node = el('time', 'operator-age', ageLabel(row));
+export function ageStamp(row, maxAge = 3, host = 'pi') {
+  const node = el('time', 'operator-age', ageLabel(row, host === 'pc' ? Date.now() / 1000 : undefined));
+  node.dataset.clockHost = host;
   const ts = row && Object.hasOwn(row, 'observed_at') ? row.observed_at : row?.ts;
   if (typeof ts === 'number' && Number.isFinite(ts)) node.dataset.observedAt = String(ts);
   node.dataset.maxAge = String(maxAge);
@@ -55,7 +56,7 @@ export function ageStamp(row, maxAge = 3) {
 }
 export function refreshAges() {
   document.querySelectorAll('.operator-age').forEach(node => {
-    const age = ageOf({ observed_at: Number(node.dataset.observedAt) });
+    const age = ageOf({ observed_at: Number(node.dataset.observedAt) }, node.dataset.clockHost === 'pc' ? Date.now() / 1000 : undefined);
     node.textContent = age === null ? tr('wiek nieznany', 'age unknown') : `${age.toFixed(1)} s${age > Number(node.dataset.maxAge) ? ' · stale' : ''}`;
     node.classList.toggle('operator-error', age === null || age > Number(node.dataset.maxAge));
   });

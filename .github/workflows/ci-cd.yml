@@ -50,7 +50,7 @@ jobs:
           node-version: '20'
 
       - name: Run isolated operator contract fixtures
-        run: node --experimental-vm-modules --test tests/operator_panel.test.mjs tests/operator_panel_shared_review.test.mjs
+        run: node --experimental-vm-modules --test tests/operator_panel.test.mjs tests/operator_panel_shared_review.test.mjs tests/operator_contracts.test.mjs
 
       - name: Run unit tests
         env:

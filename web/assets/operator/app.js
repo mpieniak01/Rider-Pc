@@ -1,12 +1,13 @@
 import { initI18n } from '/web/assets/i18n.js';
-import { Overview } from './overview.js?v=telemetry-20261010';
+import { Overview } from './overview.js?v=contracts-20261010';
 import { SafetyPanel } from './safety.js';
 import { Tasks } from './tasks.js';
-import { Devices } from './devices.js?v=telemetry-20261010';
-import { System } from './system.js?v=telemetry-20261010';
+import { Devices } from './devices.js?v=contracts-20261010';
+import { System } from './system.js?v=contracts-20261010';
 import { Navigation } from './navigation.js';
 import { Providers } from './providers.js';
 import { Chat } from './chat.js';
+import { Calibration } from './calibration.js';
 import { events } from './transport.js';
 import { fresh, catalogKnown, safetyKnown } from './model.js';
 import { el, text, tr, localizeStatic, refreshAges, showError } from './ui.js';
@@ -29,6 +30,7 @@ if (page === 'devices') devices = new Devices(safety);
 if (page === 'system') system = new System(safety);
 if (page === 'navigation') { tasks = new Tasks(safety, 'task-list', task => task.motion_owner === 'navigation' || task.scenario === 'S8'); navigation = new Navigation(safety); }
 if (page === 'chat') { tasks = new Tasks(safety, 'task-list', task => ['voice', 'provider'].includes(task.option_kind)); chat = new Chat(tasks); }
+if (page === 'calibration') new Calibration(safety);
 if (page === 'view') overview = new Overview(safety);
 
 events(event => {
@@ -37,6 +39,7 @@ events(event => {
   if (event.topic === 'motion.state' && data?.contract_version === 1) safety.update(data);
   if (event.topic === 'motion.ack') safety.ack(data);
   navigation?.event(event);
+  if (event.topic === 'transport.gap') { safety.suspend(); navigation?.observeSnapshot(null); navigation?.render(); }
   const log = document.getElementById('system-events');
   if (log) { log.prepend(el('li', '', `${event.topic || '?'} · ${event.ts ?? '—'} · ${JSON.stringify(data).slice(0, 500)}`)); while (log.children.length > 40) log.lastElementChild.remove(); }
   text('last-event', `${event.topic || '?'} · ${event.ts ?? '—'}`);

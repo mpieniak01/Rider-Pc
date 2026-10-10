@@ -1,6 +1,7 @@
 """Model Manager for AI model inventory and configuration."""
 
 import logging
+import copy
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -431,7 +432,7 @@ class ModelManager:
             "active": self._active_models.to_dict() if self._active_models else {},
         }
 
-    def persist_active_model(self, slot: str, model: str) -> None:
+    def persist_active_model(self, slot: str, model: str) -> bool:
         """
         Update providers.toml with the newly selected model.
 
@@ -442,30 +443,35 @@ class ModelManager:
         slot = (slot or "").lower()
         if slot not in self._slot_field_map:
             logger.warning("Unknown slot %s – skipping persistence", slot)
-            return
+            return False
 
         section_name, field_name = self._slot_field_map[slot]
         if not self._providers_config:
             # Reload to avoid overwriting the file with empty data
             self.get_active_models()
 
-        section = self._providers_config.setdefault(section_name, {})
+        candidate = copy.deepcopy(self._providers_config)
+        section = candidate.setdefault(section_name, {})
         section[field_name] = model
 
         try:
             import tomli_w
         except ImportError:  # pragma: no cover - dependency missing only in misconfiguration
             logger.error("tomli-w not installed; cannot persist providers config")
-            return
+            return False
 
         try:
             self.providers_config_path.parent.mkdir(parents=True, exist_ok=True)
             tmp_path = self.providers_config_path.with_suffix(".tmp")
             with open(tmp_path, "wb") as tmp_file:
-                tomli_w.dump(self._providers_config, tmp_file)
+                tomli_w.dump(candidate, tmp_file)
             tmp_path.replace(self.providers_config_path)
+            self._providers_config = candidate
             logger.info("Updated %s for slot %s", self.providers_config_path, slot)
+            return True
         except (IOError, OSError) as exc:
             logger.error("Failed to write providers config file: %s", exc)
+            return False
         except Exception as exc:  # noqa: BLE001
             logger.error("Unexpected error while persisting providers config: %s", exc)
+            return False

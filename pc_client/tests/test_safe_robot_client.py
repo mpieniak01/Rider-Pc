@@ -277,6 +277,7 @@ async def test_host_identity_and_ambiguous_route():
             "get_services": AsyncMock(
                 return_value={
                     "contract_version": 2,
+                    "observed_at": time.time(),
                     "services": [{"unit": "same.service", "active": "active", "can_move": False}],
                 }
             ),
@@ -541,7 +542,11 @@ def test_stale_observation_cannot_start_even_nonmoving_task(client):
 async def test_remote_moving_service_requires_known_owner():
     adapter = MockRestAdapter()
     adapter.get_services = AsyncMock(
-        return_value={"contract_version": 2, "services": [{"unit": "actuator.service", "can_move": True}]}
+        return_value={
+            "contract_version": 2,
+            "observed_at": time.time(),
+            "services": [{"unit": "actuator.service", "can_move": True}],
+        }
     )
     adapter.service_action = AsyncMock()
     result = await ServiceManager(rest_adapter=adapter).control_service("actuator.service", "start", host="pi")

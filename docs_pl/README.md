@@ -1,5 +1,8 @@
 # Dokumentacja Rider-PC
 
+[Jednolity standard kontraktów Pi/PC](api-specs/contracts.md) — Nowy klient negocjuje kopertę v1 nagłówkiem Accept; przykłady bez negocjacji opisują projekcję legacy. Czas odbioru nie zastępuje czasu pomiaru.
+
+
 Rider-PC dostarcza panel operatora, przetwarzanie AI i narzędzia PC dla Rider-Pi.
 Fizyczne wykonanie pozostaje na robocie. Venom jest planowanym filarem
 nadrzędnego sterowania; integracja pozostaje odłożona.

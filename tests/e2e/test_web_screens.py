@@ -1,6 +1,9 @@
 """Shared Pi/PC operator surfaces and retained PC specialist views."""
 
 import time
+import json
+import re
+from pathlib import Path
 
 import pytest
 from playwright.sync_api import expect
@@ -12,6 +15,7 @@ from playwright.sync_api import expect
         ("/view", "#overview-connection"),
         ("/system", "#service-list"),
         ("/navigation", "#map-canvas"),
+        ("/calibration", "#calibration-runtime-status"),
         ("/chat", "#chat-input"),
         ("/devices", "#device-list"),
         ("/models", "main"),
@@ -200,3 +204,85 @@ def test_recent_offline_xgo_is_not_shown_as_a_healthy_measurement(browser_contex
         assert not telemetry.locator(".ok").count()
     assert not page.errors, str(page.errors)
     assert not [request for request in page.requests if request.method in {"POST", "PATCH", "PUT"}]
+
+
+def test_canonical_partial_sensor_contract_keeps_real_overview_values(browser_context):
+    page, base = browser_context
+    fixture = json.loads((Path(__file__).parents[1] / "fixtures/contracts/rider-v1.json").read_text())
+
+    def state(route):
+        body = json.loads(json.dumps(fixture["cases"]["partial_telemetry"]["body"]))
+        now = time.time()
+        body["meta"].update(server_time=now, generated_at=now)
+        body["data"]["devices"]["xgo"].update(generated_at=now, observed_at=now)
+        sensors = body["data"]["devices"]["xgo"]["sensor_quality"]["sensors"]
+        for name in ("roll", "battery"):
+            sensors[name]["observed_at"] = now
+        route.fulfill(json=body)
+
+    page.route("**/state", state)
+    page.goto(base + "/view", wait_until="domcontentloaded")
+    expect(page.locator("#d_xgo_batt")).to_contain_text("50%")
+    expect(page.locator("#d_xgo_batt")).to_contain_text("świeże")
+    expect(page.locator("#d_xgo_pose")).to_contain_text("roll: 0.00 surowe SDK")
+    expect(page.locator("#d_xgo_imu")).to_contain_text("częściowe")
+    assert page.locator("main .view-row > .c-card").count() == 20
+    assert page.locator("main canvas").count() == 4
+    assert not page.errors, str(page.errors)
+    assert not [r for r in page.requests if r.method in {"POST", "PATCH", "PUT"}]
+
+
+def test_overview_four_previews_use_distinct_sources_with_file_age_not_capture_age(browser_context):
+    page, base = browser_context
+
+    def metadata(route):
+        now = time.time()
+        frames = {
+            kind: {
+                "exists": True,
+                "observed_at": None,
+                "capture_at": None,
+                "file_observed_at": now,
+                "provenance": "file_mtime",
+                "source": kind,
+                "stale": False,
+            }
+            for kind in ("raw", "proc", "ssd", "obst", "tracker")
+        }
+        route.fulfill(
+            json={
+                "meta": {
+                    "envelope_version": 1,
+                    "contract_id": "rider.frames",
+                    "contract_version": 1,
+                    "host": "pi",
+                    "source": "pi",
+                    "observed_at": None,
+                    "server_time": now,
+                    "generated_at": now,
+                    "offline": False,
+                    "stale": False,
+                },
+                "ok": True,
+                "data": frames,
+                "error": None,
+                "operation": None,
+            }
+        )
+
+    page.route("**/vision/snap-info", metadata)
+    page.goto(base + "/view", wait_until="domcontentloaded")
+    for identifier, endpoint in (
+        ("img_cam", "/vision/cam"),
+        ("img_proc", "/vision/edge"),
+        ("img_obst", "/snapshots/obst_annot.jpg"),
+        ("img_tracker", "/vision/tracker"),
+    ):
+        expect(page.locator("#" + identifier)).to_have_attribute(
+            "src", re.compile(endpoint.replace(".", r"\.") + r"\?t=")
+        )
+    expect(page.locator("#age_raw")).to_contain_text("wiek pliku")
+    expect(page.locator("#age_raw")).to_contain_text("przechwycenia nieznany")
+    assert not [r for r in page.requests if r.url.split("?")[0].endswith("/vision/ssd")]
+    assert not page.errors, str(page.errors)
+    assert not [r for r in page.requests if r.method in {"POST", "PATCH", "PUT"}]

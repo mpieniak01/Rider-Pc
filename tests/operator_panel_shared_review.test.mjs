@@ -194,16 +194,27 @@ test('provider cards use actual text and per-domain voice readiness, without sta
 
 test('cached provider health is unknown after source loss even with a healthy registry', async () => {
   const f = await fixture(), target = new Element(); f.elements.set('provider-runtime', target);
-  f.replies.set('/api/providers/state', { observed_at: 1000, domains: { text: { status: 'healthy' } } });
-  f.replies.set('/api/providers/health', { observed_at: 1000, text: { status: 'healthy' } });
+  f.replies.set('/api/providers/state', { observed_at: 1000, domains: { pc_health: { status: 'healthy', reachable: true } } });
+  f.replies.set('/api/providers/health', { observed_at: 1000, pc_health: { status: 'healthy', reachable: true } });
   const { Providers } = await f.load('providers.js'); const providers = new Providers(); await flush();
   const textOf = node => [node.textContent || '', ...node.children.map(child => child instanceof Element ? textOf(child) : String(child))].join(' ');
   const healthCell = () => target.children[0].children[2].children[7].textContent;
   assert.equal(healthCell(), 'healthy');
   for (const failure of [{ offline: true }, { stale: true }, { error: 'cached source failed' }, { observed_at: null }]) {
-    f.replies.set('/api/providers/health', { observed_at: 1000, text: { status: 'healthy' }, ...failure });
+    f.replies.set('/api/providers/health', { observed_at: 1000, pc_health: { status: 'healthy', reachable: true }, ...failure });
     await providers.load();
     assert.equal(healthCell(), 'unknown / stale');
     assert.match(textOf(target.children[0]), /health_envelope/);
   }
+});
+
+test('PC system freshness and live age retain the PC clock when Pi clock differs', async () => {
+  const f = await fixture(); const model = await f.load('model.js'); const telemetry = await f.load('telemetry.js'); const ui = await f.load('ui.js');
+  model.setServerClock(1040, 1000, 1000);
+  assert.equal(telemetry.hostObservation({ timestamp: 1000, cpu_pct: 0 }, 'pc').current, true);
+  assert.equal(telemetry.hostObservation({ timestamp: 970 }, 'pc').current, false);
+  assert.equal(telemetry.hostObservation({ observed_at: 1040 }, 'pi').current, true);
+  assert.equal(telemetry.hostObservation({ observed_at: null, timestamp: 1000 }, 'pc').current, false);
+  const stamp = ui.ageStamp({ observed_at: 1000 }, 12, 'pc'); f.document.body.append(stamp);
+  assert.equal(stamp.textContent, '0.0 s'); f.advance(2); ui.refreshAges(); assert.equal(stamp.textContent, '2.0 s');
 });

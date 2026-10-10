@@ -1,49 +1,31 @@
-import { ageOf, fresh, presentationReady } from './model.js';
+import { ageOf, fresh, presentationReady, nowSeconds } from './model.js';
 import { el, kv, tr, ageStamp } from './ui.js';
+import { observationChannel } from './observations.js';
 
 export const finite = value => typeof value === 'number' && Number.isFinite(value);
 export const numberText = (value, digits = 1, suffix = '') => finite(value) ? value.toFixed(digits) + suffix : '—';
-export function transportCurrent(data, seconds = 8) {
+export function transportCurrent(data, seconds = 8, now = nowSeconds()) {
   if (!data || data.offline || data.stale || data.transport_error) return false;
   if (finite(data.received_at)) {
     const age = Date.now() / 1000 - data.received_at;
     return age >= -.1 && age <= seconds;
   }
-  return fresh(data, seconds);
+  return fresh(data, seconds, now);
 }
 export function measurementChannel(safety, state, name) {
-  const channels = safety?.sensor_quality?.sensors;
-  if (channels && Object.hasOwn(channels, name)) {
-    const row = channels[name] || {};
-    const parentReady = safety?.contract_version === 1 && fresh(safety) && !safety.offline && !safety.transport_error
-      && safety.simulated !== true
-      && typeof safety.instance_id === 'string' && typeof safety.generation === 'string';
-    const valid = finite(row.value) && (name !== 'battery' || (row.value >= 0 && row.value <= 1));
-    return { ...row, value: valid ? row.value : null,
-      display_value: valid ? row.value * (name === 'battery' ? 100 : 1) : null,
-      source: safety.sensor_quality.source || safety.source || 'motion-executor',
-      ready: parentReady && row.ready === true && fresh(row, 2.5) && !row.error && !row.offline && valid,
-      error: row.error || (!valid ? 'measurement_unknown' : !parentReady ? 'executor_source_unavailable' : null),
-      unit: name === 'battery' ? '%' : tr('surowe SDK', 'raw SDK'), legacy: false };
-  }
-  const xgo = state?.devices?.xgo || {};
-  const quality = xgo.sensor_quality?.sensors || xgo.sensor_quality;
-  const channel = quality && Object.hasOwn(quality, name) ? quality[name] || {} : null;
-  const value = name === 'battery' ? xgo.battery_pct : name === 'yaw' && Object.hasOwn(xgo, 'yaw_raw') ? xgo.yaw_raw : xgo[name];
-  const field = name === 'battery' ? 'battery_observed_at' : name + '_observed_at';
-  const observed = channel && Object.hasOwn(channel, 'observed_at') ? channel.observed_at
-    : xgo.sensor_observed_at && Object.hasOwn(xgo.sensor_observed_at, name) ? xgo.sensor_observed_at[name]
-    : Object.hasOwn(xgo, field) ? xgo[field]
-    : name !== 'battery' && Object.hasOwn(xgo, 'imu_observed_at') ? xgo.imu_observed_at
-    : Object.hasOwn(xgo, 'observed_at') ? xgo.observed_at : xgo.ts;
-  const valid = finite(value) && (name !== 'battery' || (value >= 0 && value <= 100));
-  const row = { ...xgo, observed_at: observed };
-  return { value: valid ? value : null, display_value: valid ? value : null, observed_at: observed,
-    source: channel?.source || xgo.source || 'legacy Pi', error: (channel ? channel.error : xgo.error) || (!valid ? 'measurement_unknown' : null),
-    ready: state?.offline !== true && state?.stale !== true && !state?.transport_error && !xgo.offline
-      && (channel ? channel.ready === true && fresh({ ...channel, observed_at: observed }, 2.5) && !channel.error && !channel.offline : presentationReady(row, 2.5)) && valid,
-    unit: name === 'battery' ? '%' : name === 'yaw' && !Object.hasOwn(xgo, 'yaw_raw') ? tr('legacy zawijany', 'legacy wrapped') : tr('surowe SDK', 'raw SDK'), legacy: true };
+  const device = state?.devices?.xgo;
+  const observation = device?.observation || (device?.contract_id === 'rider.telemetry' ? device : null);
+  const input = observation || (safety?.sensor_quality?.sensors ? { ...safety,
+    error: safety.transport_error || safety.error } : device);
+  const unavailable = observation ? state.offline === true || state.stale === true || Boolean(state.transport_error)
+    : input === device ? state?.offline === true || state?.stale === true || Boolean(state?.transport_error)
+    : safety?.offline === true || Boolean(safety?.transport_error) || !fresh(safety);
+  const row = observationChannel(input, name, { now: nowSeconds(), unavailable });
+  const historical = finite(row.raw_value) ? row.raw_value * (row.raw_unit === 'ratio' ? 100 : 1) : null;
+  return { ...row, display_value: row.ready ? row.value : historical,
+    unit: row.unit === 'sdk_raw' ? tr('surowe SDK', 'raw SDK') : row.unit, legacy: !observation };
 }
+
 export function channelText(row) {
   const value = numberText(row.display_value, row.unit === '%' ? 0 : 2, row.unit === '%' ? '%' : ' ' + row.unit);
   const age = ageOf(row);
@@ -57,10 +39,15 @@ export function telemetryCard(safety, state, health) {
     el('p', 'operator-muted', tr('IMU: wartości źródłowe SDK, nie pozycja robota. Jednostki i kalibracja fizyczna pozostają niepotwierdzone.', 'IMU: source SDK values, not robot position. Units and physical calibration remain unverified.')));
   return card;
 }
-export function hostCard(data, host) {
+export function hostObservation(data, host) {
   if (data && !Object.hasOwn(data, 'observed_at') && !Object.hasOwn(data, 'ts') && finite(data.timestamp)) data = { ...data, observed_at: data.timestamp };
+  const now = host === 'pc' ? Date.now() / 1000 : nowSeconds();
+  return { data, now, age: ageOf(data, now), current: transportCurrent(data, 12, now) && fresh(data, 12, now) };
+}
+export function hostCard(data, host) {
+  const observation = hostObservation(data, host); data = observation.data;
   const card = el('article', 'c-card');
-  const current = transportCurrent(data, 12) && fresh(data, 12);
+  const current = observation.current;
   card.append(el('h3', '', `System ${host.toUpperCase()}`),
     el('p', current ? 'operator-muted' : 'operator-warning', current ? tr('Odczyt aktualny', 'Current observation') : tr('Brak / stary odczyt', 'Missing / stale observation')),
     kv([
@@ -71,7 +58,7 @@ export function hostCard(data, host) {
       [tr('Temperatura CPU', 'CPU temperature'), numberText(data?.temp_c, 1, ' °C')],
       [tr('System', 'OS'), data?.os_release || data?.platform || '—'],
       [tr('Dystrybucja', 'Distribution'), data?.distribution || '—'],
-      [tr('Wiek źródłowy', 'Source age'), ageStamp(data, 12)]
+      [tr('Wiek źródłowy', 'Source age'), ageStamp(data, 12, host)]
     ]));
   if (data?.error) card.append(el('p', 'operator-error', data.error));
   return card;

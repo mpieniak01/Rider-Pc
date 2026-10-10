@@ -69,7 +69,7 @@ def _is_provider_ready(provider: Optional[TextProvider]) -> bool:
     if not provider:
         return False
     telemetry = provider.get_telemetry()
-    return bool(telemetry.get("initialized"))
+    return telemetry.get("initialized") is True and telemetry.get("ready") is True
 
 
 async def _process_local_chat(provider: TextProvider, prompt: str, payload: Dict[str, Any]) -> JSONResponse:
@@ -152,7 +152,7 @@ async def _process_proxy_chat(adapter: RestAdapter, payload: Dict[str, Any]) -> 
     remote = await adapter.post_chat_send(payload or {})
     latency_ms = int((time.time() - start_time) * 1000)
 
-    if isinstance(remote, dict) and "error" not in remote:
+    if isinstance(remote, dict) and not remote.get("error") and remote.get("ok") is not False:
         remote["source"] = "proxy"
         remote["latency_ms"] = latency_ms
         return JSONResponse(remote)
@@ -296,9 +296,14 @@ async def providers_text_status(request: Request) -> JSONResponse:
     return JSONResponse(
         {
             "initialized": telemetry.get("initialized", False),
-            "status": "ready" if telemetry.get("initialized") else "initializing",
+            "ready": telemetry.get("ready") is True,
+            "configured": telemetry.get("configured"),
+            "model_loaded": telemetry.get("model_loaded"),
+            "error": telemetry.get("error"),
+            "source": telemetry.get("source", "unknown"),
+            "status": "ready" if telemetry.get("ready") is True else "unavailable",
             "model": telemetry.get("model"),
-            "engine": "ollama" if telemetry.get("ollama_available") else "mock",
+            "engine": telemetry.get("engine") or telemetry.get("backend") or "unknown",
             "ollama_available": telemetry.get("ollama_available", False),
             "cache_size": telemetry.get("cache_size", 0),
             "mode": telemetry.get("mode", "unknown"),
@@ -695,7 +700,7 @@ async def benchmark_models(request: Request, payload: Dict[str, Any]) -> JSONRes
         "avg_latency_ms": round(total_latency_ms / successful_runs, 2) if successful_runs else 0,
         "total_tokens": total_tokens,
         "model": telemetry.get("model"),
-        "engine": "ollama" if telemetry.get("ollama_available") else "mock",
+        "engine": telemetry.get("engine") or telemetry.get("backend") or "unknown",
     }
 
     logger.info(

@@ -81,6 +81,26 @@ def get_provider_capabilities(settings: Settings, providers=None, text_provider=
             ready=telemetry.get("initialized") is True and telemetry.get("ready") is True,
             initialized=telemetry.get("initialized") is True,
             source=telemetry.get("source", "unknown"),
+            backend=telemetry.get(
+                "backend",
+                "yolo"
+                if domain == "vision" and provider
+                else "whisper/piper"
+                if domain == "voice" and provider
+                else "unknown",
+            ),
+            configured=provider is not None,
+            simulated=telemetry.get("source") == "demo" or telemetry.get("mode") == "mock",
+            model_loaded=telemetry.get("detector_available")
+            if domain == "vision"
+            else all(
+                telemetry.get("capabilities", {}).get(name, {}).get("ready") is True and telemetry.get("mode") == "real"
+                for name in telemetry.get("domains", [])
+            )
+            if domain == "voice" and telemetry.get("domains")
+            else telemetry.get("ollama_available")
+            if domain == "text" and telemetry.get("backend") == "local"
+            else None,
             runtime_mode=telemetry.get("mode", "unknown"),
             error=telemetry.get("error"),
             observed_at=time.time(),

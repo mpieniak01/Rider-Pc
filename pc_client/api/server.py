@@ -30,6 +30,7 @@ from pc_client.api.routers import (
     mcp_router,
 )
 from pc_client.api.sse_manager import SseManager
+from pc_client.http_contract import ContractMiddleware
 from pc_client.services.google_assistant import GoogleAssistantService
 
 logger = logging.getLogger(__name__)
@@ -56,6 +57,8 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    app.add_middleware(ContractMiddleware)
 
     # Store settings and cache in app state
     app.state.settings = settings
@@ -194,6 +197,10 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
         },
     ]
 
+    if not settings.test_mode:
+        app.state.home_state = {"configured": False, "authenticated": False, "source": "pi", "observed_at": None}
+        app.state.home_devices = []
+
     # Initialize Google Assistant service
     app.state.google_assistant_service = GoogleAssistantService(
         config_path=settings.google_assistant_devices_config,
@@ -264,6 +271,7 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
             "devices": "devices.html",
             "mode": "mode.html",
             "navigation": "navigation.html",
+            "calibration": "calibration.html",
             "system": "system.html",
             "home": "home.html",
             "google_home": "google_home.html",

@@ -94,7 +94,7 @@ class TestBindModel:
         mock_active = ActiveModels()
 
         with patch.object(ModelManager, "get_active_models", return_value=mock_active):
-            with patch.object(ModelManager, "persist_active_model", return_value=None):
+            with patch.object(ModelManager, "persist_active_model", return_value=True):
                 response = client.post(
                     "/api/models/bind",
                     json={"slot": "text", "provider": "ollama", "model": "llama3.2:1b"},

@@ -1,5 +1,6 @@
 """Tests for ServiceManager core module."""
 
+import time
 import pytest
 from pc_client.core.service_manager import ServiceManager, DEFAULT_LOCAL_SERVICES
 from pc_client.adapters.systemd_adapter import MockSystemdAdapter
@@ -11,6 +12,7 @@ class MockRestAdapter:
     def __init__(self, services_response=None, action_response=None):
         self.services_response = services_response or {
             "contract_version": 2,
+            "observed_at": time.time(),
             "services": [{"unit": "remote.service", "can_move": False}],
         }
         self.action_response = action_response or {"ok": True}

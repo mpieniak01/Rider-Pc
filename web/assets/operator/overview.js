@@ -1,16 +1,15 @@
 import { ageOf, cameraFrame, catalogKnown, fresh, presentationReady } from './model.js';
 import { request, poll } from './transport.js';
 import { el, text, tr, showError } from './ui.js';
-import { finite, numberText, transportCurrent, measurementChannel, channelText, drawHistory, obstacleReading, observedDeviceText } from './telemetry.js';
+import { finite, numberText, transportCurrent, measurementChannel, channelText, drawHistory, obstacleReading, observedDeviceText, hostObservation } from './telemetry.js';
 
 const node = id => document.getElementById(id);
-const sourceTime = row => row && Object.hasOwn(row, 'observed_at') ? row.observed_at : row?.ts ?? row?.timestamp;
 export class Overview {
   constructor(safety) {
     this.safety = safety; this.data = {}; this.frames = new Map(); this.hist = { cpu: [], mem: [], gpu: [], gpuMem: [] };
     this.preview = true;
     node('overview-preview')?.addEventListener('change', event => { this.preview = event.target.checked; this.renderImages(); });
-    for (const [kind, id] of [['raw', 'img_cam'], ['proc', 'img_proc'], ['ssd', 'img_obst'], ['tracker', 'img_tracker']]) {
+    for (const [kind, id] of [['raw', 'img_cam'], ['proc', 'img_proc'], ['obst', 'img_obst'], ['tracker', 'img_tracker']]) {
       const image = node(id); if (!image) continue;
       const row = { image, observed_at: null, key: null, busy: false }; this.frames.set(kind, row);
       image.addEventListener('load', () => { row.busy = false; row.observed_at = row.pending ?? null; row.pending = null; row.failures = 0; row.retryAt = 0; clearTimeout(row.timer); this.renderImages(); });
@@ -44,8 +43,8 @@ export class Overview {
     text(prefix === 'ci' ? 'ci_mem' : 'pcMem', `${numberText(data?.mem_used_mb)} / ${numberText(data?.mem_total_mb)} MiB · ${numberText(data?.mem_pct, 1, '%')}`);
     text(prefix === 'ci' ? 'ci_disk' : 'pcDisk', `${numberText(data?.disk_used_gb)} / ${numberText(data?.disk_total_gb)} GiB · ${numberText(data?.disk_pct, 1, '%')}`);
     text(prefix === 'ci' ? 'ci_os' : 'pcOs', data?.os_release || data?.platform || '—');
-    const row = data ? { ...data, observed_at: sourceTime(data) } : null;
-    text(prefix === 'ci' ? 'pi-source-age' : 'pc-source-age', `${ageOf(row) === null ? tr('wiek nieznany', 'age unknown') : ageOf(row).toFixed(1) + ' s'} · ${transportCurrent(row, 12) && fresh(row, 12) ? tr('odczyt aktualny', 'current observation') : 'unknown / stale'}`);
+    const observation = hostObservation(data, prefix === 'ci' ? 'pi' : 'pc');
+    text(prefix === 'ci' ? 'pi-source-age' : 'pc-source-age', `${observation.age === null ? tr('wiek nieznany', 'age unknown') : observation.age.toFixed(1) + ' s'} · ${observation.current ? tr('odczyt aktualny', 'current observation') : 'unknown / stale'}`);
   }
   render() {
     const { state, health, pi, metrics, catalog } = this.data;
@@ -63,11 +62,11 @@ export class Overview {
     const obstacle = obstacleReading(state, this.data.obstacle);
     const usable = presentationReady(obstacle, 3) && typeof obstacle?.present === 'boolean';
     text('obs_present', usable ? String(obstacle.present) : 'unknown');
-    text('obs_conf', numberText(obstacle?.confidence, 3)); text('obs_edge', numberText(obstacle?.edge_pct, 3));
+    text('obs_conf', numberText(obstacle?.confidence, 3)); text('obs_edge', numberText(obstacle?.edge_ratio ?? obstacle?.edge_pct, 3));
     text('obstacle-source-age', `${usable ? tr('świeży pomiar', 'fresh observation') : tr('brak / stare / zadanie wyłączone', 'missing / stale / task stopped')} · ${ageOf(obstacle)?.toFixed(1) ?? '—'} s${obstacle?.error || obstacle?.data_error ? ' · ' + (obstacle.error || obstacle.data_error) : ''}`);
     const diag = obstacle?.diag;
-    text('binsLegendTxt', `LOW/HIGH: ${numberText(diag?.t_low, 3)} / ${numberText(diag?.t_high, 3)} · edge_pct: ${numberText(diag?.edge_pct_raw ?? obstacle?.edge_pct, 3)} · ${usable ? tr('aktualne', 'current') : 'unknown / stale'}`);
-    drawHistory(node('binsCanvas'), diag?.bins || (finite(obstacle?.edge_pct) ? [obstacle.edge_pct] : []), [], true, diag?.t_low, diag?.t_high);
+    text('binsLegendTxt', `LOW/HIGH: ${numberText(diag?.t_low, 3)} / ${numberText(diag?.t_high, 3)} · edge_pct: ${numberText(diag?.edge_ratio_raw ?? diag?.edge_pct_raw ?? obstacle?.edge_ratio ?? obstacle?.edge_pct, 3)} · ${usable ? tr('aktualne', 'current') : 'unknown / stale'}`);
+    drawHistory(node('binsCanvas'), diag?.bins || (finite(obstacle?.edge_ratio ?? obstacle?.edge_pct) ? [obstacle.edge_ratio ?? obstacle.edge_pct] : []), [], true, diag?.t_low, diag?.t_high);
     node('binsCanvas')?.classList.toggle('operator-stale-frame', !usable);
     drawHistory(node('chart'), pi?.hist_cpu, pi?.hist_mem);
     node('chart')?.classList.toggle('operator-stale-frame', !transportCurrent(pi, 12) || !fresh(pi, 12));
@@ -85,15 +84,19 @@ export class Overview {
     text('d_xgo_pose', rows.slice(1).map((row, index) => `${['roll', 'pitch', 'yaw'][index]}: ${channelText(row)}`).join('\n'));
   }
   renderImages() {
-    const paths = { raw: '/vision/cam', proc: '/vision/edge', ssd: '/vision/ssd', tracker: '/vision/tracker' };
-    const labels = { raw: 'leg_cam_txt', proc: 'leg_proc_txt', ssd: 'leg_obst_txt', tracker: 'leg_tracker_txt' };
+    for (const kind of ['raw', 'proc', 'ssd', 'obst', 'tracker']) {
+      const row = cameraFrame(this.data.snap, kind);
+      text(`age_${kind}`, `${row.timeBasis === 'file' ? tr('wiek pliku; czas przechwycenia nieznany · ', 'file age; capture time unknown · ') : ''}${row.age === null ? tr('wiek nieznany', 'age unknown') : row.age.toFixed(1) + ' s'} · ${row.fresh ? tr('świeże', 'fresh') : 'unknown / stale'}`);
+    }
+    const paths = { raw: '/vision/cam', proc: '/vision/edge', obst: '/snapshots/obst_annot.jpg', tracker: '/vision/tracker' };
+    const labels = { raw: 'leg_cam_txt', proc: 'leg_proc_txt', obst: 'leg_obst_txt', tracker: 'leg_tracker_txt' };
     for (const [kind, row] of this.frames) {
       const frame = cameraFrame(this.data.snap, kind);
       const shown = cameraFrame({ ...this.data.snap, shown: { exists: finite(row.observed_at), observed_at: row.observed_at } }, 'shown');
-      const age = frame.age === null ? tr('wiek nieznany', 'age unknown') : frame.age.toFixed(1) + ' s';
+      const age = (frame.timeBasis === 'file' ? tr('wiek pliku, przechwycenie nieznane · ', 'file age, capture unknown · ') : '') + (frame.age === null ? tr('wiek nieznany', 'age unknown') : frame.age.toFixed(1) + ' s');
       text(labels[kind], `${kind.toUpperCase()} · ${age} · ${frame.fresh ? tr('świeża klatka', 'fresh frame') : frame.exists ? tr('archiwalna — nie pokazuje bieżącej sytuacji', 'historical — not the current scene') : tr('brak klatki / zadanie wyłączone', 'no frame / task stopped')}${row.error ? ' · ' + row.error : ''}`);
-      text(`age_${kind}`, age); row.image.classList.toggle('operator-stale-frame', !shown.fresh);
-      if (!this.preview || document.hidden || row.busy || Date.now() < (row.retryAt || 0) || !frame.exists || frame.age === null || this.data.snap?.offline || this.data.snap?.stale || this.data.snap?.error) continue;
+      row.image.classList.toggle('operator-stale-frame', !shown.fresh || !frame.fresh);
+      if (!this.preview || document.hidden || row.busy || Date.now() < (row.retryAt || 0) || !frame.fresh) continue;
       const key = `${kind}:${frame.ts}`; if (row.key === key) continue;
       row.key = key; row.pending = frame.ts; row.busy = true; row.error = null;
       row.image.src = `${paths[kind]}?t=${encodeURIComponent(frame.ts)}`;
@@ -114,6 +117,7 @@ export class Overview {
       }
     }
     drawHistory(node('chartPc'), this.hist.cpu, this.hist.mem); drawHistory(node('chartGpu'), this.hist.gpu, this.hist.gpuMem);
+    for (const id of ['chartPc', 'chartGpu']) node(id)?.classList.toggle('operator-stale-frame', !hostObservation(pc, 'pc').current);
     const serviceRows = (services?.services || []).filter(row => row.host === 'pc');
     node('pcServiceList')?.replaceChildren(...(serviceRows.length ? serviceRows.map(row => el('p', '', `${row.label || row.unit || row.id} · ${row.kind || row.source} · ${row.offline || row.stale || row.error ? 'unknown' : row.active_state || row.active || row.state || 'unknown'}`)) : [el('p', 'operator-muted', tr('Brak skonfigurowanych jednostek systemd PC. API panelu:', 'No configured PC systemd units. Panel API:') + ' ' + (this.data.live?.status || 'unknown'))]));
     const stats = mcpStats?.stats;

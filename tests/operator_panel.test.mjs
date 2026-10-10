@@ -178,20 +178,14 @@ test('hardware fault prevents ARM although the state is known DISARMED', async (
   assert.equal(f.elements.get('arm').disabled, true); await f.panel.arm('arm');
   assert.equal(f.calls.filter(call => call.method === 'POST').length, 0);
 });
-test('navigation view reads only; explicit owner matching start preserves click envelope and 202 pending', async () => {
-  const f = await fixture({ ...armed(), owner: 'navigation' });
-  for (const id of ['nav-strategy', 'nav-speed', 'nav-turn', 'nav-start', 'nav-return_home', 'nav-stop', 'nav-config']) f.elements.set(id, new Element(id));
-  f.elements.get('nav-strategy').value = 'STOP';
-  const { Navigation } = await f.load('navigation.js'); const navigation = new Navigation(f.panel);
+test('navigation remains passive even with valid ARMED permission; no start or return-home POST', async () => {
+  const ui = await fixture(armed()); ui.document.body.dataset.page = 'navigation';
+  const { Navigation } = await ui.load('navigation.js');
+  const nav = new Navigation(ui.panel);
   await new Promise(resolve => setImmediate(resolve));
-  assert.ok(f.calls.every(call => call.method === 'GET'));
-  await navigation.command('start');
-  const post = f.calls.find(call => call.method === 'POST');
-  assert.equal(post.url, '/api/navigator/start'); assert.equal(post.body.source, 'manual');
-  assert.equal(post.body.generation, 'fixture-generation'); assert.equal(post.body.ttl_ms, 500);
-  assert.equal(post.body.action, undefined); assert.ok(post.body.request_id);
-  f.setState({ ...armed(), owner: 'manual' }); await navigation.command('return_home');
-  assert.equal(f.calls.filter(call => call.method === 'POST').length, 1);
+  const before = ui.calls.length;
+  await nav.command('start'); await nav.command('return_home');
+  assert.equal(ui.calls.slice(before).some(row => row.method === 'POST'), false);
 });
 
 test('poll never overlaps and waits while the page is hidden', async () => {
