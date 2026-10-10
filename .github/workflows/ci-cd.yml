@@ -50,9 +50,11 @@ jobs:
           node-version: '20'
 
       - name: Run isolated operator contract fixtures
-        run: node --experimental-vm-modules --test tests/operator_panel.test.mjs
+        run: node --experimental-vm-modules --test tests/operator_panel.test.mjs tests/operator_panel_shared_review.test.mjs
 
       - name: Run unit tests
+        env:
+          RIDER_ENABLE_API_TESTS: '1'
         run: |
           # Jawne pluginy (autoload wyłączony):
           # - pytest_asyncio.plugin: obsługa async i markera @pytest.mark.asyncio

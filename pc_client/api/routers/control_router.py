@@ -312,7 +312,7 @@ async def navigator_config(request: Request, payload: Dict[str, Any]) -> JSONRes
         raise HTTPException(status_code=409, detail="disarmed_contract_required")
     if safety.get("contract_version") != 1 or not finite_number(safety.get("observed_at")):
         raise HTTPException(status_code=409, detail="disarmed_contract_required")
-    peer_now = snapshot.get("server_time", time.time())
+    peer_now = snapshot.get("server_time")
     if not finite_number(peer_now) or not -0.1 <= peer_now - safety["observed_at"] <= 3:
         raise HTTPException(status_code=409, detail="disarmed_contract_required")
     return await _proxy_action(request, "post_navigator_config", payload)
@@ -374,7 +374,12 @@ async def update_resource(request: Request, resource_name: str, payload: Dict[st
 async def list_services(request: Request) -> JSONResponse:
     manager = request.app.state.service_manager
     manager.set_adapter(request.app.state.rest_adapter)
-    manager.set_providers(request.app.state.providers)
+    manager.set_providers(
+        {
+            **request.app.state.providers,
+            **({"text": request.app.state.text_provider} if request.app.state.text_provider is not None else {}),
+        }
+    )
     return JSONResponse(await manager.get_all_services())
 
 

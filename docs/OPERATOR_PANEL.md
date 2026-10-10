@@ -79,10 +79,10 @@ requests; hidden tabs suspend polling and SSE.
 
 Fixture scenarios cover clocks/generations/ACK, old contracts, System read only,
 host identity, administration and lazy preview. Use the existing local WSL venv:
-[runtime and test dependencies](CONTRIBUTING.md#minimal-runtime-and-tests-in-wsl).
+[runtime and test dependencies](CONTRIBUTING.md#minimal-runtime-and-wsl-tests).
 
 ```sh
-node --experimental-vm-modules --test tests/operator_panel.test.mjs
+node --experimental-vm-modules --test tests/operator_panel.test.mjs tests/operator_panel_shared_review.test.mjs
 RIDER_ENABLE_API_TESTS=1 .venv/bin/python -m pytest pc_client/tests tests --ignore=tests/e2e
 .venv/bin/python -m pytest tests/e2e
 ```
@@ -121,3 +121,24 @@ Map, pose and path observation age is separate from measurement usability. Expli
 ## Cached camera and image-only range
 
 `/camera/last` preserves the original `Last-Modified` source time. Missing or invalid source time stays unknown: GET/HEAD omit `Last-Modified` and report `X-Camera-Observation-Valid: false`; receipt time is a separate cache diagnostic. A known peer timestamp is preserved even when clock alignment is unconfirmed, and does not establish freshness. The initial placeholder has no measurement time. Bounding-box distance heuristics are explicitly unverified (`range_verified: false`, `distance_source: bbox_area_heuristic`, `distance_unit: unverified`) and cannot establish calibrated navigation range.
+
+
+### Presentation and source guards
+
+Provider cards read actual /providers/capabilities, including the separately
+owned text provider and individual ASR/TTS capabilities. Initialization alone
+does not mean readiness. Cached health after source failure remains unknown. System refresh preserves expanded source/autostart/log
+details by host/unit; logs are fetched only on request. Navigation history is
+visible separately from motion ACKs. A cached proxy failure invalidates retained
+geometry without refreshing its original time. Explicit unknown observation
+time remains unknown after age refresh. The demo catalog uses canonical
+s9_navigation; demo input provenance survives real-provider processing and
+cannot publish physical vision/tracking topics.
+
+Only a finite fresh Pi server_time permits configuration while DISARMED.
+PC time cannot replace missing Pi time. Failure of a nondefault text backend
+does not change readiness of the selected default backend.
+
+CI explicitly enables lightweight offline API fixtures with
+RIDER_ENABLE_API_TESTS=1 in the unit job. Redis/provider integration flags remain
+disabled; these fixtures require no additional models or packages.

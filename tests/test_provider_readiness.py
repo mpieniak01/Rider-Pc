@@ -376,3 +376,40 @@ async def test_tts_does_not_claim_cloud_provider_for_local_audio():
     )
     assert result.status == TaskStatus.FAILED
     assert result.result is None
+
+
+@pytest.mark.asyncio
+async def test_nondefault_text_backend_failure_does_not_poison_default():
+    from pc_client.providers.text_provider import TextProvider
+
+    provider = TextProvider({"backend": "local", "enable_mcp_tools": False})
+    provider._initialized = True
+    provider.ollama_available = True
+    provider._generate_single_backend = AsyncMock(side_effect=RuntimeError("cloud unavailable"))
+    with pytest.raises(RuntimeError, match="gemini"):
+        await provider._generate_with_backend("hello", "", 10, 0.1, "gemini")
+    assert provider.get_telemetry()["ready"] is True
+    assert provider.get_telemetry()["error"] is None
+    with pytest.raises(RuntimeError, match="local"):
+        await provider._generate_with_backend("hello", "", 10, 0.1, "local")
+    error = provider.get_telemetry()["error"]
+    assert error and provider.get_telemetry()["ready"] is False
+    provider._generate_single_backend = AsyncMock(return_value=("cloud answer", None))
+    await provider._generate_with_backend("hello", "", 10, 0.1, "gemini")
+    assert provider.get_telemetry()["error"] == error
+    assert provider.get_telemetry()["ready"] is False
+    provider.set_default_backend("local")
+    assert provider.get_telemetry()["ready"] is False  # Selecting the failed backend is not recovery.
+    assert provider.get_telemetry()["error"] == error
+    provider._gemini_provider = SimpleNamespace(is_available=True, is_configured=True)
+    provider.set_default_backend("gemini")
+    assert provider.get_telemetry()["ready"] is True
+    assert provider.get_telemetry()["error"] is None
+
+
+def test_actual_capability_cannot_be_ready_when_initialization_is_unknown():
+    fake = SimpleNamespace(get_telemetry=lambda: {"ready": True, "initialized": False, "source": "pc"})
+    result = get_provider_capabilities(Settings(test_mode=True), providers={"vision": fake}, text_provider=fake)
+    assert result["text"]["initialized"] is result["text"]["ready"] is False
+    assert result["vision"]["initialized"] is result["vision"]["ready"] is False
+    assert result["text"]["features"] == result["vision"]["features"] == []

@@ -10,13 +10,13 @@ const assets = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../we
 const model = await import(`data:text/javascript;base64,${Buffer.from(await readFile(path.join(assets, 'model.js'))).toString('base64')}`);
 const instant = Date.now() / 1000;
 const capability = { available: true, stop_verified: true };
-const armed = () => ({ contract_version: 1, state: 'ARMED', generation: 'fixture-generation', owner: 'manual',
-  ready: true, hardware_ready: true, can_move: true, read_only: false, observed_at: Date.now() / 1000, lease_remaining_s: 10, last_seq: 4,
+const armed = (observedAt = Date.now() / 1000) => ({ contract_version: 1, state: 'ARMED', generation: 'fixture-generation', owner: 'manual',
+  ready: true, hardware_ready: true, can_move: true, read_only: false, observed_at: observedAt, lease_remaining_s: 10, last_seq: 4,
   capabilities: { move: capability, turn: capability, height: { available: false, stop_verified: false, verification: 'manual_characterization_required' } } });
-const disarmed = () => ({ ...armed(), state: 'DISARMED', owner: null, can_move: false, read_only: true });
+const disarmed = (observedAt = Date.now() / 1000) => ({ ...armed(observedAt), state: 'DISARMED', owner: null, can_move: false, read_only: true });
 
 test('movement requires version, fresh observation, state, owner, lease and stop capability', () => {
-  const state = armed();
+  const state = armed(instant);
   assert.equal(model.authorized(state, 'manual', 'move', instant), true);
   for (const patch of [{ contract_version: 0 }, { observed_at: instant - 4 }, { observed_at: null },
     { state: 'DISARMED' }, { ready: false }, { hardware_ready: false }, { can_move: false }, { read_only: true },
@@ -39,9 +39,9 @@ test('zero is a measurement; null and stale frame timestamps remain unknown', ()
 test('old catalog and moving owner mismatch cannot start a task', () => {
   const task = { installed: true, observed_at: instant, state: 'stopped', can_move: true, motion_owner: 'navigation' };
   const catalog = { contract_version: 2, catalog_version: 2, observed_at: instant, features: [task], units: [] };
-  assert.equal(model.taskCanStart(task, catalog, armed(), instant), false);
-  assert.equal(model.taskCanStart(task, { ...catalog, contract_version: 1 }, { ...armed(), owner: 'navigation' }, instant), false);
-  assert.equal(model.taskCanStart(task, catalog, { ...armed(), owner: 'navigation' }, instant), true);
+  assert.equal(model.taskCanStart(task, catalog, armed(instant), instant), false);
+  assert.equal(model.taskCanStart(task, { ...catalog, contract_version: 1 }, { ...armed(instant), owner: 'navigation' }, instant), false);
+  assert.equal(model.taskCanStart(task, catalog, { ...armed(instant), owner: 'navigation' }, instant), true);
 });
 test('ACK matches action, source, sequence, request and send time; accepted is not execution', () => {
   const command = { request_id: 'fixture', action: 'move', source: 'manual', seq: 5 };
@@ -207,9 +207,9 @@ test('poll never overlaps and waits while the page is hidden', async () => {
 test('unknown task can_move and offline catalog refuse Start', () => {
   const task = { installed: true, observed_at: instant, state: 'stopped', can_move: false };
   const catalog = { contract_version: 2, catalog_version: 2, observed_at: instant, features: [task], units: [] };
-  assert.equal(model.taskCanStart(task, catalog, disarmed(), instant), true);
-  for (const can_move of [undefined, null, 0, 'false']) assert.equal(model.taskCanStart({ ...task, can_move }, catalog, disarmed(), instant), false);
-  assert.equal(model.taskCanStart(task, { ...catalog, offline: true }, disarmed(), instant), false);
+  assert.equal(model.taskCanStart(task, catalog, disarmed(instant), instant), true);
+  for (const can_move of [undefined, null, 0, 'false']) assert.equal(model.taskCanStart({ ...task, can_move }, catalog, disarmed(instant), instant), false);
+  assert.equal(model.taskCanStart(task, { ...catalog, offline: true }, disarmed(instant), instant), false);
 });
 test('terminal ACK from a previous generation never confirms a new command', () => {
   const command = { request_id: 'reused-request', action: 'move', source: 'manual', seq: 5, generation: 'new' };
@@ -219,16 +219,16 @@ test('terminal ACK from a previous generation never confirms a new command', () 
 });
 test('system actions use host/unit identity, advertised capabilities and distinct autostart', () => {
   const row = { host: 'pc', unit: 'same.service', source: 'systemd', installed: true, load: 'loaded', observed_at: instant, can_move: false };
-  assert.equal(model.serviceActionAllowed(row, 'start', null, disarmed(), instant), true);
-  assert.equal(model.serviceActionAllowed({ ...row, can_move: null }, 'start', null, disarmed(), instant), false);
-  assert.equal(model.serviceActionAllowed({ ...row, source: 'application', kind: 'application_provider' }, 'stop', null, disarmed(), instant), false);
-  assert.equal(model.serviceActionAllowed({ ...row, offline: true }, 'stop', null, disarmed(), instant), false);
+  assert.equal(model.serviceActionAllowed(row, 'start', null, disarmed(instant), instant), true);
+  assert.equal(model.serviceActionAllowed({ ...row, can_move: null }, 'start', null, disarmed(instant), instant), false);
+  assert.equal(model.serviceActionAllowed({ ...row, source: 'application', kind: 'application_provider' }, 'stop', null, disarmed(instant), instant), false);
+  assert.equal(model.serviceActionAllowed({ ...row, offline: true }, 'stop', null, disarmed(instant), instant), false);
   const remote = { ...row, host: 'pi', contract_version: 2, actions: ['start','stop','restart','enable','disable'], can_move: true, motion_owner: 'manual', lifecycle: 'on-demand' };
   const catalog = { contract_version: 2, catalog_version: 2, observed_at: instant, features: [], units: [] };
-  assert.equal(model.serviceActionAllowed(remote, 'start', catalog, disarmed(), instant), false);
-  assert.equal(model.serviceActionAllowed(remote, 'start', catalog, armed(), instant), true);
-  assert.equal(model.serviceActionAllowed(remote, 'enable', catalog, armed(), instant), false);
-  assert.equal(model.serviceActionAllowed(remote, 'stop', catalog, disarmed(), instant), true);
+  assert.equal(model.serviceActionAllowed(remote, 'start', catalog, disarmed(instant), instant), false);
+  assert.equal(model.serviceActionAllowed(remote, 'start', catalog, armed(instant), instant), true);
+  assert.equal(model.serviceActionAllowed(remote, 'enable', catalog, armed(instant), instant), false);
+  assert.equal(model.serviceActionAllowed(remote, 'stop', catalog, disarmed(instant), instant), true);
 });
 
 

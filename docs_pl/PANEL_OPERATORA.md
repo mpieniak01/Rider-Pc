@@ -127,3 +127,25 @@ Wiek obserwacji mapy, pozycji i trasy jest oddzielny od przydatności pomiaru. J
 ## Bufor kamery i odległość z obrazu
 
 `/camera/last` zachowuje źródłowy czas `Last-Modified`. Brak lub niepoprawny czas pozostaje nieznany: GET/HEAD pomijają `Last-Modified` i raportują `X-Camera-Observation-Valid: false`; czas odbioru jest osobną diagnostyką bufora. Znany czas źródła zachowujemy także bez potwierdzonej synchronizacji zegarów; nie dowodzi on świeżości. Początkowy obraz zastępczy nie ma czasu pomiaru. Heurystyka odległości z obszaru ramki jest jawnie niezweryfikowana (`range_verified: false`, `distance_source: bbox_area_heuristic`, `distance_unit: unverified`) i nie stanowi skalibrowanego pomiaru dla nawigacji.
+
+
+### Prezentacja i pochodzenie danych
+
+Karty providerów odczytują rzeczywiste /providers/capabilities, także osobny
+provider tekstu i gotowość domen ASR/TTS. Sama inicjalizacja nie oznacza gotowości.
+Buforowane health po błędzie źródła pozostaje unknown. System zachowuje rozwinięcie
+danych źródłowych, autostartu i logów według hosta i jednostki; logi pobiera wyłącznie
+na żądanie. Historia nawigacji jest widoczna osobno od ACK ruchu. Błąd proxy unieważnia
+geometrię bez odmładzania czasu źródłowego. Jawnie nieznany czas obserwacji pozostaje
+nieznany po odświeżeniu wieku. Katalog demo stosuje kanoniczne s9_navigation;
+pochodzenie klatki demonstracyjnej przetrwa rzeczywisty provider i blokuje publikację
+na fizyczne tematy wizji/śledzenia.
+
+Konfiguracja przy DISARMED wymaga skończonego, świeżego server_time Pi.
+Czas PC nie zastępuje brakującego czasu Pi. Awaria niedomyślnego backendu tekstowego
+nie zmienia gotowości wybranego backendu domyślnego.
+
+CI włącza lekkie, izolowane fixture API przez RIDER_ENABLE_API_TESTS=1 w zadaniu
+jednostkowym. Flagi integracji Redis/providerów pozostają wyłączone; nie są potrzebne
+dodatkowe modele ani pakiety. Wspólne regresje interfejsu uruchamia polecenie:
+node --experimental-vm-modules --test tests/operator_panel.test.mjs tests/operator_panel_shared_review.test.mjs.

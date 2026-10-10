@@ -279,7 +279,16 @@ class TaskQueueWorker:
                     and result.status == TaskStatus.COMPLETED
                     and result.meta.get("simulated") is not True
                     and result.meta.get("engine") != "mock"
-                    and result.meta.get("source") != "demo"
+                    and result.meta.get("source") not in {"demo", "mock", "simulation"}
+                    and not any(
+                        provenance.get("simulated") is True
+                        or provenance.get("source") in {"demo", "mock", "simulation"}
+                        for provenance in (
+                            task.payload,
+                            task.meta,
+                            task.payload["meta"] if isinstance(task.payload.get("meta"), dict) else {},
+                        )
+                    )
                 ):
                     result_payload = result.result or {}
                     frame_id = result_payload.get("frame_id") or task.meta.get("frame_id") or task.task_id

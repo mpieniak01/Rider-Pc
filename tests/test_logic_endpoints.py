@@ -26,7 +26,7 @@ def test_logic_summary_explicit_demo():
     assert summary["counts"]["total"] >= 1
     assert isinstance(summary["features"], list)
     names = {feature["name"] for feature in summary["features"]}
-    assert {"s0_manual", "s3_follow_me_face", "s4_recon"}.issubset(names)
+    assert {"s0_manual", "s3_follow_me_face", "s9_navigation"}.issubset(names)
 
 
 def test_logic_features_explicit_demo():

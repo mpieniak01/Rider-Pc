@@ -67,3 +67,53 @@ def test_tts_builder_preserves_explicit_provider_and_default_speed():
     task = build_voice_tts_task({"text": "hello", "provider": "openai"}, 5)
     assert task.payload["provider"] == "openai"
     assert task.payload["speed"] == 1.0
+
+
+@pytest.mark.parametrize(
+    "provenance", [{"simulated": True}, {"source": "demo"}, {"source": "mock"}, {"source": "simulation"}]
+)
+@pytest.mark.asyncio
+async def test_original_demo_frame_cannot_publish_physical_topics(provenance):
+    task = build_vision_frame_task({"frame_data": "fake", "observed_at": 123.0, **provenance}, 1)
+    for key, value in provenance.items():
+        assert task.payload[key] == task.meta[key] == value
+    telemetry = MagicMock()
+    worker = TaskQueueWorker(TaskQueue(), {}, telemetry_publisher=telemetry)
+    result = TaskResult(
+        task.task_id,
+        TaskStatus.COMPLETED,
+        result={"obstacles": [], "tracking": {"offset": 0.1}},
+        meta={"engine": "yolov8", "source": "pc", "simulated": False},
+        processing_time_ms=1,
+    )
+    await worker._publish_result(task, result)
+    telemetry.publish_vision_obstacle_enhanced.assert_not_called()
+    telemetry.publish_tracking_offset.assert_not_called()
+
+
+def test_real_camera_provenance_survives_task_builder():
+    task = build_vision_frame_task(
+        {"frame_data": "fake", "observed_at": 123, "source": "pi/camera", "simulated": False}, 1
+    )
+    assert task.payload["source"] == task.meta["source"] == "pi/camera"
+    assert task.payload["simulated"] is task.meta["simulated"] is False
+
+
+@pytest.mark.parametrize(
+    "provenance", [{"simulated": True}, {"source": "demo"}, {"source": "mock"}, {"source": "simulation"}]
+)
+@pytest.mark.asyncio
+async def test_nested_original_demo_provenance_cannot_be_replaced_by_real_result(provenance):
+    task = build_vision_frame_task({"frame_data": "fake", "observed_at": 123.0, "meta": provenance}, 1)
+    telemetry = MagicMock()
+    worker = TaskQueueWorker(TaskQueue(), {}, telemetry_publisher=telemetry)
+    result = TaskResult(
+        task.task_id,
+        TaskStatus.COMPLETED,
+        result={"obstacles": []},
+        meta={"engine": "yolov8", "source": "pc", "simulated": False},
+        processing_time_ms=1,
+    )
+    await worker._publish_result(task, result)
+    telemetry.publish_vision_obstacle_enhanced.assert_not_called()
+    telemetry.publish_tracking_offset.assert_not_called()

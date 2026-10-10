@@ -378,15 +378,18 @@ class TextProvider(BaseProvider):
                     current_backend, prompt, system_prompt, max_tokens, temperature
                 )
                 # Accept empty strings as valid responses (content may be filtered)
-                self._error = None
+                if backend == self.backend:
+                    self._error = None
                 return text, current_backend, messages
             except Exception as e:
                 self.logger.warning(f"[provider] Backend {current_backend} failed: {e}")
                 if backend != BACKEND_AUTO:
                     break  # Don't try other backends if specific one was requested
 
-        self._error = f"All configured text backends failed: {backend}"
-        raise RuntimeError(self._error)
+        error = f"All configured text backends failed: {backend}"
+        if backend == self.backend:
+            self._error = error
+        raise RuntimeError(error)
 
     async def _generate_single_backend(
         self,
@@ -685,7 +688,10 @@ class TextProvider(BaseProvider):
             raise ValueError(f"Nieobsługiwany backend '{backend}'")
         if not self._backend_is_available(backend):
             raise ValueError(f"Backend '{backend}' jest niedostępny")
+        previous_backend = self.backend
         self.backend = backend
+        if backend != previous_backend:
+            self._error = None
         self.logger.info("[provider] Default backend changed to %s", backend)
 
     def get_telemetry(self) -> Dict[str, Any]:

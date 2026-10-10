@@ -5,7 +5,7 @@ import { el, kv, freshPill, button, details, tr, ageLabel, ageStamp, text, showE
 export class System {
   constructor(safety) {
     this.safety = safety; this.admin = false; this.catalog = null; this.services = null;
-    this.busy = new Set(); this.results = new Map(); this.resources = new Map(); this.logResults = new Map(); this.logBusy = new Set();
+    this.busy = new Set(); this.results = new Map(); this.resources = new Map(); this.logResults = new Map(); this.logBusy = new Set(); this.expandedDetails = new Map();
     document.getElementById('admin-mode')?.addEventListener('change', event => { this.admin = event.target.checked; this.render(); });
     document.getElementById('rescue-inspect')?.addEventListener('click', () => this.inspectRescue());
     document.getElementById('rescue-release')?.addEventListener('click', () => this.release());
@@ -21,6 +21,16 @@ export class System {
       this.render();
       if (!this.services) throw new Error(tr('Inwentarz usług niedostępny', 'Service inventory unavailable'));
     }, { interval: 5000, onError: showError });
+  }
+  rememberDetails(target) {
+    for (const node of target?.querySelectorAll?.('details[data-system-detail]') || []) {
+      this.expandedDetails.set(node.dataset.systemDetail, node.open === true);
+    }
+  }
+  keepDetails(key, node, defaultOpen = false) {
+    node.dataset.systemDetail = key;
+    node.open = this.expandedDetails.has(key) ? this.expandedDetails.get(key) : defaultOpen;
+    return node;
   }
   identity(row) { return `${row.host}:${row.unit}`; }
   allowed(row, action) {
@@ -53,6 +63,7 @@ export class System {
   }
   render() {
     const target = document.getElementById('service-list'); if (!target) return;
+    this.rememberDetails(target); this.rememberDetails(document.getElementById('system-details-data'));
     text('system-contract', this.services?.contract_version === 2 ? `PC aggregator v2 · ${ageLabel(this.services)}` : tr('Brak kontraktu — tylko odczyt', 'No contract — read only'));
     const rows = Array.isArray(this.services?.services) ? this.services.services : [];
     const groups = new Map();
@@ -85,7 +96,7 @@ export class System {
           autostart.append(el('span', '', tr('Osobna zmiana autostartu:', 'Separate autostart change:')),
             button('enable', () => this.action(row, 'enable').catch(showError), !this.allowed(row, 'enable')),
             button('disable', () => this.action(row, 'disable').catch(showError), !this.allowed(row, 'disable')));
-          card.append(details(tr('Autostart', 'Autostart'), autostart));
+          card.append(this.keepDetails(`autostart:${this.identity(row)}`, details(tr('Autostart', 'Autostart'), autostart)));
         } else card.append(el('p', 'operator-muted', tr('Cykl życia providera aplikacji; brak fikcyjnej jednostki systemd.', 'Application provider lifecycle; no fictional systemd unit.')));
         if (row.kind !== 'application_provider') {
           const readLogs = button(tr('Odczytaj ostatnie logi', 'Read recent logs'), () => this.logs(row), this.logBusy.has(this.identity(row)) || !['pc', 'pi'].includes(row.host)); readLogs.dataset.serviceLogs = ''; card.append(readLogs);
@@ -93,15 +104,15 @@ export class System {
           if (logs) {
             const body = el('div'); body.append(kv([[tr('Źródło', 'Source'), logs.source], [tr('Wiek odczytu', 'Observation age'), ageStamp(logs, 60)]]), el('pre', 'operator-json', logs.error || (logs.lines || []).join('\n') || tr('Brak wpisów', 'No entries')));
             if (logs.truncated) body.append(el('p', '', tr('Odczyt ograniczony do 64 KiB / 50 linii', 'Read limited to 64 KiB / 50 lines')));
-            card.append(details(tr('Logi tylko do odczytu', 'Read only logs'), body));
+            card.append(this.keepDetails(`logs:${this.identity(row)}`, details(tr('Logi tylko do odczytu', 'Read only logs'), body), true));
           }
         }
-        const result = this.results.get(this.identity(row)); if (result) card.append(rawDetails(result));
-        card.append(rawDetails(row)); grid.append(card);
+        const result = this.results.get(this.identity(row)); if (result) card.append(this.keepDetails(`result:${this.identity(row)}`, rawDetails(result)));
+        card.append(this.keepDetails(`source:${this.identity(row)}`, rawDetails(row))); grid.append(card);
       }
       section.append(grid); return section;
     }));
-    document.getElementById('system-details-data')?.replaceChildren(rawDetails({ hosts: this.hostMetrics, graph: this.graph, inventory_hosts: this.services?.hosts }));
+    document.getElementById('system-details-data')?.replaceChildren(this.keepDetails('source:system', rawDetails({ hosts: this.hostMetrics, graph: this.graph, inventory_hosts: this.services?.hosts })));
     const pi = this.services?.hosts?.pi;
     text('network-status', `Pi: ${pi?.offline ? 'offline' : pi?.observed_at ? 'observed' : 'unknown'} · PC: ${this.services?.hosts?.pc?.demo ? 'demo' : this.services?.hosts?.pc?.configured ? 'configured' : tr('brak skonfigurowanych jednostek', 'no configured units')}`);
   }

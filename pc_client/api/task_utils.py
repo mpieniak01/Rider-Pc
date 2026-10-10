@@ -29,11 +29,14 @@ def build_vision_frame_task(
         "format": payload.get("format", "jpeg"),
     }
 
-    for key in ("rid", "roi", "meta", "stale", "offline", "error", "data_ready"):
+    for key in ("rid", "roi", "meta", "stale", "offline", "error", "data_ready", "simulated", "source"):
         if key in payload:
             task_payload[key] = payload[key]
 
     task_meta = {"source_topic": "vision.frame.offload", "frame_id": frame_id}
+    for key in ("simulated", "source"):
+        if key in payload:
+            task_meta[key] = payload[key]
     if tracking_state:
         task_meta["tracking_state"] = tracking_state
 

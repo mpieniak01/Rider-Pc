@@ -24,7 +24,7 @@ export function statusLabel(value) {
 }
 export function freshPill(row, label, tone, maxAge = 10) {
   const node = pill(statusLabel(label), tone);
-  const ts = row?.observed_at ?? row?.ts;
+  const ts = row && Object.hasOwn(row, 'observed_at') ? row.observed_at : row?.ts;
   if (typeof ts === 'number' && Number.isFinite(ts)) node.dataset.statusTs = String(ts);
   node.dataset.statusMaxAge = String(maxAge);
   if (row?.stale || ageOf(row) === null || ageOf(row) > maxAge) { node.textContent = 'unknown / stale'; node.className = 'c-pill is-warn'; }
@@ -48,7 +48,7 @@ export function ageLabel(row) {
 }
 export function ageStamp(row, maxAge = 3) {
   const node = el('time', 'operator-age', ageLabel(row));
-  const ts = row?.observed_at ?? row?.ts;
+  const ts = row && Object.hasOwn(row, 'observed_at') ? row.observed_at : row?.ts;
   if (typeof ts === 'number' && Number.isFinite(ts)) node.dataset.observedAt = String(ts);
   node.dataset.maxAge = String(maxAge);
   return node;

@@ -282,6 +282,9 @@ class ServiceManager:
     def _provider_rows(self):
         rows = []
         for domain, provider in self._providers.items():
+            telemetry = provider.get_telemetry() if callable(getattr(provider, "get_telemetry", None)) else {}
+            initialized = telemetry.get("initialized") is True
+            ready = initialized and telemetry.get("ready") is True
             rows.append(
                 self._decorate(
                     {
@@ -289,8 +292,13 @@ class ServiceManager:
                         "label": f"{domain} provider",
                         "group": "providers",
                         "kind": "application_provider",
-                        "active": "active" if getattr(provider, "_initialized", False) else "unknown",
-                        "ready": getattr(provider, "_initialized", False),
+                        "active": "active" if initialized else "inactive",
+                        "initialized": initialized,
+                        "ready": ready,
+                        "runtime_mode": telemetry.get("mode", "unknown"),
+                        "provider_source": telemetry.get("source", "unknown"),
+                        "error": telemetry.get("error"),
+                        "capabilities": telemetry.get("capabilities", {}),
                         "enabled": "not-applicable",
                         "can_move": False,
                         "actions": [],

@@ -140,3 +140,104 @@ def test_local_log_reader_is_bounded_and_configured_only():
     assert calls[0][-1] == "safe.service" and "sudo" not in calls[0]
     failed = read_logs("safe.service", catalog=["safe.service"], runner=lambda _: {"timeout": True})
     assert failed["ok"] is False and failed["error"] == "journal_timeout"
+
+
+@pytest.mark.parametrize("server_time", [None, "bad", float("nan"), float("inf"), False])
+def test_navigation_config_requires_remote_clock_without_local_fallback(panel_client, server_time):
+    adapter = panel_client.app.state.rest_adapter
+    snapshot = {"safety": {"contract_version": 1, "state": "DISARMED", "observed_at": time.time()}}
+    # NaN/Infinity cannot be transported as JSON; use the private cache path
+    # by stubbing the snapshot helper, never a real clock/network peer.
+    from unittest.mock import patch
+
+    with patch(
+        "pc_client.api.routers.control_router._remote_snapshot",
+        AsyncMock(return_value={**snapshot, "server_time": server_time}),
+    ):
+        adapter.post_navigator_config = AsyncMock()
+        assert panel_client.post("/api/navigator/config", json={"strategy": "STOP"}).status_code == 409
+        adapter.post_navigator_config.assert_not_awaited()
+
+
+def test_navigation_config_accepts_only_fresh_remote_clock_despite_pc_skew(panel_client):
+    adapter = panel_client.app.state.rest_adapter
+    snapshot = {"safety": {"contract_version": 1, "state": "DISARMED", "observed_at": 123.0}, "server_time": 124.0}
+    from unittest.mock import patch
+
+    with patch("pc_client.api.routers.control_router._remote_snapshot", AsyncMock(return_value=snapshot)):
+        adapter.post_navigator_config = AsyncMock(return_value={"ok": True})
+        assert panel_client.post("/api/navigator/config", json={"strategy": "STOP"}).status_code == 200
+        assert adapter.post_navigator_config.await_args.args[0] == {"strategy": "STOP"}
+
+
+def test_actual_text_and_partial_voice_inventory_are_truthful(panel_client):
+    from types import SimpleNamespace
+
+    text = SimpleNamespace(
+        shutdown=AsyncMock(), get_telemetry=lambda: {"initialized": True, "ready": True, "mode": "real", "source": "pc"}
+    )
+    voice = SimpleNamespace(
+        shutdown=AsyncMock(),
+        _initialized=True,
+        get_telemetry=lambda: {
+            "initialized": True,
+            "ready": False,
+            "mode": "real",
+            "source": "pc",
+            "error": "asr_unavailable",
+            "capabilities": {"asr": {"ready": False}, "tts": {"ready": True}},
+        },
+    )
+    panel_client.app.state.providers = {"voice": voice}
+    panel_client.app.state.text_provider = text
+    rows = {
+        row["unit"]: row
+        for row in panel_client.get("/svc").json()["services"]
+        if row.get("kind") == "application_provider"
+    }
+    assert rows["text.provider"]["ready"] is True
+    assert rows["text.provider"]["provider_source"] == "pc"
+    assert rows["voice.provider"]["initialized"] is True
+    assert rows["voice.provider"]["ready"] is False
+    assert rows["voice.provider"]["capabilities"]["tts"]["ready"] is True
+    graph = panel_client.get("/api/services/graph").json()
+    assert any(row.get("unit") == "text.provider" for row in graph["nodes"])
+
+
+@pytest.mark.asyncio
+async def test_demo_catalog_navigation_identity_matches_canonical_api():
+    from pc_client.adapters.mock_rest_adapter import MockRestAdapter
+
+    adapter = MockRestAdapter()
+    catalog = await adapter.get_logic_catalog()
+    names = {row["name"] for row in catalog["features"]}
+    assert "s9_navigation" in names and "s4_recon" not in names
+    result = await adapter.post_feature_toggle("s9_navigation", {"enabled": True})
+    assert result["ok"] is True
+    state = await adapter.get_navigator_status()
+    assert state["navigator"]["active"] is True
+    assert (await adapter.post_feature_toggle("s4_recon", {"enabled": True}))["ok"] is False
+
+
+def test_navigation_history_container_exists():
+    from pathlib import Path
+
+    document = (Path(__file__).resolve().parents[2] / "web/navigation.html").read_text()
+    assert 'id="nav-request-history"' in document
+
+
+def test_navigation_api_starts_canonical_demo_task_only_after_explicit_navigation_arm(panel_client):
+    body = {
+        **envelope(panel_client),
+        "action": "arm",
+        "owner": "navigation",
+        "lease_s": 10,
+        "operator_plan": "Isolated navigation fake only.",
+        "operator_consent": True,
+    }
+    assert panel_client.post("/api/safety", json=body).status_code == 200
+    assert panel_client.post("/api/navigator/start", json=envelope(panel_client)).status_code == 200
+    catalog = panel_client.get("/api/logic/catalog").json()
+    task = next(row for row in catalog["features"] if row["name"] == "s9_navigation")
+    assert task["requested"] is True
+    assert task["source"] == "demo"

@@ -10,18 +10,41 @@ export class Navigation {
     document.getElementById('nav-config-form')?.addEventListener('submit', event => { event.preventDefault(); this.config().catch(showError); });
     this.poller = poll(async () => {
       const data = (await request('/api/navigator/status')).data;
-      for (const name of ['map', 'pose', 'path']) {
-        this[name] = navigationObservation(data.navigation?.[name], this[name]);
+      const parentFlags = {};
+      for (const envelope of [data, data.navigation]) {
+        if (envelope?.offline === true) parentFlags.offline = true;
+        if (envelope?.stale === true) parentFlags.stale = true;
+        if (envelope?.error) parentFlags.error = envelope.error;
+        if (envelope?.data_error) parentFlags.data_error = envelope.data_error;
       }
-      const status = data.navigator || data.status || data;
+      this.observeSnapshot(data.navigation, data);
+      const status = { ...(data.navigator || data.status || data), ...parentFlags };
       this.observeRequest(status);
-      text('nav-status', `${fresh(status) ? status.state || status.mode || 'unknown' : 'unknown / stale'} · ${tr('wiek', 'age')}: ${ageOf(status)?.toFixed(1) ?? '—'} s`);
+      text('nav-status', `${fresh(status) && !status.offline && !status.error && !status.data_error ? status.state || status.mode || 'unknown' : 'unknown / stale'} · ${tr('wiek', 'age')}: ${ageOf(status)?.toFixed(1) ?? '—'} s`);
       this.render();
     }, { interval: 2000, onError: error => {
       for (const name of ['map', 'pose', 'path']) this[name] = { ...this[name], offline: true, error: error.message };
       text('nav-status', 'unknown'); this.render(); showError(error);
     } });
     window.addEventListener('resize', () => { this.drawKey = null; this.draw(); });
+  }
+  observeSnapshot(snapshot, outer = {}) {
+    for (const name of ['map', 'pose', 'path']) {
+      const child = snapshot?.[name];
+      const row = child && typeof child === 'object' && !Array.isArray(child) ? { ...child } : null;
+      if (row) {
+        // Transport failures apply to every retained observation; keep source time.
+        for (const parent of [snapshot, outer]) {
+          for (const key of ['stale', 'offline']) if (parent?.[key] === true) row[key] = true;
+          for (const key of ['error', 'data_error']) if (parent?.[key]) row[key] = parent[key];
+        }
+        // Task readiness differs from independent measurement quality.
+        for (const key of ['data_ready', 'navigation_ready']) if (snapshot?.[key] === false) row[key] = false;
+        const quality = typeof snapshot?.quality === 'string' ? snapshot.quality.toLowerCase() : snapshot?.quality;
+        if (quality === null || ['unknown', 'unavailable', 'invalid', 'error', 'failed'].includes(quality)) row.quality = snapshot.quality;
+      }
+      this[name] = navigationObservation(row, this[name]);
+    }
   }
   async command(action) {
     if (this.busy || !this.safety.can('navigation') || !this.safety.can('navigation', 'turn')) return;
@@ -65,7 +88,7 @@ export class Navigation {
     this.render();
   }
   observeRequest(status) {
-    if (!fresh(status) || typeof status.active !== 'boolean' || typeof status.state !== 'string') return;
+    if (!fresh(status) || status.offline || status.error || status.data_error || typeof status.active !== 'boolean' || typeof status.state !== 'string') return;
     const entry = this.history.find(row => row.request_id === status.request_id && row.generation === status.generation && status.observed_at >= row.ts);
     if (!entry) return;
     entry.status = 'task_observed'; entry.state = status.state; entry.active = status.active;

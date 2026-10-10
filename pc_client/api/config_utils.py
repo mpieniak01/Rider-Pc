@@ -78,7 +78,7 @@ def get_provider_capabilities(settings: Settings, providers=None, text_provider=
         telemetry = provider.get_telemetry() if provider else {}
         entry.update(
             requested=entry["mode"] == "pc",
-            ready=telemetry.get("ready") is True,
+            ready=telemetry.get("initialized") is True and telemetry.get("ready") is True,
             initialized=telemetry.get("initialized") is True,
             source=telemetry.get("source", "unknown"),
             runtime_mode=telemetry.get("mode", "unknown"),

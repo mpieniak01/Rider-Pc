@@ -160,8 +160,8 @@ class MockRestAdapter:
                 "default_active": False,
             },
             {
-                "name": "s4_recon",
-                "scenario": "S4",
+                "name": "s9_navigation",
+                "scenario": "S9",
                 "title": "Rekonesans autonomiczny",
                 "description": "Navigator oraz procesy mapowania.",
                 "units": ["rider-vision.service"],
@@ -643,11 +643,11 @@ class MockRestAdapter:
             "features": [
                 {
                     **r,
-                    "can_move": r["name"] in {"s3_follow_me_face", "s4_recon"},
+                    "can_move": r["name"] in {"s3_follow_me_face", "s9_navigation"},
                     "motion_owner": "follow_me"
                     if r["name"] == "s3_follow_me_face"
                     else "navigation"
-                    if r["name"] == "s4_recon"
+                    if r["name"] == "s9_navigation"
                     else None,
                     "requested": r["active"],
                     "running": r["active"],
@@ -661,7 +661,7 @@ class MockRestAdapter:
                     "resources": ["camera"] if r["name"] != "s0_manual" else [],
                     "aliases": ["face_tracking"]
                     if r["name"] == "s3_follow_me_face"
-                    else (["recon"] if r["name"] == "s4_recon" else ["zero_mode"]),
+                    else (["recon"] if r["name"] == "s9_navigation" else ["zero_mode"]),
                 }
                 for r in self._logic_feature_rows()
             ],
@@ -695,7 +695,7 @@ class MockRestAdapter:
         self._feature_state[normalized] = enabled
         if normalized == "s3_follow_me_face":
             self._control_state["tracking"] = {"mode": "face", "enabled": enabled, "target": "auto"}
-        elif normalized == "s4_recon":
+        elif normalized == "s9_navigation":
             self._control_state["navigator"]["active"] = enabled
             self._control_state["navigator"]["state"] = "navigating" if enabled else "idle"
         elif normalized == "s0_manual" and enabled:

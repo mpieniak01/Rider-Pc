@@ -203,7 +203,7 @@ def test_non_moving_task_can_start_disarmed_only_with_confirmed_catalog(client):
 def test_bool_payload_is_strict_and_stop_does_not_require_catalog(client):
     assert client.post("/api/logic/feature/recon", json={"enabled": "false"}).status_code == 400
     client.adapter.get_logic_features = AsyncMock(side_effect=RuntimeError("offline"))
-    assert client.post("/api/logic/feature/s4_recon", json={"enabled": False}).status_code == 200
+    assert client.post("/api/logic/feature/s9_navigation", json={"enabled": False}).status_code == 200
 
 
 @pytest.mark.parametrize(

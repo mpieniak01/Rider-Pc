@@ -222,7 +222,12 @@ async def services_graph(request: Request) -> JSONResponse:
     service_manager: Optional["ServiceManager"] = getattr(request.app.state, "service_manager", None)
     if service_manager is not None:
         service_manager.set_adapter(request.app.state.rest_adapter)
-        service_manager.set_providers(request.app.state.providers)
+        service_manager.set_providers(
+            {
+                **request.app.state.providers,
+                **({"text": request.app.state.text_provider} if request.app.state.text_provider is not None else {}),
+            }
+        )
         graph_data = await service_manager.get_service_graph()
         return JSONResponse(content=graph_data)
 
