@@ -1,337 +1,245 @@
-"""Voice provider for ASR/TTS offload tasks."""
+"""ASR/TTS: wybrane domeny, lokalne modele i jawny tryb demo."""
 
-import logging
 import base64
+import importlib
+import io
+import math
+import os
 import tempfile
 import wave
-from typing import Dict, Any, Optional
 from pathlib import Path
+from typing import Any, Dict, Optional
+
 from pc_client.providers.base import BaseProvider, TaskEnvelope, TaskResult, TaskType, TaskStatus
-from pc_client.telemetry.metrics import tasks_processed_total, task_duration_seconds
-
-logger = logging.getLogger(__name__)
-
-# Import AI libraries with fallback to mock mode
-try:
-    import whisper
-
-    WHISPER_AVAILABLE = True
-except ImportError:
-    WHISPER_AVAILABLE = False
-    logger.warning("Whisper not available, using mock ASR")
-
-try:
-    import subprocess
-
-    PIPER_AVAILABLE = True
-except ImportError:
-    PIPER_AVAILABLE = False
-    logger.warning("Piper TTS not available, using mock TTS")
+from pc_client.telemetry.metrics import tasks_processed_total
 
 
 class VoiceProvider(BaseProvider):
-    """
-    Provider for voice processing tasks (ASR/TTS).
-
-    This provider handles audio processing offloaded from the Rider-PI
-    voice pipeline (apps/voice). It receives audio chunks and returns
-    transcriptions or synthesized audio.
-    """
-
     def __init__(self, config: Optional[Dict[str, Any]] = None):
-        """
-        Initialize the voice provider.
-
-        Args:
-            config: Voice provider configuration
-                - asr_model: ASR model to use (default: "base" for Whisper)
-                - tts_model: TTS model to use (default: "en_US-lessac-medium")
-                - sample_rate: Audio sample rate (default: 16000)
-                - use_mock: Force mock mode (default: False)
-        """
         super().__init__("VoiceProvider", config)
         self.asr_model_name = self.config.get("asr_model", "base")
         self.tts_model_name = self.config.get("tts_model", "en_US-lessac-medium")
         self.sample_rate = self.config.get("sample_rate", 16000)
-        self.use_mock = self.config.get("use_mock", False)
-
-        # Model instances (loaded during initialization)
-        self.asr_model: Optional[Any] = None
+        self.use_mock = self.config.get("use_mock") is True
+        selected = self.config.get("domains", self.config.get("domain", "voice"))
+        if isinstance(selected, str):
+            selected = ["asr", "tts"] if selected == "voice" else [selected]
+        if not isinstance(selected, list) or not selected or any(item not in {"asr", "tts"} for item in selected):
+            raise ValueError("voice domain/domains must select asr, tts or voice")
+        self.domains = set(selected)
+        self.asr_model = None
+        self.tts_model = None
         self.tts_available = False
+        self.capabilities = {
+            domain: {
+                "selected": domain in self.domains,
+                "ready": False,
+                "error": None,
+                "mode": "demo" if self.use_mock else "real",
+            }
+            for domain in ("asr", "tts")
+        }
+
+    def _asr_path(self) -> Path:
+        configured = self.config.get("asr_model_path")
+        if configured:
+            return Path(configured).expanduser()
+        name = Path(str(self.asr_model_name)).expanduser()
+        if name.is_file():
+            return name
+        cache = Path(self.config.get("asr_cache_dir") or os.getenv("XDG_CACHE_HOME", str(Path.home() / ".cache")))
+        return cache / "whisper" / f"{self.asr_model_name}.pt"
+
+    def _load_domain(self, domain: str) -> None:
+        backend = self.config.get(f"{domain}_backend", "local")
+        allowed = {"local", "whisper"} if domain == "asr" else {"local", "piper"}
+        if backend not in allowed:
+            raise RuntimeError(f"Configured {domain} backend unavailable: {backend}")
+        if domain == "asr":
+            model_path = self._asr_path()
+            if not model_path.is_file():
+                raise RuntimeError("Whisper cached model unavailable; configure asr_model_path (no download)")
+            backend = importlib.import_module("whisper")
+            self.asr_model = backend.load_model(str(model_path))
+            if self.asr_model is None or not callable(getattr(self.asr_model, "transcribe", None)):
+                raise RuntimeError("Whisper model not usable")
+        else:
+            configured = self.config.get("tts_model_path", self.tts_model_name)
+            model_path = Path(str(configured)).expanduser()
+            config_path = Path(str(model_path) + ".json")
+            if not model_path.is_file() or not config_path.is_file():
+                raise RuntimeError("Piper local model/JSON unavailable; configure tts_model_path")
+            backend = importlib.import_module("piper.voice")
+            self.tts_model = backend.PiperVoice.load(str(model_path), str(config_path))
+            if not any(callable(getattr(self.tts_model, method, None)) for method in ("synthesize", "synthesize_wav")):
+                raise RuntimeError("Piper model not usable")
+            self.tts_available = True
 
     async def _initialize_impl(self) -> None:
-        """Initialize voice processing models."""
-        self.logger.info(f"Loading ASR model: {self.asr_model_name}")
-        self.logger.info(f"TTS model: {self.tts_model_name}")
-        self.logger.info(f"Sample rate: {self.sample_rate}Hz")
-
-        # Load Whisper ASR model if available and not in mock mode
-        if WHISPER_AVAILABLE and not self.use_mock:
+        for domain in sorted(self.domains):
             try:
-                self.logger.info("[voice] Loading Whisper ASR model...")
-                self.asr_model = whisper.load_model(self.asr_model_name)
-                self.logger.info("[voice] Whisper ASR model loaded successfully")
-            except Exception as e:
-                self.logger.error(f"[voice] Failed to load Whisper: {e}")
-                self.logger.warning("[voice] Falling back to mock ASR")
-                self.asr_model = None
-        else:
-            self.logger.info("[voice] Using mock ASR implementation")
-            self.asr_model = None
-
-        # Check TTS availability
-        if PIPER_AVAILABLE and not self.use_mock:
-            try:
-                # Check if piper is installed
-                result = subprocess.run(['which', 'piper'], capture_output=True)
-                if result.returncode == 0:
-                    self.tts_available = True
-                    self.logger.info("[voice] Piper TTS available")
-                else:
-                    self.logger.warning("[voice] Piper not installed, using mock TTS")
-            except Exception as e:
-                self.logger.warning(f"[voice] TTS check failed: {e}, using mock TTS")
-        else:
-            self.logger.info("[voice] Using mock TTS implementation")
-
-        self.logger.info("[voice] Voice provider initialized")
-
-    async def _shutdown_impl(self) -> None:
-        """Cleanup voice processing resources."""
-        self.logger.info("[voice] Cleaning up voice resources")
-        if self.asr_model is not None:
-            # Whisper models don't require explicit cleanup
-            self.asr_model = None
-        self.logger.info("[voice] Voice resources cleaned up")
-
-    async def _process_task_impl(self, task: TaskEnvelope) -> TaskResult:
-        """
-        Process voice task.
-
-        Args:
-            task: Task envelope with voice data
-
-        Returns:
-            Task result with processed audio or text
-        """
-        if task.task_type == TaskType.VOICE_ASR:
-            return await self._process_asr(task)
-        elif task.task_type == TaskType.VOICE_TTS:
-            return await self._process_tts(task)
-        else:
-            return TaskResult(
-                task_id=task.task_id, status=TaskStatus.FAILED, error=f"Unsupported task type: {task.task_type}"
+                if not self.use_mock:
+                    self._load_domain(domain)
+                self.capabilities[domain].update(ready=True, error=None)
+            except Exception as exc:
+                self.capabilities[domain].update(ready=False, error=str(exc))
+        if not any(self.capabilities[domain]["ready"] for domain in self.domains):
+            raise RuntimeError(
+                "; ".join(f"{domain}: {self.capabilities[domain]['error']}" for domain in sorted(self.domains))
             )
 
+    async def _shutdown_impl(self) -> None:
+        self.asr_model = self.tts_model = None
+        self.tts_available = False
+        for value in self.capabilities.values():
+            value["ready"] = False
+
+    def _failed(self, task: TaskEnvelope, domain: str, error: str) -> TaskResult:
+        return TaskResult(
+            task_id=task.task_id,
+            status=TaskStatus.FAILED,
+            error=error,
+            meta={"domain": domain, "engine": "mock" if self.use_mock else domain, "simulated": self.use_mock},
+        )
+
+    async def _process_task_impl(self, task: TaskEnvelope) -> TaskResult:
+        domain = {TaskType.VOICE_ASR: "asr", TaskType.VOICE_TTS: "tts"}.get(task.task_type)
+        if domain is None:
+            return self._failed(task, "unknown", f"Unsupported task type: {task.task_type}")
+        if not self.capabilities[domain]["ready"]:
+            return self._failed(task, domain, self.capabilities[domain]["error"] or "Voice domain inactive")
+        try:
+            result = await (self._process_asr(task) if domain == "asr" else self._process_tts(task))
+            if result.status == TaskStatus.COMPLETED:
+                tasks_processed_total.labels(
+                    provider="VoiceProvider", task_type=task.task_type.value, status="completed"
+                ).inc()
+            return result
+        except Exception as exc:
+            # Błąd wykonania nie może zostać zastąpiony udanym wynikiem demo.
+            self.capabilities[domain].update(ready=False, error=str(exc))
+            return self._failed(task, domain, str(exc))
+
     async def _process_asr(self, task: TaskEnvelope) -> TaskResult:
-        """
-        Process ASR (speech-to-text) task.
-
-        Expected payload:
-            - audio_data: Base64-encoded audio chunk
-            - format: Audio format (e.g., "wav", "raw")
-            - sample_rate: Sample rate in Hz
-
-        Returns:
-            TaskResult with transcription text
-        """
-        self.logger.info(f"[voice] Processing ASR task {task.task_id}")
-
         audio_data = task.payload.get("audio_data")
-        audio_format = task.payload.get("format", "wav")
-        sample_rate = task.payload.get("sample_rate", self.sample_rate)
-
         if not audio_data:
-            return TaskResult(task_id=task.task_id, status=TaskStatus.FAILED, error="Missing audio_data in payload")
-
-        # Process with real Whisper model if available
-        if self.asr_model is not None:
+            return self._failed(task, "asr", "Missing audio_data in payload")
+        audio_format = task.payload.get("format", "wav")
+        if audio_format not in {"wav", "raw", "mp3", "flac", "ogg"}:
+            return self._failed(task, "asr", "Unsupported audio format")
+        if self.use_mock:
+            result = {"text": "Mock transcription: Hello from voice provider", "confidence": 0.95, "language": "en"}
+        else:
+            audio_bytes = base64.b64decode(audio_data, validate=True)
+            if not audio_bytes:
+                raise ValueError("Audio data is empty")
+            if self.asr_model is None:
+                raise RuntimeError("Whisper backend unavailable")
+            with tempfile.NamedTemporaryFile(suffix=f".{audio_format}", delete=False) as temp:
+                temp.write(audio_bytes)
+                temp_path = Path(temp.name)
             try:
-                # Decode base64 audio data with error handling
-                try:
-                    audio_bytes = base64.b64decode(audio_data)
-                    if len(audio_bytes) == 0:
-                        raise ValueError("Audio data is empty")
-                except (Exception, ValueError) as e:
-                    self.logger.error(f"[voice] Failed to decode audio data: {e}")
-                    raise
-
-                # Save to temporary file for Whisper
-                with tempfile.NamedTemporaryFile(suffix=f'.{audio_format}', delete=False) as tmp_file:
-                    tmp_file.write(audio_bytes)
-                    tmp_path = tmp_file.name
-                # File is now closed before transcription
-                try:
-                    # Transcribe with Whisper
-                    result = self.asr_model.transcribe(tmp_path)
-                    transcription = result["text"].strip()
-                    language = result.get("language", "en")
-
-                    self.logger.info(f"[voice] ASR completed: {transcription}")
-
-                    # Update metrics
-                    tasks_processed_total.labels(
-                        provider='VoiceProvider', task_type='voice.asr', status='completed'
-                    ).inc()
-
-                    return TaskResult(
-                        task_id=task.task_id,
-                        status=TaskStatus.COMPLETED,
-                        result={"text": transcription, "confidence": 0.95, "language": language},
-                        meta={
-                            "model": self.asr_model_name,
-                            "sample_rate": sample_rate,
-                            "format": audio_format,
-                            "engine": "whisper",
-                        },
-                    )
-                finally:
-                    # Clean up temporary file
-                    Path(tmp_path).unlink(missing_ok=True)
-
-            except Exception as e:
-                self.logger.error(f"[voice] ASR processing failed: {e}")
-                self.logger.warning("[voice] Falling back to mock ASR due to error")
-
-        # Fall back to mock implementation
-        transcription = "Mock transcription: Hello from voice provider"
-
-        self.logger.info(f"[voice] ASR completed (mock): {transcription}")
-
-        # Update metrics
-        tasks_processed_total.labels(provider='VoiceProvider', task_type='voice.asr', status='completed').inc()
-
+                observed = self.asr_model.transcribe(str(temp_path))
+                result = {"text": observed["text"].strip(), "language": observed.get("language", "en")}
+            finally:
+                temp_path.unlink(missing_ok=True)
         return TaskResult(
             task_id=task.task_id,
             status=TaskStatus.COMPLETED,
-            result={"text": transcription, "confidence": 0.95, "language": "en"},
-            meta={"model": "mock", "sample_rate": sample_rate, "format": audio_format, "engine": "mock"},
+            result=result,
+            meta={
+                "model": "mock" if self.use_mock else self.asr_model_name,
+                "sample_rate": task.payload.get("sample_rate", self.sample_rate),
+                "format": audio_format,
+                "engine": "mock" if self.use_mock else "whisper",
+                "simulated": self.use_mock,
+            },
         )
 
     async def _process_tts(self, task: TaskEnvelope) -> TaskResult:
-        """
-        Process TTS (text-to-speech) task.
-
-        Expected payload:
-            - text: Text to synthesize
-            - voice: Voice ID (optional)
-            - speed: Speech speed (optional, default: 1.0)
-
-        Returns:
-            TaskResult with synthesized audio data
-        """
-        self.logger.info(f"[voice] Processing TTS task {task.task_id}")
-
         text = task.payload.get("text")
-        voice = task.payload.get("voice", "default")
-        speed = task.payload.get("speed", 1.0)
-
-        if not text:
-            return TaskResult(task_id=task.task_id, status=TaskStatus.FAILED, error="Missing text in payload")
-
-        # Validate text input
-        if not text.strip():
-            return TaskResult(task_id=task.task_id, status=TaskStatus.FAILED, error="Text cannot be empty")
-
-        max_text_length = 5000  # Reasonable limit
-        if len(text) > max_text_length:
-            return TaskResult(
-                task_id=task.task_id, status=TaskStatus.FAILED, error=f"Text too long (max {max_text_length} chars)"
-            )
-
-        # Process with real Piper TTS if available
-        if self.tts_available:
-            try:
-                # Create temporary output file
-                with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp_file:
-                    output_path = tmp_file.name
-
-                try:
-                    # Run Piper TTS (using stdin for safety - no shell injection)
-                    # Note: This assumes piper is installed and in PATH
-                    process = subprocess.run(
-                        ['piper', '--output_file', output_path],
-                        input=text.encode('utf-8'),
-                        capture_output=True,
-                        timeout=30,
-                    )
-
-                    if process.returncode == 0 and Path(output_path).exists():
-                        # Read and encode audio
-                        with open(output_path, 'rb') as f:
-                            audio_bytes = f.read()
-                        audio_data = base64.b64encode(audio_bytes).decode('utf-8')
-
-                        # Calculate duration using wave module
-                        try:
-                            with wave.open(output_path, 'rb') as wf:
-                                frames = wf.getnframes()
-                                rate = wf.getframerate()
-                                duration_ms = int((frames / rate) * 1000)
-                        except Exception:
-                            # Fallback to rough estimate if wave parsing fails
-                            duration_ms = len(audio_bytes) // (self.sample_rate * 2 // 1000)
-
-                        self.logger.info(f"[voice] TTS completed for text: {text[:50]}...")
-
-                        # Update metrics
-                        tasks_processed_total.labels(
-                            provider='VoiceProvider', task_type='voice.tts', status='completed'
-                        ).inc()
-
-                        return TaskResult(
-                            task_id=task.task_id,
-                            status=TaskStatus.COMPLETED,
-                            result={
-                                "audio_data": audio_data,
-                                "format": "wav",
-                                "sample_rate": self.sample_rate,
-                                "duration_ms": duration_ms,
-                            },
-                            meta={"model": self.tts_model_name, "voice": voice, "speed": speed, "engine": "piper"},
-                        )
-                    else:
-                        raise Exception(f"Piper TTS failed: {process.stderr.decode()}")
-
-                finally:
-                    # Clean up temporary file
-                    Path(output_path).unlink(missing_ok=True)
-
-            except Exception as e:
-                self.logger.error(f"[voice] TTS processing failed: {e}")
-                self.logger.warning("[voice] Falling back to mock TTS")
-                # Fall through to mock implementation
-
-        # Mock implementation fallback
-        audio_data = "base64_encoded_mock_audio_data"
-
-        self.logger.info(f"[voice] TTS completed (mock) for text: {text[:50]}...")
-
-        # Update metrics
-        tasks_processed_total.labels(provider='VoiceProvider', task_type='voice.tts', status='completed').inc()
-
+        if not isinstance(text, str) or not text.strip():
+            return self._failed(task, "tts", "Missing text in payload")
+        if len(text) > 5000:
+            return self._failed(task, "tts", "Text too long (max 5000 chars)")
+        requested = task.payload.get("provider", task.payload.get("backend", "local"))
+        if requested not in {"local", "piper"}:
+            return self._failed(task, "tts", f"Requested TTS backend unavailable: {requested}")
+        speed = task.payload.get("speed")
+        if speed is None:
+            speed = 1.0
+        if (
+            isinstance(speed, bool)
+            or not isinstance(speed, (int, float))
+            or not math.isfinite(speed)
+            or not 0.1 <= speed <= 4
+        ):
+            return self._failed(task, "tts", "Invalid speech speed")
+        output = io.BytesIO()
+        with wave.open(output, "wb") as wav:
+            if self.use_mock:
+                wav.setnchannels(1)
+                wav.setsampwidth(2)
+                wav.setframerate(self.sample_rate)
+                wav.writeframes(bytes(self.sample_rate * 2))
+            else:
+                if self.tts_model is None:
+                    raise RuntimeError("Piper backend unavailable")
+                wav.setnchannels(1)
+                wav.setsampwidth(2)
+                wav.setframerate(
+                    getattr(getattr(self.tts_model, "config", None), "sample_rate", None) or self.sample_rate
+                )
+                if callable(getattr(self.tts_model, "synthesize_wav", None)):
+                    if speed != 1:
+                        return self._failed(task, "tts", "This Piper backend does not expose speech speed")
+                    self.tts_model.synthesize_wav(text, wav)
+                else:
+                    self.tts_model.synthesize(text, wav, length_scale=1.0 / speed)
+        audio = output.getvalue()
+        with wave.open(io.BytesIO(audio), "rb") as wav:
+            rate = wav.getframerate()
+            frames = wav.getnframes()
+            if rate <= 0 or frames <= 0:
+                raise RuntimeError("Piper returned empty audio")
         return TaskResult(
             task_id=task.task_id,
             status=TaskStatus.COMPLETED,
-            result={"audio_data": audio_data, "format": "wav", "sample_rate": self.sample_rate, "duration_ms": 1000},
-            meta={"model": "mock", "voice": voice, "speed": speed, "engine": "mock"},
+            result={
+                "audio_data": base64.b64encode(audio).decode("ascii"),
+                "format": "wav",
+                "sample_rate": rate,
+                "duration_ms": int(frames / rate * 1000),
+            },
+            meta={
+                "model": "mock" if self.use_mock else self.tts_model_name,
+                "voice": "mock" if self.use_mock else self.tts_model_name,
+                "requested_voice": task.payload.get("voice", "default"),
+                "speed": speed,
+                "engine": "mock" if self.use_mock else "piper",
+                "simulated": self.use_mock,
+            },
         )
 
     def get_supported_tasks(self) -> list[TaskType]:
-        """Get list of supported task types."""
-        return [TaskType.VOICE_ASR, TaskType.VOICE_TTS]
+        return [
+            kind
+            for kind, domain in ((TaskType.VOICE_ASR, "asr"), (TaskType.VOICE_TTS, "tts"))
+            if self.capabilities[domain]["ready"]
+        ]
 
     def get_telemetry(self) -> Dict[str, Any]:
-        """Get voice provider telemetry."""
-        base_telemetry = super().get_telemetry()
-        base_telemetry.update(
-            {
-                "asr_model": self.asr_model_name,
-                "tts_model": self.tts_model_name,
-                "sample_rate": self.sample_rate,
-                "asr_available": self.asr_model is not None,
-                "tts_available": self.tts_available,
-                "mode": "mock" if self.asr_model is None else "real",
-            }
-        )
-        return base_telemetry
+        return {
+            **super().get_telemetry(),
+            "asr_model": self.asr_model_name,
+            "tts_model": self.tts_model_name,
+            "sample_rate": self.sample_rate,
+            "asr_available": self.capabilities["asr"]["ready"],
+            "tts_available": self.capabilities["tts"]["ready"],
+            "domains": sorted(self.domains),
+            "capabilities": {key: dict(value) for key, value in self.capabilities.items()},
+            "ready": all(self.capabilities[domain]["ready"] for domain in self.domains),
+            "error": "; ".join(value["error"] for value in self.capabilities.values() if value["error"]) or None,
+            "mode": "mock" if self.use_mock else "real",
+            "source": "demo" if self.use_mock else "pc",
+        }

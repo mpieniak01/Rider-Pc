@@ -1,62 +1,42 @@
 """Voice provider endpoints for chat/TTS UI."""
 
+from __future__ import annotations
+
 import base64
+import io
+import wave
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse
 
 from pc_client.adapters import RestAdapter
 from pc_client.api.task_utils import build_voice_asr_task, build_voice_tts_task
-from pc_client.providers import VoiceProvider
 from pc_client.providers.base import TaskStatus
+
+if TYPE_CHECKING:
+    from pc_client.providers import VoiceProvider
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-_MOCK_WAV_BASE64 = (
-    "UklGRqQ+AABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YYA+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-)
-
 
 def _decode_audio_payload(audio_data: Optional[str]) -> bytes:
-    """Decode base64 audio data, falling back to a short silent WAV."""
+    """Odrzuć brakujące/uszkodzone audio zamiast tworzyć pozorny sukces."""
     if not audio_data:
-        logger.warning("Missing audio data from voice provider, using fallback sample")
-        return base64.b64decode(_MOCK_WAV_BASE64)
-    try:
-        return base64.b64decode(audio_data)
-    except Exception:
-        logger.warning("Invalid audio payload, using fallback sample")
-        return base64.b64decode(_MOCK_WAV_BASE64)
+        raise ValueError("Voice provider returned no audio")
+    audio = base64.b64decode(audio_data, validate=True)
+    with wave.open(io.BytesIO(audio), "rb") as wav:
+        if wav.getframerate() <= 0 or wav.getnframes() <= 0:
+            raise ValueError("Voice provider returned empty audio")
+    return audio
 
 
 def _fallback_tts_response(reason: str) -> Response:
-    """Return silent audio when real TTS is unavailable."""
-    logger.warning("Returning fallback TTS audio: %s", reason)
-    headers = {
-        "X-Voice-Fallback": "pc-mock",
-        "X-Voice-Error": reason,
-    }
-    return Response(content=_decode_audio_payload(None), media_type="audio/wav", headers=headers)
+    return JSONResponse({"ok": False, "error": reason, "source": "pc"}, status_code=503)
 
 
 def _lookup_service_state(request: Request, alias: str) -> Optional[Dict[str, Any]]:
@@ -72,6 +52,10 @@ def _get_voice_provider(request: Request) -> Optional[VoiceProvider]:
     """Return VoiceProvider instance if available."""
     providers: Dict[str, Any] = getattr(request.app.state, "providers", {})
     provider = providers.get("voice")
+    if provider is None:
+        return None
+    from pc_client.providers import VoiceProvider
+
     return provider if isinstance(provider, VoiceProvider) else None
 
 
@@ -79,16 +63,18 @@ def _local_voice_provider_entry(request: Request) -> Dict[str, Any]:
     """Build description of the local VoiceProvider fallback."""
     provider = _get_voice_provider(request)
     telemetry = provider.get_telemetry() if provider else {}
-    initialized = bool(telemetry.get("initialized"))
+    initialized = bool(telemetry.get("initialized") and telemetry.get("tts_available"))
     detail = "Provider gotowy" if initialized else "Provider nieaktywny"
     entry = {
         "id": "local",
         "label": "Rider-PC Piper (lokalny)",
-        "backend": "piper",
+        "backend": "mock" if telemetry.get("mode") == "mock" else "piper",
         "voice": telemetry.get("tts_model") or request.app.state.settings.voice_model,
         "model": telemetry.get("tts_model"),
         "description": "Lokalny provider TTS uruchamiany na Rider-PC.",
         "service": "voice.provider",
+        "source": telemetry.get("source", "unknown"),
+        "mode": telemetry.get("mode", "unknown"),
         "status": {
             "state": "ok" if initialized else "warn",
             "detail": detail,
@@ -205,11 +191,16 @@ async def voice_tts(request: Request, payload: Optional[Dict[str, Any]] = None) 
         result = await provider.process_task(envelope)
         if result.status != TaskStatus.COMPLETED or not result.result:
             return _fallback_tts_response(result.error or "voice provider failed")
-        audio_bytes = _decode_audio_payload(result.result.get("audio_data"))
+        try:
+            audio_bytes = _decode_audio_payload(result.result.get("audio_data"))
+        except (ValueError, wave.Error, EOFError) as exc:
+            return _fallback_tts_response(str(exc))
         headers = {
             "X-Voice-Provider": task_payload.get("provider") or "local",
             "X-Voice-Engine": (result.meta or {}).get("engine", "piper"),
         }
+        if (result.meta or {}).get("simulated") is True or (result.meta or {}).get("engine") == "mock":
+            headers["X-Voice-Fallback"] = "pc-mock"
         return Response(content=audio_bytes, media_type="audio/wav", headers=headers)
 
     adapter: Optional[RestAdapter] = request.app.state.rest_adapter
@@ -314,21 +305,32 @@ async def providers_voice_status(request: Request) -> JSONResponse:
     provider = _get_voice_provider(request)
 
     if not provider:
+        diagnosis = getattr(request.app.state, "voice_provider_status", {})
         return JSONResponse(
             {
                 "initialized": False,
-                "status": "not_configured",
+                "ready": False,
+                "status": "unavailable" if diagnosis.get("requested") else "not_configured",
+                "error": diagnosis.get("error"),
+                "capabilities": diagnosis.get("capabilities", {}),
                 "hint": "VoiceProvider nie jest skonfigurowany. Ustaw ENABLE_PROVIDERS=true i ENABLE_VOICE_OFFLOAD=true",
             }
         )
 
     telemetry = provider.get_telemetry()
     initialized = telemetry.get("initialized", False)
+    selected = telemetry.get("domains", ["asr", "tts"])
+    ready = initialized and bool(selected) and all(telemetry.get(f"{domain}_available") is True for domain in selected)
 
     return JSONResponse(
         {
             "initialized": initialized,
-            "status": "ready" if initialized else "initializing",
+            "status": "ready" if ready else "partial" if initialized else "unavailable",
+            "ready": ready,
+            "source": telemetry.get("source", "unknown"),
+            "capabilities": telemetry.get("capabilities", {}),
+            "domains": selected,
+            "error": telemetry.get("error"),
             "asr_model": telemetry.get("asr_model"),
             "tts_model": telemetry.get("tts_model"),
             "asr_available": telemetry.get("asr_available", False),

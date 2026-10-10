@@ -78,3 +78,5 @@ Explicit ARM and E-Stop clearing accept a fresh known `DISARMED`/`ESTOP` state e
 Child Python interpreters receive the same network/device/SDK guards through sitecustomize. Disabling that bootstrap or launching an unapproved shell is forbidden. The standalone CSS audit uses the same isolation module.
 
 See the project policy for [minimal runtime and WSL test dependencies](CONTRIBUTING.md#minimal-runtime-and-wsl-tests).
+
+The new [operator panel](OPERATOR_PANEL.md) confirms its clock using Pi server_time and a bounded RTT. Actuation also requires hardware_ready:true. Separate administration buttons do not turn service cards into actions.

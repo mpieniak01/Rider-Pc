@@ -1,22 +1,24 @@
-"""Provider layer for AI task offloading from Rider-PI to PC."""
+"""Lekki interfejs providerów; domeny są importowane dopiero na żądanie."""
+
+from importlib import import_module
 
 from pc_client.providers.base import BaseProvider, TaskEnvelope, TaskResult
-from pc_client.providers.voice_provider import VoiceProvider
-from pc_client.providers.vision_provider import VisionProvider
-from pc_client.providers.text_provider import TextProvider
-from pc_client.providers.external_llm_base import ExternalLLMProvider, LLMResponse
-from pc_client.providers.gemini_provider import GeminiProvider
-from pc_client.providers.chatgpt_provider import ChatGPTProvider
 
-__all__ = [
-    "BaseProvider",
-    "TaskEnvelope",
-    "TaskResult",
-    "VoiceProvider",
-    "VisionProvider",
-    "TextProvider",
-    "ExternalLLMProvider",
-    "LLMResponse",
-    "GeminiProvider",
-    "ChatGPTProvider",
-]
+_LAZY = {
+    "VoiceProvider": "voice_provider",
+    "VisionProvider": "vision_provider",
+    "TextProvider": "text_provider",
+    "ExternalLLMProvider": "external_llm_base",
+    "LLMResponse": "external_llm_base",
+    "GeminiProvider": "gemini_provider",
+    "ChatGPTProvider": "chatgpt_provider",
+}
+__all__ = ["BaseProvider", "TaskEnvelope", "TaskResult", *_LAZY]
+
+
+def __getattr__(name):
+    if name not in _LAZY:
+        raise AttributeError(name)
+    value = getattr(import_module(f"pc_client.providers.{_LAZY[name]}"), name)
+    globals()[name] = value
+    return value

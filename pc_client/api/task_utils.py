@@ -19,20 +19,24 @@ def build_vision_frame_task(
         return None
 
     frame_id = payload.get("frame_id") or payload.get("rid") or str(uuid.uuid4())
-    timestamp = payload.get("timestamp") or payload.get("ts")
+    timestamp = payload.get("observed_at") if "observed_at" in payload else payload.get("timestamp", payload.get("ts"))
 
     task_payload: Dict[str, Any] = {
         "frame_data": frame_data,
         "frame_id": frame_id,
         "timestamp": timestamp,
+        "observed_at": timestamp,
         "format": payload.get("format", "jpeg"),
     }
 
-    for key in ("rid", "roi", "meta"):
+    for key in ("rid", "roi", "meta", "stale", "offline", "error", "data_ready", "simulated", "source"):
         if key in payload:
             task_payload[key] = payload[key]
 
     task_meta = {"source_topic": "vision.frame.offload", "frame_id": frame_id}
+    for key in ("simulated", "source"):
+        if key in payload:
+            task_meta[key] = payload[key]
     if tracking_state:
         task_meta["tracking_state"] = tracking_state
 
@@ -92,8 +96,11 @@ def build_voice_tts_task(payload: Dict[str, Any], priority: int) -> Optional[Tas
     task_payload = {
         "text": text,
         "voice": payload.get("voice"),
-        "speed": payload.get("speed"),
+        "speed": payload.get("speed", 1.0),
     }
+    for key in ("provider", "backend"):
+        if key in payload:
+            task_payload[key] = payload[key]
     task_meta = {
         "source_topic": "voice.tts.request",
         "request_id": request_id,

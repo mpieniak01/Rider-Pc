@@ -26,3 +26,5 @@ nie potwierdzają rzeczywistego działania modelu ani fizycznego robota.
 
 Wersja polska jest punktem wyjścia; aktualizujemy też instrukcje EN.
 Lokalne plany i raporty utrzymujemy tylko w `docs_pl/_to_do/` i `docs_pl/_done/`.
+
+- [Panel operatora Pi/PC](PANEL_OPERATORA.md)

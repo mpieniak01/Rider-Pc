@@ -274,14 +274,34 @@ class TaskQueueWorker:
                 self.telemetry_publisher.publish_task_result(result)
 
                 # Publish enhanced vision data for frame tasks
-                if task.task_type == TaskType.VISION_FRAME and result.status == TaskStatus.COMPLETED:
+                if (
+                    task.task_type == TaskType.VISION_FRAME
+                    and result.status == TaskStatus.COMPLETED
+                    and result.meta.get("simulated") is not True
+                    and result.meta.get("engine") != "mock"
+                    and result.meta.get("source") not in {"demo", "mock", "simulation"}
+                    and not any(
+                        provenance.get("simulated") is True
+                        or provenance.get("source") in {"demo", "mock", "simulation"}
+                        for provenance in (
+                            task.payload,
+                            task.meta,
+                            task.payload["meta"] if isinstance(task.payload.get("meta"), dict) else {},
+                        )
+                    )
+                ):
                     result_payload = result.result or {}
                     frame_id = result_payload.get("frame_id") or task.meta.get("frame_id") or task.task_id
-                    timestamp = result_payload.get("timestamp") or result.meta.get("timestamp")
+                    observed = (
+                        task.payload.get("observed_at")
+                        if "observed_at" in task.payload
+                        else task.payload.get("timestamp")
+                    )
+                    timestamp = observed
                     meta = dict(task.meta)
                     meta.update(result.meta)
-                    if timestamp and "timestamp" not in meta:
-                        meta["timestamp"] = timestamp
+                    meta["timestamp"] = timestamp
+                    meta["observed_at"] = observed
                     meta.setdefault("source_topic", task.meta.get("source_topic"))
 
                     self.telemetry_publisher.publish_vision_obstacle_enhanced(
@@ -291,6 +311,16 @@ class TaskQueueWorker:
                     )
                     tracking_payload = result_payload.get("tracking")
                     if tracking_payload and tracking_payload.get("offset") is not None:
+                        tracking_payload = {
+                            **tracking_payload,
+                            "observed_at": observed,
+                            "ts": observed,
+                            **{
+                                key: meta[key]
+                                for key in ("stale", "offline", "error", "data_ready", "simulated")
+                                if key in meta
+                            },
+                        }
                         self.telemetry_publisher.publish_tracking_offset(tracking_payload)
                 elif task.task_type == TaskType.VOICE_ASR and result.status == TaskStatus.COMPLETED:
                     result_payload = result.result or {}

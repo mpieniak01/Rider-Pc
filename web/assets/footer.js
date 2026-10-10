@@ -1,3 +1,5 @@
+import { request, poll as boundedPoll } from './operator/transport.js';
+import { fresh, cameraFrame } from './operator/model.js';
 (function () {
   const targets = Array.from(document.querySelectorAll('[data-dashboard-footer-target]'));
   if (!targets.length) {
@@ -188,19 +190,14 @@
       update({ state, snapInfo, cameraResource });
     };
 
-    poll().catch((err) => console.warn('Footer poll error:', err));
-    setInterval(() => {
-      poll().catch((err) => console.warn('Footer poll error:', err));
-    }, FOOTER_POLL_INTERVAL_MS);
+    const poller = boundedPoll(poll, { interval: FOOTER_POLL_INTERVAL_MS });
+    const ages = setInterval(() => { if (!document.hidden) render(); }, 1000);
+    window.addEventListener('pagehide', () => { poller.stop(); clearInterval(ages); }, { once: true });
   }
 
   async function fetchJson(url) {
     try {
-      const response = await fetch(url, { cache: 'no-store' });
-      if (!response.ok) {
-        throw new Error('HTTP ' + response.status);
-      }
-      return await response.json();
+      return (await request(url)).data;
     } catch (err) {
       console.warn('Footer request failed:', url, err);
       return null;
@@ -211,12 +208,13 @@
     if (!ctx.presencePill || !ctx.presenceState || !ctx.modeEl || !ctx.confEl) {
       return;
     }
-    const present = Boolean(state?.present);
+    const known = fresh(state, 3) && !state?.offline && !state?.error && typeof state?.present === 'boolean';
+    const present = known && state.present;
     ctx.presencePill.className = 'c-pill ' + (present ? 'ok' : 'off');
-    ctx.presenceState.textContent = present ? 'ACTIVE' : 'IDLE';
-    const modeValue = state?.mode || '—';
+    ctx.presenceState.textContent = known ? `${state.source === 'demo' ? 'DEMO · ' : ''}${present ? 'ACTIVE' : 'IDLE'}` : 'UNKNOWN / STALE';
+    const modeValue = known ? state?.mode || '—' : '—';
     ctx.modeEl.textContent = `${ctx.modeLabel}: ${modeValue}`;
-    const confValue = state?.confidence != null ? Number(state.confidence).toFixed(3) : '—';
+    const confValue = known && state?.confidence != null ? Number(state.confidence).toFixed(3) : '—';
     ctx.confEl.textContent = `${ctx.confLabel}: ${confValue}`;
   }
 
@@ -224,19 +222,19 @@
     if (!ctx.camEl || !ctx.camMetaEl) {
       return;
     }
-    const rawAge = snapInfo?.raw?.age_s;
-    const procAge = snapInfo?.proc?.age_s;
-    const trackerAge = snapInfo?.tracker?.age_s;
+    const rawAge = cameraFrame(snapInfo, 'raw').age;
+    const procAge = cameraFrame(snapInfo, 'proc').age;
+    const trackerAge = cameraFrame(snapInfo, 'tracker').age;
     const rawTxt = formatAge(rawAge);
     const procTxt = formatAge(procAge);
     const trackerTxt = formatAge(trackerAge);
     ctx.camEl.textContent = `${ctx.camLabel}: ${rawTxt} / ${procTxt} • TRK: ${trackerTxt}`;
-    const cameraOk = isCameraOnline(state);
+    const cameraOk = ['raw', 'proc', 'tracker'].some(kind => cameraFrame(snapInfo, kind).fresh);
     ctx.camEl.className = 'c-pill ' + (cameraOk ? 'ok' : 'off');
 
     const metaParts = [];
     const fps = state?.camera?.fps;
-    if (typeof fps === 'number' && !Number.isNaN(fps)) {
+    if (fresh(state, 3) && typeof fps === 'number' && !Number.isNaN(fps)) {
       metaParts.push(`${fps.toFixed(1)} fps`);
     }
     const holdersText = describeCameraResource(cameraResource);
@@ -245,19 +243,6 @@
     }
     const metaValue = metaParts.length ? metaParts.join(' • ') : '—';
     ctx.camMetaEl.textContent = `${ctx.camMetaLabel}: ${metaValue}`;
-  }
-
-  function isCameraOnline(state) {
-    if (!state || !state.camera) {
-      return false;
-    }
-    if (state.camera.vision_enabled === false) {
-      return false;
-    }
-    if (state.camera.on === false) {
-      return false;
-    }
-    return true;
   }
 
   function formatAge(value) {
@@ -271,6 +256,7 @@
     if (!resource) {
       return '';
     }
+    if (resource.offline || !fresh(resource, 10)) return 'unknown / stale';
     if (resource.error) {
       return `err: ${resource.error}`;
     }

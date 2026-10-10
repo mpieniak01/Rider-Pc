@@ -73,7 +73,7 @@ async def test_end_to_end_voice_offload():
 async def test_end_to_end_vision_offload():
     """Test end-to-end vision task offload from queue to provider."""
     # Initialize provider
-    vision_provider = VisionProvider()
+    vision_provider = VisionProvider({"use_mock": True})
     await vision_provider.initialize()
 
     # Create task queue
@@ -118,7 +118,7 @@ async def test_end_to_end_vision_offload():
 async def test_end_to_end_text_offload():
     """Test end-to-end text task offload from queue to provider."""
     # Initialize provider
-    text_provider = TextProvider()
+    text_provider = TextProvider({"use_mock": True})
     await text_provider.initialize()
 
     # Create task queue
@@ -159,8 +159,8 @@ async def test_end_to_end_priority_queue():
     """Test end-to-end with priority queue handling."""
     # Initialize all providers
     voice_provider = VoiceProvider(config={"use_mock": True})
-    vision_provider = VisionProvider()
-    text_provider = TextProvider()
+    vision_provider = VisionProvider({"use_mock": True})
+    text_provider = TextProvider({"use_mock": True})
 
     await voice_provider.initialize()
     await vision_provider.initialize()

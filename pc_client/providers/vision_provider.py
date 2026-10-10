@@ -4,6 +4,9 @@ import logging
 import base64
 import io
 import time
+import importlib
+import math
+from pathlib import Path
 from typing import Dict, Any, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
@@ -22,23 +25,6 @@ if TYPE_CHECKING:
     from PIL.Image import Image as PillowImage
 else:
     PillowImage = Any
-
-try:
-    from ultralytics import YOLO
-
-    YOLO_AVAILABLE = True
-except ImportError:
-    YOLO_AVAILABLE = False
-    logger.warning("YOLOv8 not available, using mock object detection")
-
-try:
-    import mediapipe as mp  # type: ignore
-
-    MP_AVAILABLE = True
-except ImportError:
-    mp = None  # type: ignore
-    MP_AVAILABLE = False
-    logger.warning("MediaPipe not installed; tracking offsets will use fallback heuristics")
 
 
 class VisionProvider(BaseProvider):
@@ -65,7 +51,7 @@ class VisionProvider(BaseProvider):
         self.detection_model_name = self.config.get("detection_model", "yolov8n")
         self.confidence_threshold = self.config.get("confidence_threshold", 0.5)
         self.max_detections = self.config.get("max_detections", 10)
-        self.use_mock = self.config.get("use_mock", False)
+        self.use_mock = self.config.get("use_mock") is True
 
         # Model instance (loaded during initialization)
         self.detector: Optional[Any] = None
@@ -76,7 +62,7 @@ class VisionProvider(BaseProvider):
         self._tracking_dead_zone: float = float(self.config.get("tracking_dead_zone", 0.1))
         self._mp_face = None
         self._mp_hands = None
-        self._init_tracking_detectors()
+        self._error = None
 
     async def _initialize_impl(self) -> None:
         """Initialize vision processing models."""
@@ -84,20 +70,18 @@ class VisionProvider(BaseProvider):
         self.logger.info(f"Confidence threshold: {self.confidence_threshold}")
         self.logger.info(f"Max detections: {self.max_detections}")
 
-        # Load YOLO model if available and not in mock mode
-        if YOLO_AVAILABLE and not self.use_mock:
-            try:
-                self.logger.info("[vision] Loading YOLOv8 model...")
-                # Load YOLOv8 model (will auto-download if not cached)
-                self.detector = YOLO(f"{self.detection_model_name}.pt")
-                self.logger.info("[vision] YOLOv8 model loaded successfully")
-            except Exception as e:
-                self.logger.error(f"[vision] Failed to load YOLO: {e}")
-                self.logger.warning("[vision] Falling back to mock detection")
-                self.detector = None
-        else:
-            self.logger.info("[vision] Using mock vision implementation")
-            self.detector = None
+        if not self.use_mock:
+            model_path = Path(
+                str(self.config.get("detection_model_path") or f"{self.detection_model_name}.pt")
+            ).expanduser()
+            if not model_path.is_file():
+                raise RuntimeError("YOLO local weights unavailable; configure detection_model_path (no download)")
+            detector_class = importlib.import_module("ultralytics").YOLO
+            self.detector = detector_class(str(model_path))
+            if self.detector is None or not callable(self.detector):
+                raise RuntimeError("YOLO model not usable")
+            if self.config.get("enable_tracking") is True:
+                self._init_tracking_detectors()
 
         self.logger.info("[vision] Vision provider initialized")
 
@@ -198,6 +182,8 @@ class VisionProvider(BaseProvider):
                     provider='VisionProvider', task_type='vision.detection', status='completed'
                 ).inc()
 
+                # This configured detector completed inference and postprocessing.
+                self._error = None
                 return TaskResult(
                     task_id=task.task_id,
                     status=TaskStatus.COMPLETED,
@@ -217,7 +203,13 @@ class VisionProvider(BaseProvider):
 
             except Exception as e:
                 self.logger.error(f"[vision] Detection processing failed: {e}")
-                self.logger.warning("[vision] Falling back to mock detection due to error")
+                self._error = str(e) or type(e).__name__
+                return TaskResult(task_id=task.task_id, status=TaskStatus.FAILED, error=self._error)
+
+        if not self.use_mock:
+            return TaskResult(
+                task_id=task.task_id, status=TaskStatus.FAILED, error=self._error or "YOLO backend unavailable"
+            )
 
         # Mock implementation fallback
         detections = [
@@ -248,6 +240,8 @@ class VisionProvider(BaseProvider):
             },
             meta={
                 "model": "mock",
+                "simulated": True,
+                "source": "demo",
                 "confidence_threshold": self.confidence_threshold,
                 "format": image_format,
                 "engine": "mock",
@@ -256,8 +250,10 @@ class VisionProvider(BaseProvider):
 
     def _init_tracking_detectors(self) -> None:
         """Initialize optional MediaPipe detectors for tracking offsets."""
-        if not MP_AVAILABLE:
-            self.logger.info("[vision] MediaPipe unavailable – tracking offsets will use detection fallback")
+        try:
+            mp = importlib.import_module("mediapipe")
+        except ImportError:
+            self.logger.info("[vision] MediaPipe unavailable – tracking offsets use detection heuristics")
             return
 
         try:
@@ -317,7 +313,14 @@ class VisionProvider(BaseProvider):
         if not enabled or mode not in {"face", "hand"}:
             return None
 
-        timestamp = frame_timestamp or tracking_state.get("ts") or time.time()
+        if (
+            isinstance(frame_timestamp, bool)
+            or not isinstance(frame_timestamp, (int, float))
+            or not math.isfinite(frame_timestamp)
+            or frame_timestamp <= 0
+        ):
+            return None
+        timestamp = frame_timestamp
         rgb_frame: Optional[np.ndarray] = None
 
         try:
@@ -339,6 +342,8 @@ class VisionProvider(BaseProvider):
         if marker:
             marker["mode"] = mode
             marker["ts"] = timestamp
+            marker["observed_at"] = timestamp
+            marker["simulated"] = self.use_mock
             marker.setdefault("source", "pc")
         return marker
 
@@ -542,7 +547,7 @@ class VisionProvider(BaseProvider):
 
         frame_data = task.payload.get("frame_data")
         frame_id = task.payload.get("frame_id")
-        timestamp = task.payload.get("timestamp")
+        timestamp = task.payload.get("observed_at") if "observed_at" in task.payload else task.payload.get("timestamp")
         tracking_state = task.meta.get("tracking_state")
         frame: Optional[PillowImage] = None
 
@@ -613,7 +618,11 @@ class VisionProvider(BaseProvider):
                                 {
                                     "type": class_name,
                                     "distance": round(distance, 2),
+                                    "distance_unit": "unverified",
+                                    "distance_source": "bbox_area_heuristic",
+                                    "range_verified": False,
                                     "angle": angle,
+                                    "angle_unit": "degrees",
                                     "confidence": round(confidence, 2),
                                     "size": "large" if box_area > 50000 else "medium" if box_area > 10000 else "small",
                                 }
@@ -643,6 +652,7 @@ class VisionProvider(BaseProvider):
                 result_payload: Dict[str, Any] = {
                     "frame_id": frame_id,
                     "timestamp": timestamp,
+                    "observed_at": timestamp,
                     "obstacles": obstacles,
                     "should_avoid": len(obstacles) > 0,
                     "suggested_action": "slow_down" if obstacles else "continue",
@@ -650,6 +660,8 @@ class VisionProvider(BaseProvider):
                 if tracking_marker:
                     result_payload["tracking"] = tracking_marker
 
+                # This configured detector completed inference and postprocessing.
+                self._error = None
                 return TaskResult(
                     task_id=task.task_id,
                     status=TaskStatus.COMPLETED,
@@ -658,13 +670,30 @@ class VisionProvider(BaseProvider):
                         "model": self.detection_model_name,
                         "processing_type": "frame_offload",
                         "engine": "yolov8",
+                        "range_verified": False,
+                        "distance_source": "bbox_area_heuristic",
+                        "distance_unit": "unverified",
                         "timestamp": timestamp,
+                        "observed_at": timestamp,
+                        "simulated": False,
+                        "source": "pc",
+                        **{
+                            key: task.payload[key]
+                            for key in ("stale", "offline", "error", "data_ready")
+                            if key in task.payload
+                        },
                     },
                 )
 
             except Exception as e:
                 self.logger.error(f"[vision] Frame processing failed: {e}")
-                self.logger.warning("[vision] Falling back to mock frame processing due to error")
+                self._error = str(e) or type(e).__name__
+                return TaskResult(task_id=task.task_id, status=TaskStatus.FAILED, error=self._error)
+
+        if not self.use_mock:
+            return TaskResult(
+                task_id=task.task_id, status=TaskStatus.FAILED, error=self._error or "YOLO backend unavailable"
+            )
 
         # Mock implementation fallback
         obstacles = [
@@ -700,7 +729,15 @@ class VisionProvider(BaseProvider):
             task_id=task.task_id,
             status=TaskStatus.COMPLETED,
             result=result_payload,
-            meta={"model": "mock", "processing_type": "frame_offload", "engine": "mock", "timestamp": timestamp},
+            meta={
+                "model": "mock",
+                "processing_type": "frame_offload",
+                "engine": "mock",
+                "timestamp": timestamp,
+                "observed_at": timestamp,
+                "simulated": True,
+                "source": "demo",
+            },
         )
 
     def get_supported_tasks(self) -> list[TaskType]:
@@ -716,7 +753,10 @@ class VisionProvider(BaseProvider):
                 "confidence_threshold": self.confidence_threshold,
                 "max_detections": self.max_detections,
                 "detector_available": self.detector is not None,
-                "mode": "mock" if self.detector is None else "real",
+                "mode": "mock" if self.use_mock else "real",
+                "source": "demo" if self.use_mock else "pc",
+                "ready": self._initialized and (self.use_mock or self.detector is not None) and not self._error,
+                "error": self._error,
             }
         )
         return base_telemetry

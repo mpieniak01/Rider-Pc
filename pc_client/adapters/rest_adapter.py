@@ -245,7 +245,11 @@ class RestAdapter:
         try:
             response = await self.client.post(f"{self.base_url}/api/voice/tts", json=payload)
             response.raise_for_status()
+            if response.headers.get("X-Voice-Fallback"):
+                raise RuntimeError("Remote TTS returned fallback audio")
             media_type = response.headers.get("content-type", "audio/wav")
+            if not media_type.startswith("audio/"):
+                raise RuntimeError("Remote TTS returned non-audio content")
             return response.content, media_type
         except Exception as e:
             logger.error(f"Error posting /api/voice/tts: {e}")
@@ -455,6 +459,27 @@ class RestAdapter:
             return response.json()
         except Exception as exc:
             return {"error": str(exc)}
+
+    async def get_service_logs(self, unit: str) -> Dict[str, Any]:
+        try:
+            response = await self.client.get(f"{self.base_url}/api/services/{quote(unit, safe='')}/logs")
+            result = response.json()
+            if response.status_code >= 400:
+                result["status_code"] = response.status_code
+            return result
+        except Exception as exc:
+            return {"ok": False, "source": "pi/systemd/journal", "error": str(exc), "lines": [], "observed_at": None}
+
+    async def get_navigator_status(self) -> Dict[str, Any]:
+        try:
+            response = await self.client.get(f"{self.base_url}/api/navigator/status")
+            response.raise_for_status()
+            return response.json()
+        except Exception as exc:
+            return {"error": str(exc)}
+
+    async def post_navigator_config(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return await self._post_operator_action("/api/navigator/config", payload)
 
     async def get_control_state(self) -> Dict[str, Any]:
         """Fetch control state snapshot from Rider-PI."""

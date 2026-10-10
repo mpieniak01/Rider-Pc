@@ -1,311 +1,201 @@
-"""E2E tests for informational web screens.
+"""Shared Pi/PC operator surfaces and retained PC specialist views."""
 
-Tests cover smoke testing for passive/informational screens:
-- system.html - System diagnostics and metrics
-- navigation.html - Navigation map and visualization
-- chat.html - Chat interface for LLM interaction
+import time
 
-These are basic smoke tests verifying:
-- HTTP 200 response
-- Absence of JavaScript errors
-- Presence of key UI elements
-
-Mock Backend:
-The tests automatically enable TEST_MODE which uses MockRestAdapter.
-"""
+import pytest
+from playwright.sync_api import expect
 
 
-def _filter_test_env_console_errors(console_messages):
-    """Filter out expected console errors in test environment.
-
-    Filters:
-    - External resource loading failures (CDN)
-    - WebSocket connection failures (not available in test mode)
-
-    Returns only actual JavaScript execution errors.
-    """
-    return [
-        msg
-        for msg in console_messages
-        if msg.type == "error" and "Failed to load resource" not in msg.text and "WebSocket connection" not in msg.text
-    ]
-
-
-def test_system_page_loads(browser_context):
-    """Test that system.html loads without errors."""
-    page, base_url = browser_context
-
-    response = page.goto(f"{base_url}/web/system.html")
-    assert response.status == 200, "System page should load successfully"
-
-    # Wait for page to be fully loaded
-    page.wait_for_load_state("load")
-
-    # Check no JavaScript errors occurred
-    js_errors = [msg for msg in page.console_messages if msg.type == "error"]
-    assert len(js_errors) == 0, f"JavaScript errors found: {[msg.text for msg in js_errors]}"
-
-    # Check no page errors
-    assert len(page.errors) == 0, f"Page errors found: {page.errors}"
+@pytest.mark.parametrize(
+    "path,selector",
+    [
+        ("/view", "#overview-connection"),
+        ("/system", "#service-list"),
+        ("/navigation", "#map-canvas"),
+        ("/chat", "#chat-input"),
+        ("/devices", "#device-list"),
+        ("/models", "main"),
+        ("/project", "main"),
+        ("/chat-pc", "main"),
+    ],
+)
+def test_screens_load_without_javascript_errors(browser_context, path, selector):
+    page, base = browser_context
+    response = page.goto(base + path, wait_until="domcontentloaded")
+    expect(page.locator(selector)).to_be_visible()
+    page.wait_for_timeout(350)
+    assert response.status == 200
+    assert not page.errors, str(page.errors)
+    assert not [r for r in page.requests if r.method in {"POST", "PATCH", "PUT"}]
 
 
-def test_system_graph_element_visible(browser_context):
-    """Test that PC services block element is present and visible."""
-    page, base_url = browser_context
-
-    page.goto(f"{base_url}/web/system.html")
-    page.wait_for_load_state("load")
-
-    # Wait for PC services block to be visible (replaces old #system-graph)
-    page.wait_for_selector("#pc-services-block", state="visible", timeout=5000)
-
-    # Check that PC services block exists and is visible
-    pc_services_block = page.locator("#pc-services-block")
-    assert pc_services_block.count() > 0, "PC services block element should exist"
-    assert pc_services_block.is_visible(), "PC services block should be visible"
-
-    # Check that PC services grid exists within the block
-    pc_services_graph = page.locator("#pc-services-graph")
-    assert pc_services_graph.count() > 0, "PC services graph element should exist"
+def test_operator_menu_and_language_switch(browser_context):
+    page, base = browser_context
+    page.goto(base + "/view", wait_until="domcontentloaded")
+    for path in ["view", "control", "devices", "system"]:
+        expect(page.locator(f".dashboard-menu a[href='/{path}']")).to_be_visible()
+    page.locator(".lang-switch [data-lang='en']").click()
+    expect(page.locator("h1")).to_have_text("Overview")
 
 
-def test_navigation_page_loads(browser_context):
-    """Test that navigation.html loads without errors."""
-    page, base_url = browser_context
-
-    response = page.goto(f"{base_url}/web/navigation.html")
-    assert response.status == 200, "Navigation page should load successfully"
-
-    # Wait for page to be fully loaded
-    page.wait_for_load_state("load")
-
-    # Filter out expected errors in test environment
-    js_errors = _filter_test_env_console_errors(page.console_messages)
-    assert len(js_errors) == 0, f"JavaScript errors found: {[msg.text for msg in js_errors]}"
-
-    # Check no page errors (actual JavaScript exceptions)
-    assert len(page.errors) == 0, f"Page errors found: {page.errors}"
+def test_system_hosts_sources_admin_and_autostart_are_distinct(browser_context):
+    page, base = browser_context
+    page.goto(base + "/system", wait_until="domcontentloaded")
+    expect(page.locator(".service-node").first).to_be_visible()
+    assert page.locator(".service-node[data-identity^='pc:']").count() > 0
+    assert page.locator(".service-node[data-identity^='pi:']").count() > 0
+    expect(page.locator("#service-list")).to_contain_text("demo")
+    assert not page.locator(".service-node button:not([data-service-logs]):not(:disabled)").count()
+    page.locator("#admin-mode").check()
+    expect(page.locator(".service-node[data-identity^='pi:']").first.locator("button").first).to_be_enabled()
+    assert not [r for r in page.requests if r.method == "POST"]
 
 
-def test_navigation_canvas_element_present(browser_context):
-    """Test that navigation canvas element is present."""
-    page, base_url = browser_context
-
-    page.goto(f"{base_url}/web/navigation.html")
-    page.wait_for_load_state("load")
-
-    # Check that mapCanvas element exists
-    map_canvas = page.locator("#mapCanvas")
-    assert map_canvas.count() > 0, "Map canvas element should exist"
-
-    # Verify it's a canvas element
-    tag_name = map_canvas.evaluate("el => el.tagName")
-    assert tag_name.lower() == "canvas", "Element should be a canvas"
+def test_devices_preview_is_lazy_and_orientation_is_preserved(browser_context):
+    page, base = browser_context
+    page.goto(base + "/devices", wait_until="domcontentloaded")
+    expect(page.locator("#device-list")).to_contain_text("270")
+    expect(page.locator("#camera-preview-state")).to_contain_text("wyłączony")
+    assert not [r for r in page.requests if "/vision/cam" in r.url]
+    assert not [r for r in page.requests if r.method == "POST"]
+    page.locator("#preview-toggle").click()
+    expect(page.locator("#camera-preview-state")).to_contain_text("włączony")
 
 
-def test_chat_page_loads(browser_context):
-    """Test that chat.html loads without errors."""
-    page, base_url = browser_context
-
-    response = page.goto(f"{base_url}/web/chat.html")
-    assert response.status == 200, "Chat page should load successfully"
-
-    # Wait for page to be fully loaded
-    page.wait_for_load_state("load")
-
-    # Check no JavaScript errors occurred
-    js_errors = [msg for msg in page.console_messages if msg.type == "error"]
-    assert len(js_errors) == 0, f"JavaScript errors found: {[msg.text for msg in js_errors]}"
-
-    # Check no page errors
-    assert len(page.errors) == 0, f"Page errors found: {page.errors}"
-
-
-def test_chat_critical_elements_present(browser_context):
-    """Test that critical chat interface elements are present."""
-    page, base_url = browser_context
-
-    page.goto(f"{base_url}/web/chat.html")
-    page.wait_for_load_state("load")
-
-    # Wait for critical elements to be present
-    page.wait_for_selector("#board", state="attached", timeout=5000)
-    page.wait_for_selector("#input", state="attached", timeout=5000)
-    page.wait_for_selector("#sendBtn", state="visible", timeout=5000)
-
-    # Check board (chat messages container)
-    board = page.locator("#board")
-    assert board.count() > 0, "Chat board element should exist"
-
-    # Check input textarea
-    input_field = page.locator("#input")
-    assert input_field.count() > 0, "Chat input field should exist"
-
-    # Check send button
-    send_btn = page.locator("#sendBtn")
-    assert send_btn.count() > 0, "Send button should exist"
-    assert send_btn.is_visible(), "Send button should be visible"
-
-    # Check TTS checkbox
-    tts_checkbox = page.locator("#tts")
-    assert tts_checkbox.count() > 0, "TTS checkbox should exist"
-
-
-def test_view_system_card_displays_host(browser_context):
-    """Ensure the main dashboard view loads and shows mock host data."""
-    page, base_url = browser_context
-
-    response = page.goto(f"{base_url}/web/view.html")
-    assert response.status == 200, "View page should load successfully"
-
-    page.wait_for_load_state("load")
-    page.wait_for_function(
-        """
-        () => {
-            const el = document.getElementById('ci_host');
-            return el && el.textContent.trim() !== '—';
-        }
-        """,
-        timeout=5000,
+def test_footer_preserves_unknown_for_unobserved_vision_and_camera(browser_context):
+    page, base = browser_context
+    page.route("**/state", lambda route: route.fulfill(json={"present": True, "camera": {"fps": 30}, "source": "pi"}))
+    page.route(
+        "**/vision/snap-info",
+        lambda route: route.fulfill(
+            json={"raw": {"exists": True, "age_s": 0}, "proc": {"exists": True, "mtime": None}}
+        ),
     )
-
-    host_text = page.locator("#ci_host").inner_text().strip()
-    assert host_text not in {"", "—"}, "System card should display detected host name"
-
-
-def test_view_system_card_structure(browser_context):
-    """Verify that key rows of the system card stay in the DOM."""
-    page, base_url = browser_context
-
-    page.goto(f"{base_url}/web/view.html")
-    page.wait_for_load_state("load")
-
-    labels = [
-        "dash.system.host",
-        "dash.system.cpu_est",
-        "dash.system.load",
-        "dash.system.mem",
-        "dash.system.disk",
-        "dash.system.os",
-        "dash.system.fw",
-    ]
-    value_ids = ["ci_host", "ci_cpu", "ci_load", "ci_mem", "ci_disk", "ci_os", "ci_fw"]
-
-    for data_i18n in labels:
-        locator = page.locator(f"div[data-i18n='{data_i18n}']")
-        assert locator.count() > 0, f"Etykieta {data_i18n} powinna istnieć"
-
-    for element_id in value_ids:
-        locator = page.locator(f"#{element_id}")
-        assert locator.count() > 0, f"Wartość dla {element_id} powinna istnieć"
+    page.goto(base + "/view", wait_until="domcontentloaded")
+    expect(page.locator("[data-footer-presence-state]")).to_have_text("UNKNOWN / STALE")
+    assert "ok" not in page.locator("[data-footer-presence]").get_attribute("class").split()
+    assert "ok" not in page.locator("[data-footer-camera]").get_attribute("class").split()
+    assert "30.0 fps" not in page.locator("[data-footer-camera-meta]").inner_text()
 
 
-def test_system_network_cards_update(browser_context):
-    """Verify system dashboard populates network cards with data."""
-    page, base_url = browser_context
+def test_logs_are_on_demand_get_only_and_keep_host_identity(browser_context):
+    page, base = browser_context
+    page.goto(base + "/system", wait_until="domcontentloaded")
+    row = page.locator(".service-node[data-identity='pc:pc_client.service']")
+    expect(row).to_be_visible()
+    assert not [request for request in page.requests if "/logs?" in request.url]
+    with page.expect_request("**/api/services/pc_client.service/logs?host=pc") as event:
+        row.locator("[data-service-logs]").click()
+    assert event.value.method == "GET"
+    expect(row.locator("details").filter(has_text="Logi tylko do odczytu")).to_be_visible()
+    assert not [request for request in page.requests if request.method == "POST"]
 
-    response = page.goto(f"{base_url}/web/system.html")
-    assert response.status == 200, "System page should load successfully"
 
-    page.wait_for_load_state("load")
-    page.wait_for_function(
-        """
-        () => {
-            const host = document.getElementById('rider-pi-host');
-            const localIp = document.getElementById('local-ip-value');
-            if (!host || !localIp) return false;
-            const hasHost = host.textContent.trim().length > 0;
-            const hasIp = localIp.textContent.trim() !== '---.---.---.---';
-            return hasHost && hasIp;
+def test_mobile_stop_is_visible_and_not_covered_by_menu(browser_context):
+    page, base = browser_context
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.goto(base + "/control", wait_until="domcontentloaded")
+    stop = page.locator(".operator-global-stop")
+    expect(stop).to_be_visible()
+    assert stop.evaluate("""
+        node => {
+            const rect = node.getBoundingClientRect();
+            return rect.top >= 0 && rect.bottom <= innerHeight &&
+                document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)?.closest('[data-stop]') === node;
         }
-        """,
-        timeout=7000,
-    )
-
-    local_ip = page.locator("#local-ip-value").inner_text().strip()
-    rider_pi_host = page.locator("#rider-pi-host").inner_text().strip()
-
-    assert local_ip != '---.---.---.---', "Local IP card should display the detected host IP"
-    assert rider_pi_host != '', "Rider-Pi card should display configured host address"
+    """)
+    assert not [request for request in page.requests if request.method == "POST"]
 
 
-def test_system_page_sections_present(browser_context):
-    """Ensure that the main sections of system.html are rendered."""
-    page, base_url = browser_context
+def test_navigation_separates_fresh_task_status_from_unusable_measurements(browser_context):
+    page, base = browser_context
+    observed = time.time()
+    measurement = {
+        "width_cells": 2,
+        "height_cells": 1,
+        "grid": [0, 255],
+        "resolution_m": 0.1,
+        "origin_x": 0,
+        "origin_y": 0,
+        "observed_at": observed,
+        "quality": "measured",
+    }
+    payload = {
+        "state": "IDLE",
+        "active": False,
+        "data_ready": False,
+        "observed_at": observed,
+        "navigation": {"map": measurement, "pose": None, "path": None},
+    }
+    page.route("**/api/navigator/status", lambda route: route.fulfill(json=payload))
+    page.add_init_script("""window.fixtureStreams = [];
+        window.EventSource = class {
+            constructor() { window.fixtureStreams.push(this); }
+            close() {}
+        };""")
+    page.goto(base + "/navigation", wait_until="domcontentloaded")
+    expect(page.locator("#map-age")).to_contain_text("measured")
+    expect(page.locator("#nav-status")).to_contain_text("IDLE")
+    assert "unavailable" not in page.locator("#map-age").inner_text()
 
-    page.goto(f"{base_url}/web/system.html")
-    page.wait_for_load_state("load")
+    # The shared app wrapper must forward malformed inner navigation data;
+    # skipping it would leave the previous map looking healthy.
+    label = page.evaluate("""() => {
+        window.fixtureStreams.forEach(stream => stream.onmessage?.({
+            data: JSON.stringify({topic: 'mapper.map.data', data: 'broken-json'})
+        }));
+        return document.getElementById('map-age').textContent;
+    }""")
+    assert "—" in label and "unavailable" in label
+    expect(page.locator("#map-age")).to_contain_text("measured")
 
-    selectors = [
-        "#status-line",
-        "#network-status-block",
-        "#pc-services-block",
-        "#pc-services-graph",
-        "#pi-services-block",
-        "#pi-services-graph",
-        ".log-panel",
-        "#log-terminal",
-        "#log-clear-btn",
-    ]
+    # Quality changed even though the producer timestamp did not.
+    payload["navigation"]["map"] = {**measurement, "data_ready": False, "quality": "unknown", "error": "uncalibrated"}
+    payload["state"] = "FAILED"
+    payload["observed_at"] = time.time()
+    expect(page.locator("#map-age")).to_contain_text("unavailable")
+    expect(page.locator("#nav-status")).to_contain_text("FAILED")
 
-    for selector in selectors:
-        locator = page.locator(selector)
-        assert locator.count() > 0, f"Element {selector} powinien istnieć"
-        assert locator.first.is_visible(), f"Element {selector} powinien być widoczny"
-
-
-def test_control_page_core_widgets_present(browser_context):
-    """Validate that control.html renders camera, motion and feature panels."""
-    page, base_url = browser_context
-
-    page.goto(f"{base_url}/web/control.html")
-    page.wait_for_load_state("load")
-
-    basic_selectors = [
-        "#camPrev",
-        ".motion-grid",
-        "#featureList",
-        ".feature-card",
-        "#scenarioList",
-        "#resTable",
-        "#svcTable",
-        "#motionQueueTable",
-        "#log",
-    ]
-    for selector in basic_selectors:
-        locator = page.locator(selector)
-        assert locator.count() > 0, f"Element {selector} powinien istnieć"
-
-    # Wait for data-driven sections to populate
-    page.wait_for_selector("#motionQueueBody tr", timeout=7000)
-    assert page.locator("#motionQueueBody tr").count() > 0, "Tabela kolejki ruchu powinna mieć wiersze"
-    page.wait_for_selector("#scenarioList .scenario-row", timeout=7000)
-
-
-def test_models_page_sections_render(browser_context):
-    """Smoke test for models.html ensuring main grids show seeded data."""
-    page, base_url = browser_context
-
-    page.goto(f"{base_url}/web/models.html")
-    page.wait_for_load_state("load")
-
-    page.wait_for_selector(".pipeline-card", timeout=7000)
-    assert page.locator(".pipeline-card").count() >= 3, "Powinny istnieć kafle pipeline dla PC/Pi"
-
-    page.wait_for_selector(".engine-card", timeout=7000)
-    assert page.locator(".engine-card").count() >= 3, "Sekcja silników i kluczy powinna być widoczna"
-
-    page.wait_for_selector(".pi-health-grid", timeout=7000)
-    assert page.locator(".pi-health-grid").count() > 0, "Kafle zdrowia Pi powinny się renderować"
+    # Explicit unknown data must expire the previously drawn map.
+    payload["navigation"] = None
+    expect(page.locator("#map-age")).to_contain_text("—")
+    assert not page.errors, str(page.errors)
+    assert not [request for request in page.requests if request.method in {"POST", "PATCH", "PUT"}]
 
 
-def test_project_page_lists_mock_issues(browser_context):
-    """Ensure that project.html renders issues from the mock GitHub adapter."""
-    page, base_url = browser_context
+@pytest.mark.parametrize("path", ["/view", "/devices"])
+def test_recent_offline_xgo_is_not_shown_as_a_healthy_measurement(browser_context, path):
+    page, base = browser_context
 
-    page.goto(f"{base_url}/web/project.html")
-    page.wait_for_load_state("load")
+    def offline_state(route):
+        observed = time.time()
+        route.fulfill(
+            json={
+                "source": "pi",
+                "devices": {
+                    "xgo": {
+                        "observed_at": observed,
+                        "ts": observed,
+                        "source": "motion-executor",
+                        "battery_pct": 0,
+                        "roll": 0,
+                        "pitch": 0,
+                        "yaw": 0,
+                        "offline": True,
+                        "error": "sensor offline",
+                    }
+                },
+            }
+        )
 
-    page.wait_for_selector("article.issue-card", timeout=7000)
-    issue_cards = page.locator("article.issue-card")
-    assert issue_cards.count() > 0, "Powinna zostać wyrenderowana co najmniej jedna karta zgłoszenia"
+    page.route("**/state", offline_state)
+    page.goto(base + path, wait_until="domcontentloaded")
+    if path == "/view":
+        expect(page.locator("#overview-battery")).to_contain_text("brak / stary pomiar")
+        expect(page.locator("#overview-battery")).to_contain_text("0%")
+    else:
+        telemetry = page.locator("#device-list > article").first
+        expect(telemetry).to_contain_text("brak / stare")
+        assert not telemetry.locator(".ok").count()
+    assert not page.errors, str(page.errors)
+    assert not [request for request in page.requests if request.method in {"POST", "PATCH", "PUT"}]

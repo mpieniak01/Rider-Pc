@@ -1,207 +1,191 @@
-"""E2E tests for control.html interface.
-
-Tests cover:
-- Rendering of critical UI elements
-- Motion control button interactions
-- API request validation
-- Speed slider functionality
-- Feature management (tracking modes)
-- API status indicators
-
-Mock Backend:
-The tests automatically enable TEST_MODE which uses MockRestAdapter instead of RestAdapter.
-This eliminates connection errors and timeouts when testing without a real Rider-PI device.
-MockRestAdapter provides deterministic mock responses for all Rider-PI endpoints.
-
-To run these tests locally:
-    pytest tests/e2e/test_web_control.py -v
-
-The mock backend is enabled automatically - no manual configuration needed.
-"""
+"""Operator UI against isolated mock server only; never physical robot."""
 
 import json
 import time
+
 import pytest
+from playwright.sync_api import expect
 
 pytestmark = pytest.mark.timeout(60)
 
-# JavaScript initialization timeout: Time needed for control.html to call
-# fetchControlState() and fetchServices() after page load.
-# This value is set to 3 seconds to allow:
-# - Initial page load and script parsing
-# - Async fetch to /api/control/state (sets remoteOnline flag)
-# - Async fetch to /svc (loads services data)
-# - DOM manipulation to show/hide elements based on backend state
-JS_INIT_TIMEOUT_MS = 3000
 
-# Selector wait timeout: Time to wait for DOM elements to appear after JS initialization.
-# Set to 5 seconds to account for potential network delays and DOM rendering.
-SELECTOR_WAIT_TIMEOUT_MS = 5000
-
-
-def _open_control_page(page, base_url):
-    """Wait for the legacy module's event handlers, including its awaited i18n."""
-    page.add_init_script("""
-        const attach = EventTarget.prototype.addEventListener;
-        EventTarget.prototype.addEventListener = function(type, listener, options) {
-            const result = attach.call(this, type, listener, options);
-            if (this.id === "btnFwd" && type === "click") window.__testControlReady = true;
-            return result;
-        };
-    """)
-    response = page.goto(f"{base_url}/web/control.html", wait_until="domcontentloaded", timeout=15000)
-    page.wait_for_function("window.__testControlReady === true", timeout=15000)
+def open_control(page, base):
+    response = page.goto(base + "/control", wait_until="domcontentloaded")
+    expect(page.locator("#safety-state")).to_have_text("DISARMED")
+    assert response.status == 200
     return response
 
 
-def test_control_page_loads(browser_context):
-    """Test that control.html loads without errors."""
-    page, base_url = browser_context
-
-    response = _open_control_page(page, base_url)
-    assert response.status == 200
-
-    # Check no JavaScript errors occurred
-    js_errors = [msg for msg in page.console_messages if msg.type == "error"]
-    assert len(js_errors) == 0, f"JavaScript errors found: {[msg.text for msg in js_errors]}"
-
-    # Check no page errors
-    assert len(page.errors) == 0, f"Page errors found: {page.errors}"
-
-
-def test_critical_elements_render(browser_context):
-    """Test that critical UI elements are rendered correctly."""
-    page, base_url = browser_context
-
-    _open_control_page(page, base_url)
-    page.wait_for_timeout(500)
-
-    # Check resource diagnostics table exists and is visible
-    res_table = page.locator("#resTable")
-    assert res_table.count() > 0
-    assert res_table.first.is_visible()
-
-    # Check resource table has content
-    res_rows = page.locator("#resBody tr").count()
-    assert res_rows > 0, "Resource table should have rows"
-
-    # Check services table exists
-    # Note: The table has hidden attribute initially and is shown after services load successfully
-    # We just check that the element exists in the DOM
-    svc_table = page.locator("#svcTable")
-    assert svc_table.count() > 0, "Services table element should exist"
-
-    # Offline/disabled preview may hide the image; the operator still sees the card.
-    assert page.locator(".cam-card").is_visible()
-    assert page.locator("#camInfo").is_visible()
-    assert page.locator("#camPrev").count() == 1
-
-
-def test_api_status_indicator(browser_context):
-    """Test that API status indicator element exists in the page."""
-    page, base_url = browser_context
-
-    response = _open_control_page(page, base_url)
-    assert response.status == 200, "Page should load successfully"
-
-    # Wait for JavaScript to initialize
-    time.sleep(3)
-
-    # Verify the page loaded the header with title
-    title_element = page.locator("h1.page-title")
-    assert title_element.count() > 0, "Page title should be present"
-
-    # The API status is part of the title, verify the structure is there
-    # Note: In some test runs the specific status span may not render due to timing,
-    # but the overall page structure is verified by other tests
-
-
-def test_legacy_forward_request_is_rejected_without_operator_envelope(browser_context):
-    """The old panel cannot authorize motion or silently arm the mock robot."""
-    page, base_url = browser_context
-    _open_control_page(page, base_url)
-
+def explicit_arm(page):
+    page.locator("#operator-plan").fill("Mock-only fixture: clear space, secured cable, 0.1 s pulse and STOP.")
+    page.locator("#operator-consent").check()
+    expect(page.locator("#arm")).to_be_enabled()
     with page.expect_response(
-        lambda response: response.url == f"{base_url}/api/control" and response.request.method == "POST"
-    ) as response_info:
-        page.locator("#btnFwd").click()
-
-    response = response_info.value
-    payload = response.request.post_data_json
-    assert payload["cmd"] == "move"
-    assert payload["dir"] == "forward"
-    assert "generation" not in payload
-    assert "operator_consent" not in payload
-    assert response.status == 409
-    assert response.json()["detail"] == "explicit_fresh_operator_envelope_required"
-    assert not any(request.method == "POST" and "/api/safety" in request.url for request in page.requests)
-
-
-def test_stop_button_sends_stop_command(browser_context):
-    """Test that Stop button sends stop command."""
-    page, base_url = browser_context
-
-    _open_control_page(page, base_url)
-
-    # Click stop button and wait for API request
-    with page.expect_request("**/api/control") as request_info:
-        page.locator("#btnStop").click()
-
-    # Verify request
-    req = request_info.value
-    assert req.method == "POST", "Stop button should send POST request"
-    assert "/api/control" in req.url, "Request URL should contain /api/control"
-
-    payload = json.loads(req.post_data)
-    assert payload.get("cmd") == "stop", "Command should be 'stop'"
+        lambda response: response.request.method == "POST" and response.url.endswith("/api/safety")
+    ) as event:
+        page.locator("#arm").click()
+    response = event.value
+    assert response.status == 200, response.text()
+    command, result = json.loads(response.request.post_data), response.json()
+    assert result.get("ok") is True and result.get("confirmed") is True and result.get("pending") is False, result
+    assert result.get("simulated") is True and result.get("physical_completion") == "unverified", result
+    ack, safety = result["ack"], result["safety"]
+    assert ack["status"] == "executed" and ack["physical_completion"] == "unverified", result
+    for key in ("request_id", "source", "seq", "action"):
+        assert ack[key] == command[key], result
+    assert ack["command_generation"] == ack["generation"] == safety["generation"] == command["generation"], result
+    assert safety["state"] == "ARMED" and safety["owner"] == command["owner"] == "manual", result
+    assert safety["ready"] is True and safety["hardware_ready"] is True and safety["can_move"] is True, result
+    assert safety["last_seq"] == command["seq"] and safety["last_ack"] == ack, result
+    expect(page.locator("#safety-state")).to_have_text("ARMED")
+    expect(page.locator('[data-direction="forward"]')).to_be_enabled()
 
 
-def test_speed_slider_updates_label(browser_context):
-    """Test that speed sliders update their labels correctly."""
-    page, base_url = browser_context
-
-    _open_control_page(page, base_url)
-
-    # Test turning speed slider
-    speed_spin_val = page.locator("#speedSpinVal")
-    initial_val = speed_spin_val.text_content()
-
-    # Change slider value using evaluate (fill doesn't work well with range inputs)
-    page.locator("#speedSpin").evaluate("el => { el.value = '0.50'; el.dispatchEvent(new Event('input')); }")
-
-    # Wait for label to update with a more reliable approach
-    page.wait_for_function(f"document.querySelector('#speedSpinVal').textContent !== '{initial_val}'", timeout=2000)
-
-    # Check label updated
-    updated_val = speed_spin_val.text_content()
-    assert updated_val != initial_val, "Speed label should update"
-    assert "0.50" in updated_val or "0.5" in updated_val, "Speed label should reflect new value"
+def test_control_is_read_only_on_entry(browser_context):
+    page, base = browser_context
+    open_control(page, base)
+    expect(page.locator("#task-list article").first).to_be_visible()
+    expect(page.locator("#provider-runtime article").first).to_be_visible()
+    assert not [r for r in page.requests if r.method in {"POST", "PATCH", "PUT"}]
+    assert not page.errors
+    expect(page.locator('[data-direction="forward"]')).to_be_disabled()
 
 
-def test_service_table_loads(browser_context):
-    """Test that services table loads with data."""
-    page, base_url = browser_context
+def test_explicit_arm_then_motion_preserves_original_envelope(browser_context):
+    page, base = browser_context
+    open_control(page, base)
+    explicit_arm(page)
+    with page.expect_request("**/api/control") as event:
+        page.locator('[data-direction="forward"]').click()
+    payload = json.loads(event.value.post_data)
+    assert payload["action"] == "move"
+    assert payload["vx"] == 0.1 and payload["duration"] == 0.1
+    assert payload["source"] == "manual" and payload["seq"] >= 1
+    assert payload["generation"] and payload["request_id"] and payload["ttl_ms"] == 500
+    expect(page.locator("#request-history")).to_contain_text("SDK")
+    page.locator("[data-stop]").first.click()
+    expect(page.locator("#safety-state")).to_have_text("DISARMED")
 
-    page.goto(f"{base_url}/web/control.html")
-    page.wait_for_load_state("load")
 
-    # Wait for JavaScript to initialize and fetch data from backend
-    page.wait_for_timeout(JS_INIT_TIMEOUT_MS)
+def test_stop_remains_available_without_metadata(browser_context):
+    page, base = browser_context
+    open_control(page, base)
+    with page.expect_request("**/api/control") as event:
+        page.locator("[data-stop]").first.click()
+    payload = json.loads(event.value.post_data)
+    assert payload["action"] == "stop"
+    assert "generation" not in payload and "seq" not in payload
 
-    # Wait for services table body to have rows (indicating data has loaded)
-    # The table initially has hidden attribute which is removed by JavaScript after successful service loading
-    try:
-        page.wait_for_selector("#svcBody tr", state="attached", timeout=SELECTOR_WAIT_TIMEOUT_MS)
-    except TimeoutError:  # playwright.sync_api.TimeoutError from import at top of file
-        # Timeout is expected if backend is offline - we'll check for offline message below
-        pass
 
-    # Check if services table has been populated
-    # It should either have service rows or an "offline" message row
-    svc_body = page.locator("#svcBody")
-    row_count = svc_body.locator("tr").count()
-    assert row_count > 0, "Services table should have at least one row (either services or offline message)"
+def test_typing_and_parameter_edits_never_issue_motion(browser_context):
+    page, base = browser_context
+    open_control(page, base)
+    page.locator("#operator-plan").fill("wsad movement text")
+    page.locator("#operator-plan").press("Space")
+    page.locator("#speed").fill("0.25")
+    page.locator("#control-owner").select_option("navigation")
+    assert not [r for r in page.requests if r.method == "POST"]
 
-    # Check that the table body has some content
-    body_text = svc_body.text_content()
-    assert body_text is not None and len(body_text.strip()) > 0, "Services table body should have content"
+
+def test_unverified_posture_actions_remain_disabled(browser_context):
+    page, base = browser_context
+    open_control(page, base)
+    explicit_arm(page)
+    for name in ["height", "balance", "action"]:
+        expect(page.locator(f"[data-actuator='{name}']")).to_be_disabled()
+    page.locator("[data-stop]").first.click()
+
+
+def test_pending_never_displays_executed(browser_context):
+    page, base = browser_context
+    open_control(page, base)
+    explicit_arm(page)
+    page.route(
+        "**/api/control",
+        lambda route: route.fulfill(status=202, json={"ok": True, "pending": True, "confirmed": False}),
+    )
+    page.locator('[data-direction="forward"]').click()
+    expect(page.locator("#request-history li").first).to_contain_text("Oczekuje")
+    assert "SDK" not in page.locator("#request-history li").first.inner_text()
+    page.unroute("**/api/control")
+    page.locator("[data-stop]").first.click()
+
+
+def test_stop_immediately_blocks_motion_before_slow_response(browser_context):
+    page, base = browser_context
+    open_control(page, base)
+    explicit_arm(page)
+    page.route(
+        "**/api/control",
+        lambda route: route.fulfill(status=202, json={"ok": True, "pending": True, "confirmed": False}),
+    )
+    page.locator("[data-stop]").first.click()
+    expect(page.locator('[data-direction="forward"]')).to_be_disabled()
+    page.unroute("**/api/control")
+    page.locator("[data-stop]").first.click()
+
+
+def test_legacy_pi_is_read_only_with_visible_reason(browser_context):
+    page, base = browser_context
+    page.route(
+        "**/api/control/state",
+        lambda route: route.fulfill(
+            json={"source": "pi", "safety": {"state": "UNKNOWN", "ready": False, "reason": "legacy_safety_contract"}}
+        ),
+    )
+    page.goto(base + "/control", wait_until="domcontentloaded")
+    expect(page.locator("#safety-state")).to_have_text("UNKNOWN")
+    expect(page.locator("#arm")).to_be_disabled()
+    expect(page.locator('[data-direction="forward"]')).to_be_disabled()
+    expect(page.locator("[data-stop]").first).to_be_enabled()
+    assert not [r for r in page.requests if r.method == "POST"]
+
+
+def test_domain_selection_does_not_start_models(browser_context):
+    page, base = browser_context
+    open_control(page, base)
+    before = len(page.requests)
+    page.locator("#control-owner").select_option("follow_me")
+    page.locator("#provider-runtime article").first.click()
+    assert not [r for r in page.requests[before:] if r.method in {"POST", "PATCH", "PUT"}]
+
+
+def test_catalog_domain_option_selection_is_get_only(browser_context):
+    page, base = browser_context
+
+    def catalog(route):
+        observed = time.time()
+        task = {
+            "name": "provider-domain",
+            "title": "Fixture domain",
+            "option_kind": "provider",
+            "installed": True,
+            "can_move": False,
+            "requested": False,
+            "ready": False,
+            "state": "stopped",
+            "observed_at": observed,
+            "source": "demo",
+            "option_schema": {
+                "field": "domain",
+                "default": "text",
+                "choices": [{"value": "text", "label": "Text"}, {"value": "vision", "label": "Vision"}],
+            },
+        }
+        route.fulfill(
+            json={
+                "contract_version": 2,
+                "catalog_version": 2,
+                "source": "demo",
+                "observed_at": observed,
+                "units": [],
+                "features": [task],
+            }
+        )
+
+    page.route("**/api/logic/catalog", catalog)
+    open_control(page, base)
+    choice = page.locator("#task-option-provider-domain")
+    expect(choice).to_be_visible()
+    choice.select_option("vision")
+    assert not [request for request in page.requests if request.method in {"POST", "PUT", "PATCH"}]

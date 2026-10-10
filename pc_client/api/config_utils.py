@@ -1,6 +1,7 @@
 """Configuration utilities for provider setup and capabilities."""
 
 import logging
+import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -36,7 +37,7 @@ def load_provider_config(config_path: str, section: Optional[str] = None) -> Dic
     return {}
 
 
-def get_provider_capabilities(settings: Settings) -> Dict[str, Any]:
+def get_provider_capabilities(settings: Settings, providers=None, text_provider=None) -> Dict[str, Any]:
     """Build capability payload for Rider-PI handshake."""
     vision_cfg = load_provider_config(settings.vision_provider_config_path, "vision")
     voice_cfg = load_provider_config(settings.voice_provider_config_path, "voice")
@@ -45,7 +46,7 @@ def get_provider_capabilities(settings: Settings) -> Dict[str, Any]:
     def mode(enabled: bool) -> str:
         return "pc" if enabled else "local"
 
-    return {
+    payload = {
         "vision": {
             "version": vision_cfg.get("schema_version", "1.0.0"),
             "features": ["frame_offload", "obstacle_enhanced"],
@@ -70,3 +71,23 @@ def get_provider_capabilities(settings: Settings) -> Dict[str, Any]:
             "mode": mode(settings.enable_text_offload),
         },
     }
+
+    actual = {**(providers or {}), "text": text_provider}
+    for domain, entry in payload.items():
+        provider = actual.get(domain)
+        telemetry = provider.get_telemetry() if provider else {}
+        entry.update(
+            requested=entry["mode"] == "pc",
+            ready=telemetry.get("initialized") is True and telemetry.get("ready") is True,
+            initialized=telemetry.get("initialized") is True,
+            source=telemetry.get("source", "unknown"),
+            runtime_mode=telemetry.get("mode", "unknown"),
+            error=telemetry.get("error"),
+            observed_at=time.time(),
+        )
+        if domain == "voice":
+            entry["capabilities"] = telemetry.get("capabilities", {})
+            entry["features"] = [name for name in ("asr", "tts") if telemetry.get(f"{name}_available") is True]
+        elif entry["ready"] is not True:
+            entry["features"] = []
+    return payload

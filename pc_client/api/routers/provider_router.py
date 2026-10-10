@@ -1,5 +1,7 @@
 """Provider control and AI mode management endpoints."""
 
+from __future__ import annotations
+
 import logging
 import uuid
 from typing import Any, Dict, Optional, TYPE_CHECKING, cast
@@ -9,12 +11,12 @@ from fastapi.responses import JSONResponse
 
 from pc_client.adapters import RestAdapter
 from pc_client.config import Settings
-from pc_client.providers import TextProvider
-from pc_client.providers.text_provider import VALID_BACKENDS
+from pc_client.providers.selection import VALID_BACKENDS
 from pc_client.providers.base import TaskEnvelope, TaskType, TaskStatus
 from pc_client.api.config_utils import get_provider_capabilities
 
 if TYPE_CHECKING:
+    from pc_client.providers import TextProvider
     from pc_client.core import ServiceManager
 
 logger = logging.getLogger(__name__)
@@ -24,6 +26,10 @@ router = APIRouter()
 
 def _get_text_provider(request: Request) -> Optional[TextProvider]:
     provider = getattr(request.app.state, "text_provider", None)
+    if provider is None:
+        return None
+    from pc_client.providers import TextProvider
+
     return provider if isinstance(provider, TextProvider) else None
 
 
@@ -31,7 +37,11 @@ def _get_text_provider(request: Request) -> Optional[TextProvider]:
 async def providers_capabilities(request: Request) -> JSONResponse:
     """Expose provider capabilities for Rider-PI handshake."""
     settings: Settings = request.app.state.settings
-    return JSONResponse(content=get_provider_capabilities(settings))
+    return JSONResponse(
+        content=get_provider_capabilities(
+            settings, request.app.state.providers, getattr(request.app.state, "text_provider", None)
+        )
+    )
 
 
 @router.get("/api/providers/capabilities")
@@ -212,7 +222,12 @@ async def services_graph(request: Request) -> JSONResponse:
     service_manager: Optional["ServiceManager"] = getattr(request.app.state, "service_manager", None)
     if service_manager is not None:
         service_manager.set_adapter(request.app.state.rest_adapter)
-        service_manager.set_providers(request.app.state.providers)
+        service_manager.set_providers(
+            {
+                **request.app.state.providers,
+                **({"text": request.app.state.text_provider} if request.app.state.text_provider is not None else {}),
+            }
+        )
         graph_data = await service_manager.get_service_graph()
         return JSONResponse(content=graph_data)
 

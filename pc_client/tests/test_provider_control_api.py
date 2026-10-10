@@ -408,7 +408,9 @@ def test_provider_capabilities_endpoint(test_client):
     assert "vision" in payload
     assert "voice" in payload
     assert "text" in payload
-    assert payload["vision"]["features"]
+    assert payload["vision"]["features"] == []
+    assert payload["vision"]["ready"] is False
+    assert payload["vision"]["initialized"] is False
 
     # Alias path
     response_alias = client.get("/api/providers/capabilities")
