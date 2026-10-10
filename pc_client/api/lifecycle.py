@@ -18,6 +18,7 @@ from pc_client.queue.task_queue import TaskQueueWorker
 from pc_client.telemetry import ZMQTelemetryPublisher
 from pc_client.api.task_utils import build_vision_frame_task, build_voice_asr_task, build_voice_tts_task
 from pc_client.api.config_utils import load_provider_config, get_provider_capabilities
+from pc_client.core.remote_safety import finite_number
 
 logger = logging.getLogger(__name__)
 
@@ -382,7 +383,8 @@ def _last_modified_timestamp(headers: Dict[str, str]) -> Optional[float]:
         parsed = parsedate_to_datetime(last_modified)
         if parsed.tzinfo is None:
             parsed = parsed.replace(tzinfo=timezone.utc)
-        return parsed.timestamp()
+        observed = parsed.timestamp()
+        return observed if finite_number(observed) and observed > 0 else None
     except Exception as exc:  # pragma: no cover - defensive parsing
         logger.debug("Failed to parse Last-Modified header '%s': %s", last_modified, exc)
         return None
@@ -396,11 +398,12 @@ async def _fetch_and_store_camera_frame(app: FastAPI) -> None:
         return
 
     content, media_type, headers = await adapter.fetch_binary("/camera/last")
-    timestamp = _last_modified_timestamp(headers) or time.time()
+    timestamp = _last_modified_timestamp(headers)
     app.state.last_camera_frame = {
         "content": content,
         "media_type": media_type,
         "timestamp": timestamp,
+        "received_at": time.time(),
     }
 
 

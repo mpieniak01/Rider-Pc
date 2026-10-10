@@ -616,7 +616,11 @@ class VisionProvider(BaseProvider):
                                 {
                                     "type": class_name,
                                     "distance": round(distance, 2),
+                                    "distance_unit": "unverified",
+                                    "distance_source": "bbox_area_heuristic",
+                                    "range_verified": False,
                                     "angle": angle,
+                                    "angle_unit": "degrees",
                                     "confidence": round(confidence, 2),
                                     "size": "large" if box_area > 50000 else "medium" if box_area > 10000 else "small",
                                 }
@@ -662,6 +666,9 @@ class VisionProvider(BaseProvider):
                         "model": self.detection_model_name,
                         "processing_type": "frame_offload",
                         "engine": "yolov8",
+                        "range_verified": False,
+                        "distance_source": "bbox_area_heuristic",
+                        "distance_unit": "unverified",
                         "timestamp": timestamp,
                         "observed_at": timestamp,
                         "simulated": False,

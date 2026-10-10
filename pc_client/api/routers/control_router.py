@@ -431,9 +431,17 @@ async def api_service_action_alias(request: Request, payload: Dict[str, Any]) ->
 
 
 def _camera_last_headers(request: Request) -> Dict[str, str]:
-    ts = request.app.state.last_camera_frame.get("timestamp", time.time())
-    dt = datetime.fromtimestamp(ts, tz=timezone.utc)
-    return {"Last-Modified": dt.strftime("%a, %d %b %Y %H:%M:%S GMT")}
+    ts = request.app.state.last_camera_frame.get("timestamp")
+    headers = {"X-Camera-Observation-Valid": "false", "Cache-Control": "no-store"}
+    if finite_number(ts) and ts > 0:
+        try:
+            dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+        except (ValueError, OverflowError, OSError):
+            return headers
+        headers.update(
+            {"Last-Modified": dt.strftime("%a, %d %b %Y %H:%M:%S GMT"), "X-Camera-Observation-Valid": "true"}
+        )
+    return headers
 
 
 @router.get("/camera/last")

@@ -140,7 +140,8 @@ def create_app(settings: Settings, cache: CacheManager) -> FastAPI:
             b"\x0f\x04\x0c\x0c\x0c\x0c\x00\x01\x04\x01\x00tC^\x8f\x00\x00\x00\x00IEND"
             b"\xaeB`\x82"
         ),
-        "timestamp": time.time(),
+        "timestamp": None,
+        "source": "placeholder",
         "media_type": "image/png",
     }
     app.state.sse_manager = SseManager()
