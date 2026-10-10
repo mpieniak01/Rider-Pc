@@ -107,7 +107,17 @@ export function obstacleReading(state, obstacle) {
 export function observedDeviceText(device, name, parent) {
   if (!device) return tr('nieznane — brak danych', 'unknown — no data');
   if (parent?.offline || parent?.stale || parent?.transport_error) return tr('nieznane — źródło stare / offline', 'unknown — source stale / offline');
-  if (name === 'lcd' && device.power_known !== true) return tr('zasilanie nieznane', 'power unknown') + ` · ${device.ownership_state || 'unknown'}`;
+  if (name === 'lcd') {
+    const source = device.source, at = device.power_observed_at, now = nowSeconds();
+    const proof = device.power_known === true && typeof device.on === 'boolean'
+      && typeof source === 'string' && source.trim().length > 0 && device.power_source === source
+      && device.confirmation === 'control_write_accepted' && finite(at) && at > 0 && at <= now
+      && !device.offline && !device.stale && !device.error && !parent?.error && transportCurrent(parent);
+    if (!proof) return tr('stan zasilania nieznany', 'power state unknown') + ` · ${device.ownership_state || 'unknown'}`;
+    return (device.on ? 'ON' : 'OFF') + ' · ' + tr('ostatnie potwierdzenie', 'last confirmation')
+      + ` ${source} · ${ageOf({ observed_at: at }, now).toFixed(1)} s · `
+      + tr('pomiar fizyczny niepotwierdzony', 'physical measurement unverified');
+  }
   return (device.on === true ? 'ON' : device.on === false ? 'OFF' : tr('stan nieznany', 'state unknown'))
     + `${device.mode ? ' · ' + device.mode : ''}${finite(device.fps) ? ' · ' + numberText(device.fps, 1, ' FPS') : ''}`
     + (transportCurrent(parent) ? '' : ' · ' + tr('wiek odpowiedzi nieznany', 'response age unknown'));

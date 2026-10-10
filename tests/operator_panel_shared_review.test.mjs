@@ -231,3 +231,26 @@ test('mixed service aggregate keeps separately labelled source clocks and explic
   assert.equal(telemetry.inventoryStamp({ ...unknown, offline: true }, 'pi'), 'offline');
   assert.equal(telemetry.inventoryStamp({ observed_at: null }, 'pi'), 'source age unknown');
 });
+
+
+test('LCD event power keeps the original accepted-write age without claiming a current physical measurement', async () => {
+  const f = await fixture(); const telemetry = await f.load('telemetry.js');
+  const event = { on: false, power_known: true, source: 'lcd-renderer', power_source: 'lcd-renderer',
+    power_observed_at: 10, observed_at: 1000, confirmation: 'control_write_accepted' };
+  const parent = { received_at: 1000 };
+  assert.equal(telemetry.observedDeviceText(event, 'lcd', parent),
+    'OFF · last confirmation lcd-renderer · 990.0 s · physical measurement unverified');
+  f.advance(30); parent.received_at = 1030;
+  assert.equal(telemetry.observedDeviceText({ ...event, on: true }, 'lcd', parent),
+    'ON · last confirmation lcd-renderer · 1020.0 s · physical measurement unverified');
+  assert.equal(event.power_observed_at, 10, 'publication never renews the control-write evidence');
+  for (const patch of [{ power_known: false }, { on: 'false' }, { source: '' }, { power_source: 'api_env' },
+    { confirmation: 'frame_write_accepted' }, { power_observed_at: null }, { power_observed_at: NaN },
+    { power_observed_at: Infinity }, { power_observed_at: 0 }, { power_observed_at: 1030.01 },
+    { offline: true }, { stale: true }, { error: 'GPIO write failed' }]) {
+    assert.match(telemetry.observedDeviceText({ ...event, ...patch }, 'lcd', parent), /power state unknown/);
+  }
+  for (const patch of [{ offline: true }, { stale: true }, { error: 'source unavailable' }, { received_at: 900 }]) {
+    assert.doesNotMatch(telemetry.observedDeviceText(event, 'lcd', { ...parent, ...patch }), /^(ON|OFF)/);
+  }
+});
