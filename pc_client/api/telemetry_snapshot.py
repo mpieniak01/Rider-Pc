@@ -1,5 +1,7 @@
 """Metadane transportu bez zmiany czasu źródłowych pomiarów."""
 
+from __future__ import annotations
+
 import asyncio
 import math
 import time
@@ -103,7 +105,7 @@ def _receipt_time(row: dict) -> float | None:
 
 
 def latest_observation(*payloads: Any, source: str = "pi") -> dict:
-    """Łączy REST/BUS według czasu źródła; nowe błędy wygaszają stary odczyt."""
+    """Wybiera poprawną obserwację; awaria jednego transportu nie wygasza drugiego."""
     rows = [dict(row) for row in payloads if isinstance(row, dict) and row]
     if not rows:
         return unavailable_snapshot(source=source, error="vision_obstacle_unavailable")
@@ -111,23 +113,13 @@ def latest_observation(*payloads: Any, source: str = "pi") -> dict:
         if observation_time(row) is None:
             row["stale"] = True
             row.setdefault("error", "observation_time_unknown")
-    known = [row for row in rows if observation_time(row) is not None]
-    selected = max(known, key=observation_time) if known else rows[0]
-    # Czasy odbioru porównujemy wyłącznie między sobą w domenie czasu PC.
-    # Nie służą do odmładzania pomiaru ani do porównania z zegarem Pi.
-    failures = [row for row in rows if _failed(row)]
-    if failures:
-        failure = max(failures, key=lambda row: _receipt_time(row) or 0)
-        failure_time, selected_time = _receipt_time(failure), _receipt_time(selected)
-        if (failure_time is not None and (selected_time is None or failure_time >= selected_time)) or (
-            failure_time is None
-            and (
-                observation_time(failure) is None
-                or not known
-                or observation_time(failure) >= observation_time(selected)
-            )
-        ):
-            selected = failure
+    healthy = [row for row in rows if observation_time(row) is not None and not _failed(row)]
+    if healthy:
+        selected = max(healthy, key=observation_time)
+    else:
+        # Czasy odbioru błędów porównujemy tylko w domenie czasu PC.
+        # Nie służą do odmładzania pomiaru ani porównania z zegarem Pi.
+        selected = max(rows, key=lambda row: _receipt_time(row) or 0)
     _source(selected, source)
     if "observed_at" not in selected and "ts" not in selected:
         selected["observed_at"] = None

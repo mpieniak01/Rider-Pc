@@ -1,24 +1,24 @@
 # Rider-PC contracts and Pi data
 
-Rider-PC follows the [Rider-Pi contract specification](https://github.com/mpieniak01/Rider-Pi/blob/main/docs/api-specs/contracts.md). Envelope version1 is independent of safety1 and catalog/tasks/services2. Existing URLs and domain data remain available. New clients request `Accept: application/vnd.rider.api+json;version=1`; legacy clients receive the compatibility projection.
+Rider-PC follows the [Rider-Pi contract specification](https://github.com/mpieniak01/Rider-Pi/blob/main/docs/api-specs/contracts.md). Envelope version 1 is independent of safety 1 and catalog/tasks/services 2. Existing URLs and domain data remain available. New clients request `Accept: application/vnd.rider.api+json;version=1`; legacy clients receive the compatibility projection.
 
 ## Boundary and observations
 
-RestAdapter negotiates and unpacks Pi data once. It preserves the full source metadata, original observation times, upstream status, error code and operation confirmation. Transport reception/attempt time is separate. Pending202 remains pending; timeout is unknown and never retried automatically. Mutation bodies retain their original generation, seq, source, request_id, ts and TTL; a read-only compatibility preflight does not invent authority.
+RestAdapter negotiates and unpacks Pi data once. It preserves the full source metadata, original observation times, upstream status, error code and operation confirmation. Transport reception/attempt time is separate. Pending 202 remains pending; timeout is unknown and never retried automatically. Mutation bodies retain their original generation, seq, source, request_id, ts and TTL; a read-only compatibility preflight does not invent authority.
 
 Local PC domains use the same envelope and their own host/source/time. Pi failure does not invalidate independently obtained PC metrics. Local network, MCP, project, knowledge and assistant data retain their existing payloads.
 
-Battery canonical unit is ratio[0,1]. Legacy REST battery_pct=1 means1%, not100%. BUS units are adapted by topic/schema. SDK axes use sdk_raw and unverified physical validity. Every channel has its own timestamp and quality. Missing/null never falls back to another field or reception time; zero/false remain valid. One failed channel retains healthy battery and other axes.
+Battery canonical unit is ratio [0,1]. Legacy REST battery_pct=1 means 1%, not 100%. BUS units are adapted by topic/schema. SDK axes use sdk_raw and unverified physical validity. Every channel has its own timestamp and quality. Missing/null never falls back to another field or reception time; zero/false remain valid. One failed channel retains healthy battery and other axes.
 
 Services use host:unit identity, active_state/sub_state/load_state/unit_file_state and process_running. Process existence, model loaded, domain ready, start availability and operator permission are separate. Peer connectivity does not prove model readiness. Missing metrics are not fabricated.
 
 ## Screens, events and media
 
-All20 existing overview cards, four charts and four previews remain, together with request confirmation and other pages. Shared observation rules are used by Overview, Devices and Calibration. PassiveS6 shows valid matching map/pose/HOME/plan without ARM; changed profile/reference/frame invalidates previous geometry. Configuration save/applied and physical measurement readiness remain separate.
+All 20 existing overview cards, four charts and four previews remain, together with request confirmation and other pages. Shared observation rules are used by Overview, Devices and Calibration. Passive S6 shows valid matching map/pose/HOME/plan without ARM; changed profile/reference/frame invalidates previous geometry. Configuration save/applied and physical measurement readiness remain separate.
 
 ZMQ subscribes to actual prefixes; a bounded explicit topic filter includes telemetry, motion state/ACK, robot.pose, mapper.map.data, navigation, tracking and feature state. Bounded cache updates fan out to SSE. Reconnect and receipt never refresh source observations; queue gaps are explicit.
 
-RAW, PROC, SSD, OBST and TRACKER have distinct sources and metadata. OBST uses obst_annot; SSD remains /vision/ssd. Image and metadata share the same source selection. Placeholder/archive/missing frames do not prove a live camera. Reads never start capture. History labels describe its actual duration or last60 samples, with gaps for null/stale. CPU/RAM use percent, ROI/edge ratios, memory MiB/GiB.
+RAW, PROC, SSD, OBST and TRACKER have distinct sources and metadata. OBST uses obst_annot; SSD remains /vision/ssd. Image and metadata share the same source selection. Placeholder/archive/missing frames do not prove a live camera. Reads never start capture. History labels describe its actual duration or last 60 samples, with gaps for null/stale. CPU/RAM use percent, ROI/edge ratios, memory MiB/GiB.
 
 The Polish [contract document](../../docs_pl/api-specs/contracts.md) contains the complete card manifest. Endpoint definitions, including optional/separate applications, are checked against the instantiated API registry; a source declaration does not imply every optional service is running.
 
@@ -26,7 +26,7 @@ The Polish [contract document](../../docs_pl/api-specs/contracts.md) contains th
 
 The two repositories share identical synthetic tests/fixtures/contracts/rider-v1.json for healthy/partial data, pending/rejected operations, unknown time, cache/transport failure, service rows, frames and legacy units. Fixtures do not validate physical measurements.
 
-Implement and test both scopes locally in existing WSL virtualenvs, then preview both panels against real data before GitHub publication. Automated tests use isolated mocks. Robot acceptance stays read-only with ESTOP and zero output. Physical motion requires separate explicit operator consent. No global or heavy device dependencies are introduced. LCD orientation remains sideways with270-degree compensation.
+Implement and test both scopes locally in existing WSL virtualenvs, then preview both panels against real data before GitHub publication. Automated tests use isolated mocks. Robot acceptance stays read-only with ESTOP and zero output. Physical motion requires separate explicit operator consent. No global or heavy device dependencies are introduced. LCD orientation remains sideways with 270-degree compensation.
 
 See [safe robot client](../SAFE_ROBOT_CLIENT.md) and [operator panel](../OPERATOR_PANEL.md).
 
@@ -173,3 +173,8 @@ Generated from the instantiated FastAPI route table without starting runtime ser
 | GET | `/providers` | `handler` | APIRoute |
 | GET | `/project` | `handler` | APIRoute |
 | GET | `/models` | `handler` | APIRoute |
+
+
+## Operation confirmation
+
+Control, service, resource, task, calibration activation and Pi proxy configuration commands require confirmation. Ordinary local writes and generation (chat, profile save, backend selection and PC model binding) keep their HTTP result without a fabricated ACK. Explicit upstream operation metadata is preserved. SSE resumes after a process change emit transport.gap even before the first new sample; event_id is an opaque cursor, never an observation timestamp.

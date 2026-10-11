@@ -124,6 +124,28 @@ def unpack(payload: Any, expected_family: str | None = None) -> dict:
     return result
 
 
+def requires_confirmation(path: str) -> bool:
+    """Jawne polecenia wymagają ACK; zwykłe zapisy/generowanie pozostają wynikami HTTP."""
+    return path in {
+        "/api/control",
+        "/api/safety",
+        "/api/vision/tracking/mode",
+        "/api/navigator/config",
+        "/api/navigator/start",
+        "/api/navigator/stop",
+        "/api/navigator/return_home",
+        "/api/odometry/reference",
+        "/api/calibration/activate",
+        "/api/systemd/action",
+        "/api/services/systemd/action",
+        "/api/services/action",
+        "/api/system/ai-mode",
+        "/api/providers/text",
+        "/api/providers/voice",
+        "/api/providers/vision",
+    } or any(path.startswith(prefix) for prefix in ("/api/logic/feature/", "/api/resource/", "/svc/"))
+
+
 def envelope(payload: dict, path: str, method: str, status: int) -> dict:
     data = dict(payload)
     upstream = data.pop("contract_meta", None)
@@ -164,7 +186,7 @@ def envelope(payload: dict, path: str, method: str, status: int) -> dict:
         else None
     )
     operation = data.pop("operation", None)
-    if method not in {"GET", "HEAD", "OPTIONS"} and operation is None:
+    if method not in {"GET", "HEAD", "OPTIONS"} and operation is None and requires_confirmation(path):
         pending = status == 202 or data.get("pending") is True
         successful = status < 400 and not error and data.get("ok") is not False
         confirmed = (

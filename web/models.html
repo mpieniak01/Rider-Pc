@@ -371,7 +371,7 @@ async function loadAllData() {
 
 // Funkcja główna, która ustawia stan wszystkich kafli na podstawie AppState
 function refreshEntireUI() {
-    document.querySelectorAll('[data-device="pi"] .save-btn').forEach(button => { button.disabled = AppState.pi.modelBindingAvailable !== true; });
+    document.querySelectorAll('[data-device="pi"] .save-btn').forEach(button => { button.disabled = !AppState.pi.isOnline || AppState.pi.modelBindingAvailable !== true; });
     
     // A. Odśwież kafle PC (Text, Vision, Voice)
     ['text', 'vision', 'voice'].forEach(domain => {

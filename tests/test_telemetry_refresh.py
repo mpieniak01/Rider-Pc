@@ -124,3 +124,49 @@ async def test_unknown_host_batch_time_does_not_erase_independent_member_age(exp
     assert row["observed_at"] == (None if explicit_unknown else 999.7)
     assert row["oldest_member_observed_at"] == 999.7
     assert row["observed_at_basis"] == ("source" if explicit_unknown else "min_member")
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        {"offline": True},
+        {"stale": True},
+        {"error": "REST timeout"},
+        {"data_ready": False},
+        {"quality": "unknown"},
+        {"observed_at": None},
+    ],
+)
+def test_healthy_bus_observation_survives_newer_failed_rest_attempt(failure):
+    from pc_client.api.telemetry_snapshot import latest_observation
+
+    bus = {"observed_at": 1000, "received_at": 1040, "present": False, "confidence": 0, "source": "camera/roi"}
+    rest = {"observed_at": 999, "received_at": 1039, "attempted_at": 1041, **failure}
+    for candidates in [(bus, rest), (rest, bus)]:
+        result = latest_observation(*candidates)
+        assert result["observed_at"] == 1000
+        assert result["present"] is False
+        assert result["confidence"] == 0
+        assert result["received_at"] == 1040
+        assert result["upstream_source"] == "camera/roi"
+        assert not result.get("offline")
+    assert bus["source"] == "camera/roi"
+    assert "stale" not in bus
+
+
+def test_latest_observation_chooses_newest_healthy_source_or_failure_if_none_valid():
+    from pc_client.api.telemetry_snapshot import latest_observation
+
+    healthy = latest_observation({"observed_at": 1001, "received_at": 1039}, {"observed_at": 1000, "received_at": 1040})
+    assert healthy["observed_at"] == 1001
+    failure = latest_observation(
+        {"observed_at": 1000, "received_at": 1039, "stale": True},
+        {"observed_at": None, "attempted_at": 1041, "offline": True},
+    )
+    assert failure["offline"] is True and failure["observed_at"] is None
+
+
+def test_python39_function_annotations_are_postponed():
+    from pc_client.api.telemetry_snapshot import _time
+
+    assert isinstance(_time.__annotations__["return"], str)

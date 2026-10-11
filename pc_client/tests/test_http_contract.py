@@ -224,13 +224,13 @@ def test_sse_reconnect_replays_only_after_cursor_and_marks_bounded_gaps():
     manager = SseManager(backlog_limit=3, queue_size=2)
     for at in range(1, 6):
         manager.publish({"topic": "robot.pose", "data": {"observed_at": at, "value": 0}})
-    queue = manager.subscribe(4)
+    queue = manager.subscribe(tuple(manager.backlog())[-2]["event_id"])
     assert queue.qsize() == 1
     assert queue.get_nowait()["data"]["observed_at"] == 5
     gap = manager.subscribe(0)
     assert gap.get_nowait()["topic"] == "transport.gap"
     assert gap.get_nowait()["data"]["observed_at"] == 5
-    restart = manager.subscribe(100)
+    restart = manager.subscribe(manager._next_id + 100)
     assert restart.get_nowait()["topic"] == "transport.gap"
 
 
@@ -403,3 +403,78 @@ async def test_transitive_operator_modules_are_not_served_from_conditional_brows
         refreshed = await client.get("/web/assets/operator/model.js", headers={conditional: original.headers[key]})
         assert refreshed.status_code == 200
         assert refreshed.headers["Cache-Control"] == "no-store" and refreshed.content == original.content
+
+
+def test_sse_process_change_is_explicit_even_before_first_new_event(monkeypatch):
+    clock = [1_000_000_000]
+    monkeypatch.setattr("pc_client.api.sse_manager.time.time_ns", lambda: clock[0])
+    previous = SseManager()
+    previous.publish({"topic": "robot.pose", "data": {"observed_at": 77}})
+    cursor = tuple(previous.backlog())[-1]["event_id"]
+    clock[0] += 1_000_000_000
+    current = SseManager()
+    assert current.subscribe(cursor).get_nowait()["topic"] == "transport.gap"
+    for n in range(5):
+        current.publish({"topic": "robot.pose", "data": {"observed_at": n}})
+    queue = current.subscribe(cursor)
+    assert queue.get_nowait()["topic"] == "transport.gap"
+    assert queue.get_nowait()["data"]["observed_at"] == 0
+    assert current._next_id > cursor
+    assert current._next_id < 2**53
+    assert current.subscribe(current._next_id).empty()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/chat/send",
+        "/api/chat/pc/send",
+        "/api/calibration/profiles",
+        "/api/providers/text/backend",
+        "/api/models/bind",
+        "/api/project/refresh",
+        "/api/voice/tts",
+        "/api/knowledge/reindex",
+        "/api/assistant/custom",
+    ],
+)
+async def test_ordinary_application_results_keep_success_without_invented_ack(path):
+    app = FastAPI()
+    app.add_middleware(ContractMiddleware)
+
+    @app.post(path)
+    def write():
+        return {"ok": True, "reply": "isolated fixture", "changed": True}
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture.invalid") as client:
+        response = await client.post(path, headers={"Accept": ACCEPT}, json={})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ok"] is True
+    assert body["operation"] is None
+    assert body["data"]["reply"] == "isolated fixture"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/control",
+        "/api/safety",
+        "/api/calibration/activate",
+        "/api/odometry/reference",
+        "/api/logic/feature/s0_core",
+        "/api/resource/lcd",
+        "/svc/rider-api.service",
+        "/api/services/action",
+        "/api/vision/tracking/mode",
+        "/api/navigator/start",
+        "/api/providers/text",
+        "/api/system/ai-mode",
+    ],
+)
+def test_command_endpoints_remain_unconfirmed_without_explicit_ack(path):
+    body = envelope({"ok": True, "changed": True}, path, "POST", 200)
+    assert body["ok"] is False
+    assert body["operation"]["status"] == "unknown"
+    assert body["operation"]["confirmed"] is False

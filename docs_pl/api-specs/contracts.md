@@ -68,7 +68,7 @@ Pi ma wykresy chart i binsCanvas oraz podglądy img_cam/img_proc/img_obst/img_tr
 
 Te same synthetic golden fixtures znajdują się w tests/fixtures/contracts/rider-v1.json obu repozytoriów. Obejmują częściowe dane, pending/rejected, null czasu, awarię transportu, usługi, różne strumienie i oba legacy formaty baterii. Nie są pomiarami fizycznymi.
 
-Najpierw oba zakresy lokalnie WSL, potem podgląd Pi/PC na rzeczywistych danych i dopiero publikacja na GH. Testy automatyczne WSL używają izolowanych mocków. Odbiór robota jest odczytowy, z ESTOP i zerowym wyjściem; ruch wymaga osobnej, konkretnej zgody operatora. Ciężkie zależności pozostają w istniejących venv WSL. LCD zachowuje montaż bokiem i kompensację270°.
+Najpierw oba zakresy lokalnie WSL, potem podgląd Pi/PC na rzeczywistych danych i dopiero publikacja na GH. Testy automatyczne WSL używają izolowanych mocków. Odbiór robota jest odczytowy, z ESTOP i zerowym wyjściem; ruch wymaga osobnej, konkretnej zgody operatora. Ciężkie zależności pozostają w istniejących venv WSL. LCD zachowuje montaż bokiem i kompensację 270°.
 
 Powiązane: [bezpieczny klient](../BEZPIECZNY_KLIENT_ROBOTA.md), [panel](../PANEL_OPERATORA.md), [polityka dokumentacji](../POLITYKA_DOKUMENTACJI.md).
 
@@ -76,7 +76,7 @@ Powiązane: [bezpieczny klient](../BEZPIECZNY_KLIENT_ROBOTA.md), [panel](../PANE
 
 ## Inwentarz zarejestrowanych endpointów
 
-Generated from the instantiated FastAPI route table without starting runtime services. This includes local routes, Pi proxy routes, UI entry points and the static mount. It is an inventory, not evidence that an optional provider is configured or ready. HEAD is listed only where explicitly registered.
+Inwentarz wygenerowano z tabeli tras utworzonej aplikacji FastAPI bez uruchamiania usług. Obejmuje lokalne trasy, proxy Pi, wejścia panelu i zasoby statyczne. Obecność endpointu nie dowodzi skonfigurowania ani gotowości opcjonalnego dostawcy. HEAD wykazano tylko tam, gdzie został jawnie zarejestrowany.
 
 | Methods | Path | Handler / route | Type |
 | --- | --- | --- | --- |
@@ -215,3 +215,8 @@ Generated from the instantiated FastAPI route table without starting runtime ser
 | GET | `/providers` | `handler` | APIRoute |
 | GET | `/project` | `handler` | APIRoute |
 | GET | `/models` | `handler` | APIRoute |
+
+
+## Potwierdzenie operacji
+
+Polecenia sterowania, usług, zasobów, zadań, aktywacji kalibracji i konfiguracji proxy Pi wymagają potwierdzenia. Zwykłe lokalne zapisy i generowanie (np. czat, zapis profilu, wybór backendu i wiązanie modelu PC) zachowują wynik HTTP bez sztucznego ACK. Jawna operation upstream pozostaje zachowana. Wznowienie SSE po zmianie procesu emituje transport.gap także przed pierwszą nową próbką; event_id jest nieprzezroczystym kursorem, nie czasem pomiaru.

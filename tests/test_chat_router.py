@@ -547,3 +547,29 @@ SUGGESTIONS:
 
         result = _parse_pr_suggestions(text)
         assert len(result) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "mode,path",
+    [
+        ("pc", "/api/chat/send"),
+        ("proxy", "/api/chat/send"),
+        ("pc", "/api/chat/pc/send"),
+    ],
+)
+async def test_negotiated_chat_uses_actual_router_result_without_command_ack(
+    app, mock_text_provider, mock_rest_adapter, mode, path
+):
+    from pc_client.http_contract import ACCEPT, ContractMiddleware
+
+    app.add_middleware(ContractMiddleware)
+    app.state.text_provider = mock_text_provider
+    app.state.rest_adapter = mock_rest_adapter
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(path, headers={"Accept": ACCEPT}, json={"msg": "isolated fixture", "mode": mode})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ok"] is True and body["operation"] is None
+    assert body["data"]["reply"]
+    assert body["data"]["source"] == ("proxy" if mode == "proxy" else "pc")

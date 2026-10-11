@@ -15,7 +15,10 @@ class SseManager:
         self._backlog: Deque[Dict] = deque(maxlen=backlog_limit)
         self._subscribers: set[asyncio.Queue] = set()
         self._queue_size = queue_size
-        self._next_id = 0
+        # Mikrosekundy mieszczą się w bezpiecznym zakresie integer JavaScript.
+        # Nowy proces nie rozpoczyna ponownie numeracji poprzedniego backlogu.
+        self._first_id = time.time_ns() // 1000
+        self._next_id = self._first_id
 
     @staticmethod
     def _stamp(payload: Dict) -> Dict:
@@ -52,7 +55,10 @@ class SseManager:
         queue: asyncio.Queue = asyncio.Queue(maxsize=self._queue_size)
         backlog = list(self._backlog)
         gap = after_id is not None and (
-            after_id > self._next_id or bool(backlog) and after_id < backlog[0]["event_id"] - 1
+            after_id < self._first_id
+            or after_id > self._next_id
+            or bool(backlog)
+            and after_id < backlog[0]["event_id"] - 1
         )
         rows = backlog if after_id is None or gap else [row for row in backlog if row["event_id"] > after_id]
         gap = gap or len(rows) > self._queue_size
