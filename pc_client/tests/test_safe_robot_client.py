@@ -671,3 +671,24 @@ async def test_inventory_envelope_stale_and_offline_remain_authoritative():
     result = await manager.control_service("camera.service", "start", host="pi")
     assert result["ok"] is False
     adapter.service_action.assert_not_called()
+
+
+def test_shared_controls_proxy_preserves_pi_revision_and_never_actuates(client):
+    row = {
+        "ok": True,
+        "contract_id": "rider.manual_settings",
+        "contract_version": 1,
+        "revision": 7,
+        "values": {"linear_speed": 0.2},
+        "actuation": False,
+        "observed_at": time.time(),
+    }
+    client.adapter.get_json = AsyncMock(return_value=row)
+    client.adapter._post_operator_action = AsyncMock(return_value=dict(row, revision=8))
+    response = client.get("/api/calibration/controls")
+    assert response.status_code == 200 and response.json()["revision"] == 7
+    payload = {"revision": 7, "values": {"linear_speed": 0.3}}
+    response = client.post("/api/calibration/controls", json=payload)
+    assert response.status_code == 200 and response.json()["revision"] == 8
+    client.adapter._post_operator_action.assert_awaited_once_with("/api/calibration/controls", payload)
+    client.adapter.post_control.assert_not_awaited()

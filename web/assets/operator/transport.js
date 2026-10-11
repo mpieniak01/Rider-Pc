@@ -68,7 +68,8 @@ async function performRequest(path, { method = 'GET', body, timeout = 6000 } = {
     const payload = await response.json();
     const data = unpackContract(payload, !response.ok && payload?.meta?.contract_id === 'rider.http' ? 'rider.http' : contractFamily(path));
     if (!response.ok) throw Object.assign(new Error(data.error || data.detail || data.result?.error || `HTTP ${response.status}`), { data, status: response.status });
-    return { data, status: response.status, sent_at: sentAt, received_at: Date.now() / 1000 };
+    return { data, meta: payload?.meta ?? null, canonical: payload?.meta?.envelope_version === 1,
+      status: response.status, sent_at: sentAt, received_at: Date.now() / 1000 };
   } finally { clearTimeout(timer); }
 }
 // One flight per poller, bounded timeout, bounded backoff, hidden tabs sleep.

@@ -73,6 +73,7 @@ test('map world coordinates use mapper additive origin and preserve zero', () =>
 });
 
 class Element {
+  setAttribute(key, value) { this[key] = value; }
   constructor(id = '') { this.id = id; this.listeners = {}; this.value = ''; this.checked = false; this.disabled = false; this.dataset = {}; this.children = []; }
   addEventListener(name, action) { this.listeners[name] = action; }
   append(...values) { this.children.push(...values); }
@@ -80,8 +81,9 @@ class Element {
   closest(selector) { return this.editing && selector.includes('input') ? this : null; }
 }
 async function fixture(initial = disarmed(), { interactive = true } = {}) {
-  const elements = new Map(['arm', 'clear-estop', 'disarm', 'estop', 'operator-plan', 'operator-consent', 'control-owner', 'lease',
+  const elements = new Map(['global-motion-toggle', 'arm', 'clear-estop', 'disarm', 'estop', 'operator-plan', 'operator-consent', 'control-owner', 'lease',
     'duration', 'speed', 'yaw-speed', 'request-history', 'safety-state', 'safety-owner', 'safety-reason', 'safety-lease', 'operator-message'].map(id => [id, new Element(id)]));
+  elements.get('global-motion-toggle').classList = { toggle() {} };
   elements.get('control-owner').value = 'manual'; elements.get('lease').value = '10'; elements.get('duration').value = '.1';
   elements.get('speed').value = '.1'; elements.get('yaw-speed').value = '.18';
   const listeners = {}, timers = new Map(), calls = [], replies = new Map();
@@ -119,16 +121,13 @@ async function fixture(initial = disarmed(), { interactive = true } = {}) {
   return { panel, elements, calls, listeners, document, timers, setReply(url, data, status = 200) { replies.set(url, { data, status }); }, async load(name) { const module = await load(name); await module.evaluate(); return module.namespace; }, setState(value) { current = value; panel.update(value); } };
 }
 
-test('opening control issues GET only and permits explicit ARM from known DISARMED', async () => {
+test('opening control issues GET only and displays the global disarmed button', async () => {
   const f = await fixture();
-  assert.ok(f.calls.length > 0);
-  assert.ok(f.calls.every(call => call.method === 'GET'));
-  assert.equal(f.elements.get('arm').disabled, true, 'unprepared form cannot arm');
-  f.elements.get('operator-plan').value = 'Isolated prepared fixture';
-  f.elements.get('operator-consent').checked = true; f.panel.render();
-  assert.equal(f.elements.get('arm').disabled, false);
-  assert.equal(f.elements.get('clear-estop').disabled, true);
+  assert.ok(f.calls.length > 0); assert.ok(f.calls.every(call => call.method === 'GET'));
+  assert.equal(f.elements.get('global-motion-toggle').disabled, false);
+  assert.equal(f.elements.get('global-motion-toggle').textContent, 'Robot rozbrojony');
 });
+
 test('typing, select, repeated key and modifier do not issue movement', async () => {
   const f = await fixture(armed());
   const input = new Element(); input.editing = true;
@@ -148,13 +147,13 @@ test('explicit arm carries one fresh envelope, plan and consent; never auto arms
   const f = await fixture();
   f.elements.get('operator-plan').value = 'Przestrzeń wolna, kabel zabezpieczony, impuls 0.1 s.';
   f.elements.get('operator-consent').checked = true;
-  await f.panel.arm('arm');
+  await f.panel.toggleMotion();
   const commands = f.calls.filter(call => call.method === 'POST'); assert.equal(commands.length, 1);
   const body = commands[0].body;
   assert.equal(commands[0].url, '/api/safety'); assert.equal(body.action, 'arm');
   assert.equal(body.generation, 'fixture-generation'); assert.equal(body.seq, 5); assert.equal(body.ttl_ms, 500);
   assert.equal(body.operator_consent, true); assert.ok(body.operator_plan); assert.ok(body.ts > instant - 1);
-  assert.equal(f.elements.get('operator-consent').checked, false);
+  assert.equal(body.execution_context, 'panel');
 });
 test('202 remains pending until exact terminal ACK; stale/accepted ACK cannot turn green', async () => {
   const f = await fixture(armed()); await f.panel.send('move', { vx: .1, yaw: 0, duration: .1 });
@@ -183,10 +182,10 @@ test('explicit STOP immediately removes authority before a response, with no imp
 });
 test('hardware fault prevents ARM although the state is known DISARMED', async () => {
   const f = await fixture({ ...disarmed(), hardware_ready: false });
-  f.elements.get('operator-plan').value = 'Prepared fixture'; f.elements.get('operator-consent').checked = true;
-  assert.equal(f.elements.get('arm').disabled, true); await f.panel.arm('arm');
+  assert.equal(f.elements.get('global-motion-toggle').disabled, true); await f.panel.toggleMotion();
   assert.equal(f.calls.filter(call => call.method === 'POST').length, 0);
 });
+
 test('navigation remains passive even with valid ARMED permission; no start or return-home POST', async () => {
   const ui = await fixture(armed()); ui.document.body.dataset.page = 'navigation';
   const { Navigation } = await ui.load('navigation.js');
@@ -360,19 +359,13 @@ test('passive pages never bind or dispatch motion shortcuts or a blur STOP', asy
   f.panel.suspend();
   assert.ok(f.calls.every(call => call.method === 'GET'));
 });
-test('clearing ESTOP remains disabled until preparation and never automatically arms', async () => {
+test('opening a panel with ESTOP never clears or arms automatically', async () => {
   const f = await fixture({ ...disarmed(), state: 'ESTOP' });
-  assert.equal(f.elements.get('clear-estop').disabled, true);
-  f.elements.get('operator-plan').value = 'Prepared isolated fixture, no physical robot';
-  f.elements.get('operator-consent').checked = true; f.panel.render();
-  assert.equal(f.elements.get('clear-estop').disabled, false);
-  await f.panel.arm('clear_estop');
-  const writes = f.calls.filter(call => call.method === 'POST');
-  assert.equal(writes.length, 1); assert.equal(writes[0].body.action, 'clear_estop');
-  assert.equal(writes[0].body.operator_consent, true);
-  f.setState({ ...disarmed(), generation: 'cleared-fixture' }); f.panel.render();
-  assert.equal(f.elements.get('arm').disabled, true, 'clear consumes consent; another explicit consent is required');
+  f.panel.render();
+  assert.equal(f.elements.get('global-motion-toggle').textContent, 'Robot rozbrojony');
+  assert.ok(f.calls.every(call => call.method === 'GET'));
 });
+
 test('another presentation clock cannot invalidate the safety permission clock', async () => {
   const f = await fixture(armed());
   assert.equal(f.panel.can('manual'), true);
@@ -387,4 +380,65 @@ test('service inspection does not grant movement before administration is enable
   f.panel.key({ code: 'Space', target: new Element(), preventDefault() { throw new Error('read-only admin captured'); } });
   f.panel.suspend();
   assert.ok(f.calls.every(call => call.method === 'GET'));
+});
+
+test('one global toggle arms explicitly without a plan form or owner options', async () => {
+  const f = await fixture(disarmed(), { page: 'view', interactive: false });
+  const button = f.elements.get('global-motion-toggle');
+  assert.equal(button.textContent, 'Robot rozbrojony');
+  assert.equal(button.disabled, false);
+  assert.ok(f.calls.every(call => call.method === 'GET'));
+  await f.panel.toggleMotion();
+  const writes = f.calls.filter(call => call.method === 'POST');
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].body.action, 'arm');
+  assert.equal(writes[0].body.owner, 'manual');
+  assert.equal(writes[0].body.operator_consent, true);
+  assert.equal(writes[0].body.execution_context, 'panel');
+  assert.equal(writes[0].body.arming_mode, 'operator');
+  assert.equal(writes[0].body.lease_s, undefined);
+  assert.equal(writes[0].body.test_operator_consent, undefined);
+  assert.equal(button.textContent, 'Robot rozbrojony', 'HTTP acceptance never turns button green');
+  f.setState(armed());
+  assert.equal(button.textContent, 'Robot uzbrojony');
+  assert.equal(button['aria-pressed'], 'true');
+});
+
+test('global toggle clears and arms in one click only after fresh confirmed clearing', async () => {
+  const f = await fixture({ ...disarmed(), state: 'ESTOP' }), calls = [];
+  f.panel.send = async action => {
+    calls.push(action);
+    if (action === 'clear_estop') f.setState({ ...disarmed(), generation: 'new-clear' });
+  };
+  await f.panel.toggleMotion();
+  assert.deepEqual(calls, ['clear_estop', 'arm']);
+  const blocked = await fixture({ ...disarmed(), state: 'ESTOP' }), attempts = [];
+  blocked.panel.send = async action => { attempts.push(action); };
+  await assert.rejects(blocked.panel.toggleMotion(), /rozbrojenia/);
+  assert.deepEqual(attempts, ['clear_estop']);
+});
+
+test('global disarm stays available with stale state and does not need consent', async () => {
+  const f = await fixture(armed());
+  f.panel.clockReady = false; f.panel.render();
+  assert.equal(f.elements.get('global-motion-toggle').disabled, false);
+  await f.panel.toggleMotion();
+  assert.equal(f.calls.filter(call => call.method === 'POST').at(-1).body.action, 'stop');
+});
+
+test('test lease never enables panel direction controls', async () => {
+  const f = await fixture({ ...armed(), execution_context: 'test', panel_motion_enabled: false, test_motion_enabled: true });
+  assert.equal(f.panel.can('manual'), false);
+  f.panel.move('forward');
+  assert.ok(f.calls.every(call => call.method === 'GET'));
+});
+
+test('operator arming survives thirty seconds and focus suspension without auto STOP', async () => {
+  const f = await fixture({ ...armed(), execution_context: 'panel', arming_mode: 'operator', lease_remaining_s: null });
+  assert.equal(f.panel.can('manual'), true);
+  f.panel.suspend();
+  assert.ok(f.calls.every(call => call.method === 'GET'));
+  f.setState({ ...armed(), execution_context: 'panel', arming_mode: 'operator', lease_remaining_s: null });
+  assert.equal(f.panel.can('manual'), true);
+  assert.equal(f.elements.get('global-motion-toggle').textContent, 'Robot uzbrojony');
 });
