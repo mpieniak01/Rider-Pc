@@ -15,7 +15,7 @@ from playwright.sync_api import expect
         ("/view", "#overview-connection"),
         ("/system", "#service-list"),
         ("/navigation", "#map-canvas"),
-        ("/calibration", "#calibration-runtime-status"),
+        ("/calibration", "#manual-settings-status"),
         ("/chat", "#chat-input"),
         ("/devices", "#device-list"),
         ("/models", "main"),
