@@ -147,13 +147,13 @@ def take_screenshots(base_url: str) -> tuple[list[dict[str, str]], set[str], set
         page.set_viewport_size({"width": 390, "height": 844})
         for path in ["/view", "/control", "/devices", "/system", "/navigation", "/chat"]:
             page.goto(base_url + path, wait_until="domcontentloaded", timeout=15000)
-            page.wait_for_selector(".operator-global-stop", timeout=5000)
+            page.wait_for_selector("#global-motion-toggle", timeout=5000)
             page.wait_for_timeout(300)
-            accessible = page.locator(".operator-global-stop").evaluate("""
+            accessible = page.locator("#global-motion-toggle").evaluate("""
                 node => {
                     const rect = node.getBoundingClientRect();
                     return rect.top >= 0 && rect.bottom <= innerHeight &&
-                        document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)?.closest('[data-stop]') === node;
+                        document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)?.closest('#global-motion-toggle') === node;
                 }
             """)
             if not accessible:

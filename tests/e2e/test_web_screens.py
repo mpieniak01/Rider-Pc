@@ -99,13 +99,13 @@ def test_mobile_stop_is_visible_and_not_covered_by_menu(browser_context):
     page, base = browser_context
     page.set_viewport_size({"width": 390, "height": 844})
     page.goto(base + "/control", wait_until="domcontentloaded")
-    stop = page.locator(".operator-global-stop")
+    stop = page.locator("#global-motion-toggle")
     expect(stop).to_be_visible()
     assert stop.evaluate("""
         node => {
             const rect = node.getBoundingClientRect();
             return rect.top >= 0 && rect.bottom <= innerHeight &&
-                document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)?.closest('[data-stop]') === node;
+                document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)?.closest('#global-motion-toggle') === node;
         }
     """)
     assert not [request for request in page.requests if request.method == "POST"]
