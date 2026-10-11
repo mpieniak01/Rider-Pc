@@ -35,14 +35,9 @@
     <a href="/healthz">/healthz</a>, <a href="/state">/state</a>, <a href="/sysinfo">/sysinfo</a>, <a href="/vision/snap-info">/vision/snap-info</a>
   </div>
 
+<div class="overview-read-status"><span id="overview-connection"></span><span id="overview-task-status"></span></div>
 <p id="operator-message" class="operator-message" role="status"></p>
-<section class="operator-safety operator-safety-strip">
-<strong id="safety-state">UNKNOWN</strong><button class="c-btn operator-stop" type="button" data-stop>STOP</button>
-<span id="safety-ready">unknown</span><span id="safety-age">unknown</span><span id="safety-owner"></span>
-<span id="safety-lease"></span><span id="safety-reason"></span><span id="overview-connection">unknown</span>
-<a href="/control" data-pl="Zadania i sterowanie" data-en="Tasks and control"></a>
-<p id="overview-task-status"></p>
-</section>
+
 <label class="operator-row"><input id="overview-preview" type="checkbox" checked>
 <span data-pl="Odświeżaj istniejące obrazy (nie uruchamia kamery)" data-en="Refresh existing images (does not start camera)"></span></label>
 
@@ -271,13 +266,13 @@
     </div>
   </div>
 
-<details class="c-card"><summary data-pl="Żądania i potwierdzenia SDK" data-en="Requests and SDK acknowledgements"></summary><p data-pl="ACK nie potwierdza zakończenia fizycznego." data-en="ACK does not confirm physical completion."></p><ol id="request-history"></ol><p id="last-event"></p></details>
+
   </main>
 
   <!-- Footer -->
   <footer class="layout-footer" data-dashboard-footer-target></footer>
 
-<script type="module" src="/web/assets/operator/app.js?v=contracts-20261010"></script>
+<script type="module" src="/web/assets/operator/app.js?v=page-scope-1"></script>
 <script type="module" src="/web/assets/menu.js?v=contracts-20261010"></script>
 <script type="module" src="/web/assets/footer.js"></script>
 </body></html>

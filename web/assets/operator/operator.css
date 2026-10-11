@@ -50,3 +50,8 @@ body:has(.operator-shell) [data-dashboard-footer-target] { position: static; }
 .operator-history { width: 100%; height: 140px; background: var(--color-bg-input, #192430); }
 @media (max-width: 1050px) { .operator-overview .view-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .operator-overview .view-row { grid-template-columns: 1fr; } }
+
+/* Passive pages show measurements, not actuator permission forms. */
+.page-devices .operator-grid:has(> section:only-child) { grid-template-columns: minmax(0, 1fr); }
+.overview-read-status { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: .75rem; }
+.page-system .operator-grid > [data-motion-admin][hidden] + section { grid-column: 1 / -1; }

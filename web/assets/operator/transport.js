@@ -38,6 +38,15 @@ export function unpackContract(payload, expectedFamily = null) {
   return result;
 }
 const reads = new Map();
+// Motion permission needs a canonical catalogue before its short-lived envelope.
+export async function prepareMutation() {
+  const { data } = await request('/api/logic/catalog');
+  const meta = data?.contract_meta;
+  if (meta?.envelope_version !== 1 || meta.contract_id !== 'rider.catalog' || meta.contract_version !== 2
+    || data.ok !== true || data.catalog_version !== 2 || data.stale || data.offline || data.error) {
+    throw Object.assign(new Error('Unsupported Rider contract; read only'), { status: 409 });
+  }
+}
 export function request(path, options = {}) {
   const method = options.method || 'GET';
   if (method === 'GET' && reads.has(path)) return reads.get(path);

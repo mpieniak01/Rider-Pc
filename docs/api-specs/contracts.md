@@ -180,3 +180,13 @@ Generated from the instantiated FastAPI route table without starting runtime ser
 Control, service, resource, task, calibration activation and Pi proxy configuration commands require confirmation. Ordinary local writes and generation (chat, profile save, backend selection and PC model binding) keep their HTTP result without a fabricated ACK. Explicit upstream operation metadata is preserved. SSE resumes after a process change emit transport.gap even before the first new sample; event_id is an opaque cursor, never an observation timestamp.
 
 Local service actions use ack_kind=systemd_command_completed (demo_state_applied in simulation). This confirms completion of the administrative command, not process readiness or robot motion; service_readiness remains unverified. Remote ACKs are preserved only from the Pi response.
+
+
+## Motion panel scope
+- Overview, Devices and Chat expose observations and non-actuating operations, without motion consent forms or STOP shortcuts. Their state observer may provide measurements but does not send commands on focus loss.
+- Navigation remains a passive visualizer without an ARM form. Its task catalog shows only non-actuating tasks. Autonomous motion remains unavailable pending manual characterization.
+- Control and Calibration require local consent, a short lease, STOP, the correct owner and fresh state for actuator operations.
+- System opens as diagnostics. Consent and STOP controls appear after enabling administration because starting/restarting some services can actuate the robot.
+- Clearing ESTOP requires an explicit operator plan and consent. It ends in DISARMED and never automatically arms. ARM requires renewed consent.
+- Contract negotiation and state refresh finish before constructing the 500 ms command envelope. Existing commands are never restamped or automatically retried.
+- Command time uses a separate estimate from the Pi safety response. Observations from other hosts cannot change this estimate.

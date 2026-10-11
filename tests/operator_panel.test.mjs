@@ -79,7 +79,7 @@ class Element {
   replaceChildren(...values) { this.children = values; }
   closest(selector) { return this.editing && selector.includes('input') ? this : null; }
 }
-async function fixture(initial = disarmed()) {
+async function fixture(initial = disarmed(), { interactive = true } = {}) {
   const elements = new Map(['arm', 'clear-estop', 'disarm', 'estop', 'operator-plan', 'operator-consent', 'control-owner', 'lease',
     'duration', 'speed', 'yaw-speed', 'request-history', 'safety-state', 'safety-owner', 'safety-reason', 'safety-lease', 'operator-message'].map(id => [id, new Element(id)]));
   elements.get('control-owner').value = 'manual'; elements.get('lease').value = '10'; elements.get('duration').value = '.1';
@@ -97,7 +97,13 @@ async function fixture(initial = disarmed()) {
       calls.push({ url, ...options, body: options.body ? JSON.parse(options.body) : undefined });
       if (replies.has(url)) { const reply = replies.get(url); return { ok: true, status: reply.status, json: async () => reply.data }; }
       return { ok: true, status: options.method === 'POST' ? 202 : 200,
-        json: async () => options.method === 'POST' ? { pending: true, confirmed: false } : { safety: current, server_time: Date.now() / 1000 } };
+        json: async () => {
+          const now = Date.now() / 1000;
+          if (options.method === 'POST') return { pending: true, confirmed: false };
+          const catalog = url === '/api/logic/catalog';
+          return { ok: true, error: null, operation: null, meta: { envelope_version: 1, contract_id: catalog ? 'rider.catalog' : 'rider.safety', contract_version: catalog ? 2 : 1, observed_at: now, server_time: now, stale: false, offline: false },
+            data: catalog ? { contract_version: 2, catalog_version: 2, features: [], units: [], api_envelope_versions: [1], observed_at: now } : { safety: current, server_time: now } };
+        } };
     } });
   const modules = new Map();
   async function load(name) {
@@ -108,7 +114,7 @@ async function fixture(initial = disarmed()) {
     return module;
   }
   const module = await load('safety.js'); await module.evaluate();
-  const panel = new module.namespace.SafetyPanel();
+  const panel = new module.namespace.SafetyPanel(() => {}, { interactive });
   await new Promise(resolve => setImmediate(resolve));
   return { panel, elements, calls, listeners, document, timers, setReply(url, data, status = 200) { replies.set(url, { data, status }); }, async load(name) { const module = await load(name); await module.evaluate(); return module.namespace; }, setState(value) { current = value; panel.update(value); } };
 }
@@ -117,6 +123,9 @@ test('opening control issues GET only and permits explicit ARM from known DISARM
   const f = await fixture();
   assert.ok(f.calls.length > 0);
   assert.ok(f.calls.every(call => call.method === 'GET'));
+  assert.equal(f.elements.get('arm').disabled, true, 'unprepared form cannot arm');
+  f.elements.get('operator-plan').value = 'Isolated prepared fixture';
+  f.elements.get('operator-consent').checked = true; f.panel.render();
   assert.equal(f.elements.get('arm').disabled, false);
   assert.equal(f.elements.get('clear-estop').disabled, true);
 });
@@ -341,4 +350,41 @@ test('explicit null observation never inherits a fresh legacy timestamp', () => 
   assert.equal(frame.age, null);
   assert.equal(frame.fresh, false);
   assert.equal(model.ageOf({ ts: now }, now), 0);
+});
+
+test('passive pages never bind or dispatch motion shortcuts or a blur STOP', async () => {
+  const f = await fixture(armed(), { interactive: false });
+  assert.equal(f.panel.can('manual'), false);
+  assert.equal(f.listeners.keydown, undefined);
+  f.panel.key({ code: 'Space', target: new Element(), preventDefault() { throw new Error('passive shortcut captured'); } });
+  f.panel.suspend();
+  assert.ok(f.calls.every(call => call.method === 'GET'));
+});
+test('clearing ESTOP remains disabled until preparation and never automatically arms', async () => {
+  const f = await fixture({ ...disarmed(), state: 'ESTOP' });
+  assert.equal(f.elements.get('clear-estop').disabled, true);
+  f.elements.get('operator-plan').value = 'Prepared isolated fixture, no physical robot';
+  f.elements.get('operator-consent').checked = true; f.panel.render();
+  assert.equal(f.elements.get('clear-estop').disabled, false);
+  await f.panel.arm('clear_estop');
+  const writes = f.calls.filter(call => call.method === 'POST');
+  assert.equal(writes.length, 1); assert.equal(writes[0].body.action, 'clear_estop');
+  assert.equal(writes[0].body.operator_consent, true);
+  f.setState({ ...disarmed(), generation: 'cleared-fixture' }); f.panel.render();
+  assert.equal(f.elements.get('arm').disabled, true, 'clear consumes consent; another explicit consent is required');
+});
+test('another presentation clock cannot invalidate the safety permission clock', async () => {
+  const f = await fixture(armed());
+  assert.equal(f.panel.can('manual'), true);
+  const clock = await f.load('model.js'), now = Date.now() / 1000;
+  clock.setServerClock(now - 100, now, now);
+  assert.equal(f.panel.can('manual'), true);
+});
+test('service inspection does not grant movement before administration is enabled', async () => {
+  const f = await fixture(armed());
+  f.document.body.dataset.page = 'system';
+  assert.equal(f.panel.can('manual'), false);
+  f.panel.key({ code: 'Space', target: new Element(), preventDefault() { throw new Error('read-only admin captured'); } });
+  f.panel.suspend();
+  assert.ok(f.calls.every(call => call.method === 'GET'));
 });
