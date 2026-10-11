@@ -513,6 +513,7 @@ async def events(request: Request):
 
 
 @router.get("/api/odometry/state")
+@router.get("/api/calibration/controls")
 @router.get("/api/calibration/state")
 @router.get("/api/calibration/profiles")
 @router.get("/api/calibration/profiles/{digest}")
@@ -522,6 +523,7 @@ async def configuration_snapshot(request: Request, digest: str = ""):
 
 
 @router.post("/api/odometry/reference")
+@router.post("/api/calibration/controls")
 @router.post("/api/calibration/profiles")
 @router.post("/api/calibration/activate")
 async def configuration_request(request: Request, payload: Dict[str, Any]):

@@ -44,8 +44,12 @@ export class System {
     if (!this.allowed(row, action)) return;
     const id = this.identity(row), body = { action, host: row.host };
     if (row.can_move && ['start', 'restart'].includes(action)) {
-      const envelope = this.safety.envelope('move', {}, row.motion_owner);
-      for (const key of ['generation', 'seq', 'source', 'ts', 'ttl_ms', 'request_id']) body[key] = envelope[key];
+      this.busy.add(id);
+      try {
+        await this.safety.prepare();
+        const envelope = this.safety.envelope('move', {}, row.motion_owner);
+        for (const key of ['generation', 'seq', 'source', 'ts', 'ttl_ms', 'request_id']) body[key] = envelope[key];
+      } catch (error) { this.busy.delete(id); this.render(); throw error; }
     }
     this.busy.add(id); this.results.set(id, { status: 'pending' }); this.render();
     try {

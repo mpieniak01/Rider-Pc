@@ -222,3 +222,84 @@ Inwentarz wygenerowano z tabeli tras utworzonej aplikacji FastAPI bez uruchamian
 Polecenia sterowania, usług, zasobów, zadań, aktywacji kalibracji i konfiguracji proxy Pi wymagają potwierdzenia. Zwykłe lokalne zapisy i generowanie (np. czat, zapis profilu, wybór backendu i wiązanie modelu PC) zachowują wynik HTTP bez sztucznego ACK. Jawna operation upstream pozostaje zachowana. Wznowienie SSE po zmianie procesu emituje transport.gap także przed pierwszą nową próbką; event_id jest nieprzezroczystym kursorem, nie czasem pomiaru.
 
 Potwierdzenie lokalnej akcji usługi ma ack_kind=systemd_command_completed (w symulacji demo_state_applied). Potwierdza zakończenie komendy administracyjnej, nie gotowość procesu ani ruch robota; service_readiness pozostaje unverified. Zdalny ACK jest zachowany wyłącznie z odpowiedzi Pi.
+
+
+## Zakres panelu ruchu
+- Przegląd, Urządzenia i Chat: odczyty oraz operacje bez napędów; bez formularza zgody, przycisków ruchu i skrótu STOP. Obserwator stanu może dostarczać pomiary, ale nie wysyła poleceń po utracie fokusu.
+- Nawigacja pozostaje pasywnym wizualizatorem. Bez formularza ARM; katalog tego widoku pokazuje tylko zadania bez ruchu. Autonomia nadal wymaga ręcznej charakterystyki i pozostaje niedostępna.
+- Sterowanie i Kalibracja: lokalna zgoda, krótkie uzbrojenie, STOP, właściwy właściciel i świeży stan wymagane dla napędów.
+- System: diagnostyka domyślnie; kontrolki zgody i STOP widoczne dopiero po włączeniu administracji, ponieważ start/restart określonych usług może uruchomić napędy.
+- Zwolnienie ESTOP jest jawną operacją operatora z planem i potwierdzeniem. Kończy się stanem DISARMED; nie uzbraja automatycznie. ARM wymaga ponownego potwierdzenia.
+- Sprawdzenie kontraktu i odświeżenie stanu odbywają się przed utworzeniem polecenia z TTL 500 ms. Nie odmładza się gotowych poleceń ani nie powtarza żądań automatycznie.
+- Czas poleceń pochodzi z osobnego oszacowania zegara odpowiedzi bezpieczeństwa Pi. Odczyty innych hostów nie zmieniają tego oszacowania.
+
+
+## Sterowanie ręczne i prosta kalibracja reakcji
+
+Widok podstawowy zawiera kamerę, strzałki i STOP oraz suwaki jazdy, skrętu i reakcji.
+Czas kliknięcia znajduje się w ustawieniach zaawansowanych. Suwaki prędkości ustawiają
+następną pojedynczą próbę; rampa zaczyna obowiązywać po zapisaniu i zastosowaniu.
+Ręczne sterowanie wymaga uzbrojenia jednym globalnym przyciskiem po prawej. Nie ma dodatkowej zgody przy każdej strzałce.
+Zmiana suwaka, odczyt, zapis, zastosowanie lub powrót wersji nie uruchamiają ruchu.
+Nie ma automatycznego powtarzania ani sekwencji kalibracyjnej.
+
+Opcjonalny obiekt profilu interaction zapisuje linear_speed i turn_speed (0–1)
+oraz pulse_duration (0.01–0.25 s). Wykonawca udostępnia go w
+motion.calibration.interaction; Pi i PC odczytują te same ustawienia z Pi.
+Parametry nie stanowią zgody na ruch. Stare profile bez tego obiektu pozostają czytelne.
+Rampa i pułap polecenia zachowują dotychczasowy format motion i ograniczenia wykonawcy.
+Przyjęcie ustawień nadal wymaga potwierdzenia obu modułów, niezależnie od gotowości
+metrycznej odometrii. Zwykłe strojenie nie wymaga dystansu, kątów, HOME ani tabel m/s.
+
+### Mapowanie do SDK Rider 1.4.2
+
+Identyfikator: rider-1.4.2-levels-v2.
+- linear_step: podpisany poziom polecenia −127..127, nie licznik obrotów.
+- Parametr przekazany do rider_move_x: linear_step * 1.5 / 127, zakres ±1.5.
+- turn_step: podpisany poziom −70..70; parametr skrętu SDK ma tę samą wartość.
+- motion.output.units = command_levels; mapping_id, linear_sdk_value i
+  turn_sdk_value opisują mapowanie, nie zmierzoną prędkość ani ukończenie ruchu.
+- Neutralny bajt rejestrów prędkości to 128. Adapter koryguje zaokrąglanie SDK
+  w swoim kontrolowanym hooku; nie modyfikuje zainstalowanej biblioteki.
+- Czas ogranicza długość polecenia. Prędkość ogranicza jego wartość.
+- Pomiary odometrii wymagają conditions.command_mapping zgodnego z tym identyfikatorem.
+  Dawne zapisy pozostają do wglądu, lecz bez zgodności skali model jest niegotowy.
+  Zmiana mapowania wymaga nowych pomiarów; nie migrujemy współczynników automatycznie.
+
+Formularze pomiarów, odometrii, HOME i diagnostyka pozostają w zwiniętej części
+zaawansowanej. Ocena operatora „za szybko / za wolno” służy dopasowaniu sterowania;
+nie potwierdza metrycznej odometrii ani autonomii.
+
+## Globalne uzbrojenie panelu i oddzielna zgoda testowa
+
+Jeden przycisk po prawej pokazuje potwierdzony stan wykonawcy: czerwony
+„Robot rozbrojony”, zielony „Robot uzbrojony”. Kliknięcie czerwonego jest
+zgodą operatora na ręczne sterowanie z panelu; kliknięcie zielonego wysyła STOP.
+Kasowanie programowego ESTOP i ARM odbywa się po jednym świadomym kliknięciu,
+sekwencyjnie, dopiero po świeżym potwierdzeniu DISARMED. Zewnętrzny ESTOP,
+brak sprzętu, brak świeżego zegara lub brak potwierdzenia nadal blokują ARM.
+Uzbrojenie nie wywołuje ruchu. Panel używa arming_mode=operator: uzbrojenie trwa do STOP lub rozbrojenia
+przez operatora, bez limitu czasu i bez automatycznego odnawiania. Przejście do innego widoku nie wysyła STOP.
+
+Kontrakt bezpieczeństwa dodaje execution_context (panel/test),
+panel_motion_enabled i test_motion_enabled. Panel wysyła execution_context=panel.
+Zgoda panelu nie uprawnia poleceń testowych, nawet z test_operator_consent=true.
+Ręczna fizyczna próba ma osobną sesję execution_context=test i jawne
+test_operator_consent=true przy ARM i każdym poleceniu ruchu. Sesja testowa
+nie uprawnia panelu. Jedna sesja wykonawcy zapobiega równoległemu sterowaniu.
+STOP zawsze unieważnia obie flagi.
+
+Automatyczne pytest/CI pozostaje izolowane: prawdziwy SDK, porty sprzętowe,
+SSH i sieć robota są zablokowane niezależnie od obu flag. Flaga zgody testowej
+nie wyłącza tej izolacji. Skrypt manual_motion-probe.py wymaga obecnego
+operatora, terminala i wpisania jednorazowego potwierdzenia; po próbie wysyła STOP.
+
+Panel: arming_mode=operator, lease_remaining_s=null. Zmiana widoku i fokusu nie rozbraja robota. Próby testowe pozostają w trybie timed, z osobną zgodą. Błędy sprzętu i zewnętrzny ESTOP nadal wymuszają zatrzymanie; stare dane blokują nowe polecenia.
+
+Ograniczony czasowo impuls z panelu zatrzymuje napęd po zakończeniu; uzbrojenie operatora pozostaje aktywne dla następnego kliknięcia. STOP/disarm unieważnia sesję; sesje testowe zachowują swój limit czasu.
+
+
+## Wspólne ustawienia sterowania ręcznego
+GET/POST /api/calibration/controls udostępnia obiekt rider.manual_settings v1 zarządzany przez Pi: revision, values, limits, observed_at, actuation=false. values zawiera linear_speed, turn_speed, pulse_duration, speed_limit, linear_rate i turn_rate. POST przyjmuje revision i częściową zmianę values, zapisuje atomowo, wymaga bezczynnego wykonawcy i nie wysyła polecenia napędu. Nieaktualne zapisy zwracają 409.
+Widoki sterowania i kalibracji Pi oraz PC odczytują ten sam obiekt i blokują ruch podczas zapisu zmian oraz przy braku lub nieaktualności danych. Każde polecenie ruchu operatora zawiera direction i settings_revision oraz dokładne wspólne vx/yaw/duration. Wykonawca odrzuca stare rewizje i niespójne wartości. Otwarcie widoku, import szkicu i odczyt historycznego profilu nie zastępują bieżących ustawień. Jawna aktywacja zapisanego profilu aktualizuje wspólne ustawienia.
+Domyślny impuls trwa 0.25 s; rampy programowe wynoszą 3 dla jazdy i 4 dla skrętu w jednostkach znormalizowanych na sekundę. Zachowane ograniczenia prędkości i impulsu to 0.6 i 0.25 s. Mapowanie skrętu v3 używa 180 natywnych jednostek SDK przy wartości znormalizowanej 1; dawnych pomiarów fizycznych v2 nie można uznawać za zweryfikowane dane v3. Zmiana kierunku wysyła neutralne polecenie napędu przed rampą w nowym kierunku, bez rozbrajania panelu. To wartości programowe, a nie fizycznie zmierzona kalibracja.

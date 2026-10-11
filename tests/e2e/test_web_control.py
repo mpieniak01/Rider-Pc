@@ -12,19 +12,17 @@ pytestmark = pytest.mark.timeout(60)
 
 def open_control(page, base):
     response = page.goto(base + "/control", wait_until="domcontentloaded")
-    expect(page.locator("#safety-state")).to_have_text("DISARMED")
+    expect(page.locator("#global-motion-toggle")).to_have_text("Robot rozbrojony")
     assert response.status == 200
     return response
 
 
 def explicit_arm(page):
-    page.locator("#operator-plan").fill("Mock-only fixture: clear space, secured cable, 0.1 s pulse and STOP.")
-    page.locator("#operator-consent").check()
-    expect(page.locator("#arm")).to_be_enabled()
+    expect(page.locator("#global-motion-toggle")).to_be_enabled()
     with page.expect_response(
         lambda response: response.request.method == "POST" and response.url.endswith("/api/safety")
     ) as event:
-        page.locator("#arm").click()
+        page.locator("#global-motion-toggle").click()
     response = event.value
     assert response.status == 200, response.text()
     body = response.json()
@@ -41,7 +39,7 @@ def explicit_arm(page):
     assert safety["state"] == "ARMED" and safety["owner"] == command["owner"] == "manual", result
     assert safety["ready"] is True and safety["hardware_ready"] is True and safety["can_move"] is True, result
     assert safety["last_seq"] == command["seq"] and safety["last_ack"] == ack, result
-    expect(page.locator("#safety-state")).to_have_text("ARMED")
+    expect(page.locator("#global-motion-toggle")).to_have_text("Robot uzbrojony")
     expect(page.locator('[data-direction="forward"]')).to_be_enabled()
 
 
@@ -63,12 +61,13 @@ def test_explicit_arm_then_motion_preserves_original_envelope(browser_context):
         page.locator('[data-direction="forward"]').click()
     payload = json.loads(event.value.post_data)
     assert payload["action"] == "move"
-    assert payload["vx"] == 0.1 and payload["duration"] == 0.1
+    assert payload["vx"] == 0.2 and payload["duration"] == 0.25
+    assert payload["settings_revision"] == 0
     assert payload["source"] == "manual" and payload["seq"] >= 1
     assert payload["generation"] and payload["request_id"] and payload["ttl_ms"] == 500
     expect(page.locator("#request-history")).to_contain_text("SDK")
     page.locator("[data-stop]").first.click()
-    expect(page.locator("#safety-state")).to_have_text("DISARMED")
+    expect(page.locator("#global-motion-toggle")).to_have_text("Robot rozbrojony")
 
 
 def test_stop_remains_available_without_metadata(browser_context):
@@ -84,11 +83,11 @@ def test_stop_remains_available_without_metadata(browser_context):
 def test_typing_and_parameter_edits_never_issue_motion(browser_context):
     page, base = browser_context
     open_control(page, base)
-    page.locator("#operator-plan").fill("wsad movement text")
-    page.locator("#operator-plan").press("Space")
-    page.locator("#speed").fill("0.25")
-    page.locator("#control-owner").select_option("navigation")
-    assert not [r for r in page.requests if r.method == "POST"]
+    expect(page.locator("#duration")).to_be_enabled()
+    page.locator("#duration").fill("0.2")
+    page.locator("#duration").press("Space")
+    page.locator("#speed").press("ArrowRight")
+    assert not [r for r in page.requests if r.method == "POST" and r.url.endswith(("/api/control", "/api/safety"))]
 
 
 def test_unverified_posture_actions_remain_disabled(browser_context):
@@ -138,8 +137,7 @@ def test_legacy_pi_is_read_only_with_visible_reason(browser_context):
         ),
     )
     page.goto(base + "/control", wait_until="domcontentloaded")
-    expect(page.locator("#safety-state")).to_have_text("UNKNOWN")
-    expect(page.locator("#arm")).to_be_disabled()
+    expect(page.locator("#global-motion-toggle")).to_be_disabled()
     expect(page.locator('[data-direction="forward"]')).to_be_disabled()
     expect(page.locator("[data-stop]").first).to_be_enabled()
     assert not [r for r in page.requests if r.method == "POST"]
@@ -149,7 +147,6 @@ def test_domain_selection_does_not_start_models(browser_context):
     page, base = browser_context
     open_control(page, base)
     before = len(page.requests)
-    page.locator("#control-owner").select_option("follow_me")
     page.locator("#provider-runtime article").first.click()
     assert not [r for r in page.requests[before:] if r.method in {"POST", "PATCH", "PUT"}]
 

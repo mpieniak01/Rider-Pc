@@ -138,6 +138,61 @@ def browser_context(test_server):
         assert snapshot.get("source") == "demo" and snapshot.get("safety", {}).get("simulated") is True
         reset = context.request.post(test_server + "/api/control", data={"cmd": "stop", "action": "stop"})
         assert reset.status == 200
+        # Shared settings fixture stays inside the isolated browser context.
+        # Never route configuration reads or writes to the physical Pi.
+        shared = {
+            "revision": 0,
+            "values": {
+                "linear_speed": 0.2,
+                "turn_speed": 0.35,
+                "pulse_duration": 0.25,
+                "speed_limit": 0.6,
+                "linear_rate": 3,
+                "turn_rate": 4,
+            },
+        }
+        limits = {**shared["values"], "linear_speed": 1, "turn_speed": 1}
+
+        def shared_controls(route):
+            status = 200
+            if route.request.method == "POST":
+                payload = route.request.post_data_json
+                if payload["revision"] != shared["revision"]:
+                    status = 409
+                else:
+                    shared["values"].update(payload["values"])
+                    shared["revision"] += 1
+            observed = time.time()
+            route.fulfill(
+                status=status,
+                json={
+                    "meta": {
+                        "envelope_version": 1,
+                        "contract_id": "rider.calibration",
+                        "contract_version": 1,
+                        "host": "pi",
+                        "source": "demo",
+                        "server_time": observed,
+                        "generated_at": observed,
+                        "observed_at": observed,
+                        "offline": False,
+                        "stale": False,
+                    },
+                    "ok": status == 200,
+                    "data": {
+                        **shared,
+                        "limits": limits,
+                        "contract_id": "rider.manual_settings",
+                        "contract_version": 1,
+                        "actuation": False,
+                        "observed_at": observed,
+                    },
+                    "error": None if status == 200 else {"code": "manual_settings_conflict"},
+                    "operation": None,
+                },
+            )
+
+        context.route("**/api/calibration/controls", shared_controls)
         page = context.new_page()
 
         # Track network requests
