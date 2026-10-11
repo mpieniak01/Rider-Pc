@@ -1,5 +1,6 @@
 """Tests for the REST adapter."""
 
+import time
 import pytest
 import httpx
 from unittest.mock import AsyncMock, patch, MagicMock
@@ -12,6 +13,8 @@ from pc_client.adapters import RestAdapter
 def rest_adapter():
     """Create a REST adapter for testing."""
     adapter = RestAdapter(base_url="http://test-robot:8080", secure_mode=False)
+    adapter._contract_verified_at = time.monotonic()
+    adapter._contract_supported = True  # Fixture testuje metody po potwierdzonym handshake.
     return adapter
 
 
@@ -30,8 +33,11 @@ async def test_get_healthz_success(rest_adapter):
 
         result = await rest_adapter.get_healthz()
 
+        assert isinstance(result.pop("received_at"), float)
         assert result == mock_response
-        mock_get.assert_called_once_with("http://test-robot:8080/healthz")
+        mock_get.assert_called_once_with(
+            "http://test-robot:8080/healthz", headers={"Accept": "application/vnd.rider.api+json;version=1"}
+        )
 
 
 @pytest.mark.asyncio
@@ -60,8 +66,11 @@ async def test_get_state(rest_adapter):
 
         result = await rest_adapter.get_state()
 
+        assert isinstance(result.pop("received_at"), float)
         assert result == mock_response
-        mock_get.assert_called_once_with("http://test-robot:8080/state")
+        mock_get.assert_called_once_with(
+            "http://test-robot:8080/state", headers={"Accept": "application/vnd.rider.api+json;version=1"}
+        )
 
 
 @pytest.mark.asyncio
@@ -78,8 +87,11 @@ async def test_get_sysinfo(rest_adapter):
 
         result = await rest_adapter.get_sysinfo()
 
+        assert isinstance(result.pop("received_at"), float)
         assert result == mock_response
-        mock_get.assert_called_once_with("http://test-robot:8080/sysinfo")
+        mock_get.assert_called_once_with(
+            "http://test-robot:8080/sysinfo", headers={"Accept": "application/vnd.rider.api+json;version=1"}
+        )
 
 
 @pytest.mark.asyncio
@@ -96,8 +108,11 @@ async def test_get_vision_snap_info(rest_adapter):
 
         result = await rest_adapter.get_vision_snap_info()
 
+        assert isinstance(result.pop("received_at"), float)
         assert result == mock_response
-        mock_get.assert_called_once_with("http://test-robot:8080/vision/snap-info")
+        mock_get.assert_called_once_with(
+            "http://test-robot:8080/vision/snap-info", headers={"Accept": "application/vnd.rider.api+json;version=1"}
+        )
 
 
 @pytest.mark.asyncio
@@ -114,8 +129,11 @@ async def test_get_vision_obstacle(rest_adapter):
 
         result = await rest_adapter.get_vision_obstacle()
 
+        assert isinstance(result.pop("received_at"), float)
         assert result == mock_response
-        mock_get.assert_called_once_with("http://test-robot:8080/vision/obstacle")
+        mock_get.assert_called_once_with(
+            "http://test-robot:8080/vision/obstacle", headers={"Accept": "application/vnd.rider.api+json;version=1"}
+        )
 
 
 @pytest.mark.asyncio
@@ -132,8 +150,11 @@ async def test_get_app_metrics(rest_adapter):
 
         result = await rest_adapter.get_app_metrics()
 
+        assert isinstance(result.pop("received_at"), float)
         assert result == mock_response
-        mock_get.assert_called_once_with("http://test-robot:8080/api/app-metrics")
+        mock_get.assert_called_once_with(
+            "http://test-robot:8080/api/app-metrics", headers={"Accept": "application/vnd.rider.api+json;version=1"}
+        )
 
 
 @pytest.mark.asyncio
@@ -150,8 +171,11 @@ async def test_get_resource_success(rest_adapter):
 
         result = await rest_adapter.get_resource("mic")
 
+        assert isinstance(result.pop("received_at"), float)
         assert result == mock_response
-        mock_get.assert_called_once_with("http://test-robot:8080/api/resource/mic")
+        mock_get.assert_called_once_with(
+            "http://test-robot:8080/api/resource/mic", headers={"Accept": "application/vnd.rider.api+json;version=1"}
+        )
 
 
 @pytest.mark.asyncio
@@ -180,8 +204,13 @@ async def test_post_resource_action(rest_adapter):
 
         result = await rest_adapter.post_resource_action("mic", payload)
 
+        assert isinstance(result.pop("received_at"), float)
         assert result == mock_response
-        mock_post.assert_called_once_with("http://test-robot:8080/api/resource/mic", json=payload)
+        mock_post.assert_called_once_with(
+            "http://test-robot:8080/api/resource/mic",
+            json=payload,
+            headers={"Accept": "application/vnd.rider.api+json;version=1"},
+        )
 
 
 @pytest.mark.asyncio
@@ -199,8 +228,13 @@ async def test_post_control(rest_adapter):
 
         result = await rest_adapter.post_control(command)
 
+        assert isinstance(result.pop("received_at"), float)
         assert result == mock_response
-        mock_post.assert_called_once_with("http://test-robot:8080/api/control", json=command)
+        mock_post.assert_called_once_with(
+            "http://test-robot:8080/api/control",
+            json=command,
+            headers={"Accept": "application/vnd.rider.api+json;version=1"},
+        )
 
 
 @pytest.mark.asyncio
@@ -214,7 +248,9 @@ async def test_ai_mode_methods(rest_adapter):
         mock_get.return_value = mock_resp
         data = await rest_adapter.get_ai_mode()
         assert data["mode"] == "local"
-        mock_get.assert_called_once_with("http://test-robot:8080/api/system/ai-mode")
+        mock_get.assert_called_once_with(
+            "http://test-robot:8080/api/system/ai-mode", headers={"Accept": "application/vnd.rider.api+json;version=1"}
+        )
 
     with patch.object(rest_adapter.client, "put", new_callable=AsyncMock) as mock_put:
         mock_resp = MagicMock()
@@ -227,6 +263,7 @@ async def test_ai_mode_methods(rest_adapter):
         mock_put.assert_called_once_with(
             "http://test-robot:8080/api/system/ai-mode",
             json={"mode": "pc_offload"},
+            headers={"Accept": "application/vnd.rider.api+json;version=1"},
         )
 
 
@@ -241,7 +278,9 @@ async def test_provider_methods(rest_adapter):
         mock_get_state.return_value = mock_resp
         data = await rest_adapter.get_providers_state()
         assert "domains" in data
-        mock_get_state.assert_called_once_with("http://test-robot:8080/api/providers/state")
+        mock_get_state.assert_called_once_with(
+            "http://test-robot:8080/api/providers/state", headers={"Accept": "application/vnd.rider.api+json;version=1"}
+        )
 
     with patch.object(rest_adapter.client, "patch", new_callable=AsyncMock) as mock_patch:
         mock_resp = MagicMock()
@@ -254,6 +293,7 @@ async def test_provider_methods(rest_adapter):
         mock_patch.assert_called_once_with(
             "http://test-robot:8080/api/providers/voice",
             json={"target": "pc"},
+            headers={"Accept": "application/vnd.rider.api+json;version=1"},
         )
 
     with patch.object(rest_adapter.client, "get", new_callable=AsyncMock) as mock_get_health:
@@ -264,7 +304,10 @@ async def test_provider_methods(rest_adapter):
         mock_get_health.return_value = mock_resp
         data = await rest_adapter.get_providers_health()
         assert "voice" in data
-        mock_get_health.assert_called_once_with("http://test-robot:8080/api/providers/health")
+        mock_get_health.assert_called_once_with(
+            "http://test-robot:8080/api/providers/health",
+            headers={"Accept": "application/vnd.rider.api+json;version=1"},
+        )
 
 
 @pytest.mark.asyncio

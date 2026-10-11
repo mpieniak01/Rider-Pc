@@ -141,6 +141,7 @@ class ServiceManager:
         self._local_services = {svc["unit"]: dict(svc) for svc in DEFAULT_LOCAL_SERVICES} if self._mock_mode else {}
         self._remote_services = []
         self._last_remote_sync = 0.0
+        self._remote_meta = {}
         self._remote_error = "not_connected"
         self._desired = {}
         self._providers = {}
@@ -162,6 +163,14 @@ class ServiceManager:
     def _decorate(self, service, host, source, observed_at, stale=False, error=None):
         row = dict(service)
         row.setdefault("active", row.get("active_state", "unknown"))
+        row.setdefault("load", row.get("load_state", "unknown"))
+        row.setdefault("sub", row.get("sub_state", "unknown"))
+        row.setdefault("enabled", row.get("unit_file_state", "unknown"))
+        row.setdefault("active_state", row.get("active", "unknown"))
+        row.setdefault("sub_state", row.get("sub", "unknown"))
+        row.setdefault("unit_file_state", row.get("enabled", "unknown"))
+        row.setdefault("load_state", row.get("load", "unknown"))
+        row.setdefault("process_running", row["active_state"] == "active" and row["sub_state"] in {"running", "exited"})
         for key in ("active", "sub", "enabled"):
             row.setdefault(key, "unknown")
         row.update(
@@ -264,11 +273,30 @@ class ServiceManager:
                     },
                     "pi",
                     "demo" if getattr(self._rest_adapter, "is_mock", False) else s.get("source", "systemd"),
-                    s.get("observed_at", response.get("observed_at", now)),
+                    s.get("observed_at", response.get("observed_at")),
                 )
                 for s in services
                 if isinstance(s, dict) and s.get("unit")
             ]
+            source_times = [
+                s.get("observed_at")
+                for s in self._remote_services
+                if finite_number(s.get("observed_at")) and s["observed_at"] > 0
+            ]
+            oldest_member = min(source_times) if source_times else None
+            observed = response.get("observed_at")
+            if "observed_at" not in response:
+                observed = oldest_member
+            if not finite_number(observed) or observed <= 0:
+                observed = None
+            self._remote_meta = {
+                "observed_at": observed,
+                "source": response.get("source", "systemd"),
+                "observed_at_basis": "source" if "observed_at" in response else "min_member",
+                "oldest_member_observed_at": oldest_member,
+                "contract_meta": response.get("contract_meta"),
+                "stale": response.get("stale") is True,
+            }
             self._last_remote_sync = now
             self._remote_error = "inventory_offline" if response.get("offline") is True else None
         except Exception as exc:
@@ -293,6 +321,7 @@ class ServiceManager:
                         "group": "providers",
                         "kind": "application_provider",
                         "active": "active" if initialized else "inactive",
+                        "process_running": initialized,
                         "initialized": initialized,
                         "ready": ready,
                         "runtime_mode": telemetry.get("mode", "unknown"),
@@ -312,18 +341,32 @@ class ServiceManager:
 
     async def get_all_services(self):
         local, remote = await asyncio.gather(self.get_local_services_async(), self.get_remote_services())
+        providers = self._provider_rows()
         return {
             "contract_version": 2,
             "source": "pc_aggregator",
-            "observed_at": time.time(),
-            "services": local + remote + self._provider_rows(),
+            "observed_at": None,
+            "generated_at": time.time(),
+            "services": local + remote + providers,
             "timestamp": time.time(),
             "hosts": {
-                "pc": {"configured": bool(self._monitored_services), "demo": self._mock_mode},
+                "pc": {
+                    "configured": bool(self._monitored_services),
+                    "demo": self._mock_mode,
+                    "observed_at": min(
+                        (
+                            row["observed_at"]
+                            for row in local + providers
+                            if finite_number(row.get("observed_at")) and row["observed_at"] > 0
+                        ),
+                        default=None,
+                    ),
+                },
                 "pi": {
+                    **self._remote_meta,
                     "offline": bool(self._remote_error),
                     "error": self._remote_error,
-                    "observed_at": self._last_remote_sync or None,
+                    "received_at": self._last_remote_sync or None,
                 },
             },
         }
@@ -352,7 +395,17 @@ class ServiceManager:
                 identity = target if ":" in target else by_alias.get((node["host"], target), f"{node['host']}:{target}")
                 if identity in identities:
                     edges.append({"from": node["identity"], "to": identity})
-        return {"generated_at": time.time(), "nodes": nodes, "edges": edges, "hosts": data["hosts"]}
+        return {
+            "contract_version": 2,
+            "source": "pc_aggregator",
+            "observed_at": None,
+            "generated_at": time.time(),
+            "stale": bool(self._remote_error),
+            "partial": bool(self._remote_error),
+            "nodes": nodes,
+            "edges": edges,
+            "hosts": data["hosts"],
+        }
 
     async def get_service_logs(self, unit, host):
         """Odczyt na żądanie, tylko konkretna jednostka wybranego hosta."""
@@ -433,6 +486,34 @@ class ServiceManager:
                 result = {"ok": False, "error": "unknown_actuation_capability", "status_code": 409}
             else:
                 result = await self._systemd_adapter.manage_service(unit, action)
+            if (
+                result.get("ok") is True
+                and result.get("operation") is None
+                and not result.get("pending")
+                and not result.get("error")
+            ):
+                # Potwierdza wykonanie lokalnej komendy administracyjnej,
+                # nie gotowość procesu ani fizyczny ruch robota.
+                result = {
+                    **result,
+                    "operation": {
+                        "status": "executed",
+                        "confirmed": True,
+                        "action": action,
+                        "target": unit,
+                        "ack_kind": "demo_state_applied" if self._mock_mode else "systemd_command_completed",
+                        "ack": {
+                            "status": "executed",
+                            "accepted": True,
+                            "source": "demo" if self._mock_mode else "pc/systemd",
+                            "observed_at": time.time(),
+                        },
+                        "actuation": False,
+                        "simulated": self._mock_mode,
+                        "service_readiness": "unverified",
+                        "physical_completion": "not_applicable",
+                    },
+                }
             if result.get("ok") and action in {"start", "restart"}:
                 self._desired[unit] = "active"
             return {**result, "unit": unit, "action": action, "host": "pc"}

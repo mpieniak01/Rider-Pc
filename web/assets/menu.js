@@ -1,4 +1,8 @@
 (function(){
+  if (!document.querySelector('[data-menu-telemetry-style]')) {
+    const style = document.createElement('link'); style.rel = 'stylesheet';
+    style.href = '/web/assets/css/menu.css?v=telemetry-20261010'; style.dataset.menuTelemetryStyle = ''; document.head.append(style);
+  }
   const target = document.querySelector('[data-dashboard-menu-target]');
   if (!target) return;
 
@@ -12,6 +16,7 @@
       target.classList.add('menu-ready');
       const nav = target.querySelector('.dashboard-menu');
       if (!nav) return;
+      nav.querySelectorAll('.brand-spacer,.flex-spacer').forEach(node => node.remove());
       setupMenu(nav);
       if (window.i18n?.applyDom) {
         window.i18n.applyDom(target);

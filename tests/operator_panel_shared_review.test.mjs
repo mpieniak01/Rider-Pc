@@ -194,16 +194,63 @@ test('provider cards use actual text and per-domain voice readiness, without sta
 
 test('cached provider health is unknown after source loss even with a healthy registry', async () => {
   const f = await fixture(), target = new Element(); f.elements.set('provider-runtime', target);
-  f.replies.set('/api/providers/state', { observed_at: 1000, domains: { text: { status: 'healthy' } } });
-  f.replies.set('/api/providers/health', { observed_at: 1000, text: { status: 'healthy' } });
+  f.replies.set('/api/providers/state', { observed_at: 1000, domains: { pc_health: { status: 'healthy', reachable: true } } });
+  f.replies.set('/api/providers/health', { observed_at: 1000, pc_health: { status: 'healthy', reachable: true } });
   const { Providers } = await f.load('providers.js'); const providers = new Providers(); await flush();
   const textOf = node => [node.textContent || '', ...node.children.map(child => child instanceof Element ? textOf(child) : String(child))].join(' ');
   const healthCell = () => target.children[0].children[2].children[7].textContent;
   assert.equal(healthCell(), 'healthy');
   for (const failure of [{ offline: true }, { stale: true }, { error: 'cached source failed' }, { observed_at: null }]) {
-    f.replies.set('/api/providers/health', { observed_at: 1000, text: { status: 'healthy' }, ...failure });
+    f.replies.set('/api/providers/health', { observed_at: 1000, pc_health: { status: 'healthy', reachable: true }, ...failure });
     await providers.load();
     assert.equal(healthCell(), 'unknown / stale');
     assert.match(textOf(target.children[0]), /health_envelope/);
+  }
+});
+
+test('PC system freshness and live age retain the PC clock when Pi clock differs', async () => {
+  const f = await fixture(); const model = await f.load('model.js'); const telemetry = await f.load('telemetry.js'); const ui = await f.load('ui.js');
+  model.setServerClock(1040, 1000, 1000);
+  assert.equal(telemetry.hostObservation({ timestamp: 1000, cpu_pct: 0 }, 'pc').current, true);
+  assert.equal(telemetry.hostObservation({ timestamp: 970 }, 'pc').current, false);
+  assert.equal(telemetry.hostObservation({ observed_at: 1040 }, 'pi').current, true);
+  assert.equal(telemetry.hostObservation({ observed_at: null, timestamp: 1000 }, 'pc').current, false);
+  const stamp = ui.ageStamp({ observed_at: 1000 }, 12, 'pc'); f.document.body.append(stamp);
+  assert.equal(stamp.textContent, '0.0 s'); f.advance(2); ui.refreshAges(); assert.equal(stamp.textContent, '2.0 s');
+});
+
+
+test('mixed service aggregate keeps separately labelled source clocks and explicit unknown batch time', async () => {
+  const f = await fixture(); const model = await f.load('model.js'); const telemetry = await f.load('telemetry.js');
+  model.setServerClock(1040, 1000, 1000);
+  assert.equal(telemetry.inventoryStamp({ observed_at: 1039.8 }, 'pi'), '0.2 s');
+  assert.equal(telemetry.inventoryStamp({ observed_at: 999.8 }, 'pc'), '0.2 s');
+  const unknown = { observed_at: null, oldest_member_observed_at: 1039.7 };
+  assert.equal(telemetry.inventoryStamp(unknown, 'pi'), 'oldest row: 0.3 s');
+  assert.equal(unknown.observed_at, null, 'member diagnostic never replaces source batch time');
+  assert.equal(telemetry.inventoryStamp({ ...unknown, offline: true }, 'pi'), 'offline');
+  assert.equal(telemetry.inventoryStamp({ observed_at: null }, 'pi'), 'source age unknown');
+});
+
+
+test('LCD event power keeps the original accepted-write age without claiming a current physical measurement', async () => {
+  const f = await fixture(); const telemetry = await f.load('telemetry.js');
+  const event = { on: false, power_known: true, source: 'lcd-renderer', power_source: 'lcd-renderer',
+    power_observed_at: 10, observed_at: 1000, confirmation: 'control_write_accepted' };
+  const parent = { received_at: 1000 };
+  assert.equal(telemetry.observedDeviceText(event, 'lcd', parent),
+    'OFF · last confirmation lcd-renderer · 990.0 s · physical measurement unverified');
+  f.advance(30); parent.received_at = 1030;
+  assert.equal(telemetry.observedDeviceText({ ...event, on: true }, 'lcd', parent),
+    'ON · last confirmation lcd-renderer · 1020.0 s · physical measurement unverified');
+  assert.equal(event.power_observed_at, 10, 'publication never renews the control-write evidence');
+  for (const patch of [{ power_known: false }, { on: 'false' }, { source: '' }, { power_source: 'api_env' },
+    { confirmation: 'frame_write_accepted' }, { power_observed_at: null }, { power_observed_at: NaN },
+    { power_observed_at: Infinity }, { power_observed_at: 0 }, { power_observed_at: 1030.01 },
+    { offline: true }, { stale: true }, { error: 'GPIO write failed' }]) {
+    assert.match(telemetry.observedDeviceText({ ...event, ...patch }, 'lcd', parent), /power state unknown/);
+  }
+  for (const patch of [{ offline: true }, { stale: true }, { error: 'source unavailable' }, { received_at: 900 }]) {
+    assert.doesNotMatch(telemetry.observedDeviceText(event, 'lcd', { ...parent, ...patch }), /^(ON|OFF)/);
   }
 });

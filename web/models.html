@@ -222,7 +222,7 @@
 </script>
 <script>
 // --- 1. ZARZĄDZANIE STANEM APLIKACJI ---
-const t = window.__i18n_t || ((key, params) => key);
+const t = (key, params) => window.__i18n_t ? window.__i18n_t(key, params) : key;
 // Przechowujemy tu dane pobrane z API, aby nie pytać o nie przy każdej zmianie selecta.
 const AppState = {
     pc: {
@@ -341,10 +341,11 @@ async function loadAllData() {
         if (piRes.status === 'fulfilled' && piRes.value.ok) {
             // Pi jest online
             const data = await piRes.value.json();
-            AppState.pi.isOnline = true;
+            AppState.pi.isOnline = data.offline !== true && data.stale !== true && !data.error;
+            AppState.pi.modelBindingAvailable = data.model_binding_available === true;
             AppState.pi.localModels = data.available_models || [];
             AppState.pi.activeModelId = data.active_model;
-            updatePiConnectionStatus(true);
+            updatePiConnectionStatus(AppState.pi.isOnline);
             renderPiHealth(data);
         } else {
             // Pi jest offline lub błąd proxy
@@ -370,6 +371,7 @@ async function loadAllData() {
 
 // Funkcja główna, która ustawia stan wszystkich kafli na podstawie AppState
 function refreshEntireUI() {
+    document.querySelectorAll('[data-device="pi"] .save-btn').forEach(button => { button.disabled = !AppState.pi.isOnline || AppState.pi.modelBindingAvailable !== true; });
     
     // A. Odśwież kafle PC (Text, Vision, Voice)
     ['text', 'vision', 'voice'].forEach(domain => {
@@ -533,6 +535,7 @@ async function handleSaveConfig(event) {
             }
 
         } else if (device === 'pi') {
+            if (AppState.pi.modelBindingAvailable !== true) throw new Error('Pi: zapis modelu niedostępny w ogłoszonym kontrakcie');
             // --- Zapis na Pi (Proxy) ---
              const res = await fetch('/api/proxy/pi/set-model', {
                 method: 'POST',
@@ -592,7 +595,7 @@ function updatePiCardsState(isOnline) {
     const modelSel = piCard.querySelector('.model-select');
     const statusVal = piCard.querySelector('.status-value');
 
-    inputs.forEach(el => el.disabled = !isOnline);
+    inputs.forEach(el => el.disabled = !isOnline || (el.classList.contains('save-btn') && AppState.pi.modelBindingAvailable !== true));
     DOM.btnRefreshPi.disabled = !isOnline;
 
     if(isOnline) {
@@ -617,7 +620,7 @@ function updateKeyStatus(el, hasKey) {
 // Renderuje status silnika PC
 function renderPcEngineStatus(hasOllama) {
     DOM.pcEngineStatus.innerHTML = hasOllama 
-        ? '<span class="c-text-success">✔ Ollama wykryta. Silnik gotowy.</span>'
+        ? '<span class="c-text-success">✔ Ollama wykryta. Model zainstalowany — gotowość sprawdź w statusie providera.</span>'
         : '<span class="c-text-err">✘ Brak modeli Ollama. Zainstaluj je w terminalu.</span>';
 }
 
@@ -627,8 +630,8 @@ function renderPiHealth(data) {
     const cpuEl = document.getElementById('pi-health-cpu');
     const tempEl = document.getElementById('pi-health-temp');
     if(data) {
-        pingEl.textContent = (data.latency_ms || 15) + 'ms';
-        cpuEl.textContent = (data.cpu_usage || 5) + '%';
+        pingEl.textContent = Number.isFinite(data.latency_ms) ? data.latency_ms + ' ms' : '—';
+        cpuEl.textContent = Number.isFinite(data.cpu_usage) ? data.cpu_usage + '%' : '—';
         tempEl.textContent = data.temp_c != null ? data.temp_c + '°C' : '—';
     } else {
         pingEl.textContent = "—"; cpuEl.textContent = "—"; tempEl.textContent = "—";
@@ -653,10 +656,11 @@ async function loadPiDataOnly() {
         const res = await fetch('/api/proxy/pi/status');
         if(res.ok) {
              const data = await res.json();
-             AppState.pi.isOnline = true;
+             AppState.pi.isOnline = data.offline !== true && data.stale !== true && !data.error;
+            AppState.pi.modelBindingAvailable = data.model_binding_available === true;
              AppState.pi.localModels = data.available_models || [];
              AppState.pi.activeModelId = data.active_model;
-             updatePiConnectionStatus(true);
+             updatePiConnectionStatus(AppState.pi.isOnline);
              renderPiHealth(data);
         } else { throw new Error(); }
     } catch(e) {

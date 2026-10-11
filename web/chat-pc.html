@@ -704,10 +704,16 @@ Przykład: Napisz funkcję sortującą w Pythonie" data-i18n-attr="placeholder:c
 
   async function serviceAction(alias, action) {
     if (!alias) throw new Error(t('chat_pc.unknown_alias'));
-    const res = await fetch(`/svc/${encodeURIComponent(alias)}`, {
+    const inventoryResponse = await fetch('/svc', { cache: 'no-store' });
+    if (!inventoryResponse.ok) throw new Error('service_inventory_unavailable');
+    const inventory = await inventoryResponse.json();
+    const matches = (inventory.services || []).filter(row => row.unit === alias && ['pi', 'pc'].includes(row.host));
+    if (matches.length !== 1 || matches[0].offline || matches[0].stale || matches[0].error
+      || !matches[0].actions?.includes(action) || (action !== 'stop' && matches[0].can_move !== false)) throw new Error('service_capability_unconfirmed');
+    const res = await fetch(`/svc/${encodeURIComponent(matches[0].unit)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action }),
+      body: JSON.stringify({ action, host: matches[0].host }),
     });
     if (!res.ok) {
       const txt = await res.text().catch(() => `${res.status} ${res.statusText}`);

@@ -174,7 +174,13 @@ class VisionProvider(BaseProvider):
                             }
                         )
 
-                self._update_tracker_snapshot(image, detections)
+                self._update_tracker_snapshot(
+                    image,
+                    detections,
+                    observed_at=task.payload.get("observed_at")
+                    if "observed_at" in task.payload
+                    else task.payload.get("timestamp"),
+                )
                 self.logger.info(f"[vision] Detected {len(detections)} objects")
 
                 # Update metrics
@@ -472,13 +478,18 @@ class VisionProvider(BaseProvider):
             "confidence": confidence if confidence is None else round(float(confidence), 3),
             "center": [int(cx), int(cy)],
             "radius": int(radius) if radius else None,
-            "ts": timestamp or time.time(),
+            "ts": timestamp,
+            "observed_at": timestamp,
             "source": "pc",
         }
         return payload
 
     def _update_tracker_snapshot(
-        self, image: PillowImage, detections: list[dict[str, Any]], tracking_marker: Optional[Dict[str, Any]] = None
+        self,
+        image: PillowImage,
+        detections: list[dict[str, Any]],
+        tracking_marker: Optional[Dict[str, Any]] = None,
+        observed_at: Optional[float] = None,
     ) -> None:
         now = time.time()
         delta = now - self._tracker_last_frame_ts if self._tracker_last_frame_ts else 0.0
@@ -486,7 +497,14 @@ class VisionProvider(BaseProvider):
         if delta > 0:
             self._tracker_fps = 1.0 / delta
         self._tracker_overlay = self._render_tracker_overlay(image, detections, tracking_marker)
-        self._tracker_ts = now
+        self._tracker_ts = (
+            observed_at
+            if isinstance(observed_at, (int, float))
+            and not isinstance(observed_at, bool)
+            and math.isfinite(observed_at)
+            and observed_at > 0
+            else 0.0
+        )
 
     def _render_tracker_overlay(
         self, image: PillowImage, detections: list[dict[str, Any]], tracking_marker: Optional[Dict[str, Any]] = None
@@ -647,7 +665,7 @@ class VisionProvider(BaseProvider):
                     tracking_marker = self._calculate_tracking_marker(
                         frame, tracking_state, overlay_detections, timestamp
                     )
-                    self._update_tracker_snapshot(frame, overlay_detections, tracking_marker)
+                    self._update_tracker_snapshot(frame, overlay_detections, tracking_marker, observed_at=timestamp)
 
                 result_payload: Dict[str, Any] = {
                     "frame_id": frame_id,

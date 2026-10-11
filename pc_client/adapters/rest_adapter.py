@@ -2,9 +2,11 @@
 
 import httpx
 import logging
+import time
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import quote
+from pc_client.http_contract import ACCEPT, family, unpack
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +40,9 @@ class RestAdapter:
         self.timeout = timeout
 
         # Initialize httpx client based on secure mode
-        client_kwargs: Dict[str, Any] = {"timeout": timeout}
+        client_kwargs: Dict[str, Any] = {"timeout": timeout, "headers": {"Accept": ACCEPT}}
+        self._contract_supported = False
+        self._contract_verified_at = 0
 
         if secure_mode:
             if mtls_cert_path and mtls_key_path and mtls_ca_path:
@@ -69,6 +73,102 @@ class RestAdapter:
 
         self.client = httpx.AsyncClient(**client_kwargs)
 
+    async def _json_request(self, method, path, payload=None):
+        if path == "/api/logic/catalog":
+            self._contract_supported = False
+            self._contract_verified_at = 0
+        safety_stop = (
+            path == "/api/control" and isinstance(payload, dict) and payload.get("action", payload.get("cmd")) == "stop"
+        )
+        safety_stop = (
+            safety_stop
+            or path == "/api/safety"
+            and isinstance(payload, dict)
+            and payload.get("action") in {"disarm", "estop"}
+        )
+        if (
+            method != "GET"
+            and not safety_stop
+            and (not self._contract_supported or time.monotonic() - self._contract_verified_at > 10)
+        ):
+            # Odczyt katalogu nie przyznaje zgody operatora ani nie restampuje komendy.
+            await self.get_logic_catalog()
+            if not self._contract_supported:
+                return {"ok": False, "error": "unsupported_contract", "_http_status": 409}
+        try:
+            call = getattr(self.client, method.lower())
+            kwargs = {"headers": {"Accept": ACCEPT}}
+            if payload is not None:
+                kwargs["json"] = payload
+            response = await call(f"{self.base_url}{path}", **kwargs)
+            received_at = time.time()
+            body = response.json()
+            expected = (
+                "rider.http"
+                if response.status_code >= 400
+                and isinstance(body, dict)
+                and body.get("ok") is False
+                and isinstance(body.get("error"), dict)
+                and isinstance(body.get("meta"), dict)
+                and body["meta"].get("contract_id") == "rider.http"
+                else family(path)
+            )
+            result = unpack(body, expected_family=expected)
+            meta = result.get("contract_meta", {})
+            if meta:
+                meta["transport"] = {
+                    **meta.get("transport", {}),
+                    "receiver_host": "pc",
+                    "received_at": received_at,
+                    "upstream_status": response.status_code,
+                }
+            if "received_at" in result:
+                result["upstream_received_at"] = result["received_at"]
+            result["received_at"] = received_at
+            if path == "/api/logic/catalog":
+                peer_now, observed = meta.get("server_time"), meta.get("observed_at")
+                fresh = (
+                    type(peer_now) in (int, float) and type(observed) in (int, float) and 0 <= peer_now - observed <= 10
+                )
+                self._contract_supported = (
+                    response.status_code == 200
+                    and result.get("ok") is True
+                    and not result.get("offline")
+                    and not result.get("stale")
+                    and not result.get("error")
+                    and meta.get("envelope_version") == 1
+                    and meta.get("contract_id") == "rider.catalog"
+                    and meta.get("contract_version") == 2
+                    and result.get("contract_version") == 2
+                    and result.get("catalog_version") == 2
+                    and isinstance(result.get("api_envelope_versions"), list)
+                    and any(type(value) is int and value == 1 for value in result["api_envelope_versions"])
+                    and isinstance(result.get("features"), list)
+                    and isinstance(result.get("units"), list)
+                    and fresh
+                )
+                self._contract_verified_at = time.monotonic() if self._contract_supported else 0
+            if response.status_code != 200:
+                result["_http_status"] = response.status_code
+            if response.status_code >= 400:
+                result.setdefault("ok", False)
+                result.setdefault("error", "upstream_http_error")
+            return result
+        except httpx.TimeoutException:
+            return {"ok": False, "error": "upstream_timeout", "_http_status": 504, "attempted_at": time.time()}
+        except (ValueError, TypeError) as exc:
+            return {
+                "ok": False,
+                "error": str(exc) or "upstream_protocol_error",
+                "_http_status": 502,
+                "attempted_at": time.time(),
+            }
+        except httpx.RequestError:
+            return {"ok": False, "error": "source_unavailable", "_http_status": 503, "attempted_at": time.time()}
+
+    async def get_json(self, path):
+        return await self._json_request("GET", path)
+
     async def fetch_binary(
         self, path: str, params: Optional[Dict[str, Any]] = None
     ) -> Tuple[bytes, str, Dict[str, str]]:
@@ -84,7 +184,9 @@ class RestAdapter:
         """
         url = f"{self.base_url}{path}"
         try:
-            response = await self.client.get(url, params=params)
+            response = await self.client.get(
+                url, params=params, headers={"Accept": "image/*, audio/*, application/octet-stream"}
+            )
             response.raise_for_status()
             media_type = response.headers.get("content-type", "application/octet-stream")
             headers = {key: value for key, value in response.headers.items()}
@@ -98,152 +200,45 @@ class RestAdapter:
         await self.client.aclose()
 
     async def get_healthz(self) -> Dict[str, Any]:
-        """
-        Get health status from /healthz endpoint.
-
-        Returns:
-            Health status data
-        """
-        try:
-            response = await self.client.get(f"{self.base_url}/healthz")
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error fetching /healthz: {e}")
-            return {"ok": False, "error": str(e)}
+        return await self._json_request("GET", "/healthz")
 
     async def get_state(self) -> Dict[str, Any]:
-        """
-        Get state from /state endpoint.
-
-        Returns:
-            State data
-        """
-        try:
-            response = await self.client.get(f"{self.base_url}/state")
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error fetching /state: {e}")
-            return {"error": str(e)}
+        return await self._json_request("GET", "/state")
 
     async def get_sysinfo(self) -> Dict[str, Any]:
-        """
-        Get system info from /sysinfo endpoint.
-
-        Returns:
-            System info data
-        """
-        try:
-            response = await self.client.get(f"{self.base_url}/sysinfo")
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error fetching /sysinfo: {e}")
-            return {"error": str(e)}
+        return await self._json_request("GET", "/sysinfo")
 
     async def get_vision_snap_info(self) -> Dict[str, Any]:
-        """
-        Get vision snapshot info from /vision/snap-info endpoint.
-
-        Returns:
-            Vision snapshot info data
-        """
-        try:
-            response = await self.client.get(f"{self.base_url}/vision/snap-info")
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error fetching /vision/snap-info: {e}")
-            return {"error": str(e)}
+        return await self._json_request("GET", "/vision/snap-info")
 
     async def get_vision_obstacle(self) -> Dict[str, Any]:
-        """
-        Get vision obstacle data from /vision/obstacle endpoint.
-
-        Returns:
-            Vision obstacle data
-        """
-        try:
-            response = await self.client.get(f"{self.base_url}/vision/obstacle")
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error fetching /vision/obstacle: {e}")
-            return {"error": str(e)}
+        return await self._json_request("GET", "/vision/obstacle")
 
     async def get_app_metrics(self) -> Dict[str, Any]:
-        """
-        Get app metrics from /api/app-metrics endpoint.
-
-        Returns:
-            App metrics data
-        """
-        try:
-            response = await self.client.get(f"{self.base_url}/api/app-metrics")
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error fetching /api/app-metrics: {e}")
-            return {"ok": False, "error": str(e)}
+        return await self._json_request("GET", "/api/app-metrics")
 
     async def get_camera_resource(self) -> Dict[str, Any]:
-        """
-        Get camera resource info from /api/resource/camera endpoint.
-
-        Returns:
-            Camera resource data
-        """
-        try:
-            response = await self.client.get(f"{self.base_url}/api/resource/camera")
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error fetching /api/resource/camera: {e}")
-            return {"error": str(e)}
+        return await self._json_request("GET", "/api/resource/camera")
 
     async def get_motion_queue(self) -> Dict[str, Any]:
-        """
-        Get motion queue info from Rider-PI.
-
-        Returns:
-            Motion queue payload (should contain `items`)
-        """
-        try:
-            response = await self.client.get(f"{self.base_url}/api/motion/queue")
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error fetching /api/motion/queue: {e}")
-            return {"error": str(e)}
+        return await self._json_request("GET", "/api/motion/queue")
 
     async def get_voice_providers(self) -> Dict[str, Any]:
-        """Get voice provider catalog from Rider-PI."""
-        try:
-            response = await self.client.get(f"{self.base_url}/api/voice/providers")
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error fetching /api/voice/providers: {e}")
-            return {"error": str(e)}
+        return await self._json_request("GET", "/api/voice/providers")
 
     async def test_voice_providers(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Trigger Rider-PI provider tests."""
-        try:
-            response = await self.client.post(
-                f"{self.base_url}/api/voice/providers/test",
-                json=payload,
-            )
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error posting /api/voice/providers/test: {e}")
-            return {"error": str(e)}
+        return await self._json_request("POST", "/api/voice/providers/test", payload)
 
     async def post_voice_tts(self, payload: Dict[str, Any]) -> Tuple[bytes, str]:
         """Proxy TTS synthesis request to Rider-PI."""
+        if not self._contract_supported or time.monotonic() - self._contract_verified_at > 10:
+            await self.get_logic_catalog()
+            if not self._contract_supported:
+                raise RuntimeError("unsupported_contract")
         try:
-            response = await self.client.post(f"{self.base_url}/api/voice/tts", json=payload)
+            response = await self.client.post(
+                f"{self.base_url}/api/voice/tts", json=payload, headers={"Accept": "audio/wav"}
+            )
             response.raise_for_status()
             if response.headers.get("X-Voice-Fallback"):
                 raise RuntimeError("Remote TTS returned fallback audio")
@@ -256,192 +251,52 @@ class RestAdapter:
             raise
 
     async def post_voice_asr(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Proxy ASR (speech-to-text) request to Rider-PI."""
-        try:
-            response = await self.client.post(f"{self.base_url}/api/voice/asr", json=payload)
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error posting /api/voice/asr: {e}")
-            return {"error": str(e)}
+        return await self._json_request("POST", "/api/voice/asr", payload)
 
     async def post_chat_send(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Forward chat requests to Rider-PI."""
-        try:
-            response = await self.client.post(f"{self.base_url}/api/chat/send", json=payload)
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error posting /api/chat/send: {e}")
-            return {"error": str(e)}
+        return await self._json_request("POST", "/api/chat/send", payload)
 
     async def get_bus_health(self) -> Dict[str, Any]:
-        """
-        Get bus health from /api/bus/health endpoint.
-
-        Returns:
-            Bus health data
-        """
-        try:
-            response = await self.client.get(f"{self.base_url}/api/bus/health")
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error fetching /api/bus/health: {e}")
-            return {"error": str(e)}
+        return await self._json_request("GET", "/api/bus/health")
 
     async def get_ai_mode(self) -> Dict[str, Any]:
-        """Fetch current AI mode from Rider-PI."""
-        try:
-            response = await self.client.get(f"{self.base_url}/api/system/ai-mode")
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error fetching /api/system/ai-mode: {e}")
-            return {"error": str(e)}
+        return await self._json_request("GET", "/api/system/ai-mode")
 
     async def set_ai_mode(self, mode: str) -> Dict[str, Any]:
-        """Set AI mode on Rider-PI."""
-        try:
-            response = await self.client.put(
-                f"{self.base_url}/api/system/ai-mode",
-                json={"mode": mode},
-            )
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error setting /api/system/ai-mode: {e}")
-            return {"error": str(e)}
+        return await self._json_request("PUT", "/api/system/ai-mode", {"mode": mode})
 
     async def get_providers_state(self) -> Dict[str, Any]:
-        """Fetch provider state information."""
-        try:
-            response = await self.client.get(f"{self.base_url}/api/providers/state")
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error fetching /api/providers/state: {e}")
-            return {"error": str(e)}
+        return await self._json_request("GET", "/api/providers/state")
 
     async def patch_provider(self, domain: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Update provider selection for a domain."""
-        try:
-            response = await self.client.patch(
-                f"{self.base_url}/api/providers/{domain}",
-                json=payload,
-            )
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error patching /api/providers/{domain}: {e}")
-            return {"error": str(e)}
+        return await self._json_request("PATCH", f"/api/providers/{quote(domain, safe='' )}", payload)
 
     async def get_providers_health(self) -> Dict[str, Any]:
-        """Fetch provider health information."""
-        try:
-            response = await self.client.get(f"{self.base_url}/api/providers/health")
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error fetching /api/providers/health: {e}")
-            return {"error": str(e)}
+        return await self._json_request("GET", "/api/providers/health")
 
     async def get_remote_models(self) -> Dict[str, Any]:
-        """Fetch Rider-PI model inventory."""
-        try:
-            response = await self.client.get(f"{self.base_url}/api/models/installed")
-            response.raise_for_status()
-            return response.json()
-        except (httpx.RequestError, httpx.HTTPStatusError) as e:
-            logger.error(f"Error fetching /api/models/installed: {e}")
-            return {"error": str(e)}
+        return await self._json_request("GET", "/api/models/installed")
 
     async def get_home_status(self) -> Dict[str, Any]:
-        """Fetch Google Home auth state."""
-        try:
-            response = await self.client.get(f"{self.base_url}/api/home/status")
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error fetching /api/home/status: {e}")
-            return {"error": str(e)}
+        return await self._json_request("GET", "/api/home/status")
 
     async def get_home_devices(self) -> Dict[str, Any]:
-        """Fetch Google Home device list."""
-        try:
-            response = await self.client.get(f"{self.base_url}/api/home/devices")
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error fetching /api/home/devices: {e}")
-            return {"error": str(e)}
+        return await self._json_request("GET", "/api/home/devices")
 
     async def post_home_command(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Send Google Home command."""
-        try:
-            response = await self.client.post(f"{self.base_url}/api/home/command", json=payload)
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error posting /api/home/command: {e}")
-            return {"error": str(e)}
+        return await self._json_request("POST", "/api/home/command", payload)
 
     async def post_home_auth(self) -> Dict[str, Any]:
-        """Trigger Google Home auth handshake."""
-        try:
-            response = await self.client.post(f"{self.base_url}/api/home/auth")
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error posting /api/home/auth: {e}")
-            return {"error": str(e)}
+        return await self._json_request("POST", "/api/home/auth", {})
 
     async def get_resource(self, resource_name: str) -> Dict[str, Any]:
-        """
-        Get resource status from /api/resource/{resource_name}.
-
-        Args:
-            resource_name: Name of the resource (mic, speaker, camera, lcd, etc.)
-
-        Returns:
-            Resource status data
-        """
-        try:
-            response = await self.client.get(f"{self.base_url}/api/resource/{resource_name}")
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error fetching /api/resource/{resource_name}: {e}")
-            return {"error": str(e)}
+        return await self._json_request("GET", f"/api/resource/{quote(resource_name, safe='' )}")
 
     async def post_resource_action(self, resource_name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Send resource action to /api/resource/{resource_name}.
-
-        Args:
-            resource_name: Name of the resource
-            payload: Action payload (e.g., {"action": "release"})
-
-        Returns:
-            Response data
-        """
-        try:
-            response = await self.client.post(f"{self.base_url}/api/resource/{resource_name}", json=payload)
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error posting /api/resource/{resource_name}: {e}")
-            return {"ok": False, "error": str(e)}
+        return await self._json_request("POST", f"/api/resource/{quote(resource_name, safe='' )}", payload)
 
     async def _post_operator_action(self, path, payload):
-        try:
-            response = await self.client.post(f"{self.base_url}{path}", json=payload)
-            result = response.json()
-            if response.status_code == 202 or response.status_code >= 400:
-                result["_http_status"] = response.status_code
-            return result
-        except Exception as exc:
-            return {"ok": False, "error": str(exc)}
+        return await self._json_request("POST", path, payload)
 
     async def post_control(self, command: Dict[str, Any]) -> Dict[str, Any]:
         return await self._post_operator_action("/api/control", command)
@@ -453,53 +308,22 @@ class RestAdapter:
         return await self._post_operator_action("/api/navigator/return_home", payload)
 
     async def get_logic_catalog(self) -> Dict[str, Any]:
-        try:
-            response = await self.client.get(f"{self.base_url}/api/logic/catalog")
-            response.raise_for_status()
-            return response.json()
-        except Exception as exc:
-            return {"error": str(exc)}
+        return await self._json_request("GET", "/api/logic/catalog")
 
     async def get_service_logs(self, unit: str) -> Dict[str, Any]:
-        try:
-            response = await self.client.get(f"{self.base_url}/api/services/{quote(unit, safe='')}/logs")
-            result = response.json()
-            if response.status_code >= 400:
-                result["status_code"] = response.status_code
-            return result
-        except Exception as exc:
-            return {"ok": False, "source": "pi/systemd/journal", "error": str(exc), "lines": [], "observed_at": None}
+        return await self._json_request("GET", f"/api/services/{quote(unit, safe='' )}/logs")
 
     async def get_navigator_status(self) -> Dict[str, Any]:
-        try:
-            response = await self.client.get(f"{self.base_url}/api/navigator/status")
-            response.raise_for_status()
-            return response.json()
-        except Exception as exc:
-            return {"error": str(exc)}
+        return await self._json_request("GET", "/api/navigator/status")
 
     async def post_navigator_config(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         return await self._post_operator_action("/api/navigator/config", payload)
 
     async def get_control_state(self) -> Dict[str, Any]:
-        """Fetch control state snapshot from Rider-PI."""
-        try:
-            response = await self.client.get(f"{self.base_url}/api/control/state")
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error fetching /api/control/state: {e}")
-            return {"error": str(e)}
+        return await self._json_request("GET", "/api/control/state")
 
     async def post_pc_heartbeat(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Send provider heartbeat information to Rider-PI."""
-        try:
-            response = await self.client.post(f"{self.base_url}/api/providers/pc-heartbeat", json=payload)
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error posting /api/providers/pc-heartbeat: {e}")
-            return {"ok": False, "error": str(e)}
+        return await self._json_request("POST", "/api/providers/pc-heartbeat", payload)
 
     async def post_feature_toggle(self, name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         return await self._post_operator_action(f"/api/logic/feature/{quote(name, safe='')}", payload or {})
@@ -508,34 +332,13 @@ class RestAdapter:
         return await self._post_operator_action('/api/vision/tracking/mode', payload or {})
 
     async def get_logic_features(self) -> Dict[str, Any]:
-        """Fetch logic feature registry from Rider-PI."""
-        try:
-            response = await self.client.get(f"{self.base_url}/api/logic/features")
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error fetching /api/logic/features: {e}")
-            return {"error": str(e)}
+        return await self._json_request("GET", "/api/logic/features")
 
     async def get_logic_summary(self) -> Dict[str, Any]:
-        """Fetch logic summary from Rider-PI."""
-        try:
-            response = await self.client.get(f"{self.base_url}/api/logic/summary")
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error fetching /api/logic/summary: {e}")
-            return {"error": str(e)}
+        return await self._json_request("GET", "/api/logic/summary")
 
     async def get_services(self) -> Dict[str, Any]:
-        """Fetch systemd service list from Rider-PI."""
-        try:
-            response = await self.client.get(f"{self.base_url}/svc")
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error fetching /svc: {e}")
-            return {"error": str(e)}
+        return await self._json_request("GET", "/svc")
 
     async def get_svc_diagnostics(self) -> Dict[str, Any]:
         """Alias for get_services; kept for compatibility with Rider-Pi nomenclature."""

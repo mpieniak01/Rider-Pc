@@ -8,10 +8,10 @@ napędów. Stan i katalog Pi są źródłem danych.
 
 | Widok | Dane i decyzje |
 | --- | --- |
-| Przegląd `/view` | Połączenie PC/Pi, aktualność baterii i zadań, blokada ruchu, STOP. |
+| Przegląd `/view` | Pełne 20 kart pomiarów, wykresów, obrazów i diagnostyki; dodatkowy niewielki pasek bezpieczeństwa i STOP. |
 | Zadania i sterowanie `/control` | Katalog v2, opcje i zasoby zadania; jawny plan/zgoda, właściciel i ograniczony impuls; historia żądań i ACK. |
 | Urządzenia `/devices` | Właściciele procesów i konsumenci zadań, kamera/RAW/PROC/SSD/tracker, bateria/IMU, LCD i UART. |
-| System `/system` | Usługi Pi/PC, rzeczywiste providery aplikacji, źródło i wiek odczytu, graf i szczegóły hostów, odrębna administracja/autostart i ręczne odzyskanie zasobu. |
+| System `/system` | Widoczne CPU/RAM/dysk/temperatura/historia Pi i PC, usługi i rzeczywiste providery, graf, odrębna administracja/autostart i ręczne odzyskanie zasobu. |
 | Nawigacja `/navigation` | Mapa, pozycja i trasa z czasami producenta; jawne przygotowanie właściciela navigation, start/STOP i powrót. |
 | Chat `/chat` | Tekst i opcjonalne TTS; konkretna domena przygotowywana wyłącznie przy wysłaniu. |
 | Narzędzia PC | Zachowane modele, projekt, statusy, Google Home, Assistant i osobny Chat PC. |
@@ -62,11 +62,50 @@ domeny odbywa się przez jawny start konkretnego zadania i jego opcję z katalog
 Legacy globalne przełączanie AI nie jest używane przez nowy panel.
 Chat jawnie używa ścieżki proxy Pi; osobny Chat PC pozostaje dostępną lokalną funkcją.
 
-Podgląd kamery jest domyślnie wyłączony. Włączenie odświeża tylko obraz w karcie,
+Podgląd w Urządzeniach jest domyślnie wyłączony. Włączenie odświeża tylko obraz w karcie,
 nie uruchamia capture i nie zatrzymuje zadania przy wyłączeniu. URL musi wskazywać
 lokalną trasę kamery. Ekran robota jest zamontowany bokiem; zachowaj ustaloną
 kompensację 270°, splash i sekwencję startową. Panel nie obraca LCD.
 UART ma jednego właściciela — wykonawcę ruchu; telemetria pochodzi z BUS.
+
+### Pełny ekran pomiarowy
+
+Nagłówek i tytuł karty brzmią **Rider-PC: Przegląd**. Wszystkie pięć rzędów
+pozostaje widocznych na `/view`, bez przenoszenia podstawowych pomiarów do linków
+lub surowego JSON:
+
+| Rząd | Cztery karty |
+| --- | --- |
+| 1 | System Pi; urządzenia Pi; CPU/MEM Pi; kamera RAW. |
+| 2 | Health/BUS Pi; przeszkody; histogram ROI; kamera PROC. |
+| 3 | Liczniki API Pi; wiek obrazów; GPU PC; obraz SSD/OBST. |
+| 4 | System PC; rzeczywiste usługi/providery PC; CPU/MEM PC; TRACKER. |
+| 5 | Statystyki rejestru MCP; lista narzędzi; historia wywołań; konfiguracja MCP. |
+
+CPU/MEM i GPU oznaczają ostatnie **60 próbek**, nie gwarantowane 60 sekund.
+Brakujące wartości tworzą przerwę w wykresie, nie zero. Pamięć i dysk mają
+jednostki MiB/GiB; load 1/5/15 jest średnim obciążeniem systemu, nie procentem CPU.
+Karty Pi odczytują płaskie pola `/sysinfo`; Health czyta `devices` oraz `bus`,
+a źródło zdrowia API PC jest osobnym `/health/live`.
+
+Każdy kanał IMU/baterii zachowuje własny czas, gotowość i błąd. Częściowy błąd
+innego kanału nie ukrywa poprawnego pomiaru. Bateria z kontraktu SDK jest
+przeliczana na procent tylko dla ułamka 0..1; starsze `battery_pct` jest już
+procentem. IMU pokazuje surowe wartości SDK, zwłaszcza `yaw_raw`; starszy zawijany
+yaw jest jawnie oznaczony. To nie pozycja robota ani potwierdzona kalibracja.
+
+`received_at` mierzy ostatnią udaną odpowiedź transportu PC; nie zmienia
+źródłowego `observed_at`/`ts`. Awaria zachowuje ostatnie wartości z oznaczeniem
+stare/offline zamiast domyślnego OK. Brak/stary/błędny wynik przeszkód daje
+`present=unknown`, nie fizyczną deklarację braku przeszkody. `power_known=false`
+oznacza nieznane zasilanie LCD, niezależnie od właściciela i konfiguracji.
+
+Przegląd odświeża istniejące pliki obrazów; przełącznik zatrzymuje tylko podgląd.
+Nie uruchamia capture ani zadania. Klatka archiwalna jest przyciemniona i opisana
+jako obraz, który nie przedstawia bieżącej sytuacji. Błędy obrazu mają ograniczone
+ponawianie. Polling danych odbywa się co około 2 s, lokalnej diagnostyki PC/MCP
+co około 7 s; ukryta karta zatrzymuje odczyty. Liczniki i ACK nie potwierdzają
+fizycznego wykonania, a sam ekran nie udziela ARM.
 
 Administracja rozdziela start/stop/restart od enable/disable.
 Ruchowe autostarty są zablokowane. Zakończ zadanie przed zatrzymaniem wspólnej

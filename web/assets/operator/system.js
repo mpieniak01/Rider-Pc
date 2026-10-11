@@ -1,10 +1,12 @@
 import { catalogKnown, fresh, serviceActionAllowed, safetyKnown } from './model.js';
 import { request, poll } from './transport.js';
 import { el, kv, freshPill, button, details, tr, ageLabel, ageStamp, text, showError, rawDetails } from './ui.js';
+import { hostCard, drawHistory, inventoryStamp } from './telemetry.js';
 
 export class System {
   constructor(safety) {
     this.safety = safety; this.admin = false; this.catalog = null; this.services = null;
+    this.hostHistory = new Map();
     this.busy = new Set(); this.results = new Map(); this.resources = new Map(); this.logResults = new Map(); this.logBusy = new Set(); this.expandedDetails = new Map();
     document.getElementById('admin-mode')?.addEventListener('change', event => { this.admin = event.target.checked; this.render(); });
     document.getElementById('rescue-inspect')?.addEventListener('click', () => this.inspectRescue());
@@ -64,7 +66,23 @@ export class System {
   render() {
     const target = document.getElementById('service-list'); if (!target) return;
     this.rememberDetails(target); this.rememberDetails(document.getElementById('system-details-data'));
-    text('system-contract', this.services?.contract_version === 2 ? `PC aggregator v2 · ${ageLabel(this.services)}` : tr('Brak kontraktu — tylko odczyt', 'No contract — read only'));
+    const metrics = document.getElementById('host-metrics');
+    if (metrics) {
+      metrics.replaceChildren(...['pi', 'pc'].map(host => {
+        const source = this.hostMetrics?.[host];
+        const data = source && !Object.hasOwn(source, 'observed_at') && typeof source.timestamp === 'number' ? { ...source, observed_at: source.timestamp } : source;
+        const at = data && Object.hasOwn(data, 'observed_at') ? data.observed_at : data?.ts;
+        const history = this.hostHistory.get(host) || { cpu: [], mem: [], at: null };
+        if (typeof at === 'number' && at !== history.at) {
+          history.at = at; history.cpu.push(source.cpu_pct ?? null); history.mem.push(source.mem_pct ?? null);
+          history.cpu = history.cpu.slice(-60); history.mem = history.mem.slice(-60); this.hostHistory.set(host, history);
+        }
+        const card = hostCard(data, host), chart = el('canvas', 'operator-history'); chart.width = 360; chart.height = 140;
+        card.append(chart, el('p', 'operator-muted', tr('CPU / MEM — ostatnie 60 próbek', 'CPU / MEM — latest 60 samples')));
+        drawHistory(chart, source?.hist_cpu || history.cpu, source?.hist_mem || history.mem); return card;
+      }));
+    }
+    text('system-contract', this.services?.contract_version === 2 ? `PC aggregator v2 · Pi: ${inventoryStamp(this.services?.hosts?.pi, 'pi')} · PC: ${inventoryStamp(this.services?.hosts?.pc, 'pc')}` : tr('Brak kontraktu — tylko odczyt', 'No contract — read only'));
     const rows = Array.isArray(this.services?.services) ? this.services.services : [];
     const groups = new Map();
     for (const row of rows) {
@@ -114,7 +132,7 @@ export class System {
     }));
     document.getElementById('system-details-data')?.replaceChildren(this.keepDetails('source:system', rawDetails({ hosts: this.hostMetrics, graph: this.graph, inventory_hosts: this.services?.hosts })));
     const pi = this.services?.hosts?.pi;
-    text('network-status', `Pi: ${pi?.offline ? 'offline' : pi?.observed_at ? 'observed' : 'unknown'} · PC: ${this.services?.hosts?.pc?.demo ? 'demo' : this.services?.hosts?.pc?.configured ? 'configured' : tr('brak skonfigurowanych jednostek', 'no configured units')}`);
+    text('network-status', `Pi: ${pi?.offline ? 'offline' : inventoryStamp(pi, 'pi')} · PC: ${this.services?.hosts?.pc?.demo ? 'demo' : this.services?.hosts?.pc?.configured ? 'configured' : tr('brak skonfigurowanych jednostek', 'no configured units')}`);
   }
   async inspectRescue() {
     const name = document.getElementById('rescue-resource').value;

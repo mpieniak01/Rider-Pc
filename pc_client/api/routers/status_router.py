@@ -15,6 +15,7 @@ from pc_client.utils.network import get_local_ip, check_connectivity
 from pc_client.adapters.git_adapter import GitAdapter
 from pc_client.config.settings import Settings
 from urllib.parse import urlparse
+from pc_client.api.telemetry_snapshot import adapter_source, cached_snapshot, latest_observation, refresh_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,7 @@ def _extract_public_host(settings: Settings) -> Optional[str]:
 async def healthz(request: Request) -> JSONResponse:
     """Health check endpoint (deprecated, use /health/live)."""
     cache: CacheManager = request.app.state.cache
-    data = cache.get("healthz", {"ok": True, "status": "ok"})
+    data = cached_snapshot(cache, "healthz", source=adapter_source(getattr(request.app.state, "rest_adapter", None)))
     return JSONResponse(content=data)
 
 
@@ -121,7 +122,15 @@ async def health_ready(request: Request) -> JSONResponse:
 async def state(request: Request) -> JSONResponse:
     """State endpoint."""
     cache: CacheManager = request.app.state.cache
-    data = cache.get("state", {"present": False, "mode": "idle"})
+    adapter = getattr(request.app.state, "rest_adapter", None)
+    if adapter is None:
+        data = cached_snapshot(cache, "state", source=adapter_source(adapter))
+    else:
+        data = await refresh_snapshot(request.app, "state", adapter.get_state, reuse_s=0.5)
+        if not data.get("error") and not data.get("offline"):
+            tracking = data.get("tracking")
+            if isinstance(tracking, dict):
+                getattr(request.app.state, "control_state", {})["tracking"] = tracking
     return JSONResponse(content=data)
 
 
@@ -129,7 +138,7 @@ async def state(request: Request) -> JSONResponse:
 async def sysinfo(request: Request) -> JSONResponse:
     """System info endpoint."""
     cache: CacheManager = request.app.state.cache
-    data = cache.get("sysinfo", {})
+    data = cached_snapshot(cache, "sysinfo", source=adapter_source(getattr(request.app.state, "rest_adapter", None)))
     settings = getattr(request.app.state, "settings", None)
     host_hint = getattr(settings, "rider_pi_host", None)
     if host_hint and isinstance(data, dict) and not data.get("host"):
@@ -145,7 +154,12 @@ async def sysinfo(request: Request) -> JSONResponse:
 async def vision_snap_info(request: Request) -> JSONResponse:
     """Vision snapshot info endpoint."""
     cache: CacheManager = request.app.state.cache
-    data = cache.get("vision_snap_info", {})
+    adapter = getattr(request.app.state, "rest_adapter", None)
+    data = (
+        await refresh_snapshot(request.app, "vision_snap_info", adapter.get_vision_snap_info, reuse_s=0.5)
+        if adapter is not None
+        else cached_snapshot(cache, "vision_snap_info", source=adapter_source(adapter))
+    )
     return JSONResponse(content=data)
 
 
@@ -153,8 +167,11 @@ async def vision_snap_info(request: Request) -> JSONResponse:
 async def vision_obstacle(request: Request) -> JSONResponse:
     """Vision obstacle endpoint."""
     cache: CacheManager = request.app.state.cache
-    # Try ZMQ cache first, then REST cache
-    data = cache.get("zmq:vision.obstacle", cache.get("vision_obstacle", {}))
+    data = latest_observation(
+        cache.get("zmq:vision.obstacle"),
+        cache.get("vision_obstacle"),
+        source=adapter_source(getattr(request.app.state, "rest_adapter", None)),
+    )
     return JSONResponse(content=data)
 
 
@@ -162,7 +179,9 @@ async def vision_obstacle(request: Request) -> JSONResponse:
 async def app_metrics(request: Request) -> JSONResponse:
     """App metrics endpoint."""
     cache: CacheManager = request.app.state.cache
-    data = cache.get("app_metrics", {"ok": True, "metrics": {}, "total_errors": 0})
+    data = cached_snapshot(
+        cache, "app_metrics", source=adapter_source(getattr(request.app.state, "rest_adapter", None))
+    )
     return JSONResponse(content=data)
 
 
@@ -196,7 +215,7 @@ async def camera_resource(request: Request) -> JSONResponse:
 async def bus_health(request: Request) -> JSONResponse:
     """Bus health endpoint."""
     cache: CacheManager = request.app.state.cache
-    data = cache.get("bus_health", {})
+    data = cached_snapshot(cache, "bus_health", source=adapter_source(getattr(request.app.state, "rest_adapter", None)))
     return JSONResponse(content=data)
 
 
@@ -301,3 +320,56 @@ async def network_status(request: Request) -> JSONResponse:
         response["internet"]["latency"] = int(internet_check["latency_ms"])
 
     return JSONResponse(content=response)
+
+
+@router.get("/api/google/status")
+async def google_feed_status(request: Request):
+    from pc_client.api.routers.control_router import _remote_snapshot
+
+    return JSONResponse(await _remote_snapshot(request, "google_feed", "get_json", {}, "/api/google/status"))
+
+
+@router.get("/api/google/raw/last.json")
+async def google_feed_last(request: Request):
+    from pc_client.api.routers.control_router import _remote_snapshot
+
+    return JSONResponse(
+        await _remote_snapshot(request, "google_feed_last", "get_json", {}, "/api/google/raw/last.json")
+    )
+
+
+@router.get("/api/proxy/pi/status")
+async def pi_model_status(request: Request):
+    from pc_client.api.routers.control_router import _remote_snapshot
+
+    system, registry, inventory = await asyncio.gather(
+        _remote_snapshot(request, "model_system", "get_sysinfo", {}),
+        _remote_snapshot(request, "model_registry", "get_providers_state", {}),
+        _remote_snapshot(request, "model_inventory", "get_remote_models", {}),
+    )
+    unavailable = any(row.get("offline") or row.get("error") for row in (system, registry, inventory))
+    return JSONResponse(
+        {
+            "source": "pi",
+            "offline": unavailable,
+            "stale": unavailable,
+            "observed_at": system.get("observed_at", system.get("ts")),
+            "received_at": system.get("received_at"),
+            "cpu_usage": system.get("cpu_pct"),
+            "temp_c": system.get("temp_c"),
+            "latency_ms": None,
+            "available_models": inventory.get("models", []),
+            "domains": registry.get("domains", {}),
+            "model_binding_available": False,
+            "reason": "pi_model_binding_not_advertised",
+            "active_model": None,
+            "error": "source_unavailable" if unavailable else None,
+        },
+        status_code=503 if unavailable else 200,
+    )
+
+
+@router.post("/api/proxy/pi/set-model")
+async def pi_model_binding_unavailable(request: Request):
+    # Pi nie publikuje kontraktu zapisu model binding. Routing domeny to inna operacja.
+    return JSONResponse({"ok": False, "error": "pi_model_binding_not_advertised"}, status_code=409)

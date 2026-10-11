@@ -90,64 +90,85 @@ def _apply_local_command(app, payload: Dict[str, Any]) -> Dict[str, Any]:
     return {"ok": True, "device": device_id, "command": command}
 
 
+def _demo(app):
+    return getattr(getattr(app.state, "settings", None), "test_mode", False) is True
+
+
+async def _remote(request, method, *args):
+    from pc_client.api.telemetry_snapshot import received_snapshot, unavailable_snapshot
+
+    adapter = request.app.state.rest_adapter
+    if adapter is None:
+        return None
+    try:
+        result = await getattr(adapter, method)(*args)
+        if not isinstance(result, dict):
+            raise ValueError("invalid_response")
+        code = result.get("_http_status", 200 if not result.get("error") else 503)
+        if result.get("error"):
+            result = unavailable_snapshot(result, error=result["error"], attempted_at=time.time())
+        else:
+            result = received_snapshot(result, source="demo" if _demo(request.app) else "pi", received_at=time.time())
+        return JSONResponse(result, status_code=code)
+    except Exception:
+        return JSONResponse(unavailable_snapshot(error="source_unavailable"), status_code=503)
+
+
+def _unavailable():
+    return JSONResponse(
+        {
+            "ok": False,
+            "error": "home_source_unavailable",
+            "source": "pi",
+            "configured": False,
+            "authenticated": False,
+            "offline": True,
+            "stale": True,
+            "observed_at": None,
+            "devices": [],
+        },
+        status_code=503,
+    )
+
+
 @router.get("/api/home/status")
-async def home_status(request: Request) -> JSONResponse:
-    """Return Google Home auth state."""
-    adapter: Optional[RestAdapter] = request.app.state.rest_adapter
-    if adapter and hasattr(adapter, "get_home_status"):
-        try:
-            data = await adapter.get_home_status()
-            if isinstance(data, dict):
-                request.app.state.home_state = data
-                return JSONResponse(content=data)
-        except Exception:  # pragma: no cover - network fallback
-            pass
-    return JSONResponse(content=_home_state(request.app))
+async def home_status(request: Request):
+    remote = await _remote(request, "get_home_status")
+    if remote is not None:
+        return remote
+    if not _demo(request.app):
+        return _unavailable()
+    return JSONResponse({**_home_state(request.app), "source": "demo", "simulated": True})
 
 
 @router.get("/api/home/devices")
-async def home_devices(request: Request) -> JSONResponse:
-    """Return list of Google Home devices."""
-    adapter: Optional[RestAdapter] = request.app.state.rest_adapter
-    if adapter and hasattr(adapter, "get_home_devices"):
-        try:
-            result = await adapter.get_home_devices()
-            if isinstance(result, dict) and not result.get("error"):
-                request.app.state.home_devices = result.get("devices", [])
-                return JSONResponse(content=result)
-        except Exception:  # pragma: no cover
-            pass
-    return JSONResponse(content=_home_devices(request.app))
+async def home_devices(request: Request):
+    remote = await _remote(request, "get_home_devices")
+    if remote is not None:
+        return remote
+    if not _demo(request.app):
+        return _unavailable()
+    return JSONResponse({**_home_devices(request.app), "source": "demo", "simulated": True})
 
 
 @router.post("/api/home/command")
-async def home_command(request: Request, payload: Dict[str, Any]) -> JSONResponse:
-    """Forward device command."""
-    adapter: Optional[RestAdapter] = request.app.state.rest_adapter
-    body = payload or {}
-    if adapter and hasattr(adapter, "post_home_command"):
-        try:
-            result = await adapter.post_home_command(body)
-            status = 200 if not result.get("error") else 502
-            return JSONResponse(content=result, status_code=status)
-        except Exception as exc:  # pragma: no cover
-            return JSONResponse(content={"ok": False, "error": str(exc)}, status_code=502)
-    result = _apply_local_command(request.app, body)
-    return JSONResponse(content=result, status_code=200 if result.get("ok") else 400)
+async def home_command(request: Request, payload: Dict[str, Any]):
+    remote = await _remote(request, "post_home_command", payload or {})
+    if remote is not None:
+        return remote
+    if not _demo(request.app):
+        return _unavailable()
+    result = _apply_local_command(request.app, payload)
+    return JSONResponse({**result, "source": "demo", "simulated": True}, status_code=200 if result.get("ok") else 400)
 
 
 @router.post("/api/home/auth")
-async def home_auth(request: Request) -> JSONResponse:
-    """Simulate Google auth handshake."""
-    adapter: Optional[RestAdapter] = request.app.state.rest_adapter
-    if adapter and hasattr(adapter, "post_home_auth"):
-        try:
-            result = await adapter.post_home_auth()
-            status = 200 if not result.get("error") else 502
-            return JSONResponse(content=result, status_code=status)
-        except Exception as exc:  # pragma: no cover
-            return JSONResponse(content={"ok": False, "error": str(exc)}, status_code=502)
+async def home_auth(request: Request):
+    remote = await _remote(request, "post_home_auth")
+    if remote is not None:
+        return remote
+    if not _demo(request.app):
+        return _unavailable()
     state = _home_state(request.app)
     state["authenticated"] = True
-    state.setdefault("profile", {})["updated_at"] = time.time()
-    return JSONResponse(content={"ok": True, "note": "local mock auth"})
+    return JSONResponse({"ok": True, "source": "demo", "simulated": True, "note": "explicit demo auth"})

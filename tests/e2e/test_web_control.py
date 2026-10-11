@@ -5,6 +5,7 @@ import time
 
 import pytest
 from playwright.sync_api import expect
+from pc_client.http_contract import unpack
 
 pytestmark = pytest.mark.timeout(60)
 
@@ -26,7 +27,10 @@ def explicit_arm(page):
         page.locator("#arm").click()
     response = event.value
     assert response.status == 200, response.text()
-    command, result = json.loads(response.request.post_data), response.json()
+    body = response.json()
+    assert body["meta"]["contract_id"] == "rider.safety" and body["meta"]["contract_version"] == 1
+    assert body["operation"]["confirmed"] is True and body["operation"]["status"] == "executed"
+    command, result = json.loads(response.request.post_data), unpack(body)
     assert result.get("ok") is True and result.get("confirmed") is True and result.get("pending") is False, result
     assert result.get("simulated") is True and result.get("physical_completion") == "unverified", result
     ack, safety = result["ack"], result["safety"]

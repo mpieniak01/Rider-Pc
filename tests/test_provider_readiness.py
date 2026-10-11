@@ -12,6 +12,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
+import time
 import pytest
 from fastapi import FastAPI
 
@@ -306,6 +307,8 @@ async def test_tts_proxy_does_not_accept_remote_fallback_audio():
     from pc_client.adapters.rest_adapter import RestAdapter
 
     adapter = RestAdapter("http://fixture")
+    adapter._contract_verified_at = time.monotonic()
+    adapter._contract_supported = True  # Potwierdzony handshake dla testu MIME/fallback.
     await adapter.client.aclose()
     adapter.client = httpx.AsyncClient(
         transport=httpx.MockTransport(
@@ -497,3 +500,29 @@ async def test_uninitialized_vision_cannot_become_ready_through_task(task_type, 
     assert result.status == TaskStatus.FAILED and result.result is None
     assert provider.get_telemetry()["ready"] is False
     assert provider.get_telemetry()["error"] == "initialization unavailable"
+
+
+@pytest.mark.parametrize("demo", [False, True])
+def test_peer_capabilities_preserve_real_or_explicit_demo_backend_truth(demo):
+    telemetry = {
+        "initialized": True,
+        "ready": True,
+        "source": "demo" if demo else "pc",
+        "mode": "mock" if demo else "real",
+        "backend": "local",
+        "detector_available": not demo,
+        "ollama_available": not demo,
+        "domains": ["asr"],
+        "capabilities": {"asr": {"ready": True}},
+    }
+    provider = SimpleNamespace(get_telemetry=lambda: telemetry)
+    result = get_provider_capabilities(
+        Settings(test_mode=True), providers={"vision": provider, "voice": provider}, text_provider=provider
+    )
+    for name in ("vision", "voice", "text"):
+        assert result[name]["source"] == telemetry["source"]
+        assert result[name]["runtime_mode"] == telemetry["mode"]
+        assert result[name]["simulated"] is demo
+        assert result[name]["model_loaded"] is not demo
+        assert result[name]["configured"] is True
+        assert result[name]["observed_at"] > 0

@@ -8,10 +8,10 @@ the authoritative safety state and task catalog.
 
 | View | Data and actions |
 | --- | --- |
-| Overview `/view` | PC/Pi connection, battery and task freshness, motion block and STOP. |
+| Overview `/view` | All 20 measurement, chart, image and diagnostic cards; an additional compact safety/STOP strip. |
 | Tasks and control `/control` | Catalog v2, task options/resources, explicit plan/consent/owner/lease, bounded pulse, request history and ACK. |
 | Devices `/devices` | Process owners/task consumers, camera RAW/PROC/SSD/tracker, battery/IMU, LCD and UART. |
-| System `/system` | Pi/PC services and actual application providers, provenance/age, host details/graph, separate administration/autostart and manual resource recovery. |
+| System `/system` | Visible Pi/PC CPU/RAM/disk/temperature/history, services and actual providers, graph, separate administration/autostart and manual resource recovery. |
 | Navigation `/navigation` | Map/pose/path producer timestamps, explicit navigation owner preparation, start/STOP and return home. |
 | Chat `/chat` | Text and optional TTS; only an explicit send prepares its required domain. |
 | PC tools | Existing models, project, status, Google Home, Assistant and separate Chat PC remain available. |
@@ -21,6 +21,46 @@ System defaults to read only. Cards have no start/stop click handlers.
 A separate switch enables administration in the current tab. Every service
 request includes a host; identity is `host:unit`. Application providers have a
 distinct type and no fictional systemd unit. Logs are GET-only, on demand, keyed by host/unit, restricted to the configured PC units or Pi inventory. Journal reads are bounded to 2 seconds, 50 lines and 64 KiB; missing permission is an error.
+
+### Complete measurement dashboard
+
+The heading and browser title identify **Rider-PC: Overview**. All five original
+rows remain directly visible on `/view`; basic readings do not require following
+links or opening raw JSON:
+
+| Row | Four cards |
+| --- | --- |
+| 1 | Pi system; Pi devices; Pi CPU/MEM; RAW camera. |
+| 2 | Pi Health/BUS; obstacle; ROI histogram; PROC camera. |
+| 3 | Pi API counters; snapshot ages; PC GPU; SSD/OBST image. |
+| 4 | PC system; actual PC services/providers; PC CPU/MEM; TRACKER. |
+| 5 | MCP registry statistics; tools; invocation history; MCP configuration. |
+
+CPU/MEM and GPU charts contain the latest **60 samples**, not a guaranteed
+60-second interval. Missing readings create gaps, not zeroes. Memory/storage
+use MiB/GiB; load 1/5/15 is system load average, not CPU percentage. Pi system
+cards consume flat `/sysinfo` fields; Health reads `devices` and `bus`.
+PC API liveness is the separate `/health/live` source.
+
+Each IMU/battery channel retains its own timestamp, readiness and error. A fault
+in another channel does not hide a valid reading. SDK battery fractions convert
+to percentages only within 0..1; legacy `battery_pct` already represents percent.
+IMU shows raw SDK values, especially `yaw_raw`; legacy wrapped yaw is explicitly
+labelled. These values do not establish robot position or physical calibration.
+
+`received_at` describes the last successful response in the PC clock domain,
+and never changes source `observed_at`/`ts`. Source failure retains previous
+values marked stale/offline rather than supplying default OK. Missing, stale or
+erroneous obstacle observations show `present=unknown`, not a claim of a clear
+physical scene. LCD `power_known=false` means unknown power regardless of its
+owner or configured state.
+
+Overview refreshes existing image files; its switch stops image refresh only.
+It starts no capture/task. Historical images are dimmed and labelled as not the
+current robot scene. Image failures use bounded retries. Core reads run about
+every 2 seconds; PC/MCP diagnostics about every 7 seconds. Hidden tabs pause
+reads. Counters and ACK do not confirm physical completion; the dashboard grants
+no ARM. Devices keeps its separate image preview disabled by default.
 
 ## Preparing motion
 
@@ -61,7 +101,7 @@ required catalog task and domain option. The new panel does not use the legacy
 global AI switch. Chat explicitly uses the Pi proxy path; separate Chat PC
 preserves local text functionality.
 
-Camera preview defaults to off. Refresh changes image polling in this tab,
+Devices camera preview defaults to off. Refresh changes image polling in this tab,
 neither starts capture nor stops its task. URLs must be local camera routes.
 Preserve the sideways display's established 270° compensation, splash and startup
 sequence. The panel never rotates LCD. The motion executor alone owns UART.

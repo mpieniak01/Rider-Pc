@@ -1,8 +1,10 @@
 import { cameraFrame, fresh, displayValue, presentationReady } from './model.js';
 import { request, poll } from './transport.js';
 import { el, freshPill, kv, tr, ageStamp, text, showError, rawDetails } from './ui.js';
+import { telemetryCard, observedDeviceText, numberText } from './telemetry.js';
 export class Devices {
-  constructor() {
+  constructor(safety) {
+    this.safety = safety; this.state = null; this.health = null; this.metrics = null;
     this.imageBusy = false; this.preview = false; this.meta = null; this.lastFrame = null; this.displayed = null; this.pendingImage = null;
     this.image = document.getElementById('camera-image');
     this.image?.addEventListener('load', () => { this.displayed = this.pendingImage; this.pendingImage = null; this.imageBusy = false; clearTimeout(this.imageTimeout); this.renderPreview(); });
@@ -28,10 +30,13 @@ export class Devices {
   }
   async load() {
     const target = document.getElementById('device-list');
-    const [stateResult, snapResult, ...resources] = await Promise.allSettled([
-      request('/state'), request('/vision/snap-info'), ...['camera', 'mic', 'speaker', 'lcd', 'uart'].map(name => request(`/api/resource/${name}`))
+    const [stateResult, snapResult, healthResult, metricsResult, ...resources] = await Promise.allSettled([
+      request('/state'), request('/vision/snap-info'), request('/healthz'), request('/sysinfo'), ...['camera', 'mic', 'speaker', 'lcd', 'uart'].map(name => request(`/api/resource/${name}`))
     ]);
     const state = stateResult.status === 'fulfilled' ? stateResult.value.data : null;
+    this.state = state;
+    this.health = healthResult.status === 'fulfilled' ? healthResult.value.data : null;
+    this.metrics = metricsResult.status === 'fulfilled' ? metricsResult.value.data : null;
     this.meta = snapResult.status === 'fulfilled' ? snapResult.value.data : null;
     const rows = resources.map((result, index) => {
       const name = ['camera', 'mic', 'speaker', 'lcd', 'uart'][index];
@@ -46,21 +51,29 @@ export class Devices {
       if (data.error) card.append(el('p', 'operator-error', data.error));
       card.append(rawDetails(data)); return card;
     });
-    const xgo = state?.devices?.xgo;
-    const telemetry = el('article', 'c-card');
-    telemetry.append(el('h3', '', tr('Bateria i IMU', 'Battery and IMU')), freshPill(xgo, presentationReady(xgo) ? tr('świeże', 'fresh') : tr('brak / stare', 'missing / stale'), presentationReady(xgo) ? 'ok' : 'warn', 3),
-      kv([[tr('Wiek pomiaru', 'Measurement age'), ageStamp(xgo)], [tr('Bateria', 'Battery'), displayValue(xgo?.battery_pct, '%')],
-        ['Roll / pitch / yaw', [xgo?.roll, xgo?.pitch, xgo?.yaw].map(value => displayValue(value)).join(' / ')]]));
-    target?.replaceChildren(telemetry, ...rows);
+    target?.replaceChildren(...rows);
+    this.renderTelemetry();
     this.renderPreview();
+  }
+  renderTelemetry() {
+    const target = document.getElementById('device-telemetry'); if (!target) return;
+    const key = JSON.stringify([this.safety?.state?.sensor_quality, this.state?.devices, this.health, this.metrics, Math.floor(Date.now() / 1000), document.documentElement.lang]);
+    if (key === this.telemetryKey) return; this.telemetryKey = key;
+    const status = el('article', 'c-card'); status.append(el('h3', '', tr('Urządzenia Pi', 'Pi devices')),
+      kv([[tr('Kamera', 'Camera'), observedDeviceText(this.health?.devices?.camera, 'camera', this.health)],
+        ['LCD', observedDeviceText(this.health?.devices?.lcd, 'lcd', this.health)],
+        [tr('Temperatura CPU', 'CPU temperature'), numberText(this.metrics?.temp_c, 1, ' °C')],
+        ['CPU / RAM', `${numberText(this.metrics?.cpu_pct, 1, '%')} / ${numberText(this.metrics?.mem_pct, 1, '%')}`]]));
+    target.replaceChildren(telemetryCard(this.safety?.state, this.state, this.health), status);
   }
   renderPreview() {
     text('preview-toggle', this.preview ? tr('Wyłącz odświeżanie obrazu', 'Disable image refresh') : tr('Włącz odświeżanie obrazu', 'Enable image refresh'));
     text('camera-preview-state', this.preview ? tr('Podgląd włączony w tej karcie', 'Preview enabled in this tab') : tr('Podgląd wyłączony w tej karcie', 'Preview disabled in this tab'));
     const kind = document.getElementById('preview-kind')?.value || 'raw';
     const frame = cameraFrame(this.meta, kind);
-    text('camera-age', `${kind.toUpperCase()} · ${frame.age === null ? tr('wiek nieznany', 'age unknown') : `${frame.age.toFixed(1)} s`} · ${frame.fresh ? tr('świeża klatka', 'fresh frame') : tr('brak / stara klatka', 'missing / stale frame')}`);
-    const displayed = cameraFrame({ ...this.meta, shown: { exists: this.displayed !== null, observed_at: this.displayed?.ts } }, 'shown');
+    text('camera-age', `${kind.toUpperCase()} · ${frame.timeBasis === 'file' ? tr('wiek pliku; przechwycenie nieznane · ', 'file age; capture unknown · ') : ''}${frame.age === null ? tr('wiek nieznany', 'age unknown') : `${frame.age.toFixed(1)} s`} · ${frame.fresh ? tr('świeża klatka', 'fresh frame') : tr('brak / stara klatka', 'missing / stale frame')}`);
+    const displayedSource = cameraFrame(this.meta, this.displayed?.kind || kind);
+    const displayed = cameraFrame({ ...this.meta, stale: this.meta?.stale === true || !displayedSource.fresh, shown: { exists: this.displayed !== null, observed_at: this.displayed?.ts } }, 'shown');
     text('camera-display-age', `${tr('Wyświetlana klatka', 'Displayed frame')}: ${this.displayed?.kind?.toUpperCase() || '—'} · ${displayed.age?.toFixed(1) ?? '—'} s${displayed.fresh ? '' : ' · unknown / stale'}`);
     this.image?.classList.toggle('operator-stale-frame', !displayed.fresh);
     this.frame();
@@ -69,9 +82,9 @@ export class Devices {
     if (!this.image || this.imageBusy || document.hidden || (!this.preview && !once)) return;
     const kind = document.getElementById('preview-kind').value;
     const frame = cameraFrame(this.meta, kind);
-    if (!frame.exists || frame.age === null) return;
+    if (!frame.fresh) return;
     const custom = document.getElementById('preview-url').value.trim();
-    const defaults = { raw: '/vision/cam', proc: '/vision/edge', ssd: '/vision/ssd', tracker: '/vision/tracker' };
+    const defaults = { raw: '/vision/cam', proc: '/vision/edge', ssd: '/vision/ssd', obst: '/snapshots/obst_annot.jpg', tracker: '/vision/tracker' };
     let url;
     try {
       url = new URL(custom || defaults[kind], location.origin);
