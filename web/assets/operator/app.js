@@ -1,3 +1,4 @@
+import { ControlCamera } from './control-camera.js?v=control-restored-1';
 import { initI18n } from '/web/assets/i18n.js';
 import { Overview } from './overview.js?v=contracts-20261010';
 import { SafetyPanel } from './safety.js';
@@ -25,6 +26,7 @@ const safety = new SafetyPanel(state => {
   devices?.renderTelemetry(); overview?.renderSensors();
   renderCapabilities(state);
 });
+if (page === 'control') new ControlCamera();
 if (page === 'control') { tasks = new Tasks(safety); new Providers(); }
 if (page === 'devices') devices = new Devices(safety);
 if (page === 'system') system = new System(safety);
