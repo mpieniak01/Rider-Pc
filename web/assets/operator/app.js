@@ -3,6 +3,7 @@ import { ControlCamera } from './control-camera.js?v=control-restored-1';
 import { initI18n } from '/web/assets/i18n.js';
 import { SafetyPanel } from './safety.js?v=operator-arming-1';
 import { Tasks } from './tasks.js?v=operator-arming-1';
+import { Providers } from './providers.js';
 import { Devices } from './devices.js';
 import { System } from './system.js?v=operator-arming-1';
 import { Navigation } from './navigation.js';
@@ -27,13 +28,13 @@ const safety = new SafetyPanel(state => {
   const key = JSON.stringify([state?.state, state?.generation, state?.can_move, state?.ready, state?.hardware_ready, state?.capabilities,
     fresh(state), safety.clockFresh(), safety.revokedGenerations.has(state?.generation), ['manual', 'follow_me', 'navigation'].map(owner => safety.can(owner))]);
   if (key !== lastKey) { lastKey = key; tasks?.render(); system?.render(); }
-  navigation?.render(); calibration?.render(); overview?.renderTelemetry();
+  navigation?.render(); calibration?.render(); overview?.renderSensors();
   renderCapabilities(state);
 }, { interactive: motionPage });
 if (['control', 'calibration'].includes(page)) safety.controls = new ManualSettings(safety);
 if (['control', 'calibration'].includes(page)) new ControlCamera();
 
-if (page === 'control') tasks = new Tasks(safety);
+if (page === 'control') { tasks = new Tasks(safety); new Providers(); }
 if (page === 'calibration') calibration = new Calibration(safety);
 if (page === 'devices') new Devices();
 if (page === 'system') system = new System(safety);
