@@ -478,3 +478,97 @@ def test_command_endpoints_remain_unconfirmed_without_explicit_ack(path):
     assert body["ok"] is False
     assert body["operation"]["status"] == "unknown"
     assert body["operation"]["confirmed"] is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("action", ["start", "stop", "restart", "enable", "disable"])
+async def test_local_service_command_ack_does_not_claim_service_readiness(action):
+    from pc_client.core.service_manager import ServiceManager
+
+    class FakeSystemd:
+        available = True
+
+        async def manage_service(self, unit, requested_action):
+            assert unit == "fixture.service" and requested_action == action
+            return {"ok": True}
+
+    manager = ServiceManager(
+        systemd_adapter=FakeSystemd(),
+        monitored_services=["fixture.service"],
+        non_actuating_services=["fixture.service"],
+    )
+    result = await manager.control_service("fixture.service", action, host="pc")
+    body = envelope(result, "/svc/fixture.service", "POST", 200)
+    assert body["ok"] is True
+    operation = body["operation"]
+    assert operation["status"] == "executed" and operation["confirmed"] is True
+    assert operation["action"] == action and operation["target"] == "fixture.service"
+    assert operation["ack_kind"] == "systemd_command_completed"
+    assert operation["ack"]["source"] == "pc/systemd"
+    assert operation["actuation"] is False and operation["simulated"] is False
+    assert operation["service_readiness"] == "unverified"
+
+    # Rzeczywiste routery i negocjujący middleware; adapter jest wyłącznie fake.
+    from pc_client.api.routers.control_router import router
+
+    app = FastAPI()
+    app.include_router(router)
+    app.add_middleware(ContractMiddleware)
+    app.state.service_manager = manager
+    app.state.rest_adapter = None
+    app.state.providers = {}
+    app.state.text_provider = None
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture.invalid") as client:
+        for path in [
+            "/svc/fixture.service",
+            "/api/services/action",
+            "/api/services/systemd/action",
+            "/api/systemd/action",
+        ]:
+            response = await client.post(
+                path, headers={"Accept": ACCEPT}, json={"host": "pc", "unit": "fixture.service", "action": action}
+            )
+            assert response.status_code == 200
+            assert response.json()["ok"] is True
+            assert response.json()["operation"]["ack_kind"] == "systemd_command_completed"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "reply",
+    [
+        {"ok": False, "error": "systemd unavailable"},
+        {"ok": True, "pending": True},
+        {"ok": True, "error": "inconsistent result"},
+        {"ok": True, "operation": {"status": "pending", "confirmed": False}},
+    ],
+)
+async def test_local_service_failure_or_explicit_pending_is_never_promoted(reply):
+    from pc_client.core.service_manager import ServiceManager
+
+    class FakeSystemd:
+        available = True
+
+        async def manage_service(self, unit, action):
+            return reply
+
+    manager = ServiceManager(systemd_adapter=FakeSystemd(), monitored_services=["fixture.service"])
+    result = await manager.control_service("fixture.service", "stop", host="pc")
+    assert result.get("operation") == reply.get("operation")
+    assert not envelope(result, "/api/services/action", "POST", 200)["ok"]
+
+
+@pytest.mark.asyncio
+async def test_remote_service_confirmation_is_never_invented_from_local_command_ack():
+    from pc_client.core.service_manager import ServiceManager
+    from unittest.mock import AsyncMock
+
+    adapter = SimpleNamespace(service_action=AsyncMock(return_value={"ok": True}))
+    manager = ServiceManager(rest_adapter=adapter)
+    result = await manager.control_service("fixture.service", "stop", host="pi")
+    assert "operation" not in result
+    assert envelope(result, "/svc/fixture.service", "POST", 200)["ok"] is False
+    original = {"status": "pending", "confirmed": False, "ack_kind": "pi-original"}
+    adapter.service_action.return_value = {"ok": False, "pending": True, "operation": original}
+    result = await manager.control_service("fixture.service", "stop", host="pi")
+    assert result["operation"] is original

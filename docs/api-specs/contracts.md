@@ -178,3 +178,5 @@ Generated from the instantiated FastAPI route table without starting runtime ser
 ## Operation confirmation
 
 Control, service, resource, task, calibration activation and Pi proxy configuration commands require confirmation. Ordinary local writes and generation (chat, profile save, backend selection and PC model binding) keep their HTTP result without a fabricated ACK. Explicit upstream operation metadata is preserved. SSE resumes after a process change emit transport.gap even before the first new sample; event_id is an opaque cursor, never an observation timestamp.
+
+Local service actions use ack_kind=systemd_command_completed (demo_state_applied in simulation). This confirms completion of the administrative command, not process readiness or robot motion; service_readiness remains unverified. Remote ACKs are preserved only from the Pi response.

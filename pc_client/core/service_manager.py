@@ -486,6 +486,34 @@ class ServiceManager:
                 result = {"ok": False, "error": "unknown_actuation_capability", "status_code": 409}
             else:
                 result = await self._systemd_adapter.manage_service(unit, action)
+            if (
+                result.get("ok") is True
+                and result.get("operation") is None
+                and not result.get("pending")
+                and not result.get("error")
+            ):
+                # Potwierdza wykonanie lokalnej komendy administracyjnej,
+                # nie gotowość procesu ani fizyczny ruch robota.
+                result = {
+                    **result,
+                    "operation": {
+                        "status": "executed",
+                        "confirmed": True,
+                        "action": action,
+                        "target": unit,
+                        "ack_kind": "demo_state_applied" if self._mock_mode else "systemd_command_completed",
+                        "ack": {
+                            "status": "executed",
+                            "accepted": True,
+                            "source": "demo" if self._mock_mode else "pc/systemd",
+                            "observed_at": time.time(),
+                        },
+                        "actuation": False,
+                        "simulated": self._mock_mode,
+                        "service_readiness": "unverified",
+                        "physical_completion": "not_applicable",
+                    },
+                }
             if result.get("ok") and action in {"start", "restart"}:
                 self._desired[unit] = "active"
             return {**result, "unit": unit, "action": action, "host": "pc"}

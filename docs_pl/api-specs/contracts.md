@@ -220,3 +220,5 @@ Inwentarz wygenerowano z tabeli tras utworzonej aplikacji FastAPI bez uruchamian
 ## Potwierdzenie operacji
 
 Polecenia sterowania, usług, zasobów, zadań, aktywacji kalibracji i konfiguracji proxy Pi wymagają potwierdzenia. Zwykłe lokalne zapisy i generowanie (np. czat, zapis profilu, wybór backendu i wiązanie modelu PC) zachowują wynik HTTP bez sztucznego ACK. Jawna operation upstream pozostaje zachowana. Wznowienie SSE po zmianie procesu emituje transport.gap także przed pierwszą nową próbką; event_id jest nieprzezroczystym kursorem, nie czasem pomiaru.
+
+Potwierdzenie lokalnej akcji usługi ma ack_kind=systemd_command_completed (w symulacji demo_state_applied). Potwierdza zakończenie komendy administracyjnej, nie gotowość procesu ani ruch robota; service_readiness pozostaje unverified. Zdalny ACK jest zachowany wyłącznie z odpowiedzi Pi.
