@@ -357,7 +357,9 @@ async def test_passive_status_sync_never_changes_lcd():
         with pytest.raises(asyncio.CancelledError):
             await lifecycle.sync_data_periodically(app)
     adapter.post_resource_action.assert_not_called()
-    assert app.state.cache.set.call_count == 9
+    assert app.state.cache.set.call_count == 5
+    adapter.get_camera_resource.assert_not_called()
+    adapter.get_resource.assert_not_called()
 
 
 @pytest.mark.asyncio

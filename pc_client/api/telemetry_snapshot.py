@@ -138,6 +138,7 @@ async def refresh_snapshot(app: Any, key: str, fetch: Any, *, reuse_s: float = 0
         flights = app.state.snapshot_refresh_tasks = {}
     flight = flights.get(key)
     if flight is None or flight.done():
+        generation = getattr(app.state, "snapshot_generation", 0)
 
         async def read():
             source = adapter_source(app.state.rest_adapter)
@@ -152,6 +153,10 @@ async def refresh_snapshot(app: Any, key: str, fetch: Any, *, reuse_s: float = 0
                 row = unavailable_snapshot(
                     cache.get(key), source=source, error=str(exc) or type(exc).__name__, attempted_at=time.time()
                 )
+            if generation != getattr(app.state, "snapshot_generation", 0):
+                return unavailable_snapshot(
+                    row, source=source, error="observation_superseded", attempted_at=time.time()
+                )
             cache.set(key, row)
             return row
 
@@ -161,3 +166,29 @@ async def refresh_snapshot(app: Any, key: str, fetch: Any, *, reuse_s: float = 0
     finally:
         if flight.done() and flights.get(key) is flight:
             flights.pop(key, None)
+
+
+def invalidate_snapshots(app):
+    """Resource/task actions invalidate presentation reads, never arm or actuate."""
+    app.state.snapshot_generation = getattr(app.state, "snapshot_generation", 0) + 1
+    app.state.snapshot_refresh_tasks = {}
+    cache = getattr(app.state, "cache", None)
+    if cache is not None:
+        for key in (
+            "healthz",
+            "camera_resource",
+            "lcd_resource",
+            "resource:mic",
+            "resource:speaker",
+            "resource:uart",
+            "catalog",
+            "vision_snap_info",
+            "state",
+        ):
+            cache.delete(key)
+    for key in list(getattr(app.state, "remote_snapshots", {})):
+        if key == "catalog" or key.startswith("resource:"):
+            app.state.remote_snapshots.pop(key, None)
+    from pc_client.api.binary_snapshot import invalidate
+
+    invalidate(app)
