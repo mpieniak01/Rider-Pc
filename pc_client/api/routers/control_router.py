@@ -15,6 +15,9 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from pc_client.adapters import RestAdapter
 from pc_client.api.sse_manager import SseManager
+from pc_client.api.binary_snapshot import fetch_camera_binary
+from pc_client.api.observation_policy import reuse_period
+from pc_client.api.telemetry_snapshot import refresh_snapshot, invalidate_snapshots
 from pc_client.core.remote_safety import finite_number
 from pc_client.api.telemetry_snapshot import received_snapshot, unavailable_snapshot, transport_failure
 
@@ -34,8 +37,27 @@ async def proxy_remote_media(request: Request, remote_path: str) -> Response:
         raise HTTPException(status_code=503, detail="REST adapter not initialized")
 
     params = dict(request.query_params)
+    if params.get("archive") != "1" and remote_path in {
+        "/camera/last",
+        "/vision/cam",
+        "/vision/edge",
+        "/vision/obst",
+        "/vision/ssd",
+        "/vision/tracker",
+    }:
+        from pc_client.api.background_sync import camera_activity
+
+        if camera_activity(request.app) is False:
+            raise HTTPException(
+                status_code=404,
+                detail="Camera is OFF",
+                headers={"X-Rider-Stale": "true", "X-Rider-Source": "pi/camera", "Cache-Control": "no-store"},
+            )
     try:
-        content, media_type, remote_headers = await adapter.fetch_binary(remote_path, params=params)
+        if remote_path == "/camera/last":
+            content, media_type, remote_headers = await fetch_camera_binary(request.app, params=params)
+        else:
+            content, media_type, remote_headers = await adapter.fetch_binary(remote_path, params=params)
         headers = {key: value for key, value in remote_headers.items() if key.lower() != "content-type"}
         return Response(content=content, media_type=media_type, headers=headers)
     except httpx.HTTPStatusError as exc:
@@ -141,17 +163,33 @@ def _demo_adapter(request):
     return isinstance(adapter, MockRestAdapter)
 
 
-async def _remote_snapshot(request, key, method, empty, *args):
+async def _remote_snapshot(request, key, method, empty, *args, force=False):
     adapter = request.app.state.rest_adapter
     snapshots = request.app.state.remote_snapshots
     try:
         if adapter is None:
             raise RuntimeError("pi_offline")
-        result = await getattr(adapter, method)(*args)
+        shared = (key.startswith("resource:") or key == "catalog") and getattr(
+            request.app.state, "cache", None
+        ) is not None
+        if shared:
+            cache_key = {"resource:camera": "camera_resource", "resource:lcd": "lcd_resource"}.get(key, key)
+            result = await refresh_snapshot(
+                request.app,
+                cache_key,
+                lambda: getattr(adapter, method)(*args),
+                reuse_s=0.0 if force else reuse_period(key),
+            )
+        else:
+            result = await getattr(adapter, method)(*args)
         if not isinstance(result, dict) or transport_failure(result):
             raise RuntimeError((result or {}).get("error", "invalid_response"))
         quality = {key: result.get(key) for key in ("stale", "offline")}
-        result = received_snapshot(result, source="demo" if _demo_adapter(request) else "pi", received_at=time.time())
+        result = (
+            dict(result)
+            if shared
+            else received_snapshot(result, source="demo" if _demo_adapter(request) else "pi", received_at=time.time())
+        )
         # Błąd konfiguracji/domeny nie oznacza awarii transportu ani starego odczytu.
         for flag, value in quality.items():
             result[flag] = value is True
@@ -165,7 +203,8 @@ async def _remote_snapshot(request, key, method, empty, *args):
                     "read_only": True,
                     "reason": "legacy_safety_contract",
                 }
-        snapshots[key] = result
+        if not shared:
+            snapshots[key] = result
         return result
     except Exception as exc:
         result = unavailable_snapshot(
@@ -190,7 +229,11 @@ async def _proxy_action(request, method, *args):
     if adapter is None:
         return JSONResponse({"ok": False, "error": "pi_offline"}, status_code=503)
     try:
+        if method in {"post_feature_toggle", "post_resource_action", "post_service_action"}:
+            invalidate_snapshots(request.app)
         result = await getattr(adapter, method)(*args)
+        if method in {"post_feature_toggle", "post_resource_action", "post_service_action"}:
+            invalidate_snapshots(request.app)
         if not isinstance(result, dict):
             raise ValueError("invalid_response")
         result = dict(result)
@@ -209,6 +252,8 @@ async def _proxy_action(request, method, *args):
             return JSONResponse(result, status_code=status or 502)
         return JSONResponse(result, status_code=status or (202 if pending else 200))
     except Exception as exc:
+        if method in {"post_feature_toggle", "post_resource_action", "post_service_action"}:
+            invalidate_snapshots(request.app)
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
 
 

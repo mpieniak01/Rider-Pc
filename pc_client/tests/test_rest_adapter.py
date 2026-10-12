@@ -1,5 +1,6 @@
 """Tests for the REST adapter."""
 
+import asyncio
 import time
 import pytest
 import httpx
@@ -409,3 +410,74 @@ async def test_secure_mode_nonexistent_certificate_files(caplog):
             assert "Falling back to insecure mode" in caplog.text
 
             await adapter.close()
+
+
+@pytest.mark.asyncio
+async def test_concurrent_reads_share_transfer_without_reusing_safety_clock(rest_adapter):
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def response(*args, **kwargs):
+        entered.set()
+        await release.wait()
+        result = MagicMock()
+        result.status_code = 200
+        result.json.return_value = {"server_time": 123, "safety": {"generation": "g", "observed_at": 122}}
+        return result
+
+    with patch.object(rest_adapter.client, "get", new_callable=AsyncMock, side_effect=response) as upstream:
+        first = asyncio.create_task(rest_adapter.get_control_state())
+        await entered.wait()
+        second = asyncio.create_task(rest_adapter.get_control_state())
+        await asyncio.sleep(0)
+        release.set()
+        a, b = await asyncio.gather(first, second)
+        assert upstream.await_count == 1
+        a["safety"]["generation"] = "changed"
+        assert b["safety"]["generation"] == "g"
+        assert a["received_at"] == b["received_at"]
+        assert b["server_time"] == 123
+        await rest_adapter.get_control_state()
+        assert upstream.await_count == 2  # Subsequent permission reads remain fresh.
+
+
+@pytest.mark.asyncio
+async def test_cancelling_one_read_does_not_cancel_other_consumers(rest_adapter):
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def response(*args, **kwargs):
+        entered.set()
+        await release.wait()
+        result = MagicMock()
+        result.status_code = 200
+        result.json.return_value = {"safety": {"generation": "g"}}
+        return result
+
+    with patch.object(rest_adapter.client, "get", new_callable=AsyncMock, side_effect=response) as upstream:
+        first = asyncio.create_task(rest_adapter.get_control_state())
+        await entered.wait()
+        second = asyncio.create_task(rest_adapter.get_control_state())
+        await asyncio.sleep(0)
+        first.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await first
+        release.set()
+        assert (await second)["safety"]["generation"] == "g"
+        assert upstream.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_shutdown_cancels_detached_reads_after_mutation_invalidation(rest_adapter):
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def response(*args, **kwargs):
+        entered.set()
+        await release.wait()
+
+    with patch.object(rest_adapter.client, "get", new_callable=AsyncMock, side_effect=response):
+        reader = asyncio.create_task(rest_adapter.get_control_state())
+        await entered.wait()
+        rest_adapter._read_flights.clear()  # A write invalidates sharing, not the running read.
+        await rest_adapter.close()
+        with pytest.raises(asyncio.CancelledError):
+            await reader
+        assert not rest_adapter._read_tasks

@@ -17,7 +17,7 @@ from pc_client.telemetry.zmq_publisher import ZMQTelemetryPublisher
 @pytest.mark.asyncio
 async def test_unknown_capture_does_not_inherit_receipt_time(headers):
     class Adapter:
-        async def fetch_binary(self, path):
+        async def fetch_binary(self, path, params=None):
             assert path == "/camera/last"
             return b"image", "image/jpeg", headers
 

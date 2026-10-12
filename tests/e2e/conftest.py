@@ -3,6 +3,9 @@
 Provides session-scoped test server and function-scoped browser contexts.
 """
 
+import json
+from pathlib import Path
+
 import multiprocessing
 import os
 import socket
@@ -140,18 +143,8 @@ def browser_context(test_server):
         assert reset.status == 200
         # Shared settings fixture stays inside the isolated browser context.
         # Never route configuration reads or writes to the physical Pi.
-        shared = {
-            "revision": 0,
-            "values": {
-                "linear_speed": 0.2,
-                "turn_speed": 0.35,
-                "pulse_duration": 0.25,
-                "speed_limit": 0.6,
-                "linear_rate": 3,
-                "turn_rate": 4,
-            },
-        }
-        limits = {**shared["values"], "linear_speed": 1, "turn_speed": 1}
+        shared = json.loads((Path(__file__).parents[1] / "fixtures/contracts/manual-settings-v2.json").read_text())
+        limits = shared["limits"]
 
         def shared_controls(route):
             status = 200
@@ -160,7 +153,9 @@ def browser_context(test_server):
                 if payload["revision"] != shared["revision"]:
                     status = 409
                 else:
-                    shared["values"].update(payload["values"])
+                    shared["values"].update(payload.get("values", {}))
+                    for direction, changes in payload.get("directions", {}).items():
+                        shared["directions"][direction].update(changes)
                     shared["revision"] += 1
             observed = time.time()
             route.fulfill(
@@ -183,7 +178,7 @@ def browser_context(test_server):
                         **shared,
                         "limits": limits,
                         "contract_id": "rider.manual_settings",
-                        "contract_version": 1,
+                        "contract_version": 2,
                         "actuation": False,
                         "observed_at": observed,
                     },

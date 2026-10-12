@@ -1,5 +1,8 @@
 """REST API adapter for consuming Rider-PI endpoints."""
 
+import asyncio
+from copy import deepcopy
+
 import httpx
 import logging
 import time
@@ -43,6 +46,8 @@ class RestAdapter:
         client_kwargs: Dict[str, Any] = {"timeout": timeout, "headers": {"Accept": ACCEPT}}
         self._contract_supported = False
         self._contract_verified_at = 0
+        self._read_flights = {}
+        self._read_tasks = set()
 
         if secure_mode:
             if mtls_cert_path and mtls_key_path and mtls_ca_path:
@@ -74,6 +79,28 @@ class RestAdapter:
         self.client = httpx.AsyncClient(**client_kwargs)
 
     async def _json_request(self, method, path, payload=None):
+        # Only simultaneous reads share a transfer. No cached safety clock,
+        # command queue or timestamp renewal is introduced here.
+        if method != "GET":
+            self._read_flights.clear()
+            return await self._json_request_once(method, path, payload)
+        flight = self._read_flights.get(path)
+        if flight is None:
+            flight = asyncio.create_task(self._json_request_once(method, path, payload))
+            self._read_flights[path] = flight
+            self._read_tasks.add(flight)
+
+            def finished(task):
+                self._read_tasks.discard(task)
+                if self._read_flights.get(path) is task:
+                    self._read_flights.pop(path, None)
+                if not task.cancelled():
+                    task.exception()
+
+            flight.add_done_callback(finished)
+        return deepcopy(await asyncio.shield(flight))
+
+    async def _json_request_once(self, method, path, payload=None):
         if path == "/api/logic/catalog":
             self._contract_supported = False
             self._contract_verified_at = 0
@@ -197,6 +224,12 @@ class RestAdapter:
 
     async def close(self):
         """Close the HTTP client."""
+        flights = list(self._read_tasks)
+        self._read_flights.clear()
+        for flight in flights:
+            flight.cancel()
+        if flights:
+            await asyncio.gather(*flights, return_exceptions=True)
         await self.client.aclose()
 
     async def get_healthz(self) -> Dict[str, Any]:

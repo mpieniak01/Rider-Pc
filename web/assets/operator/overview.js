@@ -28,23 +28,51 @@ export class Overview {
     window.addEventListener('pagehide', () => { clearInterval(this.expiry); for (const row of this.frames.values()) clearTimeout(row.timer); });
     this.telemetryPoller = poll(() => this.loadTelemetry(), { interval: 1000, onError: showError });
     this.poller = poll(() => this.load(), { interval: 2000, onError: showError });
-    this.slowPoller = poll(() => this.loadLocal(), { interval: 7000, onError: showError });
+    this.visionPoller = poll(() => this.loadVision(), { interval: 2000, onError: showError });
+    this.inventoryPoller = poll(() => this.loadInventory(), { interval: 10000, onError: showError });
+    this.slowPoller = poll(() => this.loadLocal(), { interval: 10000, onError: showError });
     window.addEventListener('dashboard:langchange', () => this.render());
   }
   async load() {
-    const names = ['health', 'pi', 'obstacle', 'metrics', 'catalog'];
-    const paths = ['/healthz', '/sysinfo', '/vision/obstacle', '/api/app-metrics', '/api/logic/catalog'];
+    const names = ['health', 'pi'];
+    const paths = ['/healthz', '/sysinfo'];
     const results = await Promise.allSettled(paths.map(path => request(path)));
     names.forEach((name, index) => { this.data[name] = results[index].status === 'fulfilled' ? results[index].value.data : null; });
     this.render();
     window.dispatchEvent(new CustomEvent('dashboard:update', { detail: { state: this.data.state, health: this.data.health, sysinfo: this.data.pi, snapInfo: this.data.snap } }));
   }
   async loadTelemetry() {
-    await Promise.all([['state', '/state'], ['snap', '/vision/snap-info']].map(async ([name, path]) => {
+    await Promise.all([['state', '/state']].map(async ([name, path]) => {
       try { this.data[name] = (await request(path)).data; }
       catch (error) { this.data[name] = null; throw error; }
       finally { name === 'state' ? this.renderSensors() : this.renderImages(); }
     }));
+  }
+  cameraActive() {
+    const row = this.data.state?.devices?.camera || this.data.health?.devices?.camera;
+    return row && row.activity === 'on' && !row.error && !row.stale && !row.offline;
+  }
+  async readObservation(name, path) {
+    try { this.data[name] = (await request(path)).data; return null; }
+    catch (error) { this.data[name] = null; return error; }
+  }
+  async loadVision() {
+    if (!this.cameraActive() && this.idleVisionRead) return;
+    const errors = [await this.readObservation('snap', '/vision/snap-info')];
+    if (this.cameraActive()) {
+      errors.push(await this.readObservation('obstacle', '/vision/obstacle'));
+    }
+    // A resource can switch OFF while either transfer is in flight.
+    if (!this.cameraActive()) this.data.obstacle = null;
+    this.idleVisionRead = !this.cameraActive() && !errors[0];
+    this.render(); this.renderImages();
+    if (errors.some(Boolean)) throw errors.find(Boolean);
+  }
+  async loadInventory() {
+    const errors = await Promise.all([['metrics', '/api/app-metrics'], ['catalog', '/api/logic/catalog']]
+      .map(([name, path]) => this.readObservation(name, path)));
+    this.render();
+    if (errors.some(Boolean)) throw errors.find(Boolean);
   }
   async loadLocal() {
     const names = ['pc', 'services', 'live', 'mcpStats', 'mcpConfig', 'mcpTools', 'mcpHistory'];
@@ -85,7 +113,8 @@ export class Overview {
     text('binsLegendTxt', `LOW/HIGH: ${numberText(diag?.t_low, 3)} / ${numberText(diag?.t_high, 3)} · edge_pct: ${numberText(diag?.edge_ratio_raw ?? diag?.edge_pct_raw ?? obstacle?.edge_ratio ?? obstacle?.edge_pct, 3)} · ${usable ? tr('aktualne', 'current') : 'unknown / stale'}`);
     drawHistory(node('binsCanvas'), diag?.bins || (finite(obstacle?.edge_ratio ?? obstacle?.edge_pct) ? [obstacle.edge_ratio ?? obstacle.edge_pct] : []), [], true, diag?.t_low, diag?.t_high);
     node('binsCanvas')?.classList.toggle('operator-stale-frame', !usable);
-    drawHistory(node('chart'), pi?.hist_cpu, pi?.hist_mem);
+    drawHistory(node('chart'), pi?.hist_cpu, pi?.hist_mem, false, null, null, {peaks:pi?.hist_cpu_peak,times:pi?.hist_ts});
+    if (node('ci_cpu')) node('ci_cpu').title = finite(pi?.cpu_peak_pct) ? tr('Szczyt w ostatniej sekundzie: ', 'Peak in the last second: ') + numberText(pi.cpu_peak_pct, 1, '%') : '';
     node('chart')?.classList.toggle('operator-stale-frame', !transportCurrent(pi, 12) || !fresh(pi, 12));
     for (const name of ['control', 'navigator', 'voice', 'google_home', 'chat', 'face']) {
       const row = metrics?.metrics?.[name]; text(`metric_${name}`, row ? `${row.ok ?? '—'} OK / ${row.error ?? '—'} error` : '—');

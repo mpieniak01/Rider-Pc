@@ -15,6 +15,7 @@ from pc_client.utils.network import get_local_ip, check_connectivity
 from pc_client.adapters.git_adapter import GitAdapter
 from pc_client.config.settings import Settings
 from urllib.parse import urlparse
+from pc_client.api.background_sync import camera_on, camera_activity
 from pc_client.api.telemetry_snapshot import adapter_source, cached_snapshot, latest_observation, refresh_snapshot
 
 logger = logging.getLogger(__name__)
@@ -155,8 +156,15 @@ async def vision_snap_info(request: Request) -> JSONResponse:
     """Vision snapshot info endpoint."""
     cache: CacheManager = request.app.state.cache
     adapter = getattr(request.app.state, "rest_adapter", None)
+    if camera_activity(request.app) is False and isinstance(cache.get("vision_snap_info"), dict):
+        return JSONResponse(content=cached_snapshot(cache, "vision_snap_info", source=adapter_source(adapter)))
     data = (
-        await refresh_snapshot(request.app, "vision_snap_info", adapter.get_vision_snap_info, reuse_s=0.5)
+        await refresh_snapshot(
+            request.app,
+            "vision_snap_info",
+            adapter.get_vision_snap_info,
+            reuse_s=1.0 if camera_on(request.app) else 5.0,
+        )
         if adapter is not None
         else cached_snapshot(cache, "vision_snap_info", source=adapter_source(adapter))
     )

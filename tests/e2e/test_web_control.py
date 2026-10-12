@@ -61,11 +61,12 @@ def test_explicit_arm_then_motion_preserves_original_envelope(browser_context):
         page.locator('[data-direction="forward"]').click()
     payload = json.loads(event.value.post_data)
     assert payload["action"] == "move"
-    assert payload["vx"] == 0.2 and payload["duration"] == 0.25
+    assert payload["direction"] == "forward" and payload["mode"] == "pulse"
+    assert payload["device_settings"] is True and "vx" not in payload and "duration" not in payload
     assert payload["settings_revision"] == 0
     assert payload["source"] == "manual" and payload["seq"] >= 1
     assert payload["generation"] and payload["request_id"] and payload["ttl_ms"] == 500
-    expect(page.locator("#request-history")).to_contain_text("SDK")
+    expect(page.locator("#operator-message")).to_contain_text("Wysłano impuls")
     page.locator("[data-stop]").first.click()
     expect(page.locator("#global-motion-toggle")).to_have_text("Robot rozbrojony")
 
@@ -83,10 +84,10 @@ def test_stop_remains_available_without_metadata(browser_context):
 def test_typing_and_parameter_edits_never_issue_motion(browser_context):
     page, base = browser_context
     open_control(page, base)
-    expect(page.locator("#duration")).to_be_enabled()
-    page.locator("#duration").fill("0.2")
-    page.locator("#duration").press("Space")
-    page.locator("#speed").press("ArrowRight")
+    expect(page.locator("#setting-forward-duration")).to_be_enabled()
+    page.locator("#setting-forward-duration").fill("200")
+    page.locator("#setting-forward-duration").press("Space")
+    page.locator("#setting-forward-speed").press("ArrowRight")
     assert not [r for r in page.requests if r.method == "POST" and r.url.endswith(("/api/control", "/api/safety"))]
 
 
@@ -95,7 +96,7 @@ def test_unverified_posture_actions_remain_disabled(browser_context):
     open_control(page, base)
     explicit_arm(page)
     for name in ["height", "balance", "action"]:
-        expect(page.locator(f"[data-actuator='{name}']")).to_be_disabled()
+        expect(page.locator(f"#posture-{name}-send")).to_be_disabled()
     page.locator("[data-stop]").first.click()
 
 
@@ -108,8 +109,8 @@ def test_pending_never_displays_executed(browser_context):
         lambda route: route.fulfill(status=202, json={"ok": True, "pending": True, "confirmed": False}),
     )
     page.locator('[data-direction="forward"]').click()
-    expect(page.locator("#request-history li").first).to_contain_text("Oczekuje")
-    assert "SDK" not in page.locator("#request-history li").first.inner_text()
+    expect(page.locator("#operator-message")).to_contain_text("Wysłano impuls")
+    assert "SDK" not in page.locator("#operator-message").inner_text()
     page.unroute("**/api/control")
     page.locator("[data-stop]").first.click()
 
@@ -190,3 +191,54 @@ def test_catalog_domain_option_selection_is_get_only(browser_context):
     expect(choice).to_be_visible()
     choice.select_option("vision")
     assert not [request for request in page.requests if request.method in {"POST", "PUT", "PATCH"}]
+
+
+def test_hold_renewal_release_keeps_operator_armed(browser_context):
+    page, base = browser_context
+    open_control(page, base)
+    explicit_arm(page)
+    button = page.locator('[data-direction="backward"]')
+    button.hover()
+    page.mouse.down()
+    page.wait_for_timeout(550)
+    page.mouse.up()
+    page.wait_for_timeout(300)
+    commands = [r.post_data_json for r in page.requests if r.method == "POST" and r.url.endswith("/api/control")]
+    assert sum(c.get("mode") == "hold" for c in commands) >= 2
+    assert commands[-1]["mode"] == "release"
+    assert all(c.get("direction") == "backward" and c.get("device_settings") is True for c in commands)
+    assert all("vx" not in c and c["ttl_ms"] == 500 for c in commands)
+    assert [c["seq"] for c in commands] == sorted(set(c["seq"] for c in commands))
+    expect(page.locator("#global-motion-toggle")).to_have_text("Robot uzbrojony")
+    page.locator("[data-stop]").first.click()
+    expect(page.locator("#global-motion-toggle")).to_have_text("Robot rozbrojony")
+
+
+def test_calibration_units_and_save_visible_in_control(browser_context):
+    page, base = browser_context
+    page.goto(base + "/calibration", wait_until="domcontentloaded")
+    value = page.locator("#setting-backward-duration")
+    expect(value).to_have_value("250")
+    value.fill("800")
+    assert not [r for r in page.requests if r.method == "POST" and r.url.endswith("/api/control")]
+    page.locator("#manual-settings-save").click()
+    expect(page.locator("#manual-settings-result")).to_contain_text("Zapis potwierdzony")
+    page.goto(base + "/control", wait_until="domcontentloaded")
+    expect(page.locator("#setting-backward-duration")).to_have_value("800")
+    expect(page.locator("#manual-settings-status")).to_contain_text("rewizja 1")
+    assert not page.errors
+
+
+def test_posture_language_switch_retains_controls_and_draft(browser_context):
+    page, base = browser_context
+    open_control(page, base)
+    value = page.locator("#setting-forward-duration")
+    expect(value).to_have_value("250")
+    value.fill("800")
+    page.locator("button[data-lang='en']").click()
+    expect(page.locator("#posture-controls h2")).to_have_text("Robot posture")
+    expect(page.locator("#posture-height-send")).to_have_text("Apply")
+    expect(page.locator("#posture-state")).to_contain_text("Last command: height")
+    expect(value).to_have_value("800")
+    assert not [r for r in page.requests if r.method == "POST"]
+    assert not page.errors

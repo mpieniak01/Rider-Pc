@@ -80,7 +80,7 @@ class Element {
   replaceChildren(...values) { this.children = values; }
   closest(selector) { return this.editing && selector.includes('input') ? this : null; }
 }
-async function fixture(initial = disarmed(), { interactive = true } = {}) {
+async function fixture(initial = disarmed(), { interactive = true, clock = null, catalogDelay = 0, beforeFetch = ()=>null } = {}) {
   const elements = new Map(['global-motion-toggle', 'arm', 'clear-estop', 'disarm', 'estop', 'operator-plan', 'operator-consent', 'control-owner', 'lease',
     'duration', 'speed', 'yaw-speed', 'request-history', 'safety-state', 'safety-owner', 'safety-reason', 'safety-lease', 'operator-message'].map(id => [id, new Element(id)]));
   elements.get('global-motion-toggle').classList = { toggle() {} };
@@ -92,15 +92,17 @@ async function fixture(initial = disarmed(), { interactive = true } = {}) {
     getElementById: id => elements.get(id), querySelector: () => null, querySelectorAll: () => [], createElement: () => new Element(),
     addEventListener: (name, action) => { listeners[name] = action; }, removeEventListener() {} };
   const context = vm.createContext({ document, window: { addEventListener() {} }, console,
-    Date, Math, Number, String, Boolean, JSON, Map, Set, Error, AbortController,
+    Date: clock ? class extends Date { static now() { return clock.now * 1000; } } : Date, Math, Number, String, Boolean, JSON, Map, Set, Error, AbortController,
     setTimeout: callback => { timers.set(++timerId, callback); return timerId; }, clearTimeout: id => timers.delete(id),
     setInterval: callback => { timers.set(++timerId, callback); return timerId; }, clearInterval: id => timers.delete(id),
     fetch: async (url, options) => {
+      const hook=beforeFetch(url);if(hook)await hook;
+      if(url==='/api/logic/catalog' && clock)clock.now+=catalogDelay;
       calls.push({ url, ...options, body: options.body ? JSON.parse(options.body) : undefined });
       if (replies.has(url)) { const reply = replies.get(url); return { ok: true, status: reply.status, json: async () => reply.data }; }
       return { ok: true, status: options.method === 'POST' ? 202 : 200,
         json: async () => {
-          const now = Date.now() / 1000;
+          const now = clock ? clock.now : Date.now() / 1000;
           if (options.method === 'POST') return { pending: true, confirmed: false };
           const catalog = url === '/api/logic/catalog';
           return { ok: true, error: null, operation: null, meta: { envelope_version: 1, contract_id: catalog ? 'rider.catalog' : 'rider.safety', contract_version: catalog ? 2 : 1, observed_at: now, server_time: now, stale: false, offline: false },
@@ -112,7 +114,7 @@ async function fixture(initial = disarmed(), { interactive = true } = {}) {
     if (modules.has(name)) return modules.get(name);
     const source = await readFile(path.join(assets, name), 'utf8');
     const module = new vm.SourceTextModule(source, { context, identifier: name }); modules.set(name, module);
-    await module.link(specifier => load(path.basename(specifier)));
+    await module.link(specifier => load(path.basename(specifier).split('?')[0]));
     return module;
   }
   const module = await load('safety.js'); await module.evaluate();
@@ -441,4 +443,55 @@ test('operator arming survives thirty seconds and focus suspension without auto 
   f.setState({ ...armed(), execution_context: 'panel', arming_mode: 'operator', lease_remaining_s: null });
   assert.equal(f.panel.can('manual'), true);
   assert.equal(f.elements.get('global-motion-toggle').textContent, 'Robot uzbrojony');
+});
+
+test('device hold carries direction/revision only and cancelled preflight never sends motion', async () => {
+  const f = await fixture(armed());
+  f.panel.controls = {state:{revision:17},ready:()=>true,pulse:direction=>({direction,device_settings:true,settings_revision:17})};
+  await f.panel.sendIntent({direction:'backward',mode:'hold'},()=>true);
+  const command=f.calls.find(call=>call.method==='POST').body;
+  assert.equal(command.direction,'backward'); assert.equal(command.mode,'hold');
+  assert.equal(command.device_settings,true); assert.equal(command.settings_revision,17);
+  assert.equal(command.ttl_ms,500); assert.equal(command.vx,undefined);
+  const count=f.calls.length;
+  await assert.rejects(f.panel.sendIntent({direction:'forward',mode:'hold'},()=>false),/cancelled_or_stale/);
+  assert.equal(f.calls.slice(count).some(call=>call.method==='POST'),false);
+});
+test('STOP cancels held renewals and uses no contract proof or expired envelope', async () => {
+  const f=await fixture(armed());
+  f.panel.controls={state:{revision:17,control_modes:{supported:['hold'],click_threshold_ms:180,hold_renewal_ms:150}},
+    ready:()=>true,pulse:direction=>({direction,device_settings:true,settings_revision:17})};
+  f.panel.held.begin('forward',1);
+  await f.panel.stop();
+  assert.equal(f.panel.held.gesture,null);
+  assert.equal(f.panel.held.pending,null);
+  const command=f.calls.find(call=>call.method==='POST').body;
+  assert.equal(command.action,'stop'); assert.equal(command.ts,undefined);
+});
+test('stale revision blocks new device intent before POST', async () => {
+  const f=await fixture(armed());
+  f.panel.controls={state:{revision:17},ready:()=>true,pulse:direction=>({direction,device_settings:true,settings_revision:17})};
+  const valid=()=>{f.panel.controls.state.revision=18;return true;};
+  await assert.rejects(f.panel.sendIntent({direction:'left',mode:'pulse'},valid),/cancelled_or_stale/);
+  assert.equal(f.calls.some(call=>call.method==='POST'),false);
+});
+
+test('release creates its fresh envelope after slow catalogue negotiation',async()=>{
+  const clock={now:1000};
+  const f=await fixture(armed(1000),{clock,catalogDelay:.7});
+  f.panel.controls={state:{revision:17},ready:()=>true,pulse:direction=>({direction,device_settings:true,settings_revision:17})};
+  await f.panel.sendIntent({direction:'forward',mode:'release'},()=>true);
+  const write=f.calls.find(call=>call.method==='POST').body;
+  assert.equal(write.ts,clock.now);
+  assert.equal(write.mode,'release');assert.equal(write.ttl_ms,500);assert.equal(write.seq,5);
+});
+test('release can neutralize a held gesture after a lost state without renewing old commands',async()=>{
+  const clock={now:1000};let f;
+  f=await fixture(armed(1000),{clock,catalogDelay:.7,
+    beforeFetch:async url=>{if(url==='/api/logic/catalog')f.setState(null);}});
+  f.panel.controls={state:{revision:17},ready:()=>true,pulse:direction=>({direction,device_settings:true,settings_revision:17})};
+  await f.panel.sendIntent({direction:'forward',mode:'release'},()=>true);
+  const write=f.calls.find(call=>call.method==='POST').body;
+  assert.equal(write.ts,clock.now);assert.equal(write.generation,'fixture-generation');
+  assert.equal(write.mode,'release');assert.equal(write.ttl_ms,500);assert.equal(write.seq,5);
 });

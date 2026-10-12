@@ -241,3 +241,23 @@ def test_navigation_api_starts_canonical_demo_task_only_after_explicit_navigatio
     task = next(row for row in catalog["features"] if row["name"] == "s9_navigation")
     assert task["requested"] is True
     assert task["source"] == "demo"
+
+
+@pytest.mark.parametrize("mode", ["pulse", "hold", "release"])
+def test_device_owned_direction_is_forwarded_without_local_mapping(panel_client, mode):
+    prepare(panel_client)
+    adapter = panel_client.app.state.rest_adapter
+    adapter.post_control = AsyncMock(return_value={"ok": True, "pending": True, "_http_status": 202})
+    body = {
+        **envelope(panel_client),
+        "action": "move",
+        "direction": "backward",
+        "mode": mode,
+        "device_settings": True,
+        "settings_revision": 17,
+        "execution_context": "panel",
+    }
+    response = panel_client.post("/api/control", json=body)
+    assert response.status_code == 202
+    assert adapter.post_control.await_args.args[0] == body
+    assert "vx" not in body and "yaw" not in body and "duration" not in body
