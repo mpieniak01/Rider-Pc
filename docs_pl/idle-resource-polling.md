@@ -20,3 +20,9 @@ Pi współdzieli skany właścicieli urządzeń między endpointami. Potwierdzon
 wolny zasób i nieudany odczyt są przechowywane przez 5 sekund, zajęty zasób
 przez 3 sekundy. Akcje zasobów unieważniają cache. Faktyczne odzyskiwanie
 zasobu nadal pobiera aktualną listę właścicieli bezpośrednio przed działaniem.
+
+
+Przy potwierdzonym OFF kamery ekran ponownie wykorzystuje istniejące metadane
+archiwalne, zachowując czas źródłowy i odbioru. Pusty cache może wykonać jeden
+odczyt metadanych. Akcje zasobów czyszczą cache, a ON wznawia normalne pobieranie.
+Przegląd na Pi również pomija odpytywanie nieaktywnej wizji.

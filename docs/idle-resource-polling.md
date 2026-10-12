@@ -20,3 +20,9 @@ Pi shares resource ownership scans across status endpoints. Confirmed free
 resources and failed probes are reused for 5 seconds; occupied resources for
 3 seconds. Resource actions invalidate cached observations. Actual recovery
 still obtains its direct current owner inspection before acting.
+
+
+While camera is confirmed OFF, foreground metadata reads reuse the existing
+historical snapshot without refreshing its source or receipt time. A cold cache
+can perform one metadata read; resource actions clear it and observed ON resumes
+normal fetching. Pi Overview also skips inactive vision polling.

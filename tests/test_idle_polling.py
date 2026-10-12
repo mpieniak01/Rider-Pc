@@ -227,3 +227,16 @@ def test_malformed_camera_status_is_unknown():
     cache.set("state", {"received_at": time.time(), "camera": None})
     cache.set("healthz", {"received_at": time.time(), "devices": None})
     assert background_sync.camera_activity(app) is None
+
+
+def test_idle_metadata_reuses_history_without_rewriting_source_or_receipt():
+    from pc_client.api.routers.status_router import router as status_router
+
+    app, adapter, _ = app_fixture(False)
+    adapter.get_vision_snap_info = AsyncMock(return_value={"observed_at": 100, "raw": {"exists": False}})
+    app.include_router(status_router)
+    with TestClient(app) as client:
+        first = client.get("/vision/snap-info").json()
+        second = client.get("/vision/snap-info").json()
+    adapter.get_vision_snap_info.assert_awaited_once()
+    assert first == second and first["observed_at"] == 100
