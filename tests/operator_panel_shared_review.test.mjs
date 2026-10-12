@@ -254,3 +254,26 @@ test('LCD event power keeps the original accepted-write age without claiming a c
     assert.doesNotMatch(telemetry.observedDeviceText(event, 'lcd', { ...parent, ...patch }), /^(ON|OFF)/);
   }
 });
+
+test('GPIO backlight observation reports LCD ON/OFF without requiring a prior write',async()=>{
+  const f=await fixture();
+  const telemetry=await f.load('telemetry.js');
+  const parent={observed_at:1000,received_at:1000,source:'pi'};
+  const row={power_known:true,on:false,source:'gpio',power_source:'gpio',power_observed_at:999,
+    confirmation:'gpio_level_observed'};
+  assert.equal(telemetry.observedDeviceText(row,'lcd',parent),'OFF');
+  assert.equal(telemetry.observedDeviceText({...row,on:true},'lcd',parent),'ON');
+  assert.doesNotMatch(telemetry.observedDeviceText({...row,error:'unavailable'},'lcd',parent),/^(ON|OFF)/);
+});
+test('Pi history renders CPU peaks and breaks the line across missing source time',async()=>{
+  const f=await fixture();
+  const telemetry=await f.load('telemetry.js');
+  const strokes=[], moves=[], lines=[];
+  const ctx={clearRect(){},strokeRect(){},beginPath(){},stroke(){strokes.push(this.strokeStyle);},
+    moveTo(x,y){moves.push([x,y]);},lineTo(x,y){lines.push([x,y]);}};
+  telemetry.drawHistory({width:300,height:140,getContext:()=>ctx},[10,20,30],[40,50,60],
+    false,null,null,{peaks:[15,80,35],times:[1000,1001,1006]});
+  assert.ok(strokes.includes('#a17fff'));
+  assert.equal(moves.length,6);
+  assert.equal(lines.length,3);
+});

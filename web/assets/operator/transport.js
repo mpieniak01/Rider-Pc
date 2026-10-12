@@ -37,36 +37,60 @@ export function unpackContract(payload, expectedFamily = null) {
   if (payload.operation) { result.operation = payload.operation; result.pending ??= payload.operation.status === 'pending'; result.confirmed ??= payload.operation.confirmed === true; }
   return result;
 }
-const reads = new Map();
+const reads = new Map(), catalogReads = new Map();
+let generation = 0, proofAt = null;
+export function invalidateReads() { generation++; catalogReads.clear(); reads.clear(); }
+function rememberProof(data, canonical, receivedAt) {
+  const meta = data?.contract_meta, age = meta?.server_time - meta?.observed_at;
+  proofAt = canonical && meta?.contract_id === 'rider.catalog' && meta.contract_version === 2
+    && Number.isFinite(age) && age >= 0 && age <= 10 && data.ok === true
+    && data.catalog_version === 2 && data.contract_version === 2
+    && Array.isArray(data.features) && Array.isArray(data.units)
+    && data.api_envelope_versions?.includes(1) && !data.stale && !data.offline && !data.error
+    ? receivedAt : null;
+}
 // Motion permission needs a canonical catalogue before its short-lived envelope.
 export async function prepareMutation() {
-  const { data } = await request('/api/logic/catalog');
-  const meta = data?.contract_meta;
-  if (meta?.envelope_version !== 1 || meta.contract_id !== 'rider.catalog' || meta.contract_version !== 2
-    || data.ok !== true || data.catalog_version !== 2 || data.stale || data.offline || data.error) {
-    throw Object.assign(new Error('Unsupported Rider contract; read only'), { status: 409 });
-  }
+  const age = Date.now() / 1000 - (proofAt ?? 0);
+  if (proofAt === null || age < 0 || age > 5) await request('/api/logic/catalog', { force: true });
+  if (proofAt === null) throw Object.assign(new Error('Unsupported Rider contract; read only'), { status: 409 });
 }
 export function request(path, options = {}) {
-  const method = options.method || 'GET';
+  const method = options.method || 'GET', epoch = generation;
+  const cacheable = method === 'GET' && path === '/api/logic/catalog';
+  const previous = catalogReads.get(path), age = Date.now() - (previous?.at ?? 0);
+  if (cacheable && !options.force && previous && age >= 0 && age < 1000) return Promise.resolve(previous.value);
   if (method === 'GET' && reads.has(path)) return reads.get(path);
-  const flight = performRequest(path, options);
+  if (method !== 'GET') invalidateReads();
+  const flight = performRequest(path, { ...options, readEpoch: generation });
   if (method === 'GET') {
     reads.set(path, flight);
-    flight.then(() => reads.delete(path), () => reads.delete(path));
-  }
+    const clear = () => { if (reads.get(path) === flight) reads.delete(path); };
+    flight.then(value => {
+      clear();
+      if (cacheable && epoch === generation) catalogReads.set(path, { at: Date.now(), value });
+    }, () => { clear(); if (cacheable) proofAt = null; });
+  } else flight.then(invalidateReads, invalidateReads);
   return flight;
 }
-async function performRequest(path, { method = 'GET', body, timeout = 6000 } = {}) {
+async function performRequest(path, { method = 'GET', body, timeout = 6000, beforeSend = () => {}, readEpoch = generation } = {}) {
+  const stop = path === '/api/control' && body?.action === 'stop'
+    || path === '/api/safety' && ['disarm', 'estop'].includes(body?.action);
+  // Local PC features do not negotiate robot contracts.
+  const robotMutation = /^\/api\/(control|safety|calibration|odometry|navigator|logic|resource)(?:\/|$)/.test(path);
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && robotMutation && !stop) await prepareMutation();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
   const sentAt = Date.now() / 1000;
   try {
+    beforeSend();
     const response = await fetch(path, { method, cache: 'no-store', signal: controller.signal,
       headers: { Accept: contractAccept, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
       body: body === undefined ? undefined : JSON.stringify(body) });
     const payload = await response.json();
     const data = unpackContract(payload, !response.ok && payload?.meta?.contract_id === 'rider.http' ? 'rider.http' : contractFamily(path));
+    const receivedAt = Date.now() / 1000;
+    if (path === '/api/logic/catalog' && readEpoch === generation) rememberProof(data, payload?.meta?.envelope_version === 1 && response.ok, receivedAt);
     if (!response.ok) throw Object.assign(new Error(data.error || data.detail || data.result?.error || `HTTP ${response.status}`), { data, status: response.status });
     return { data, meta: payload?.meta ?? null, canonical: payload?.meta?.envelope_version === 1,
       status: response.status, sent_at: sentAt, received_at: Date.now() / 1000 };

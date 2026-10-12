@@ -112,7 +112,7 @@ async function fixture(initial = disarmed(), { interactive = true } = {}) {
     if (modules.has(name)) return modules.get(name);
     const source = await readFile(path.join(assets, name), 'utf8');
     const module = new vm.SourceTextModule(source, { context, identifier: name }); modules.set(name, module);
-    await module.link(specifier => load(path.basename(specifier)));
+    await module.link(specifier => load(path.basename(specifier).split('?')[0]));
     return module;
   }
   const module = await load('safety.js'); await module.evaluate();
@@ -441,4 +441,35 @@ test('operator arming survives thirty seconds and focus suspension without auto 
   f.setState({ ...armed(), execution_context: 'panel', arming_mode: 'operator', lease_remaining_s: null });
   assert.equal(f.panel.can('manual'), true);
   assert.equal(f.elements.get('global-motion-toggle').textContent, 'Robot uzbrojony');
+});
+
+test('device hold carries direction/revision only and cancelled preflight never sends motion', async () => {
+  const f = await fixture(armed());
+  f.panel.controls = {state:{revision:17},ready:()=>true,pulse:direction=>({direction,device_settings:true,settings_revision:17})};
+  await f.panel.sendIntent({direction:'backward',mode:'hold'},()=>true);
+  const command=f.calls.find(call=>call.method==='POST').body;
+  assert.equal(command.direction,'backward'); assert.equal(command.mode,'hold');
+  assert.equal(command.device_settings,true); assert.equal(command.settings_revision,17);
+  assert.equal(command.ttl_ms,500); assert.equal(command.vx,undefined);
+  const count=f.calls.length;
+  await assert.rejects(f.panel.sendIntent({direction:'forward',mode:'hold'},()=>false),/cancelled_or_stale/);
+  assert.equal(f.calls.slice(count).some(call=>call.method==='POST'),false);
+});
+test('STOP cancels held renewals and uses no contract proof or expired envelope', async () => {
+  const f=await fixture(armed());
+  f.panel.controls={state:{revision:17,control_modes:{supported:['hold'],click_threshold_ms:180,hold_renewal_ms:150}},
+    ready:()=>true,pulse:direction=>({direction,device_settings:true,settings_revision:17})};
+  f.panel.held.begin('forward',1);
+  await f.panel.stop();
+  assert.equal(f.panel.held.gesture,null);
+  assert.equal(f.panel.held.pending,null);
+  const command=f.calls.find(call=>call.method==='POST').body;
+  assert.equal(command.action,'stop'); assert.equal(command.ts,undefined);
+});
+test('stale revision blocks new device intent before POST', async () => {
+  const f=await fixture(armed());
+  f.panel.controls={state:{revision:17},ready:()=>true,pulse:direction=>({direction,device_settings:true,settings_revision:17})};
+  const valid=()=>{f.panel.controls.state.revision=18;return true;};
+  await assert.rejects(f.panel.sendIntent({direction:'left',mode:'pulse'},valid),/cancelled_or_stale/);
+  assert.equal(f.calls.some(call=>call.method==='POST'),false);
 });

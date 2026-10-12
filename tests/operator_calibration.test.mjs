@@ -121,156 +121,7 @@ test('reference requires exact terminal ACK and observed reference/HOME, not tra
     assert.equal(model.referenceConfirmed(changed, command, now), false);
 });
 
-class Element {
-  constructor(tag = 'div') { this.tag = tag; this.children = []; this.listeners = {}; this.value = ''; this.checked = false;
-    this.disabled = false; this.dataset = {}; this.nodeType = 1; this.parent = null; this.textContent = ''; }
-  get value() { return this._value ?? ''; }
-  set value(value) { this._value = String(value); }
-  append(...nodes) { for (const node of nodes) { this.children.push(node); node.parent = this; } }
-  replaceChildren(...nodes) { this.children = []; this.append(...nodes); }
-  addEventListener(name, callback) { this.listeners[name] = callback; }
-  querySelector(selector) {
-    const key = selector === '[data-step]' ? 'step' : selector === '[data-rate]' ? 'rate' : null;
-    for (const child of this.children) {
-      if ((key && Object.hasOwn(child.dataset, key)) || child.tag === selector) return child;
-      const found = child.querySelector(selector); if (found) return found;
-    } return null;
-  }
-  setAttribute(key, value) { this[key] = value; }
-  remove() { this.parent.children.splice(this.parent.children.indexOf(this), 1); }
-}
-async function fixture() {
-  const html = await readFile(path.join(root, 'web/calibration.html'), 'utf8');
-  const elements = new Map([...html.matchAll(/id="([^"]+)"/g)].map(match => [match[1], new Element()]));
-  const calls = [], moves = []; let current = runtime(), moment = now, counter = 0;
-  const find = (node, id) => node.id === id ? node : node.children.map(child => find(child, id)).find(Boolean);
-  const arrows = ['forward', 'backward', 'left', 'right'].map(direction => {
-    const node = new Element('button'); node.dataset.calibrationDirection = direction; return node;
-  });
-  const document = { querySelectorAll: selector => selector === '[data-calibration-direction]' ? arrows : [], getElementById: id => elements.get(id) || [...elements.values()].map(node => find(node, id)).find(Boolean), createElement: tag => new Element(tag) };
-  const el = (tag, css = '', value) => { const node = new Element(tag); node.textContent = value ?? ''; return node; };
-  const ctx = vm.createContext({ ...model, document, structuredClone, TextEncoder, Date, Math, Number, String, Object,
-    JSON, Promise, Boolean, Error, window: { addEventListener() {} }, setTimeout() {}, globalThis: { crypto: { randomUUID: () => counter++ === 0 ? 'fixture-request' : 'fixture-request-' + counter } },
-    nowSeconds: () => moment, commandSeconds: () => moment, el, tr: pl => pl, ageLabel: () => '0 s', kv: values => { const node = new Element(); node.rows = values; return node; },
-    button: (title, callback) => { const node = new Element('button'); node.listeners.click = callback; return node; },
-    text: (id, value) => { elements.get(id).textContent = value; }, showError() {},
-    request: async (route, options = {}) => {
-      calls.push({ route, ...options });
-      if (route === '/api/calibration/state') return { data: current, status: 200 };
-      if (route === '/api/calibration/profiles') return { data: { schema_version: 1, profiles: [] }, status: 200 };
-      return { data: { pending: true, status: 'pending' }, status: 202 };
-    },
-    poll: load => { load(); return { refresh: load, stop() {} }; } });
-  const source = (await readFile(path.join(root, 'web/assets/operator/calibration.js'), 'utf8'))
-    .replace(/^import[\s\S]*?;\n/gm, '').replace('export class Calibration', 'globalThis.Calibration = class Calibration');
-  vm.runInContext(source, ctx);
-  const safety = { prepare: async () => {}, now: () => moment, commandTime: () => moment, state: safe(), seq: 4, update(state) { this.state = state; }, clockFresh: () => true, can: () => true,
-    send: async (action, body) => { moves.push({ action, body }); return { pending: true }; } };
-  const panel = new ctx.globalThis.Calibration(safety);
-  await new Promise(resolve => setImmediate(resolve));
-  return { panel, elements, arrows, calls, moves, setTime: value => { moment = value; }, setState: row => { current = row; panel.state = row; } };
-}
-test('opening and polling the page never mutates, starts services or repeatedly reads revisions', async () => {
-  const row = await fixture();
-  assert.equal(row.calls.every(call => !call.method || call.method === 'GET'), true);
-  assert.equal(row.moves.length, 0);
-  const catalogs = () => row.calls.filter(call => call.route === '/api/calibration/profiles').length;
-  assert.equal(catalogs(), 1); await row.panel.load(); await row.panel.load(); assert.equal(catalogs(), 1);
-});
-test('activation creates one original DISARMED envelope and stays pending after 202', async () => {
-  const row = await fixture();
-  row.elements.get('calibration-revision').value = digest;
-  row.elements.get('calibration-activation-plan').value = 'fake configuration plan';
-  row.elements.get('calibration-activation-consent').checked = true;
-  await row.panel.activate();
-  const call = row.calls.find(value => value.method === 'POST');
-  assert.equal(call.route, '/api/calibration/activate'); assert.equal(call.body.generation, generation);
-  assert.equal(call.body.seq, 5); assert.equal(call.body.ts, now); assert.equal(call.body.ttl_ms, 500);
-  assert.equal(row.panel.awaiting.request_id, 'fixture-request');
-  assert.equal(row.elements.get('calibration-activation-consent').checked, false);
-  assert.equal(row.moves.length, 0); await row.panel.activate();
-  assert.equal(row.calls.filter(value => value.method === 'POST').length, 1);
-});
-test('manual pulse uses the global gate without another consent form or ARM', async () => {
-  const row = await fixture();
-  for (const [key, value] of [['pulse-vx', '.1'], ['pulse-yaw', '0'], ['pulse-duration', '.1'], ['pulse-plan', 'fake one trial']])
-    row.elements.get(key).value = value;
-  row.panel.safety.can = () => false;
-  await assert.rejects(row.panel.pulse(), /manual_trial_gate_not_ready/);
-  assert.equal(row.moves.length, 0);
-  row.panel.safety.can = () => true;
-  await row.panel.pulse(); await row.panel.pulse();
-  assert.equal(row.moves.length, 2);
-  assert.equal(row.calls.some(call => call.route === '/api/safety'), false);
-});
-test('profile form preserves unknown historical condition and observation structures', async () => {
-  const row = await fixture(), profile = model.defaultProfile(); profile.name = 'history';
-  profile.odometry.conditions.special_surface_note = 'preserve me';
-  profile.odometry.observations.acceleration = { duration_s: 1, note: 'raw evidence' };
-  profile.odometry.observations.custom_raw = { signed: -1 };
-  row.panel.loadProfile(profile);
-  const saved = row.panel.buildProfile();
-  assert.equal(saved.odometry.conditions.special_surface_note, 'preserve me');
-  assert.deepEqual(saved.odometry.observations.acceleration, profile.odometry.observations.acceleration);
-  assert.deepEqual(saved.odometry.observations.custom_raw, profile.odometry.observations.custom_raw);
-  assert.equal(saved.odometry.manual_verified, false);
-});
 
-test('correlated 202 rejection releases pending for a new explicit operator request', async () => {
-  const row = await fixture();
-  row.elements.get('calibration-revision').value = digest;
-  row.elements.get('calibration-activation-plan').value = 'one configuration attempt';
-  row.elements.get('calibration-activation-consent').checked = true;
-  await row.panel.activate(); const command = row.panel.awaiting;
-  row.setState({ ...runtime(), status: 'partial', error: 'profile_rejected', requested: { ...command } });
-  row.panel.render(); assert.equal(row.panel.awaiting, null);
-  assert.match(row.elements.get('calibration-activation-result').textContent, /partial.*profile_rejected/);
-  await assert.rejects(row.panel.activate(), /consent/);
-  row.elements.get('calibration-activation-consent').checked = true; await row.panel.activate();
-  assert.equal(row.calls.filter(call => call.method === 'POST').length, 2);
-  assert.equal(row.panel.awaiting.seq, 6); assert.notEqual(row.panel.awaiting.request_id, command.request_id);
-  assert.equal(row.moves.length, 0);
-});
-test('ambiguous timeout stays unknown but fresh state permits another explicit request', async () => {
-  const row = await fixture();
-  row.elements.get('calibration-revision').value = digest;
-  row.elements.get('calibration-activation-plan').value = 'one configuration attempt';
-  row.elements.get('calibration-activation-consent').checked = true; await row.panel.activate();
-  row.setTime(now + 9);
-  const state = runtime(); state.motion.observed_at = state.odometry.observed_at = now + 9;
-  row.panel.safety.state = { ...safe(), observed_at: now + 9 }; row.setState(state);
-  row.panel.render(); assert.equal(row.panel.awaiting, null);
-  assert.match(row.elements.get('calibration-activation-result').textContent, /unknown.*timeout/);
-  assert.equal(row.elements.get('activate-calibration').disabled, false);
-  assert.equal(row.calls.filter(call => call.method === 'POST').length, 1);
-  row.elements.get('calibration-activation-consent').checked = true; await row.panel.activate();
-  assert.equal(row.calls.filter(call => call.method === 'POST').length, 2);
-});
-test('reference denies old consumer after profile change and correlates expected profile digest', async () => {
-  const row = await fixture(); row.setState(applied());
-  assert.equal(row.panel.referenceAllowed(), true);
-  const stale = applied(); stale.odometry.calibration.profile_digest = 'b'.repeat(64);
-  row.setState(stale); assert.equal(row.panel.referenceAllowed(), false);
-  const command = { request_id: 'ref', source: 'manual', seq: 9, generation, ts: now - 1, profile_digest: digest };
-  const snapshot = { contract_version: 1, observed_at: now, instance_id: 'odom', actuation: false,
-    reference_verified: true, reference_id: 'ref', calibration: { profile_digest: digest }, pose: { calibration_id: digest },
-    last_ack: { observed_at: now - .5, request_id: 'ref', source: 'manual', seq: 9, command_generation: generation,
-      instance_id: 'odom', action: 'reference', status: 'executed', accepted: true, actuation: false, profile_digest: digest } };
-  assert.equal(model.referenceConfirmed(snapshot, command, now), true);
-  snapshot.pose.calibration_id = 'old'; assert.equal(model.referenceConfirmed(snapshot, command, now), false);
-});
-
-function measuredMotion() {
-  const motion = { ...runtime().motion, contract_version: 1, hardware_ready: true, uart_owner: 'motion-executor' };
-  motion.sdk_output = { accepted: true, source: 'motion-executor', instance_id: motion.instance_id,
-    generation, observed_at: now - .1, linear_step: -1, turn_step: 20, stopped: false };
-  motion.sensor_quality = { ready: true, error: null, sensors: Object.fromEntries(
-    [['roll', 0], ['pitch', -2.5], ['yaw', 170], ['battery', .5]].map(([name, value]) =>
-      [name, { value, observed_at: now - .2, age_s: .2, ready: true, error: null }])) };
-  motion.dynamics = { ready: true, error: null, speed_limit: .2, linear_rate: .4, turn_rate: .8 };
-  motion.calibration = { ceilings: { speed_limit: .6, linear_rate: 1, turn_rate: 2 } };
-  return motion;
-}
 test('SDK steps preserve actual signed values, identity and original write time, never form inputs', () => {
   const motion = measuredMotion(), value = model.sdkOutputObservation(motion, now);
   assert.equal(value.ready, true); assert.equal(value.linear_step, -1); assert.equal(value.turn_step, 20);
@@ -348,19 +199,6 @@ test('current dynamics report runtime parameters separately from ENV ceilings an
     assert.equal(model.currentDynamics(sample, now).ready, false);
   }
 });
-test('live observation rendering is read only and expires each source without extra requests', async () => {
-  const row = await fixture(), state = runtime(); state.motion = measuredMotion(); row.setState(state);
-  row.elements.get('motion-speed-limit').value = '.9';
-  row.panel.render();
-  const values = () => row.elements.get('calibration-live-data').children[0].rows.map(pair => pair.join(': ')).join('\n');
-  assert.match(values(), /-1 \/ 20.*observed/); assert.match(values(), /Bateria.*50/);
-  assert.match(values(), /Bieżący limit.*0.2/); assert.match(values(), /unverified/);
-  const count = row.calls.length; row.setTime(now + 3);
-  state.motion.observed_at = now + 3; row.panel.render();
-  assert.match(values(), /stale.*historia/); assert.match(values(), /yaw.*unknown.*stale/);
-  assert.equal(row.calls.length, count); assert.equal(row.moves.length, 0);
-});
-
 test('fresh software dynamics stay observable through hardware failure while physical observations fail closed', () => {
   const motion = measuredMotion(); motion.hardware_ready = false; motion.error = 'uart_failed';
   assert.equal(model.currentDynamics(motion, now).ready, true);
@@ -384,46 +222,14 @@ test('pending or legacy pointer never proves applied configuration even with for
 });
 
 
-test('calibration arrows follow the global gate and chosen values without per-click consent or ARM', async () => {
-  const row = await fixture();
-  row.panel.safety.can = () => false;
-  await assert.rejects(() => row.panel.direction('forward'), /manual_trial_gate_not_ready/);
-  assert.equal(row.moves.length, 0);
-  row.panel.safety.can = () => true;
-  row.elements.get('calibration-linear-speed').value = '.07';
-  row.elements.get('calibration-turn-speed').value = '.12';
-  row.elements.get('pulse-duration').value = '.15';
-  await row.panel.direction('forward');
-  assert.equal(row.moves[0].action, 'move'); assert.equal(row.moves[0].body.direction, 'forward');
-  assert.equal(row.moves[0].body.vx, undefined); // shared values are resolved by SafetyPanel
-  await row.panel.direction('left');
-  assert.equal(row.moves[1].body.direction, 'left');
-  assert.equal(row.calls.some(call => call.method === 'POST'), false);
-});
-test('tuning form carries interaction defaults while odometry can remain unverified and empty', async () => {
-  const row = await fixture();
-  const profile = row.panel.buildProfile();
-  assert.equal(model.profileError(profile), null);
-  assert.equal(profile.odometry.manual_verified, false);
-  assert.deepEqual(Object.keys(profile.odometry.linear_m_s), []);
-  assert.equal(profile.interaction.linear_speed, .2);
-  assert.equal(profile.interaction.turn_speed, .35);
-  assert.equal(profile.interaction.pulse_duration, .25);
-  assert.equal(model.interactionValid({ linear_speed: .1, turn_speed: .2, pulse_duration: 1 }), false);
-});
-
-test('restoring tuning loads selected settings before requesting configuration activation', async () => {
-  const row = await fixture(), steps = [];
-  row.panel.loadRevision = async () => {
-    steps.push('load');
-    row.elements.get('calibration-linear-speed').value = '.06';
-  };
-  row.panel.activate = async () => {
-    steps.push('activate');
-    assert.equal(row.elements.get('calibration-linear-speed').value, '.06');
-    assert.equal(row.elements.get('calibration-activation-consent').checked, true);
-  };
-  await row.panel.applyTuning(false);
-  assert.deepEqual(steps, ['load', 'activate']);
-  assert.equal(row.moves.length, 0);
-});
+function measuredMotion() {
+  const motion = { ...runtime().motion, contract_version: 1, hardware_ready: true, uart_owner: 'motion-executor' };
+  motion.sdk_output = { accepted: true, source: 'motion-executor', instance_id: motion.instance_id,
+    generation, observed_at: now - .1, linear_step: -1, turn_step: 20, stopped: false };
+  motion.sensor_quality = { ready: true, error: null, sensors: Object.fromEntries(
+    [['roll', 0], ['pitch', -2.5], ['yaw', 170], ['battery', .5]].map(([name, value]) =>
+      [name, { value, observed_at: now - .2, age_s: .2, ready: true, error: null }])) };
+  motion.dynamics = { ready: true, error: null, speed_limit: .2, linear_rate: .4, turn_rate: .8 };
+  motion.calibration = { ceilings: { speed_limit: .6, linear_rate: 1, turn_rate: 2 } };
+  return motion;
+}

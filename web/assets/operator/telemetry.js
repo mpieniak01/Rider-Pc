@@ -73,22 +73,29 @@ export function hostCard(data, host) {
   if (data?.error) card.append(el('p', 'operator-error', data.error));
   return card;
 }
-export function drawHistory(canvas, first = [], second = [], bars = false, low = null, high = null) {
+export function drawHistory(canvas, first = [], second = [], bars = false, low = null, high = null, history = {}) {
   if (!canvas) return;
   const ctx = canvas.getContext('2d'); if (!ctx) return;
   const width = canvas.width, height = canvas.height, pad = 24, scale = bars ? 1 : 100;
   ctx.clearRect(0, 0, width, height); ctx.strokeStyle = '#58616d'; ctx.strokeRect(pad, 8, width - pad - 8, height - pad);
+  const stamps = Array.isArray(history.times) ? history.times.slice(-60) : [], newest = stamps.at(-1);
   const plot = (values, color) => {
     if (!Array.isArray(values)) return;
     const rows = values.slice(-60); ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 2; ctx.beginPath(); let open = false;
     rows.forEach((value, index) => {
       if (!finite(value) || value < 0 || value > scale) { open = false; return; }
-      const x = pad + (width - pad - 8) * index / Math.max(1, rows.length - 1);
+      const stamp = stamps[index];
+      if (!bars && finite(newest) && finite(stamp) && newest - stamp > 60) { open = false; return; }
+      if (!bars && index > 0 && finite(stamp) && finite(stamps[index - 1]) && stamp - stamps[index - 1] > 2) open = false;
+      const position = !bars && finite(newest) && finite(stamp)
+        ? Math.max(0, 1 - (newest - stamp) / 60) : index / Math.max(1, rows.length - 1);
+      const x = pad + (width - pad - 8) * position;
       const y = height - pad - (height - pad - 8) * value / scale;
       if (bars) ctx.fillRect(x, y, Math.max(1, (width - pad - 8) / Math.max(1, rows.length) - 2), height - pad - y);
       else { if (open) ctx.lineTo(x, y); else ctx.moveTo(x, y); open = true; }
     }); ctx.stroke();
   };
+  if (!bars) plot(history.peaks, '#a17fff');
   plot(first, '#6db3ff'); plot(second, '#ffd36d');
   if (bars) for (const [value, color] of [[low, '#8dd69d'], [high, '#ffd36d']]) {
     if (!finite(value) || value < 0 || value > 1) continue;
@@ -111,9 +118,10 @@ export function observedDeviceText(device, name, parent) {
     const source = device.source, at = device.power_observed_at, now = nowSeconds();
     const proof = device.power_known === true && typeof device.on === 'boolean'
       && typeof source === 'string' && source.trim().length > 0 && device.power_source === source
-      && device.confirmation === 'control_write_accepted' && finite(at) && at > 0 && at <= now
+      && ['control_write_accepted', 'gpio_level_observed'].includes(device.confirmation) && finite(at) && at > 0 && at <= now
       && !device.offline && !device.stale && !device.error && !parent?.error && transportCurrent(parent);
     if (!proof) return tr('stan zasilania nieznany', 'power state unknown') + ` · ${device.ownership_state || 'unknown'}`;
+    if (device.confirmation === 'gpio_level_observed') return device.on ? 'ON' : 'OFF';
     return (device.on ? 'ON' : 'OFF') + ' · ' + tr('ostatnie potwierdzenie', 'last confirmation')
       + ` ${source} · ${ageOf({ observed_at: at }, now).toFixed(1)} s · `
       + tr('pomiar fizyczny niepotwierdzony', 'physical measurement unverified');

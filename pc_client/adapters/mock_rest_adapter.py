@@ -676,6 +676,7 @@ class MockRestAdapter:
         return {
             **features,
             "catalog_version": 2,
+            "api_envelope_versions": [1],
             "schema_version": 2,
             "units": services["services"],
             "services": services["services"],
