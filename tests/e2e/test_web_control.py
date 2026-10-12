@@ -227,3 +227,18 @@ def test_calibration_units_and_save_visible_in_control(browser_context):
     expect(page.locator("#setting-backward-duration")).to_have_value("800")
     expect(page.locator("#manual-settings-status")).to_contain_text("rewizja 1")
     assert not page.errors
+
+
+def test_posture_language_switch_retains_controls_and_draft(browser_context):
+    page, base = browser_context
+    open_control(page, base)
+    value = page.locator("#setting-forward-duration")
+    expect(value).to_have_value("250")
+    value.fill("800")
+    page.locator("button[data-lang='en']").click()
+    expect(page.locator("#posture-controls h2")).to_have_text("Robot posture")
+    expect(page.locator("#posture-height-send")).to_have_text("Apply")
+    expect(page.locator("#posture-state")).to_contain_text("Last command: height")
+    expect(value).to_have_value("800")
+    assert not [r for r in page.requests if r.method == "POST"]
+    assert not page.errors

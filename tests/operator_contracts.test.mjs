@@ -103,7 +103,7 @@ test('assessment age advances independently of unchanged producer generation tim
 test('overview telemetry acquisition is independent and faster than the slow inventory', async () => {
   const overview = await readFile(new URL('../web/assets/operator/overview.js', import.meta.url), 'utf8');
   assert.match(overview, /this\.telemetryPoller = poll\(\(\) => this\.loadTelemetry\(\), \{ interval: 1000/);
-  assert.match(overview, /async loadTelemetry\(\)[\s\S]*?\['state', '\/state'\][\s\S]*?\['snap', '\/vision\/snap-info'\]/);
+  assert.match(overview, /async loadTelemetry\(\)[\s\S]*?\['state', '\/state'\][\s\S]*?readObservation\('snap', '\/vision\/snap-info'\)/);
   assert.doesNotMatch(overview.match(/async load\(\)[\s\S]*?async loadTelemetry/)[0], /'\/state'/);
 });
 test('passive navigation instructions never tell the operator to ARM', async () => {

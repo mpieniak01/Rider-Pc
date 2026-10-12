@@ -240,3 +240,38 @@ def test_idle_metadata_reuses_history_without_rewriting_source_or_receipt():
         second = client.get("/vision/snap-info").json()
     adapter.get_vision_snap_info.assert_awaited_once()
     assert first == second and first["observed_at"] == 100
+
+
+@pytest.mark.asyncio
+async def test_failed_postprocessing_preserves_scheduled_retry_period(monkeypatch):
+    app, adapter, _ = app_fixture(False)
+    clock = [1000.0]
+    reads = []
+    for method in (
+        "get_state",
+        "get_sysinfo",
+        "get_healthz",
+        "get_app_metrics",
+        "get_bus_health",
+        "get_vision_snap_info",
+        "get_vision_obstacle",
+    ):
+        setattr(adapter, method, AsyncMock())
+
+    async def refresh(app, key, fetch, **kwargs):
+        if key == "healthz":
+            reads.append(clock[0])
+            raise RuntimeError("cache_write_failed")
+        return {}
+
+    async def sleep(delay):
+        clock[0] += delay
+        if clock[0] > 1006:
+            raise asyncio.CancelledError
+
+    monkeypatch.setattr(background_sync, "refresh_snapshot", refresh)
+    monkeypatch.setattr(background_sync.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(background_sync.asyncio, "sleep", sleep)
+    with pytest.raises(asyncio.CancelledError):
+        await background_sync.sync_data_periodically(app)
+    assert reads == [1000, 1005]

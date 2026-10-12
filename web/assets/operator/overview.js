@@ -52,25 +52,27 @@ export class Overview {
     const row = this.data.state?.devices?.camera || this.data.health?.devices?.camera;
     return row && row.activity === 'on' && !row.error && !row.stale && !row.offline;
   }
+  async readObservation(name, path) {
+    try { this.data[name] = (await request(path)).data; return null; }
+    catch (error) { this.data[name] = null; return error; }
+  }
   async loadVision() {
-    const active = this.cameraActive();
-    if (!active && this.idleVisionRead) return;
-    const readings = [['snap', '/vision/snap-info']];
-    if (active) readings.push(['obstacle', '/vision/obstacle']);
-    for (const [name, path] of readings) {
-      try { this.data[name] = (await request(path)).data; }
-      catch (error) { this.data[name] = null; throw error; }
+    if (!this.cameraActive() && this.idleVisionRead) return;
+    const errors = [await this.readObservation('snap', '/vision/snap-info')];
+    if (this.cameraActive()) {
+      errors.push(await this.readObservation('obstacle', '/vision/obstacle'));
     }
-    this.idleVisionRead = !active;
-    if (!active) this.data.obstacle = null;
+    // A resource can switch OFF while either transfer is in flight.
+    if (!this.cameraActive()) this.data.obstacle = null;
+    this.idleVisionRead = !this.cameraActive() && !errors[0];
     this.render(); this.renderImages();
+    if (errors.some(Boolean)) throw errors.find(Boolean);
   }
   async loadInventory() {
-    for (const [name, path] of [['metrics', '/api/app-metrics'], ['catalog', '/api/logic/catalog']]) {
-      try { this.data[name] = (await request(path)).data; }
-      catch (error) { this.data[name] = null; throw error; }
-    }
+    const errors = await Promise.all([['metrics', '/api/app-metrics'], ['catalog', '/api/logic/catalog']]
+      .map(([name, path]) => this.readObservation(name, path)));
     this.render();
+    if (errors.some(Boolean)) throw errors.find(Boolean);
   }
   async loadLocal() {
     const names = ['pc', 'services', 'live', 'mcpStats', 'mcpConfig', 'mcpTools', 'mcpHistory'];

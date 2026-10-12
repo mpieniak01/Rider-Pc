@@ -85,6 +85,7 @@ export function drawHistory(canvas, first = [], second = [], bars = false, low =
     rows.forEach((value, index) => {
       if (!finite(value) || value < 0 || value > scale) { open = false; return; }
       const stamp = stamps[index];
+      if (!bars && finite(newest) && !finite(stamp)) { open = false; return; }
       if (!bars && finite(newest) && finite(stamp) && newest - stamp > 60) { open = false; return; }
       if (!bars && index > 0 && finite(stamp) && finite(stamps[index - 1]) && stamp - stamps[index - 1] > 2) open = false;
       const position = !bars && finite(newest) && finite(stamp)

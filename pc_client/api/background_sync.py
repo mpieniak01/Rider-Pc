@@ -80,10 +80,12 @@ async def sync_data_periodically(app: FastAPI):
 
             async def read(key, fetch):
                 period = INTERVALS[key]
-                row = await refresh_snapshot(app, key, fetch, reuse_s=period)
-                if key == "state" and not row.get("offline") and isinstance(row.get("tracking"), dict):
-                    app.state.control_state["tracking"] = row["tracking"]
-                due[key] = time.monotonic() + period
+                try:
+                    row = await refresh_snapshot(app, key, fetch, reuse_s=period)
+                    if key == "state" and not row.get("offline") and isinstance(row.get("tracking"), dict):
+                        app.state.control_state["tracking"] = row["tracking"]
+                finally:
+                    due[key] = time.monotonic() + period
 
             await asyncio.gather(
                 *(

@@ -277,3 +277,16 @@ test('Pi history renders CPU peaks and breaks the line across missing source tim
   assert.equal(moves.length,6);
   assert.equal(lines.length,3);
 });
+
+test('missing timestamp breaks a timed series; untimed history keeps index positioning',async()=>{
+  const f=await fixture(),telemetry=await f.load('telemetry.js');
+  const moves=[],lines=[];
+  const ctx={clearRect(){},strokeRect(){},beginPath(){},stroke(){},
+    moveTo(x,y){moves.push(x);},lineTo(x,y){lines.push(x);}};
+  const canvas={width:300,height:140,getContext:()=>ctx};
+  telemetry.drawHistory(canvas,[10,20,30],[],false,null,null,{times:[1000,null,1006]});
+  assert.equal(moves.length,2);assert.equal(lines.length,0);
+  moves.length=0;lines.length=0;
+  telemetry.drawHistory(canvas,[10,20,30]);
+  assert.equal(moves.length,1);assert.equal(lines.length,2);
+});
