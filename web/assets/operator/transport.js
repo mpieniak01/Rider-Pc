@@ -50,7 +50,8 @@ function rememberProof(data, canonical, receivedAt) {
     ? receivedAt : null;
 }
 // Motion permission needs a canonical catalogue before its short-lived envelope.
-export async function prepareMutation() {
+export async function prepareMutation({ control = false } = {}) {
+  if (control && proofAt !== null) return;
   const age = Date.now() / 1000 - (proofAt ?? 0);
   if (proofAt === null || age < 0 || age > 5) await request('/api/logic/catalog', { force: true });
   if (proofAt === null) throw Object.assign(new Error('Unsupported Rider contract; read only'), { status: 409 });
@@ -78,7 +79,7 @@ async function performRequest(path, { method = 'GET', body, timeout = 6000, befo
     || path === '/api/safety' && ['disarm', 'estop'].includes(body?.action);
   // Local PC features do not negotiate robot contracts.
   const robotMutation = /^\/api\/(control|safety|calibration|odometry|navigator|logic|resource)(?:\/|$)/.test(path);
-  if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && robotMutation && !stop) await prepareMutation();
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && robotMutation && !stop) await prepareMutation({ control: path === '/api/control' || path === '/api/safety' });
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
   const sentAt = Date.now() / 1000;

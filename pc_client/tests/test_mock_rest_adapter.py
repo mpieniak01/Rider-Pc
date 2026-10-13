@@ -1,5 +1,7 @@
 """Tests for MockRestAdapter."""
 
+import time
+
 import pytest
 from pc_client.adapters.mock_rest_adapter import MockRestAdapter
 
@@ -52,7 +54,17 @@ async def test_mock_adapter_fetch_binary(mock_adapter):
 @pytest.mark.asyncio
 async def test_mock_adapter_post_control(mock_adapter):
     """Test that control commands return success."""
-    result = await mock_adapter.post_control({"cmd": "move", "dir": "forward"})
+    mock_adapter._safety.update(state="ARMED", owner="manual")  # In-memory robot authority only.
+    result = await mock_adapter.post_control(
+        {
+            "cmd": "move",
+            "dir": "forward",
+            "generation": mock_adapter._safety["generation"],
+            "seq": 0,
+            "ts": time.time(),
+            "ttl_ms": 500,
+        }
+    )
     assert result["ok"] is True
     assert result["command"] == "move"
     assert "timestamp" in result

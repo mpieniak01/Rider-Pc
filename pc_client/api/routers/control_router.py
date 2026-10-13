@@ -214,13 +214,20 @@ async def _remote_snapshot(request, key, method, empty, *args, force=False):
             attempted_at=time.time(),
         )
         if key == "control":
+            # Preserve the last executor permission; mark only its observation
+            # unavailable. No client-side transition to DISARMED/UNKNOWN.
+            previous = dict(snapshots.get(key, {}).get("safety") or {})
             result["safety"] = {
-                "state": "UNKNOWN",
+                **previous,
+                "state": previous.get("state", "UNKNOWN"),
                 "ready": False,
                 "can_move": False,
                 "read_only": True,
-                "reason": "pi_offline",
+                "stale": True,
+                "observation_error": "pi_offline",
             }
+            if previous.get("authorization"):
+                result["safety"]["authorization"] = {**previous["authorization"], "confirmed": False}
         return result
 
 
