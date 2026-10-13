@@ -212,6 +212,7 @@ async def test_demo_catalog_navigation_identity_matches_canonical_api():
     catalog = await adapter.get_logic_catalog()
     names = {row["name"] for row in catalog["features"]}
     assert "s9_navigation" in names and "s4_recon" not in names
+    adapter._safety.update(state="ARMED", owner="navigation")  # Fixture robot grants this permission.
     result = await adapter.post_feature_toggle("s9_navigation", {"enabled": True})
     assert result["ok"] is True
     state = await adapter.get_navigator_status()

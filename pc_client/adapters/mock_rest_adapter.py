@@ -432,7 +432,14 @@ class MockRestAdapter:
         return {"ok": True, "resource": resource_name, "action": payload.get("action")}
 
     async def post_control(self, command: Dict[str, Any]) -> Dict[str, Any]:
-        """Return success for control command."""
+        """Simulate the robot authority; the PC gateway never grants motion."""
+        action = command.get("action", command.get("cmd"))
+        if action != "stop":
+            refusal = self._demo_refusal(command)
+            if refusal:
+                return {"ok": False, "error": refusal, "_http_status": 409}
+        if action != "stop" and self._safety["state"] != "ARMED":
+            return {"ok": False, "error": "motion_not_armed", "_http_status": 409}
         entry = {
             "ts": time.time(),
             "source": command.get("source", "pc-ui"),
@@ -474,6 +481,10 @@ class MockRestAdapter:
             payload.get("operator_consent") is not True or not str(payload.get("operator_plan", "")).strip()
         ):
             return {"ok": False, "error": "operator_consent_required", "_http_status": 400}
+        if action in {"arm", "clear_estop"}:
+            refusal = self._demo_refusal(payload)
+            if refusal:
+                return {"ok": False, "error": refusal, "_http_status": 409}
         armed = action == "arm"
         self._safety.update(
             state="ARMED" if armed else ("ESTOP" if action == "estop" else "DISARMED"),
@@ -496,6 +507,16 @@ class MockRestAdapter:
             "safety": dict(self._safety),
             "physical_completion": "unverified",
         }
+
+    def _demo_refusal(self, payload):
+        if payload.get("generation") != self._safety["generation"]:
+            return "obsolete_generation"
+        if type(payload.get("seq")) is not int or payload["seq"] <= self._safety["last_seq"]:
+            return "obsolete_sequence"
+        ts = payload.get("ts")
+        if type(ts) not in (int, float) or not -0.1 <= time.time() - ts <= payload.get("ttl_ms", 0) / 1000:
+            return "expired_operator_envelope"
+        return None
 
     def _demo_ack(self, payload):
         ack = {key: payload.get(key) for key in ("request_id", "source", "seq", "action")}
@@ -693,6 +714,9 @@ class MockRestAdapter:
         if normalized not in self._feature_state:
             return {"ok": False, "error": "unknown_feature"}
         enabled = bool(payload.get("enabled"))
+        owner = {"s3_follow_me_face": "follow_me", "s9_navigation": "navigation"}.get(normalized)
+        if enabled and owner and (self._safety["state"] != "ARMED" or self._safety.get("owner") != owner):
+            return {"ok": False, "error": "control_owner_mismatch", "_http_status": 409}
         self._feature_state[normalized] = enabled
         if normalized == "s3_follow_me_face":
             self._control_state["tracking"] = {"mode": "face", "enabled": enabled, "target": "auto"}

@@ -52,3 +52,13 @@ with demand-based subscriptions must preserve these clock/TTL guarantees.
 Use isolated fixtures for arming, arrows, held input, STOP and settings writes.
 Physical motion tests require a separate operator decision. Read-only live checks
 may compare revisions, units and executor confirmation without sending motion.
+
+## Permission and connectivity
+
+Rider-Pi's sole motion executor decides ARM and validates every actuator request.
+The PC forwards explicit operator envelopes without fetching telemetry first.
+Failed observations retain the last reported permission and original timestamps,
+with `stale=true`; they never synthesize DISARMED. The panel identifies last known
+permission separately from execution readiness and connection availability.
+STOP remains independent of observation and no failed request is replayed.
+Deploy the executor-owned permission contract on Pi before deploying this client.

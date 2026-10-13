@@ -80,7 +80,7 @@ def arm(client, owner="manual"):
 def test_disarmed_blocks_every_actuator(client, cmd):
     response = client.post("/api/control", json=operator_payload(client, {"cmd": cmd, "vx": 0.1}))
     assert response.status_code == 409
-    client.adapter.post_control.assert_not_called()
+    client.adapter.post_control.assert_called_once()
 
 
 @pytest.mark.parametrize(
@@ -102,7 +102,7 @@ def test_disarmed_blocks_every_actuator(client, cmd):
     ],
 )
 @pytest.mark.asyncio
-async def test_safety_fails_closed_on_unknown_or_stale(field, value):
+async def test_observation_quality_does_not_override_remote_permission(field, value):
     safety = {
         "contract_version": 1,
         "state": "ARMED",
@@ -116,12 +116,9 @@ async def test_safety_fails_closed_on_unknown_or_stale(field, value):
     }
     safety[field] = value
     adapter = type("Fake", (), {"get_control_state": AsyncMock(return_value={"safety": safety})})()
-    with pytest.raises(SafetyRefusal):
-        await RemoteSafety().command_context(
-            adapter,
-            "manual",
-            supplied={"generation": "operator-issued", "seq": 1, "source": "manual", "ts": time.time(), "ttl_ms": 500},
-        )
+    supplied = {"generation": "operator-issued", "seq": 1, "source": "manual", "ts": time.time(), "ttl_ms": 500}
+    assert await RemoteSafety().command_context(adapter, "manual", supplied=supplied) == supplied
+    adapter.get_control_state.assert_not_called()
 
 
 def test_control_uses_issued_generation_and_increasing_sequence(client):
@@ -182,7 +179,7 @@ def test_owner_mismatch_blocks_follow_me(client):
     arm(client, "manual")
     response = client.post("/api/logic/feature/s3_follow_me_face", json=operator_payload(client, {"enabled": True}))
     assert response.status_code == 409
-    client.adapter.post_feature_toggle.assert_not_called()
+    client.adapter.post_feature_toggle.assert_called_once()
     arm(client, "follow_me")
     assert (
         client.post(
@@ -421,8 +418,11 @@ async def test_operator_envelope_is_never_restamped(mutation):
     body = {"generation": snapshot["generation"], "seq": 1, "source": "manual", "ts": time.time(), "ttl_ms": 500}
     body.update(mutation)
     before = copy.deepcopy(body)
-    with pytest.raises(SafetyRefusal):
-        await RemoteSafety().command_context(adapter, "manual", supplied=body)
+    if mutation.get("generation") == "old-lease" or mutation.get("ts") == 0:
+        assert await RemoteSafety().command_context(adapter, "manual", supplied=body) == body
+    else:
+        with pytest.raises(SafetyRefusal):
+            await RemoteSafety().command_context(adapter, "manual", supplied=body)
     for key, value in before.items():
         if isinstance(value, float) and value != value:
             assert body[key] != body[key]
@@ -453,7 +453,7 @@ def test_move_and_arm_from_old_generation_never_survive_stop(client):
     arm(client)
     assert client.post("/api/control", json=stale_move).status_code == 409
     assert client.post("/api/safety", json=stale_arm).status_code == 409
-    assert client.adapter.post_control.call_count == 1  # Wyłącznie STOP.
+    assert client.adapter.post_control.call_count == 2  # STOP and a Pi-rejected stale intent.
 
 
 def test_unavailable_or_server_stale_task_never_starts(client):
@@ -559,8 +559,7 @@ async def test_boolean_safety_version_is_not_supported_contract():
     adapter = MockRestAdapter()
     adapter._safety.update(state="ARMED", ready=True, can_move=True, owner="manual", contract_version=True)
     body = {"generation": adapter._safety["generation"], "seq": 1, "source": "manual", "ts": time.time(), "ttl_ms": 500}
-    with pytest.raises(SafetyRefusal, match="unconfirmed_safety"):
-        await RemoteSafety().command_context(adapter, "manual", supplied=body)
+    assert await RemoteSafety().command_context(adapter, "manual", supplied=body) == body
 
 
 def test_os_open_cannot_bypass_hardware_guard():
@@ -648,8 +647,8 @@ async def test_pi_time_handshake_compares_without_restamping_request():
     result = await RemoteSafety().command_context(adapter, require_armed=False, supplied=body)
     assert result == body
     body["ts"] = peer_now - 1
-    with pytest.raises(SafetyRefusal, match="expired"):
-        await RemoteSafety().command_context(adapter, require_armed=False, supplied=body)
+    assert await RemoteSafety().command_context(adapter, require_armed=False, supplied=body) == body
+    adapter.get_control_state.assert_not_called()
 
 
 @pytest.mark.asyncio
