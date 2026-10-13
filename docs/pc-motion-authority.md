@@ -19,9 +19,9 @@ forwards operator intent. It stores no independent robot calibration.
   path without negotiation, a fresh clock or an authorization envelope.
 - Operator arming remains explicit. Test permission remains independent. Hidden
   tabs and lost focus cancel held input, without renewing an old gesture.
-- The proxy preserves generation, sequence, timestamp and TTL. It checks fresh
-  safety before motion; Pi makes the final decision. Request dispatch or an SDK
-  acknowledgement does not establish physical completion.
+- The proxy preserves generation, sequence, timestamp and TTL, and validates
+  only the envelope format. Pi makes the final decision. Request dispatch or
+  an SDK acknowledgement does not establish physical completion.
 - Height, balance and figures use the same capability gate and commands as the
   Pi panel. Capability availability comes from Pi, never from a PC assumption.
 
